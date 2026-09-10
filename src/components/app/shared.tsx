@@ -10,8 +10,13 @@ export function Asset({ name, alt = "", className = "" }: { name: string; alt?: 
   return <img src={`${assetRoot}${name}`} alt={alt} className={className} draggable={false} />;
 }
 
-export function Avatar({ large = false }: { large?: boolean }) {
-  return <span className={large ? "avatar avatar--large" : "avatar"}><Asset name="profile.png" alt="프로필" /></span>;
+export function Avatar({ large = false, src = null }: { large?: boolean; src?: string | null }) {
+  const className = large ? "avatar avatar--large" : "avatar";
+  if (src) {
+    // eslint-disable-next-line @next/next/no-img-element
+    return <span className={className}><img src={src} alt="프로필" draggable={false} /></span>;
+  }
+  return <span className={className}><Asset name="profile.png" alt="프로필" /></span>;
 }
 
 function Logo() { return <div className="nr-logo" aria-label="Narackrock"><Asset name="logo-wing-a.svg" /><Asset name="logo-wing-b.svg" /><Asset name="logo-dot.svg" /><b>NR</b></div>; }
