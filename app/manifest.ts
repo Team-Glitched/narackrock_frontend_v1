@@ -1,0 +1,14 @@
+import type { MetadataRoute } from "next";
+
+export default function manifest(): MetadataRoute.Manifest {
+  return {
+    name: "Adlips",
+    short_name: "Adlips",
+    description: "함께 만들고 발견하는 음악 커뮤니티",
+    start_url: "/",
+    display: "standalone",
+    background_color: "#1d1d1d",
+    theme_color: "#1d1d1d",
+    icons: [{ src: "/favicon.svg", sizes: "any", type: "image/svg+xml" }],
+  };
+}
