@@ -33,6 +33,9 @@
 | Search | `10766:19093` | 390×844 |
 | Community | `10411:15680` | 390×844 |
 | Making song (readonly) | `6779:12694` | 844×390 |
+| Abyss | `8661:14568` | 390×844 |
+| Note editor | `7643:13205` | 가로 작업 화면 |
+| Studio ruler/playhead | `8018:14329` | 가로 작업 화면 상단 |
 
 ### 디자인 특성
 
@@ -74,7 +77,12 @@ npm run lint
 - `src/app/layout.tsx`: 한국어 문서 설정 및 사이트 메타데이터
 - `src/app/manifest.ts`: 향후 PWA 전환을 위한 웹 앱 매니페스트
 - `src/components/app/`: 앱 셸과 공통 UI 구성요소
+- `src/components/app/shared.tsx`: 헤더, 푸터, 아바타, 곡 레일 등 공통 UI
+- `src/features/navigation/types.ts`: 화면 식별자와 이동 함수 타입
 - `src/features/screens/`: 모바일 화면과 스튜디오 화면 컴포넌트
+- `src/features/screens/mobile-screens.tsx`: 홈, 차트, 게시글, 어비스, 친구, 검색, 커뮤니티, 프로필 화면
+- `src/features/screens/studio-screens.tsx`: 타임라인과 노트 편집 화면
+- `src/hooks/use-webmcp-navigation.ts`: 브라우저 코멘트 기반 화면 전환 도구 등록
 - `src/lib/api/`: 별도 백엔드 API 계약 및 공통 요청 클라이언트
 - `src/lib/adlips-data.ts`: API 연결 전 목 데이터/타입
 - `public/figma/`: Figma에서 다운로드한 원본 PNG/SVG 자산
@@ -82,7 +90,7 @@ npm run lint
 
 ### 구현된 화면 상태
 
-`app/page.tsx`의 `View` 상태로 아래 화면을 전환한다.
+`src/app/page.tsx`의 `View` 상태로 아래 화면을 전환한다.
 
 - `home`: 인기 곡, 인기 글, 내 곡
 - `charts`: 인기차트 목록
@@ -93,6 +101,8 @@ npm run lint
 - `profile`: 프로필, 통계, 악기 태그, 설명, 작업물
 - `edit`: 프로필 사진 및 입력 필드 편집 화면
 - `studio`: 가로형 곡 제작 타임라인
+- `abyss`: 어비스 곡 목록
+- `noteEditor`: 선택한 레이어의 노트 편집 화면
 
 화면 전환은 아직 URL 라우팅이 아니라 단일 페이지 내부 상태로 동작한다. 하단 내비게이션, 검색, 프로필, 모두보기 버튼과 WebMCP 도구가 같은 상태를 변경한다.
 
@@ -107,6 +117,13 @@ npm run lint
 - 커뮤니티 탭 변경 및 좋아요 토글
 - 프로필 이미지 클릭 시 편집 화면 이동
 - 곡 제작 화면 재생 상태 토글
+- 하단 `어비스` 버튼에서 Figma `8661:14568` 기준 화면으로 이동
+- 스튜디오 레이어 버튼에서 Figma `7643:13205` 기준 노트 편집 화면으로 이동
+- 재생 버튼을 누르면 Figma `8018:14329` 기준 흰색 재생 헤드가 오른쪽으로 이동
+- 재생 헤드를 직접 드래그해 타임라인 위치 변경
+- 룰러 영역은 화면 상단에 고정하고 레이어 목록은 상하 스크롤 지원
+- 긴 레이어와 타임라인은 좌우 스크롤 지원
+- 게시글 이미지와 곡 커버는 API 연결 전까지 Figma 임시 이미지로 채움
 - WebMCP 도구: `navigate_narackrock_view`
 
 ## 5. 아직 연결되지 않은 기능
@@ -125,7 +142,10 @@ npm run lint
 
 ## 6. 향후 API 연동 권장 방향
 
-- 서버 문서를 받은 뒤 `lib/adlips-data.ts`의 타입과 목 데이터를 API 응답 모델로 교체
+- 백엔드 주소는 `NEXT_PUBLIC_API_BASE_URL` 환경 변수로 설정
+- `src/lib/api/client.ts`의 `apiRequest<T>`를 공통 HTTP 진입점으로 사용
+- 쿠키 기반 인증을 고려해 요청 기본값에 `credentials: "include"` 적용
+- 서버 문서를 받은 뒤 `src/lib/adlips-data.ts`의 목 데이터를 `src/lib/api/contracts.ts` 기반 API 응답으로 교체
 - 화면별 데이터 패칭 로직을 UI 컴포넌트에서 분리
 - 사용자 액션은 낙관적 업데이트와 실패 복구 상태를 함께 설계
 - 인증 방식이 확정되면 보호 화면 및 토큰/세션 처리 추가
@@ -137,6 +157,7 @@ npm run lint
 - Figma MCP 스크린샷과 로컬 390×844 화면을 비교해 주요 간격과 자산을 보정함
 - 곡 제작 화면은 844×390 기준으로 비교함
 - `npm run build` 성공
+- `npm run lint` 성공
 - 브라우저 콘솔 오류/경고 없음
 - 로컬 미리보기는 `npm run dev`로 실행 가능
 
@@ -144,10 +165,9 @@ npm run lint
 
 - 브랜치: `main`
 - 원격: `origin` → `https://github.com/Team-Glitched/narackrock_frontend_v2.git`
-- 최초 커밋: `bc74f26f558bc1b9e6f3f5ca0ca6ad1ba597309d`
-- 커밋 메시지: `Initial commit`
-- 최초 커밋은 `origin/main`에 푸시 완료
-- 이 문서 추가분은 별도 커밋/푸시가 필요함
+- 기준 구현 커밋: `698f31c` (`refactor: reorganize frontend and enhance interactions`)
+- 해당 커밋에는 화면 구현, 인터랙션 보정, 임시 이미지 및 `src/` 구조 리팩토링이 포함됨
+- 이 문서 갱신 후 `origin/main`에 함께 푸시 예정
 
 ## 9. 배포 상태
 
@@ -161,5 +181,7 @@ npm run lint
 - 기존 Figma 원본 자산을 우선 재사용하고 임의 아이콘으로 대체하지 않기
 - 390×844 모바일 레이아웃과 844×390 작업 화면의 치수를 우선 보존
 - API 문서가 오기 전에는 목 데이터 구조를 과도하게 확장하지 않기
+- 별도 백엔드가 존재하므로 프런트엔드에 신규 데이터베이스 로직을 추가하지 않기
+- 화면 컴포넌트에서 직접 HTTP 요청을 만들지 말고 `src/lib/api/` 경계를 사용하기
 - 사용자 요청 없이 인증, 데이터베이스, 소셜 공유 이미지 또는 완전한 PWA 기능을 선행 구현하지 않기
 - `.openai/hosting.json`의 프로젝트 ID를 임의로 교체하거나 새 Sites 프로젝트를 중복 생성하지 않기
