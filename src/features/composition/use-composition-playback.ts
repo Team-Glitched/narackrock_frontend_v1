@@ -40,13 +40,23 @@ export function useCompositionPlayback(composition: CompositionDto | null) {
   const play = useCallback(async () => {
     if (!composition) return;
     stopSources();
+    const tickMs = 60_000 / (composition.project.bpm * composition.project.ppq);
+    const hasSolo = composition.tracks.some((track) => track.isSolo && !track.isMuted);
+    const endMs = Math.min(composition.project.maxDurationMs, Math.max(0,
+      ...composition.tracks.filter((track) => !track.isMuted && (!hasSolo || track.isSolo))
+        .flatMap((track) => track.clips.map((clip) => clip.clipType === "MIDI"
+          ? Math.max(0, ...(clip.midiNotes ?? []).map((note) =>
+              (clip.startTick + note.startTick + note.durationTick) * tickMs))
+          : clip.startTimeMs + (clip.durationMs ?? 0))),
+    ));
+    if (endMs <= 0) { setPlaying(false); return; }
+    const position = positionRef.current >= endMs ? 0 : positionRef.current;
+    positionRef.current = position;
+    setPositionMs(position);
     const context = contextRef.current ?? new AudioContext();
     contextRef.current = context;
     await context.resume();
-    const tickMs = 60_000 / (composition.project.bpm * composition.project.ppq);
     const now = context.currentTime;
-    const position = positionRef.current;
-    const hasSolo = composition.tracks.some((track) => track.isSolo && !track.isMuted);
 
     for (const track of composition.tracks) {
       if (track.isMuted || (hasSolo && !track.isSolo)) continue;
@@ -93,12 +103,12 @@ export function useCompositionPlayback(composition: CompositionDto | null) {
     setPlaying(true);
     const startedAt = performance.now();
     intervalRef.current = window.setInterval(() => {
-      const next = Math.min(composition.project.maxDurationMs, position + performance.now() - startedAt);
+      const next = Math.min(endMs, position + performance.now() - startedAt);
       positionRef.current = next;
       setPositionMs(next);
-      if (next >= composition.project.maxDurationMs) pause();
+      if (next >= endMs) { stopSources(); setPlaying(false); }
     }, 50);
-  }, [composition, pause, stopSources]);
+  }, [composition, stopSources]);
 
   useEffect(() => () => {
     stopSources();
