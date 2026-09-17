@@ -1,13 +1,26 @@
 "use client";
 
+import "./community.css";
+import { CommunityDirectory } from "./community-directory";
+
 import { formatDistanceToNow } from "date-fns";
 import { ko } from "date-fns/locale";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Asset, Avatar, postImages, SectionTitle, SongRail } from "@/components/app/shared";
 import type { Navigate } from "@/features/navigation/types";
 import { useGalleryPosts } from "@/hooks/use-gallery-posts";
 import { createPost, DEFAULT_GALLERY_ID, deletePost, fetchPost, updatePost } from "@/lib/api/community";
 import type { PostListItem } from "@/lib/api/contracts";
+import { ApiError, getAccessToken } from "@/lib/api/client";
+
+function postError(error: unknown): string {
+  if (error instanceof ApiError) {
+    if (error.status === 401) return "로그인이 필요합니다. 로그인 후 다시 시도해주세요.";
+    if (error.status === 403) return "이 작업을 수행할 권한이 없습니다. 계정 상태와 작성자를 확인해주세요.";
+    if (error.status === 404) return "게시글을 찾을 수 없습니다. 목록을 새로고침해주세요.";
+  }
+  return "요청을 처리하지 못했습니다. 잠시 후 다시 시도해주세요.";
+}
 
 function relativeTime(createdAt: string): string {
   return formatDistanceToNow(new Date(createdAt), { addSuffix: true, locale: ko });
@@ -51,8 +64,8 @@ function PostComposer({ galleryId, onCreated, onCancel }: { galleryId: number; o
       setTitle("");
       setContent("");
       onCreated();
-    } catch {
-      setError("게시글 작성에 실패했습니다. 로그인이 필요할 수 있습니다.");
+    } catch (error) {
+      setError(postError(error));
     } finally {
       setSubmitting(false);
     }
@@ -60,8 +73,8 @@ function PostComposer({ galleryId, onCreated, onCancel }: { galleryId: number; o
 
   return (
     <div className="post-form">
-      <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="제목" disabled={submitting} />
-      <textarea value={content} onChange={(e) => setContent(e.target.value)} placeholder="내용을 입력하세요" disabled={submitting} />
+      <input aria-label="게시글 제목" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="제목" disabled={submitting} />
+      <textarea aria-label="게시글 내용" value={content} onChange={(e) => setContent(e.target.value)} placeholder="내용을 입력하세요" disabled={submitting} />
       {error && <p className="post-form-error">{error}</p>}
       <div className="post-form-actions">
         <button className="gray-pill compact" onClick={onCancel} disabled={submitting}>취소</button>
@@ -71,14 +84,39 @@ function PostComposer({ galleryId, onCreated, onCancel }: { galleryId: number; o
   );
 }
 
-function CommunityPost({ post, onChanged }: { post: PostListItem; onChanged: () => void }) {
-  const [liked, setLiked] = useState(false);
+function CommunityPost({ post, onChanged, onCompose }: { post: PostListItem; onChanged: () => void; onCompose: () => void }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState(post.title);
   const [content, setContent] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [preview, setPreview] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+
+  useEffect(() => {
+    if (!getAccessToken()) return;
+    let cancelled = false;
+    fetchPost(post.postId).then(detail => {
+      if (!cancelled) setPreview(detail.content);
+    }).catch(error => {
+      if (!cancelled) setError(postError(error));
+    });
+    return () => { cancelled = true; };
+  }, [post]);
+
+  async function readPost() {
+    if (preview !== null) { setExpanded(value => !value); return; }
+    setSubmitting(true);
+    setError(null);
+    try {
+      const detail = await fetchPost(post.postId);
+      setPreview(detail.content);
+      setExpanded(true);
+    } catch (error) { setError(postError(error)); }
+    finally { setSubmitting(false); }
+  }
 
   async function startEdit() {
     setMenuOpen(false);
@@ -89,22 +127,27 @@ function CommunityPost({ post, onChanged }: { post: PostListItem; onChanged: () 
       setTitle(detail.title);
       setContent(detail.content);
       setEditing(true);
-    } catch {
-      setError("게시글을 불러오지 못했습니다. 로그인이 필요할 수 있습니다.");
+    } catch (error) {
+      setError(postError(error));
     } finally {
       setSubmitting(false);
     }
   }
 
   async function saveEdit() {
+    if (!title.trim() || !content.trim()) {
+      setError("제목과 내용을 모두 입력해주세요.");
+      return;
+    }
     setSubmitting(true);
     setError(null);
     try {
       await updatePost(post.postId, title, content);
+      setPreview(content);
       setEditing(false);
       onChanged();
-    } catch {
-      setError("수정에 실패했습니다. 작성자 본인만 수정할 수 있습니다.");
+    } catch (error) {
+      setError(postError(error));
     } finally {
       setSubmitting(false);
     }
@@ -112,15 +155,15 @@ function CommunityPost({ post, onChanged }: { post: PostListItem; onChanged: () 
 
   async function remove() {
     setMenuOpen(false);
-    if (!window.confirm("이 게시글을 삭제할까요?")) return;
     setSubmitting(true);
     setError(null);
     try {
       await deletePost(post.postId);
       onChanged();
-    } catch {
-      setError("삭제에 실패했습니다. 작성자 본인만 삭제할 수 있습니다.");
+    } catch (error) {
+      setError(postError(error));
       setSubmitting(false);
+      setConfirmDelete(false);
     }
   }
 
@@ -128,8 +171,8 @@ function CommunityPost({ post, onChanged }: { post: PostListItem; onChanged: () 
     return (
       <article className="community-post">
         <div className="post-form">
-          <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="제목" disabled={submitting} />
-          <textarea value={content} onChange={(e) => setContent(e.target.value)} placeholder="내용을 입력하세요" disabled={submitting} />
+          <input aria-label="게시글 제목 수정" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="제목" disabled={submitting} />
+          <textarea aria-label="게시글 내용 수정" value={content} onChange={(e) => setContent(e.target.value)} placeholder="내용을 입력하세요" disabled={submitting} />
           {error && <p className="post-form-error">{error}</p>}
           <div className="post-form-actions">
             <button className="gray-pill compact" onClick={() => setEditing(false)} disabled={submitting}>취소</button>
@@ -144,41 +187,43 @@ function CommunityPost({ post, onChanged }: { post: PostListItem; onChanged: () 
     <article className="community-post">
       <div className="community-author">
         <Avatar src={post.writer.profileImageUrl} />
-        <strong>{post.writer.nickname}</strong>
+        <strong>{post.writer.nickname || "알 수 없는 사용자"}</strong>
         <span>• {relativeTime(post.createdAt)}</span>
-        <button onClick={() => setMenuOpen((open) => !open)} aria-label="더보기"><Asset name="option.svg" /></button>
+        <button disabled={submitting} onClick={() => setMenuOpen((open) => !open)} aria-expanded={menuOpen} aria-label="게시글 더보기"><Asset name="option.svg" /></button>
       </div>
-      {menuOpen && <div className="post-menu-actions"><button className="gray-pill compact" onClick={startEdit}>수정</button><button className="gray-pill compact" onClick={remove}>삭제</button></div>}
-      <h2>{post.title}</h2>
-      {error && <p className="post-form-error">{error}</p>}
+      {menuOpen && <div className="post-menu-actions"><button className="gray-pill compact" onClick={onCompose}>글쓰기</button><button className="gray-pill compact" onClick={startEdit}>수정</button><button className="gray-pill compact" onClick={() => { setConfirmDelete(true); setMenuOpen(false); }}>삭제</button></div>}
+      <h2><button className="post-read" disabled={submitting} onClick={readPost} aria-expanded={expanded}>{post.title}</button></h2>
+      <button className={`post-preview ${expanded ? "expanded" : ""}`} onClick={readPost} disabled={submitting}>{preview ?? "로그인 후 게시글 내용을 확인할 수 있어요."}</button>
+      {error && <p className="post-form-error" role="alert">{error}</p>}
+      {confirmDelete && <div className="post-delete-confirm" role="group" aria-label="게시글 삭제 확인"><p>이 게시글을 삭제할까요?</p><button className="gray-pill" disabled={submitting} onClick={() => setConfirmDelete(false)}>취소</button><button className="purple-pill" disabled={submitting} onClick={remove}>{submitting ? "삭제 중..." : "삭제 확인"}</button></div>}
+      <div className="community-image" role="img" aria-label="첨부 이미지 없음" />
       <div className="community-actions">
-        <button className={liked ? "liked" : ""} onClick={() => setLiked(!liked)}><Asset name="like.svg" />{post.likeCount}</button>
-        <button><span className="thumb-down">♧</span></button>
-        <button><Asset name="comment.svg" />{post.commentCount}</button>
+        <div className="community-vote"><button disabled aria-label={`좋아요 ${post.likeCount}개, 준비 중`} title="좋아요 기능 준비 중"><Asset name="like.svg" />{post.likeCount}</button><span /><button disabled aria-label="싫어요 기능 준비 중" title="싫어요 기능 준비 중"><Asset name="like.svg" className="thumb-down" /></button></div>
+        <button disabled aria-label={`댓글 ${post.commentCount}개, 준비 중`} title="댓글 기능 준비 중"><Asset name="comment.svg" />{post.commentCount}</button>
         <i />
-        <button><Asset name="share.svg" /></button>
-        <button><Asset name="bookmark.svg" /></button>
+        <button disabled aria-label="공유 기능 준비 중" title="공유 기능 준비 중"><Asset name="share.svg" /></button>
+        <button disabled aria-label="북마크 기능 준비 중" title="북마크 기능 준비 중"><Asset name="bookmark.svg" /></button>
       </div>
     </article>
   );
 }
 
-export function CommunityScreen() {
-  const [tab, setTab] = useState<"posts" | "community">("posts");
+export type CommunityTab = "posts" | "community";
+
+// tab은 page.tsx가 들고 있다 — "모두보기"로 전체 목록에 다녀와도 커뮤니티 탭이 유지되도록.
+export function CommunityScreen({ go, tab, onTabChange }: { go: Navigate; tab: CommunityTab; onTabChange: (tab: CommunityTab) => void }) {
   const [composerOpen, setComposerOpen] = useState(false);
   const posts = useGalleryPosts(DEFAULT_GALLERY_ID);
 
   return (
     <div className="community-view scroll-content">
-      <div className="community-tabs">
-        <button className={tab === "posts" ? "active" : ""} onClick={() => setTab("posts")}>게시글</button>
-        <button className={tab === "community" ? "active" : ""} onClick={() => setTab("community")}>커뮤니티</button>
+      <div className="community-tabs" aria-label="소셜 메뉴">
+        <button aria-pressed={tab === "posts"} className={tab === "posts" ? "active" : ""} onClick={() => onTabChange("posts")}>게시글</button>
+        <button aria-pressed={tab === "community"} className={tab === "community" ? "active" : ""} onClick={() => onTabChange("community")}>커뮤니티</button>
+        <button onClick={() => go("friends")}>친구</button>
       </div>
       {tab === "posts" ? (
         <>
-          <div className="post-menu-actions" style={{ padding: "10px 20px 0", justifyContent: "flex-end" }}>
-            {!composerOpen && <button className="purple-pill compact" onClick={() => setComposerOpen(true)}>글쓰기</button>}
-          </div>
           {composerOpen && (
             <div style={{ padding: "0 20px" }}>
               <PostComposer
@@ -189,17 +234,18 @@ export function CommunityScreen() {
             </div>
           )}
           {posts.status !== "ready" ? (
-            <PostListStatus state={posts.status} />
+            <div role="status"><PostListStatus state={posts.status} />{posts.status === "error" && <button className="community-retry gray-pill" onClick={posts.refetch}>다시 시도</button>}</div>
           ) : posts.posts.length === 0 ? (
             <PostListStatus state="empty" />
           ) : (
             posts.posts.map((post) => (
-              <CommunityPost key={post.postId} post={post} onChanged={posts.refetch} />
+              <CommunityPost key={post.postId} post={post} onChanged={posts.refetch} onCompose={() => setComposerOpen(true)} />
             ))
           )}
+          {!composerOpen && posts.status === "ready" && <button className="community-compose purple-pill" onClick={() => setComposerOpen(true)}>글쓰기</button>}
         </>
       ) : (
-        <div className="empty-community">아직 참여한 커뮤니티가 없어요.</div>
+        <CommunityDirectory go={go} />
       )}
     </div>
   );

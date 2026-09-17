@@ -21,9 +21,15 @@ export function Avatar({ large = false, src = null }: { large?: boolean; src?: s
 
 function Logo() { return <div className="nr-logo" aria-label="Narackrock"><Asset name="logo-wing-a.svg" /><Asset name="logo-wing-b.svg" /><Asset name="logo-dot.svg" /><b>NR</b></div>; }
 
-export function Header({ onSearch, onProfile, blank = false, abyss = false }: { onSearch: () => void; onProfile: () => void; blank?: boolean; abyss?: boolean }) {
+export function Header({ onSearch, onProfile, onBack, blank = false, abyss = false }: { onSearch: () => void; onProfile: () => void; onBack?: () => void; blank?: boolean; abyss?: boolean }) {
   if (blank) return <div className="header-spacer" />;
-  return <header className="app-header">{abyss ? <button className="header-sound" aria-label="소리"><Asset name="sound.svg" /></button> : <Logo />}<div className="header-actions"><button aria-label="알림"><Asset name="bell.svg" /></button><button aria-label="검색" onClick={onSearch}><Asset name="search.svg" /></button><button aria-label="프로필" className="header-profile" onClick={onProfile}><Avatar /></button></div></header>;
+  // 앞자리는 화면에 따라 뒤로가기 > 소리 > 로고 순으로 하나만 쓴다.
+  const leading = onBack
+    ? <button className="header-back" aria-label="뒤로" onClick={onBack}><Asset name="return.svg" /></button>
+    : abyss
+      ? <button className="header-sound" aria-label="소리"><Asset name="sound.svg" /></button>
+      : <Logo />;
+  return <header className="app-header">{leading}<div className="header-actions"><button aria-label="알림"><Asset name="bell.svg" /></button><button aria-label="검색" onClick={onSearch}><Asset name="search.svg" /></button><button aria-label="프로필" className="header-profile" onClick={onProfile}><Avatar /></button></div></header>;
 }
 
 const nav: { id: View; label: string; icon?: string }[] = [{ id: "home", label: "홈", icon: "home.svg" }, { id: "abyss", label: "어비스", icon: "abyss.svg" }, { id: "studio", label: "", icon: "make-circle.svg" }, { id: "friends", label: "친구", icon: "friend.svg" }, { id: "community", label: "커뮤니티", icon: "community.svg" }];
