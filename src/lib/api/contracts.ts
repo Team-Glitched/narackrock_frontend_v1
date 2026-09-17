@@ -15,6 +15,19 @@ export type PostDetailResponse = { postId: number; gallery: { galleryId: number;
 
 export type PostCreateResponse = { postId: number };
 
+export type PostComment = {
+  commentId: number;
+  parentCommentId: number | null;
+  writer: { userId: number; nickname: string | null; profileImageUrl: string | null };
+  content: string;
+  replyCount: number;
+  createdAt: string;
+};
+export type PostCommentPage = {
+  postId: number; parentCommentId: number | null; page: number; size: number;
+  totalCount: number; comments: PostComment[];
+};
+
 export type PostUpdateResponse = { postId: number };
 
 export type GoogleLoginResponse = { accessToken: string; refreshToken: string; tokenType: string; user: { userId: number; nickname: string; profileImageUrl: string | null } };

@@ -1,4 +1,29 @@
 import { apiRequest } from "./client";
+import type { PostCommentPage } from "./contracts";
+
+export function fetchPostComments(postId: number, parentCommentId: number | null = null, page = 0): Promise<PostCommentPage> {
+  const query = new URLSearchParams({ page: String(page), size: "20" });
+  if (parentCommentId !== null) query.set("parentCommentId", String(parentCommentId));
+  return apiRequest<ApiResponse<PostCommentPage>>(`/api/v1/posts/${postId}/comments?${query}`).then(r => r.data);
+}
+
+export function createPostComment(postId: number, content: string, parentCommentId: number | null = null): Promise<{ commentId: number }> {
+  return apiRequest<ApiResponse<{ commentId: number }>>(`/api/v1/posts/${postId}/comments`, {
+    method: "POST", body: JSON.stringify({ content, parentCommentId }),
+  }).then(r => r.data);
+}
+
+// 수정·삭제 경로에는 postId가 없다 — 댓글 id가 전역 고유해서 백엔드가 그렇게 정의했다.
+export function updatePostComment(commentId: number, content: string): Promise<{ commentId: number }> {
+  return apiRequest<ApiResponse<{ commentId: number }>>(`/api/v1/posts/comments/${commentId}`, {
+    method: "PUT", body: JSON.stringify({ content }),
+  }).then(r => r.data);
+}
+
+export function deletePostComment(commentId: number): Promise<void> {
+  // 삭제 응답에는 data 키가 없으므로(NON_NULL 봉투) 본문을 읽지 않는다.
+  return apiRequest<ApiResponse<void>>(`/api/v1/posts/comments/${commentId}`, { method: "DELETE" }).then(() => undefined);
+}
 import type {
   ApiResponse,
   PostCreateResponse,

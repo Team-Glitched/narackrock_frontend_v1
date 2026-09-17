@@ -84,7 +84,7 @@ function PostComposer({ galleryId, onCreated, onCancel }: { galleryId: number; o
   );
 }
 
-function CommunityPost({ post, onChanged, onCompose }: { post: PostListItem; onChanged: () => void; onCompose: () => void }) {
+function CommunityPost({ post, onChanged, onCompose, onComments }: { post: PostListItem; onChanged: () => void; onCompose: () => void; onComments: (postId: number) => void }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState(post.title);
@@ -199,7 +199,7 @@ function CommunityPost({ post, onChanged, onCompose }: { post: PostListItem; onC
       <div className="community-image" role="img" aria-label="첨부 이미지 없음" />
       <div className="community-actions">
         <div className="community-vote"><button disabled aria-label={`좋아요 ${post.likeCount}개, 준비 중`} title="좋아요 기능 준비 중"><Asset name="like.svg" />{post.likeCount}</button><span /><button disabled aria-label="싫어요 기능 준비 중" title="싫어요 기능 준비 중"><Asset name="like.svg" className="thumb-down" /></button></div>
-        <button disabled aria-label={`댓글 ${post.commentCount}개, 준비 중`} title="댓글 기능 준비 중"><Asset name="comment.svg" />{post.commentCount}</button>
+        <button onClick={() => onComments(post.postId)} aria-label={`댓글 ${post.commentCount}개 보기`}><Asset name="comment.svg" />{post.commentCount}</button>
         <i />
         <button disabled aria-label="공유 기능 준비 중" title="공유 기능 준비 중"><Asset name="share.svg" /></button>
         <button disabled aria-label="북마크 기능 준비 중" title="북마크 기능 준비 중"><Asset name="bookmark.svg" /></button>
@@ -211,7 +211,7 @@ function CommunityPost({ post, onChanged, onCompose }: { post: PostListItem; onC
 export type CommunityTab = "posts" | "community";
 
 // tab은 page.tsx가 들고 있다 — "모두보기"로 전체 목록에 다녀와도 커뮤니티 탭이 유지되도록.
-export function CommunityScreen({ go, tab, onTabChange }: { go: Navigate; tab: CommunityTab; onTabChange: (tab: CommunityTab) => void }) {
+export function CommunityScreen({ go, tab, onTabChange, onComments }: { go: Navigate; tab: CommunityTab; onTabChange: (tab: CommunityTab) => void; onComments: (postId: number) => void }) {
   const [composerOpen, setComposerOpen] = useState(false);
   const posts = useGalleryPosts(DEFAULT_GALLERY_ID);
 
@@ -239,7 +239,7 @@ export function CommunityScreen({ go, tab, onTabChange }: { go: Navigate; tab: C
             <PostListStatus state="empty" />
           ) : (
             posts.posts.map((post) => (
-              <CommunityPost key={post.postId} post={post} onChanged={posts.refetch} onCompose={() => setComposerOpen(true)} />
+              <CommunityPost key={post.postId} post={post} onChanged={posts.refetch} onCompose={() => setComposerOpen(true)} onComments={onComments} />
             ))
           )}
           {!composerOpen && posts.status === "ready" && <button className="community-compose purple-pill" onClick={() => setComposerOpen(true)}>글쓰기</button>}

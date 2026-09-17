@@ -6,6 +6,12 @@ let accessToken: string | null = null;
 export function setAccessToken(token: string | null): void { accessToken = token; }
 export function getAccessToken(): string | null { return accessToken; }
 
+// 내 글/댓글인지 판별하려면 응답의 writer.userId와 비교할 로그인 사용자 id가 필요하다.
+// 로그인 응답에만 담겨 오므로 토큰과 함께 보관한다.
+let currentUserId: number | null = null;
+export function setCurrentUserId(userId: number | null): void { currentUserId = userId; }
+export function getCurrentUserId(): number | null { return currentUserId; }
+
 export async function apiRequest<T>(path: string, init?: RequestInit): Promise<T> {
   const headers: Record<string, string> = { "Content-Type": "application/json", ...(init?.headers as Record<string, string> | undefined) };
   if (accessToken) headers["Authorization"] = `Bearer ${accessToken}`;

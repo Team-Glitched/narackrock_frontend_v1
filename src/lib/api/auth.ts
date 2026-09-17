@@ -1,4 +1,4 @@
-import { apiRequest, setAccessToken } from "./client";
+import { apiRequest, setAccessToken, setCurrentUserId } from "./client";
 import type { ApiResponse, GoogleLoginResponse, TokenRefreshResponse } from "./contracts";
 
 export function loginWithGoogle(idToken: string): Promise<GoogleLoginResponse> {
@@ -7,6 +7,7 @@ export function loginWithGoogle(idToken: string): Promise<GoogleLoginResponse> {
     body: JSON.stringify({ idToken }),
   }).then((response) => {
     setAccessToken(response.data.accessToken);
+    setCurrentUserId(response.data.user.userId);
     return response.data;
   });
 }
