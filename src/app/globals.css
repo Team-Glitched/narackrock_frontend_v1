@@ -803,20 +803,44 @@ img {
   width: 18px;
   height: 18px;
 }
-.community-actions button:nth-of-type(2) {
+.community-actions > button:nth-of-type(1) {
   min-width: 36px;
   padding: 0 8px;
 }
-.community-actions i {
+.community-actions > i {
   flex: 1;
 }
-.community-actions button:nth-last-child(-n + 2) {
+.community-actions > button:nth-last-child(-n + 2) {
   width: 36px;
   min-width: 36px;
   padding: 4px 8px;
 }
 .community-actions .liked {
   color: #8d5aff;
+  border-color: #8d5aff;
+}
+.community-vote {
+  display: flex;
+  align-items: center;
+  height: 27px;
+  border: 1px solid var(--muted);
+  border-radius: 14px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+.community-vote > button {
+  height: 25px;
+  border: 0;
+  border-radius: 0;
+}
+.community-vote-divider {
+  width: 1px;
+  height: 21px;
+  background: var(--white);
+  flex-shrink: 0;
+}
+.community-vote.active,
+.community-actions > button.active {
   border-color: #8d5aff;
 }
 .thumb-down {
