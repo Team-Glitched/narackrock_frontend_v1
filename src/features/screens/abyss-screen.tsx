@@ -2,14 +2,13 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Asset } from "@/components/app/shared";
-import type { Navigate } from "@/features/navigation/types";
 import { getShorts } from "@/lib/api/shorts";
 import type { ShortItemDto, ShortsPageDto } from "@/lib/api/contracts";
 
 type FeedState = "loading" | "ready" | "error";
 type PageInfo = ShortsPageDto["page"];
 
-export function AbyssScreen({ go }: { go: Navigate }) {
+export function AbyssScreen({ onJoin }: { onJoin: (shortId: number) => void }) {
   const [shorts, setShorts] = useState<ShortItemDto[]>([]);
   const [page, setPage] = useState<PageInfo | null>(null);
   const [index, setIndex] = useState(0);
@@ -160,7 +159,9 @@ export function AbyssScreen({ go }: { go: Navigate }) {
         {!mediaUrl && <p className="abyss-playback-message">재생 가능한 음원 파일이 없습니다.</p>}
         {playbackError && <p className="abyss-playback-message" role="alert">{playbackError}</p>}
       </div>
-      <button className="abyss-join" onClick={() => go("studio")}>작곡 참여하기</button>
+      {current.completionStatus === "IN_PROGRESS" && current.projectId != null && (
+        <button className="abyss-join" onClick={() => onJoin(current.shortId)}>작곡 참여하기</button>
+      )}
     </div>
   );
 }
