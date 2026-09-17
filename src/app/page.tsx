@@ -3,7 +3,8 @@
 import { useCallback, useMemo, useState } from "react";
 import { Footer, Header } from "@/components/app/shared";
 import type { View } from "@/features/navigation/types";
-import { AbyssScreen, ChartsScreen, CommunityScreen, EditProfileScreen, FriendsScreen, HomeScreen, PostsScreen, ProfileScreen, SearchScreen } from "@/features/screens/mobile-screens";
+import { ChartsScreen, CommunityScreen, EditProfileScreen, FriendsScreen, HomeScreen, PostsScreen, ProfileScreen, SearchScreen } from "@/features/screens/mobile-screens";
+import { AbyssScreen } from "@/features/screens/abyss-screen";
 import { NoteEditorScreen, StudioScreen } from "@/features/screens/studio-screens";
 import { useWebMcpNavigation } from "@/hooks/use-webmcp-navigation";
 
