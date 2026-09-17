@@ -9,8 +9,20 @@ export function getAccessToken(): string | null { return accessToken; }
 // 내 글/댓글인지 판별하려면 응답의 writer.userId와 비교할 로그인 사용자 id가 필요하다.
 // 로그인 응답에만 담겨 오므로 토큰과 함께 보관한다.
 let currentUserId: number | null = null;
-export function setCurrentUserId(userId: number | null): void { currentUserId = userId; }
+const currentUserListeners = new Set<(userId: number | null) => void>();
+
+export function setCurrentUserId(userId: number | null): void {
+  currentUserId = userId;
+  currentUserListeners.forEach(listener => listener(userId));
+}
 export function getCurrentUserId(): number | null { return currentUserId; }
+
+// 로그인/로그아웃 시 사용자별 화면 상태를 다시 불러와야 한다. 화면이 이 변화를
+// 구독할 수 있도록 열어 둔다 (useSyncExternalStore용).
+export function subscribeCurrentUserId(listener: (userId: number | null) => void): () => void {
+  currentUserListeners.add(listener);
+  return () => { currentUserListeners.delete(listener); };
+}
 
 export async function apiRequest<T>(path: string, init?: RequestInit): Promise<T> {
   const headers: Record<string, string> = { "Content-Type": "application/json", ...(init?.headers as Record<string, string> | undefined) };

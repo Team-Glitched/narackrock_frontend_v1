@@ -2,6 +2,7 @@
 
 import "./community.css";
 import { CommunityDirectory } from "./community-directory";
+import type { Community } from "./community-card";
 
 import { formatDistanceToNow } from "date-fns";
 import { ko } from "date-fns/locale";
@@ -46,7 +47,7 @@ export function PostsScreen({ go }: { go: Navigate }) {
 export function AbyssScreen({ go }: { go: Navigate }) { const [playing, setPlaying] = useState(false); const [liked, setLiked] = useState(false); return <div className="abyss-view"><div className="abyss-song"><Asset name="abyss-album.png" alt="Pretender 앨범 커버" className="abyss-cover" /><div className="abyss-title"><h1>Pretender</h1><p>min chong <i /> <button>작곡 참여자 보기</button></p></div></div><div className="abyss-actions"><div className="abyss-vote"><button className={liked ? "active" : ""} onClick={() => setLiked(!liked)} aria-label="좋아요"><Asset name="like.svg" />116</button><i /><button aria-label="싫어요" className="abyss-dislike"><Asset name="like.svg" /></button></div><button><Asset name="comment.svg" />116</button><button aria-label="공유"><Asset name="share.svg" /></button><button aria-label="저장"><Asset name="bookmark.svg" /></button></div><div className="abyss-player"><button className="abyss-progress" aria-label="재생 위치"><i style={{ width: playing ? "38%" : "18%" }}><b /></i></button><button className="abyss-player-controls" aria-label={playing ? "일시정지" : "재생"} onClick={() => setPlaying(!playing)}><Asset name="abyss-player.svg" /></button></div><button className="abyss-join" onClick={() => go("studio")}>작곡 참여하기</button></div>; }
 export function FriendsScreen() { const [following, setFollowing] = useState([false, true, true, false]); const [requests, setRequests] = useState([true, true]); return <div className="friends-view scroll-content"><section><SectionTitle>팔로우 추천</SectionTitle><div className="people-list">{following.map((on, i) => <div className="person" key={i}><Avatar /><span><strong>Muhehehe</strong><small>피아노</small></span><button className="purple-pill" onClick={() => setFollowing(s => s.map((v, x) => x === i ? !v : v))}>{on ? "맞팔로우" : "팔로우"}</button></div>)}</div></section><section><SectionTitle>팔로우 요청</SectionTitle><div className="people-list">{requests.map((show, i) => show && <div className="person" key={i}><Avatar /><span><strong>Muhehehe</strong><small>피아노</small></span><button className="purple-pill compact" onClick={() => setRequests(s => s.map((v, x) => x === i ? false : v))}>확인</button><button className="gray-pill" onClick={() => setRequests(s => s.map((v, x) => x === i ? false : v))}>취소</button></div>)}</div></section></div>; }
 export function SearchScreen({ go }: { go: Navigate }) { const [query, setQuery] = useState(""); return <div className="search-view"><div className="search-line"><button onClick={() => go("home")} aria-label="뒤로"><Asset name="return.svg" /></button><label><Asset name="search.svg" /><input autoFocus value={query} onChange={e => setQuery(e.target.value)} placeholder="검색" />{query && <button onClick={() => setQuery("")} aria-label="검색어 지우기">×</button>}</label></div>{query && <p className="search-result">‘{query}’ 검색 결과가 없습니다.</p>}</div>; }
-function PostComposer({ galleryId, onCreated, onCancel }: { galleryId: number; onCreated: () => void; onCancel: () => void }) {
+export function PostComposer({ galleryId, onCreated, onCancel }: { galleryId: number; onCreated: () => void; onCancel: () => void }) {
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [submitting, setSubmitting] = useState(false);
@@ -84,7 +85,7 @@ function PostComposer({ galleryId, onCreated, onCancel }: { galleryId: number; o
   );
 }
 
-function CommunityPost({ post, onChanged, onCompose, onComments }: { post: PostListItem; onChanged: () => void; onCompose: () => void; onComments: (postId: number) => void }) {
+export function CommunityPost({ post, onChanged, onCompose, onComments }: { post: PostListItem; onChanged: () => void; onCompose: () => void; onComments: (postId: number) => void }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState(post.title);
@@ -211,7 +212,7 @@ function CommunityPost({ post, onChanged, onCompose, onComments }: { post: PostL
 export type CommunityTab = "posts" | "community";
 
 // tab은 page.tsx가 들고 있다 — "모두보기"로 전체 목록에 다녀와도 커뮤니티 탭이 유지되도록.
-export function CommunityScreen({ go, tab, onTabChange, onComments }: { go: Navigate; tab: CommunityTab; onTabChange: (tab: CommunityTab) => void; onComments: (postId: number) => void }) {
+export function CommunityScreen({ go, tab, onTabChange, onComments, onOpenCommunity }: { go: Navigate; tab: CommunityTab; onTabChange: (tab: CommunityTab) => void; onComments: (postId: number) => void; onOpenCommunity: (community: Community) => void }) {
   const [composerOpen, setComposerOpen] = useState(false);
   const posts = useGalleryPosts(DEFAULT_GALLERY_ID);
 
@@ -245,7 +246,7 @@ export function CommunityScreen({ go, tab, onTabChange, onComments }: { go: Navi
           {!composerOpen && posts.status === "ready" && <button className="community-compose purple-pill" onClick={() => setComposerOpen(true)}>글쓰기</button>}
         </>
       ) : (
-        <CommunityDirectory go={go} />
+        <CommunityDirectory go={go} onOpen={onOpenCommunity} />
       )}
     </div>
   );

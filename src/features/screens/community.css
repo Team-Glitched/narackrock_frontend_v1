@@ -1,10 +1,30 @@
 /* Community.pdf: 390 × 844 mobile feed. */
+.community-card, .community-rail-card { position: relative; }
+.community-open { text-align: inherit; font: inherit; }
+.community-open::after { content: ""; position: absolute; inset: 0; border-radius: 12px; }
+.community-open:focus-visible::after { outline: 2px solid #8a56ff; outline-offset: 2px; }
+.community-card .community-join, .community-rail-card .community-join { position: relative; z-index: 1; }
+.community-detail-banner { height: 90px; background: #383838; }
+.community-detail-info { margin: 0 20px 8px; padding: 6px 0 22px; border-bottom: 1px solid #303940; }
+.community-detail-heading { display: flex; align-items: center; gap: 10px; }
+.community-detail-heading .avatar { width: 52px; height: 52px; border: 0; }
+.community-detail-heading > div { flex: 1; min-width: 0; }
+.community-detail-heading h1 { margin: 0; font-size: 18px; line-height: 22px; font-weight: 700; overflow-wrap: anywhere; }
+.community-detail-heading p { margin: 4px 0 0; color: var(--muted); font-size: 12px; }
+.community-detail-heading .community-join { min-width: 60px; height: 40px; font-size: 16px; }
+.community-detail-heading .community-join:disabled { opacity: 1; cursor: not-allowed; }
+.community-detail-description { margin: 14px 0 0; color: var(--muted); font-size: 12px; line-height: 14px; overflow-wrap: anywhere; }
+.community-detail-status { padding: 24px 20px; text-align: center; color: var(--muted); font-size: 14px; }
+.community-detail-composer { padding-inline: 20px; }
 .community-directory { padding-top: 10px; }
 .directory-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 0 20px; margin-bottom: 8px; }
 .directory-heading h2 { margin: 0; font-size: 20px; line-height: 24px; font-weight: 700; letter-spacing: -.4px; }
 .directory-heading h2 small { font-size: 10px; font-weight: 400; color: var(--muted); letter-spacing: 0; vertical-align: middle; }
 .directory-heading > button { flex-shrink: 0; color: var(--muted); font-size: 15px; line-height: 24px; }
 .recommended-communities { margin-top: 18px; }
+.membership-error { margin: 10px 20px 0; color: #ff8d8d; font-size: 12px; line-height: 18px; }
+.community-detail-info .membership-error { margin-inline: 0; }
+.community-join[aria-busy="true"] { opacity: .6; cursor: progress; }
 .directory-preview-notice { margin: 16px 20px 24px; color: var(--muted); font-size: 12px; line-height: 18px; }
 
 /* CommunityCard / CommunityRailCard — 가입한 커뮤니티와 추천 커뮤니티가 함께 쓴다. */
