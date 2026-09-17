@@ -157,7 +157,6 @@ export function AbyssScreen({ go }: { go: Navigate }) {
           <button className={`abyss-toggle ${playing ? "is-playing" : ""}`} onClick={togglePlayback} disabled={!mediaUrl} aria-label={playing ? "일시정지" : "재생"} />
           <button className="abyss-next" onClick={selectNext} disabled={!hasNext || loadingMore} aria-label="다음 숏폼" />
         </div>
-        <span className="abyss-position">{index + 1} / {shorts.length}{page?.hasMore ? "+" : ""}</span>
         {!mediaUrl && <p className="abyss-playback-message">재생 가능한 음원 파일이 없습니다.</p>}
         {playbackError && <p className="abyss-playback-message" role="alert">{playbackError}</p>}
       </div>
