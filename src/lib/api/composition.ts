@@ -49,6 +49,7 @@ export type CompositionDto = {
     maxTick: number;
     maxDurationMs: number;
     status: string;
+    isPublic: boolean;
     version: { major: number; minor: number; display: string };
   };
   tracks: TrackDto[];
@@ -123,14 +124,30 @@ export type ContributionDto = {
   items: { changeType: string; targetType: string; targetId: number }[];
 };
 
+export type ContributionNotificationDto = {
+  contributionId: number;
+  projectId: number;
+  projectTitle: string;
+  userId: number;
+  nickname: string;
+  description: string | null;
+  itemCount: number;
+  createdAt: string;
+};
+
+export async function getContributionInbox(): Promise<ContributionNotificationDto[]> {
+  const response = await data<{ items: ContributionNotificationDto[] }>("/api/v1/notifications/contributions");
+  return response.items;
+}
+
 export async function getPendingContributions(projectId: number): Promise<ContributionDto[]> {
   const response = await data<{ items: ContributionDto[] }>(`/api/v1/projects/${projectId}/contributions?status=PENDING`);
   return response.items;
 }
 
-export async function submitContribution(projectId: number, version: { major: number; minor: number }, items: { changeType: "ADD" | "UPDATE"; targetType: "TRACK" | "CLIP"; targetId: number }[]) {
+export async function submitContribution(projectId: number, version: { major: number; minor: number }, items: { changeType: "ADD" | "UPDATE"; targetType: "TRACK" | "CLIP"; targetId: number }[], description: string | null = null) {
   return data(`/api/v1/projects/${projectId}/contributions`, {
-    method: "POST", body: JSON.stringify({ description: null, baseProjectVersion: version, items }),
+    method: "POST", body: JSON.stringify({ description, baseProjectVersion: version, items }),
   });
 }
 

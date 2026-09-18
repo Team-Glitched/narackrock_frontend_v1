@@ -6,7 +6,7 @@ import type { Navigate } from "@/features/navigation/types";
 import { useCompositionPlayback } from "@/features/composition/use-composition-playback";
 import { prepareAudioFile } from "@/features/composition/prepare-audio-file";
 import { TeamPianoRoll } from "@/features/composition/team-piano-roll";
-import { createAudioClip, createDraftProject, createMidiClip, enterComposition, getComposition, getExport, getPendingContributions, publishComposition, reviewContribution, saveMidiClip, submitContribution, updateProjectMetadata, uploadMedia, type CompositionDto, type ContributionDto, type MidiNoteDto } from "@/lib/api/composition";
+import { createAudioClip, createDraftProject, createMidiClip, enterComposition, getComposition, getExport, getPendingContributions, publishComposition, reviewContribution, saveMidiClip, submitContribution, updateProjectMetadata, uploadMedia, type CompositionDto, type MidiNoteDto } from "@/lib/api/composition";
 
 const errorText = (cause: unknown) => cause instanceof Error ? cause.message : "요청을 처리하지 못했습니다.";
 const clockTime = (ms: number) => `${String(Math.floor(ms / 60000)).padStart(2, "0")}:${String(Math.floor(ms / 1000) % 60).padStart(2, "0")}`;
@@ -62,16 +62,18 @@ function NewProject({ onCreated, onResume, onBack }: { onCreated: (id: number) =
   </div>;
 }
 
-export function StudioScreen({ go, shortId, projectId, onProjectSelected, onDraftCreated, onAddLayer, onEditTrack }: {
+export function StudioScreen({ go, shortId, projectId, returnToNotifications, onProjectSelected, onDraftCreated, onAddLayer, onEditTrack }: {
   go: Navigate; shortId: number | null; projectId: number | null;
+  returnToNotifications?: boolean;
   onProjectSelected: (id: number) => void; onDraftCreated: (id: number) => void;
   onAddLayer: () => void; onEditTrack: (trackId: number, clipId: number | null) => void;
 }) {
   const [composition, setComposition] = useState<CompositionDto | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [pending, setPending] = useState<ContributionDto[]>([]);
   const [status, setStatus] = useState<string | null>(null);
+  const [showSubmitForm, setShowSubmitForm] = useState(false);
+  const [submitComment, setSubmitComment] = useState("");
   const [showPublishForm, setShowPublishForm] = useState(false);
   const [publishTitle, setPublishTitle] = useState("");
   const [publishImage, setPublishImage] = useState<File | null>(null);
@@ -88,15 +90,6 @@ export function StudioScreen({ go, shortId, projectId, onProjectSelected, onDraf
     return () => { cancelled = true; };
   }, [shortId, projectId, onProjectSelected]);
 
-  useEffect(() => {
-    if (!composition?.viewerPermission.canReviewContribution) return;
-    let cancelled = false;
-    getPendingContributions(composition.project.projectId)
-      .then((items) => { if (!cancelled) setPending(items); })
-      .catch((cause) => { if (!cancelled) setError(errorText(cause)); });
-    return () => { cancelled = true; };
-  }, [composition?.project.projectId, composition?.viewerPermission.canReviewContribution]);
-
   async function refresh() { if (composition) setComposition(await getComposition(composition.project.projectId)); }
   async function addAudio(trackId: number, file: File) {
     if (!composition || busy) return;
@@ -112,35 +105,24 @@ export function StudioScreen({ go, shortId, projectId, onProjectSelected, onDraf
     finally { setBusy(false); }
   }
 
-  async function submitDrafts() {
-    if (!composition || busy) return;
+  async function submitDrafts(event: React.FormEvent) {
+    event.preventDefault();
+    if (!composition || busy || !submitComment.trim()) return;
     const userId = composition.viewerPermission.userId;
+    const draftClips = composition.tracks.flatMap((track) => track.clips)
+      .filter((clip) => clip.ownerId === userId && clip.approvalStatus === "DRAFT");
     const items = [
-      ...composition.tracks.filter((track) => track.ownerId === userId && track.approvalStatus === "DRAFT")
+      ...composition.tracks.filter((track) => track.ownerId === userId && track.approvalStatus === "DRAFT"
+        && track.clips.some((clip) => draftClips.some((draft) => draft.clipId === clip.clipId)))
         .map((track) => ({ changeType: "ADD" as const, targetType: "TRACK" as const, targetId: track.trackId })),
-      ...composition.tracks.flatMap((track) => track.clips)
-        .filter((clip) => clip.ownerId === userId && clip.approvalStatus === "DRAFT")
-        .map((clip) => ({ changeType: "ADD" as const, targetType: "CLIP" as const, targetId: clip.clipId })),
+      ...draftClips.map((clip) => ({ changeType: "ADD" as const, targetType: "CLIP" as const, targetId: clip.clipId })),
     ];
-    if (!items.length) { setStatus("제출할 새 레이어나 클립이 없습니다."); return; }
+    if (!draftClips.length) { setError("먼저 레이어에 노트나 오디오를 저장해 주세요."); return; }
     setBusy(true); setError(null); setStatus(null);
     try {
-      await submitContribution(composition.project.projectId, composition.project.version, items);
-      await refresh();
-      if (composition.viewerPermission.canReviewContribution) setPending(await getPendingContributions(composition.project.projectId));
-      setStatus("작업을 제출했습니다. 곡 소유자의 승인 후 숏폼 음원에 반영됩니다.");
-    } catch (cause) { setError(errorText(cause)); }
-    finally { setBusy(false); }
-  }
-
-  async function review(contributionId: number, decision: "APPROVED" | "REJECTED") {
-    if (!composition || busy) return;
-    setBusy(true); setError(null);
-    try {
-      await reviewContribution(composition.project.projectId, contributionId, decision);
-      await refresh();
-      setPending(await getPendingContributions(composition.project.projectId));
-      setStatus(decision === "APPROVED" ? "기여를 승인했습니다. 음원 갱신을 눌러 숏폼에 반영하세요." : "기여를 거부했습니다.");
+      await submitContribution(composition.project.projectId, composition.project.version, items, submitComment.trim());
+      setShowSubmitForm(false);
+      go("abyss");
     } catch (cause) { setError(errorText(cause)); }
     finally { setBusy(false); }
   }
@@ -165,6 +147,10 @@ export function StudioScreen({ go, shortId, projectId, onProjectSelected, onDraf
           await reviewContribution(id, pending.contributionId, "APPROVED");
         }
         await refresh();
+        if (latest.project.isPublic) {
+          setStatus("내 변경을 승인했습니다. 갱신된 음원이 곧 숏폼에 반영됩니다.");
+          return;
+        }
       }
       const { exportId } = await publishComposition(id);
       for (let attempt = 0; attempt < 30; attempt++) {
@@ -210,21 +196,27 @@ export function StudioScreen({ go, shortId, projectId, onProjectSelected, onDraf
   if (shortId == null && projectId == null) return <NewProject onCreated={onDraftCreated} onResume={onProjectSelected} onBack={() => go("home")} />;
   if (!composition) return <div className="studio studio-state" role={error ? "alert" : "status"}><p>{error ?? "작곡 데이터를 불러오는 중입니다."}</p>{error && <button onClick={() => go("abyss")}>돌아가기</button>}</div>;
   const { project, tracks, viewerPermission } = composition;
+  const hasOwnDraftClip = tracks.some((track) => track.clips.some((clip) =>
+    clip.ownerId === viewerPermission.userId && clip.approvalStatus === "DRAFT"));
+  const canSubmit = shortId != null && !viewerPermission.canReviewContribution && hasOwnDraftClip;
   return <div className="studio">
     <StudioToolbar title={project.title} bpm={project.bpm} playing={playback.playing} positionMs={playback.positionMs} maxMs={project.maxDurationMs}
-      onPlay={() => { void playback.play(); }} onPause={playback.pause} onSeek={playback.seek} onBack={() => go(shortId ? "abyss" : "home")}>
-      <button className="studio-add" onClick={onAddLayer} disabled={!viewerPermission.canContribute} aria-label="레이어 추가"><i /></button>
+      onPlay={() => { void playback.play(); }} onPause={playback.pause} onSeek={playback.seek} onBack={() => go(returnToNotifications ? "notifications" : shortId ? "abyss" : "home")}>
+      {canSubmit ? <button className="studio-submit" onClick={() => { setError(null); setShowSubmitForm(true); }} disabled={busy}>제출하기</button>
+        : <button className="studio-add" onClick={onAddLayer} disabled={!viewerPermission.canContribute} aria-label="레이어 추가"><i /></button>}
     </StudioToolbar>
-    {error && <p className="studio-error" role="alert">{error}</p>}
-    <div className="studio-workflow">
-      <button onClick={() => { void submitDrafts(); }} disabled={busy || !viewerPermission.canContribute}>작업 제출</button>
-      {viewerPermission.canExport && <button onClick={requestPublish} disabled={busy}>{project.status === "DRAFT" ? "곡 올리기" : "숏폼 음원 갱신"}</button>}
-      {viewerPermission.canReviewContribution && pending.map((item) => <span key={item.contributionId}>{item.nickname}의 기여
-        <button onClick={() => { void review(item.contributionId, "APPROVED"); }} disabled={busy}>승인</button>
-        <button onClick={() => { void review(item.contributionId, "REJECTED"); }} disabled={busy}>거부</button>
-      </span>)}
+    {error && !showSubmitForm && <p className="studio-error" role="alert">{error}</p>}
+    {(viewerPermission.canExport && (project.status === "DRAFT" || hasOwnDraftClip) || status) && <div className="studio-workflow">
+      {viewerPermission.canExport && (project.status === "DRAFT" || hasOwnDraftClip) && <button onClick={requestPublish} disabled={busy}>{project.status === "DRAFT" ? "곡 올리기" : "내 변경 반영"}</button>}
       {status && <span role="status">{status}</span>}
-    </div>
+    </div>}
+    {showSubmitForm && <form className="studio-publish-form studio-submit-form" onSubmit={(event) => { void submitDrafts(event); }} role="dialog" aria-modal="true" aria-labelledby="submit-heading">
+      <h2 id="submit-heading">작업 제출</h2>
+      <p>추가한 레이어를 원곡자에게 보냅니다. 승인되면 숏폼에 반영됩니다.</p>
+      <label>한 줄 코멘트<input value={submitComment} onChange={(event) => setSubmitComment(event.target.value)} maxLength={120} required placeholder="어떤 작업을 추가했나요?" autoFocus /></label>
+      {error && <p role="alert">{error}</p>}
+      <div><button type="button" onClick={() => { setShowSubmitForm(false); setError(null); }} disabled={busy}>취소</button><button type="submit" disabled={busy || !submitComment.trim()}>{busy ? "제출 중..." : "제출하기"}</button></div>
+    </form>}
     {showPublishForm && <form className="studio-publish-form" onSubmit={finishMetadata}>
       <h2>곡 올리기</h2><p>곡 제목을 등록하세요. 앨범 이미지는 선택사항입니다.</p>
       <label>곡 제목<input value={publishTitle} onChange={(event) => setPublishTitle(event.target.value)} required maxLength={100} /></label>

@@ -5,6 +5,7 @@ import { Footer, Header } from "@/components/app/shared";
 import type { View } from "@/features/navigation/types";
 import { ChartsScreen, CommunityScreen, EditProfileScreen, FriendsScreen, HomeScreen, PostsScreen, ProfileScreen, SearchScreen } from "@/features/screens/mobile-screens";
 import { AbyssScreen } from "@/features/screens/abyss-screen";
+import { NotificationsScreen } from "@/features/screens/notifications-screen";
 import { NoteEditorScreen, StudioScreen } from "@/features/screens/studio-screens";
 import { CompositionChoiceScreen, CompositionRecordScreen, CompositionUploadScreen, type CreationMethod } from "@/features/screens/composition-creation-screens";
 import { prepareAudioFile } from "@/features/composition/prepare-audio-file";
@@ -15,6 +16,7 @@ export default function Page() {
   const [view, setView] = useState<View>("home");
   const [compositionTarget, setCompositionTarget] = useState<{ shortId: number | null; projectId: number | null }>({ shortId: null, projectId: null });
   const [editorTarget, setEditorTarget] = useState<{ trackId: number; clipId: number | null } | null>(null);
+  const [reviewOrigin, setReviewOrigin] = useState(false);
   const [choiceBusy, setChoiceBusy] = useState(false);
   const [choiceError, setChoiceError] = useState<string | null>(null);
   const go = useCallback((next: View) => {
@@ -22,11 +24,13 @@ export default function Page() {
     setView(next);
   }, []);
   const joinShort = useCallback((shortId: number) => {
+    setReviewOrigin(false);
     setCompositionTarget({ shortId, projectId: null });
     setView("studio");
   }, []);
   const selectProject = useCallback((projectId: number) => setCompositionTarget((current) => ({ ...current, projectId })), []);
   const startDraft = useCallback((projectId: number) => {
+    setReviewOrigin(false);
     setCompositionTarget({ shortId: null, projectId });
     setChoiceError(null);
     setView("choose");
@@ -63,11 +67,17 @@ export default function Page() {
     setView("note");
   }, []);
   const backToStudio = useCallback(() => setView("studio"), []);
+  const openReviewProject = useCallback((projectId: number) => {
+    setReviewOrigin(true);
+    setCompositionTarget({ shortId: null, projectId });
+    setView("studio");
+  }, []);
   useWebMcpNavigation(go);
 
   const content = useMemo(() => {
     if (view === "home") return <HomeScreen go={go} />;
     if (view === "abyss") return <AbyssScreen onJoin={joinShort} />;
+    if (view === "notifications") return <NotificationsScreen onBack={() => go("home")} onOpenProject={openReviewProject} />;
     if (view === "charts") return <ChartsScreen go={go} />;
     if (view === "posts") return <PostsScreen go={go} />;
     if (view === "friends") return <FriendsScreen />;
@@ -90,14 +100,15 @@ export default function Page() {
       go={go}
       shortId={compositionTarget.shortId}
       projectId={compositionTarget.projectId}
+      returnToNotifications={reviewOrigin}
       onProjectSelected={selectProject}
       onDraftCreated={startDraft}
       onAddLayer={() => { setChoiceError(null); setView("choose"); }}
       onEditTrack={editTrack}
     />;
-  }, [go, view, compositionTarget, editorTarget, joinShort, selectProject, startDraft, chooseLayer, choiceBusy, choiceError, saveAudio, editTrack, backToStudio]);
+  }, [go, view, compositionTarget, editorTarget, joinShort, selectProject, startDraft, chooseLayer, choiceBusy, choiceError, saveAudio, editTrack, backToStudio, openReviewProject, reviewOrigin]);
 
   if (view === "studio" || view === "note") return <main className="studio-shell">{content}</main>;
   const noHeader = view === "charts" || view === "posts" || view === "search";
-  return <main className="page-background"><div className="phone-frame">{!noHeader && <Header blank={view === "friends"} abyss={view === "abyss"} onSearch={() => go("search")} onProfile={() => go("profile")} />}<div className="screen-body">{content}</div><Footer view={view} go={go} /></div></main>;
+  return <main className="page-background"><div className="phone-frame">{!noHeader && <Header blank={view === "friends"} abyss={view === "abyss"} onSearch={() => go("search")} onProfile={() => go("profile")} onNotifications={() => go("notifications")} />}<div className="screen-body">{content}</div><Footer view={view} go={go} /></div></main>;
 }
