@@ -1,16 +1,17 @@
 "use client";
 
-import { useRef, useState, type Dispatch, type SetStateAction } from "react";
+import { useEffect, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import type { MidiNoteDto } from "@/lib/api/composition";
 
 const pitchNames = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+const pitches = Array.from({ length: 128 }, (_, row) => 127 - row);
 const cellWidth = 21;
 const rowHeight = 30;
 
 // Adapted from the team's origin/fix/overall NoteEditorScreen: rows, ruler,
 // pointer drag, edge resize, keyboard movement, and keyboard resize.
 export function TeamPianoRoll({ notes, setNotes, stepTick, maxTick, lengthCells, editable,
-  positionMs, maxDurationMs, onSeek, topPitch }: {
+  positionMs, maxDurationMs, onSeek, initialPitch }: {
   notes: MidiNoteDto[];
   setNotes: Dispatch<SetStateAction<MidiNoteDto[]>>;
   stepTick: number;
@@ -20,13 +21,20 @@ export function TeamPianoRoll({ notes, setNotes, stepTick, maxTick, lengthCells,
   positionMs: number;
   maxDurationMs: number;
   onSeek: (ms: number) => void;
-  topPitch: number;
+  initialPitch: number;
 }) {
-  const pitches = Array.from({ length: 36 }, (_, row) => topPitch - row);
   const columns = Math.ceil(maxTick / stepTick);
   const width = columns * cellWidth;
+  const workspaceRef = useRef<HTMLDivElement>(null);
+  const pan = useRef<{ pointerId: number; x: number; y: number; scrollLeft: number; scrollTop: number;
+    row: number | null; cellLeft: number; moved: boolean } | null>(null);
   const drag = useRef<{ index: number; x: number; y: number; row: number; col: number; durationCells: number; resizing: boolean } | null>(null);
   const [preview, setPreview] = useState<{ index: number; row: number; col: number } | null>(null);
+
+  useEffect(() => {
+    const workspace = workspaceRef.current;
+    if (workspace) workspace.scrollTop = (127 - initialPitch) * rowHeight - (workspace.clientHeight - 30) / 2;
+  }, [initialPitch]);
 
   function overlaps(current: MidiNoteDto[], index: number, pitch: number, startTick: number, durationTick: number) {
     return current.some((note, other) => other !== index && note.pitch === pitch
@@ -63,7 +71,40 @@ export function TeamPianoRoll({ notes, setNotes, stepTick, maxTick, lengthCells,
     onSeek(Math.max(0, Math.min(maxDurationMs, (clientX - bounds.left) / bounds.width * maxDurationMs)));
   }
   const progress = maxDurationMs > 0 ? Math.min(1, positionMs / maxDurationMs) : 0;
-  return <div className="note-workspace team-note-workspace" aria-label="피아노롤">
+  return <div className="note-workspace team-note-workspace" ref={workspaceRef}
+    aria-label="피아노롤, 빈 영역을 위아래로 드래그하여 음역 이동"
+    onPointerDown={(event) => {
+      if (event.button !== 0 || (event.target as Element).closest(".piano-note")) return;
+      const rowElement = (event.target as Element).closest<HTMLElement>(".piano-row");
+      if (!rowElement && !(event.target as Element).closest(".piano-keys")) return;
+      event.preventDefault();
+      const workspace = event.currentTarget;
+      pan.current = { pointerId: event.pointerId, x: event.clientX, y: event.clientY,
+        scrollLeft: workspace.scrollLeft, scrollTop: workspace.scrollTop,
+        row: rowElement ? Number(rowElement.dataset.row) : null,
+        cellLeft: rowElement?.getBoundingClientRect().left ?? 0, moved: false };
+      workspace.setPointerCapture(event.pointerId);
+    }}
+    onPointerMove={(event) => {
+      const origin = pan.current;
+      if (!origin || origin.pointerId !== event.pointerId) return;
+      const dx = event.clientX - origin.x;
+      const dy = event.clientY - origin.y;
+      if (!origin.moved && Math.hypot(dx, dy) < 5) return;
+      origin.moved = true;
+      event.currentTarget.scrollLeft = origin.scrollLeft - dx;
+      event.currentTarget.scrollTop = origin.scrollTop - dy;
+    }}
+    onPointerUp={(event) => {
+      const origin = pan.current;
+      if (!origin || origin.pointerId !== event.pointerId) return;
+      if (event.currentTarget.hasPointerCapture(event.pointerId)) event.currentTarget.releasePointerCapture(event.pointerId);
+      pan.current = null;
+      if (!origin.moved && origin.row !== null) {
+        add(origin.row, Math.max(0, Math.min(columns - 1, Math.floor((origin.x - origin.cellLeft) / cellWidth))));
+      }
+    }}
+    onPointerCancel={() => { pan.current = null; }}>
     <div className="note-ruler-corner" />
     <div className="note-ruler" aria-label="피아노롤 눈금자" style={{ gridTemplateColumns: `repeat(${columns}, ${cellWidth}px)`, width }}>
       {Array.from({ length: columns }, (_, index) => <i key={index} className={index % 8 === 0 ? "bar-tick" : ""}>
@@ -87,12 +128,13 @@ export function TeamPianoRoll({ notes, setNotes, stepTick, maxTick, lengthCells,
     </div>)}</div>
     <div className="piano-roll" style={{ width, height: pitches.length * rowHeight, gridTemplateRows: `repeat(${pitches.length}, ${rowHeight}px)` }}>
       {pitches.map((pitch, row) => <div className={`piano-row ${pitchNames[pitch % 12].includes("#") ? "sharp-row" : "natural-row"}`}
-        style={{ width }} key={pitch}>
+        style={{ width }} data-row={row} key={pitch}>
         <button className="team-note-cell"
           aria-label={`${pitchNames[pitch % 12]}${Math.floor(pitch / 12) - 1} 8분음표 추가`}
-          disabled={!editable} onClick={(event) => {
-            const bounds = event.currentTarget.getBoundingClientRect();
-            add(row, Math.max(0, Math.min(columns - 1, Math.floor((event.clientX - bounds.left) / cellWidth))));
+          disabled={!editable} onKeyDown={(event) => {
+            if (event.key !== "Enter" && event.key !== " ") return;
+            event.preventDefault();
+            add(row, Math.max(0, Math.min(columns - 1, Math.floor(progress * columns))));
           }} />
         {notes.map((note, index) => note.pitch !== pitch ? null : <button key={index} className="piano-note"
           style={{ left: note.startTick / stepTick * cellWidth,

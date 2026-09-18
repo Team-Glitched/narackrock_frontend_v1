@@ -36,6 +36,8 @@
 .team-note-workspace .note-ruler i{border-left:1px solid #dfe5eb;height:10px;align-self:end;font:normal 10px sans-serif;padding-left:3px}
 .team-note-workspace .note-ruler i.bar-tick{height:26px;border-left-width:2px}
 .team-note-workspace .piano-keys{position:sticky;left:0;z-index:5;width:87px;display:grid;grid-auto-rows:30px;background:#fff}
+.team-note-workspace .piano-keys,.team-note-workspace .piano-row>.team-note-cell{cursor:grab;touch-action:none}
+.team-note-workspace .piano-keys:active,.team-note-workspace .piano-row>.team-note-cell:active{cursor:grabbing}
 .team-note-workspace .piano-key{height:30px}
 .team-note-workspace .piano-roll{display:block;position:relative;flex:none;background:none}
 .team-note-workspace .piano-row{height:30px;display:block;padding:0;position:relative;background:#384048}
@@ -48,6 +50,4 @@
 .team-note-workspace .note-playhead-handle{position:absolute;top:0;left:-10px;width:22px;height:26px;border:0;border-radius:0 0 8px 8px;background:#fff;touch-action:none;cursor:ew-resize;z-index:8}
 .studio-toolbar.team-original-toolbar .studio-volume{flex:1;min-width:80px;max-width:220px}
 .studio-toolbar.team-original-toolbar .studio-volume input{min-width:0;width:100%;accent-color:#aab6c2}
-.team-note-range{display:flex;align-items:center;gap:4px;color:#fff;font-size:11px}
-.team-note-range select{background:#343b42;color:#fff;border:1px solid #758394;border-radius:4px;padding:5px;font-size:11px}
 @media(max-width:767px){.studio-shell{padding:0}.studio{border-radius:0}}

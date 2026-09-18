@@ -258,7 +258,7 @@ export function NoteEditorScreen({ projectId, trackId, clipId, onBack, onAddLaye
   const [composition, setComposition] = useState<CompositionDto | null>(null);
   const [notes, setNotes] = useState<MidiNoteDto[]>([]);
   const [lengthCells, setLengthCells] = useState(1);
-  const [range, setRange] = useState(0);
+  const [initialPitch, setInitialPitch] = useState(60);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const track = composition?.tracks.find((item) => item.trackId === trackId);
@@ -286,7 +286,7 @@ export function NoteEditorScreen({ projectId, trackId, clipId, onBack, onAddLaye
       if (cancelled) return;
       const found = result.tracks.find((item) => item.trackId === trackId)?.clips.find((item) => item.clipId === clipId);
       setComposition(result); setNotes(found?.midiNotes ?? []);
-      if (found?.midiNotes?.length) setRange(Math.min(2, Math.max(0, Math.floor((Math.max(...found.midiNotes.map((note) => note.pitch)) - 12) / 36))));
+      setInitialPitch(found?.midiNotes?.[0]?.pitch ?? 60);
     }).catch((cause) => { if (!cancelled) setError(errorText(cause)); });
     return () => { cancelled = true; };
   }, [projectId, trackId, clipId]);
@@ -309,7 +309,6 @@ export function NoteEditorScreen({ projectId, trackId, clipId, onBack, onAddLaye
       onPlay={() => { void playback.play(); }} onPause={playback.pause} onSeek={playback.seek} onBack={onBack}
       piano volume={playback.volume} onVolume={playback.setVolume} onAdd={() => { if (editable) void save(onAddLayer); else onAddLayer(); }}>
       <label className="studio-note-length">길이<select value={lengthCells} onChange={(event) => setLengthCells(Number(event.target.value))}><option value={1}>1/8</option><option value={2}>1/4</option><option value={4}>1/2</option><option value={8}>한 마디</option></select></label>
-      <label className="team-note-range">음역<select value={range} onChange={(event) => setRange(Number(event.target.value))}><option value={0}>C0–B2</option><option value={1}>C3–B5</option><option value={2}>C6–B8</option></select></label>
       <button className="studio-save" onClick={() => { void save(); }} disabled={!editable || busy}>{busy ? "저장 중" : "저장"}</button>
     </StudioToolbar>
     {error && <p className="studio-error" role="alert">{error}</p>}
@@ -317,6 +316,6 @@ export function NoteEditorScreen({ projectId, trackId, clipId, onBack, onAddLaye
     <TeamPianoRoll notes={notes} setNotes={setNotes} stepTick={stepTick}
       maxTick={maxTick - clipStartTick} lengthCells={lengthCells} editable={editable}
       positionMs={playback.positionMs} maxDurationMs={composition.project.maxDurationMs}
-      onSeek={playback.seek} topPitch={47 + range * 36} />
+      onSeek={playback.seek} initialPitch={initialPitch} />
   </div>;
 }
