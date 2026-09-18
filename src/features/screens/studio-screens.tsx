@@ -5,6 +5,8 @@ import { Asset } from "@/components/app/shared";
 import type { Navigate } from "@/features/navigation/types";
 import { useCompositionPlayback } from "@/features/composition/use-composition-playback";
 import { prepareAudioFile } from "@/features/composition/prepare-audio-file";
+import type { AudioSelection } from "@/features/composition/prepare-audio-file";
+import { AudioTrimPicker } from "@/features/composition/audio-trim-picker";
 import { TeamPianoRoll } from "@/features/composition/team-piano-roll";
 import { createAudioClip, createDraftProject, createMidiClip, enterComposition, getComposition, getExport, getPendingContributions, publishComposition, reviewContribution, saveMidiClip, submitContribution, updateProjectMetadata, uploadMedia, type CompositionDto, type MidiNoteDto } from "@/lib/api/composition";
 
@@ -77,7 +79,10 @@ export function StudioScreen({ go, shortId, projectId, returnToNotifications, on
   const [showPublishForm, setShowPublishForm] = useState(false);
   const [publishTitle, setPublishTitle] = useState("");
   const [publishImage, setPublishImage] = useState<File | null>(null);
+  const [pendingAudio, setPendingAudio] = useState<{ trackId: number; file: File; url: string } | null>(null);
   const playback = useCompositionPlayback(composition);
+
+  useEffect(() => () => { if (pendingAudio) URL.revokeObjectURL(pendingAudio.url); }, [pendingAudio]);
 
   useEffect(() => {
     if (shortId == null && projectId == null) return;
@@ -91,18 +96,17 @@ export function StudioScreen({ go, shortId, projectId, returnToNotifications, on
   }, [shortId, projectId, onProjectSelected]);
 
   async function refresh() { if (composition) setComposition(await getComposition(composition.project.projectId)); }
-  async function addAudio(trackId: number, file: File) {
-    if (!composition || busy) return;
+  async function addAudio(trackId: number, file: File, selection: AudioSelection) {
+    if (!composition || busy) throw new Error("잠시 후 다시 시도해 주세요.");
     setBusy(true); setError(null);
     try {
-      const { wav, durationMs } = await prepareAudioFile(file);
+      const { wav, durationMs } = await prepareAudioFile(file, selection);
       if (durationMs > composition.project.maxDurationMs) throw new Error("오디오는 1분 이하여야 합니다.");
       const { bpm, ppq, maxTick, projectId: id } = composition.project;
       const durationTick = Math.max(1, Math.min(maxTick, Math.ceil(durationMs * bpm * ppq / 60_000)));
       await createAudioClip(id, trackId, await uploadMedia(wav, "AUDIO"), durationTick);
       await refresh();
-    } catch (cause) { setError(errorText(cause)); }
-    finally { setBusy(false); }
+    } finally { setBusy(false); }
   }
 
   async function submitDrafts(event: React.FormEvent) {
@@ -223,6 +227,18 @@ export function StudioScreen({ go, shortId, projectId, returnToNotifications, on
       <label>앨범 이미지 (선택)<input type="file" accept="image/png,image/jpeg,image/webp,image/gif" onChange={(event) => setPublishImage(event.target.files?.[0] ?? null)} /></label>
       <div><button type="button" onClick={() => setShowPublishForm(false)}>취소</button><button disabled={busy} type="submit">{busy ? "저장 중..." : "정보 저장"}</button></div>
     </form>}
+    {pendingAudio && <div className="studio-audio-dialog" role="dialog" aria-modal="true" aria-labelledby="audio-trim-heading">
+      <div className="studio-audio-dialog-content">
+        <h2 id="audio-trim-heading">파일 구간 선택</h2>
+        <p>{pendingAudio.file.name}</p>
+        <AudioTrimPicker url={pendingAudio.url} saveLabel="선택 구간을 레이어에 저장"
+          onCancel={() => setPendingAudio(null)}
+          onSave={async (selection) => {
+            await addAudio(pendingAudio.trackId, pendingAudio.file, selection);
+            setPendingAudio(null);
+          }} />
+      </div>
+    </div>}
     <div className="timeline"><div className="timeline-content">
       <div className="ruler">{Array.from({ length: 45 }, (_, index) => <i key={index} />)}</div>
       <div className="studio-playhead" style={{ left: `${120 + playback.positionMs / project.maxDurationMs * 756}px` }} />
@@ -238,7 +254,7 @@ export function StudioScreen({ go, shortId, projectId, returnToNotifications, on
         <div className="studio-track-actions">
           {track.instrument && <button onClick={() => onEditTrack(track.trackId, null)}>+ 노트</button>}
           <label className="studio-upload">+ 파일<input type="file" accept="audio/wav,audio/x-wav,audio/wave,audio/mpeg,audio/mp4,audio/flac" disabled={busy || !viewerPermission.canContribute}
-            onChange={(event) => { const file = event.target.files?.[0]; if (file) void addAudio(track.trackId, file); event.target.value = ""; }} /></label>
+            onChange={(event) => { const file = event.target.files?.[0]; if (file) setPendingAudio({ trackId: track.trackId, file, url: URL.createObjectURL(file) }); event.target.value = ""; }} /></label>
         </div>
       </div>)}
     </div></div>

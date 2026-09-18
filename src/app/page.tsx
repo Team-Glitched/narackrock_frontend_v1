@@ -8,7 +8,7 @@ import { AbyssScreen } from "@/features/screens/abyss-screen";
 import { NotificationsScreen } from "@/features/screens/notifications-screen";
 import { NoteEditorScreen, StudioScreen } from "@/features/screens/studio-screens";
 import { CompositionChoiceScreen, CompositionRecordScreen, CompositionUploadScreen, type CreationMethod } from "@/features/screens/composition-creation-screens";
-import { prepareAudioFile } from "@/features/composition/prepare-audio-file";
+import { prepareAudioFile, type AudioSelection } from "@/features/composition/prepare-audio-file";
 import { createAudioClip, createTrack, getComposition, uploadMedia } from "@/lib/api/composition";
 import { useWebMcpNavigation } from "@/hooks/use-webmcp-navigation";
 
@@ -49,10 +49,10 @@ export default function Page() {
       setChoiceError(cause instanceof Error ? cause.message : "레이어를 만들지 못했습니다.");
     } finally { setChoiceBusy(false); }
   }, [compositionTarget.projectId, choiceBusy]);
-  const saveAudio = useCallback(async (file: File) => {
+  const saveAudio = useCallback(async (file: File, selection?: AudioSelection) => {
     const projectId = compositionTarget.projectId;
     if (projectId == null) throw new Error("곡을 먼저 선택해 주세요.");
-    const { wav, durationMs } = await prepareAudioFile(file);
+    const { wav, durationMs } = await prepareAudioFile(file, selection);
     const composition = await getComposition(projectId);
     if (durationMs > composition.project.maxDurationMs) throw new Error("오디오는 1분 이하여야 합니다.");
     const mediaFileId = await uploadMedia(wav, "AUDIO");

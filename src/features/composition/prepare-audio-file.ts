@@ -2,7 +2,9 @@
 
 const sampleRate = 44_100;
 
-export async function prepareAudioFile(file: File): Promise<{ wav: File; durationMs: number }> {
+export type AudioSelection = { startMs: number; endMs: number };
+
+export async function prepareAudioFile(file: File, selection?: AudioSelection): Promise<{ wav: File; durationMs: number }> {
   const decoder = new AudioContext();
   let decoded: AudioBuffer;
   try {
@@ -12,14 +14,24 @@ export async function prepareAudioFile(file: File): Promise<{ wav: File; duratio
   } finally {
     await decoder.close();
   }
-  if (decoded.duration <= 0 || decoded.duration > 60) throw new Error("오디오는 1분 이하여야 합니다.");
+  const fullDurationMs = decoded.duration * 1000;
+  const startMs = selection?.startMs ?? 0;
+  const requestedEndMs = selection?.endMs ?? fullDurationMs;
+  if (!Number.isFinite(fullDurationMs) || !Number.isFinite(startMs) || !Number.isFinite(requestedEndMs)
+    || startMs < 0 || startMs >= fullDurationMs || requestedEndMs <= startMs
+    || requestedEndMs > fullDurationMs + 100) {
+    throw new Error("선택한 오디오 구간이 올바르지 않습니다.");
+  }
+  const endMs = Math.min(requestedEndMs, fullDurationMs);
+  const selectedDurationMs = endMs - startMs;
+  if (selectedDurationMs > 60_000) throw new Error("선택 구간은 1분 이하여야 합니다.");
 
-  const frames = Math.ceil(decoded.duration * sampleRate);
+  const frames = Math.max(1, Math.floor(selectedDurationMs * sampleRate / 1000));
   const offline = new OfflineAudioContext(2, frames, sampleRate);
   const source = offline.createBufferSource();
   source.buffer = decoded;
   source.connect(offline.destination);
-  source.start();
+  source.start(0, startMs / 1000, selectedDurationMs / 1000);
   const rendered = await offline.startRendering();
   const bytes = new ArrayBuffer(44 + frames * 4);
   const view = new DataView(bytes);
@@ -40,5 +52,5 @@ export async function prepareAudioFile(file: File): Promise<{ wav: File; duratio
     view.setInt16(46 + frame * 4, Math.round(r * 32767), true);
   }
   const name = `${file.name.replace(/\.[^.]+$/, "")}.wav`;
-  return { wav: new File([bytes], name, { type: "audio/wav" }), durationMs: Math.ceil(decoded.duration * 1000) };
+  return { wav: new File([bytes], name, { type: "audio/wav" }), durationMs: Math.ceil(frames * 1000 / sampleRate) };
 }

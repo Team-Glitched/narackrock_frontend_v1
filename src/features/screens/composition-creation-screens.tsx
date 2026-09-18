@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Asset } from "@/components/app/shared";
+import { AudioTrimPicker } from "@/features/composition/audio-trim-picker";
+import type { AudioSelection } from "@/features/composition/prepare-audio-file";
 
 export type CreationMethod = "upload" | "record" | "note";
 
@@ -28,35 +30,23 @@ export function CompositionChoiceScreen({ onChoose, onBack, busy, error }: {
 
 // The file selection and preview follow the team's UploadScreen; saving is wired to the project API.
 export function CompositionUploadScreen({ onSave, onBack }: {
-  onSave: (file: File) => Promise<void>;
+  onSave: (file: File, selection: AudioSelection) => Promise<void>;
   onBack: () => void;
 }) {
-  const [file, setFile] = useState<File | null>(null);
-  const [url, setUrl] = useState("");
-  const [error, setError] = useState("");
-  const [busy, setBusy] = useState(false);
-  useEffect(() => () => { if (url) URL.revokeObjectURL(url); }, [url]);
-  async function save() {
-    if (!file || busy) return;
-    setBusy(true); setError("");
-    try { await onSave(file); }
-    catch (cause) { setError(cause instanceof Error ? cause.message : "파일을 저장하지 못했습니다."); }
-    finally { setBusy(false); }
-  }
+  const [selected, setSelected] = useState<{ file: File; url: string } | null>(null);
+  useEffect(() => () => { if (selected) URL.revokeObjectURL(selected.url); }, [selected]);
   return <div className="upload-view scroll-content">
     <button className="creation-back" onClick={onBack}>← 다른 방식 선택</button>
-    <label className="upload-area"><span>{file?.name || "오디오 파일 선택"}</span>
+    <label className="upload-area"><span>{selected?.file.name || "오디오 파일 선택"}</span>
       <input type="file" accept="audio/wav,audio/x-wav,audio/wave,audio/mpeg,audio/mp4,audio/flac"
         onChange={(event) => {
           const selected = event.target.files?.[0] ?? null;
-          setFile(selected); setUrl(selected ? URL.createObjectURL(selected) : ""); setError("");
+          if (selected) setSelected({ file: selected, url: URL.createObjectURL(selected) });
+          event.target.value = "";
         }} />
     </label>
-    {url && <audio controls src={url} />}
-    {error && <p role="alert">{error}</p>}
-    <button className="purple-pill" disabled={!file || busy} onClick={() => { void save(); }}>
-      {busy ? "올리는 중..." : "레이어에 파일 저장"}
-    </button>
+    {selected && <AudioTrimPicker key={selected.url} url={selected.url}
+      onSave={(selection) => onSave(selected.file, selection)} saveLabel="선택 구간을 레이어에 저장" />}
   </div>;
 }
 
