@@ -261,13 +261,12 @@ export function NoteEditorScreen({ projectId, trackId, clipId, onBack, onAddLaye
   const clipStartTick = clip?.startTick ?? 0;
   const preview = useMemo(() => {
     if (!composition || !track) return null;
-    return { ...composition, tracks: composition.tracks.map((item) => item.trackId !== track.trackId ? item : {
-      ...item, clips: clip ? item.clips.map((candidate) => candidate.clipId === clip.clipId ? { ...candidate, midiNotes: notes } : candidate)
-        : [...item.clips, { clipId: -1, ownerId: composition.viewerPermission.userId, clipType: "MIDI" as const,
-          sourceType: "MIDI_INPUT", mediaFileId: null, mediaUrl: null, startTick: 0,
-          durationTick: maxTick, startTimeMs: 0, durationMs: composition.project.maxDurationMs,
-          clipOffsetMs: 0, approvalStatus: "DRAFT", midiNotes: notes }],
-    }) };
+    const previewClip = clip ? { ...clip, midiNotes: notes }
+      : { clipId: -1, ownerId: composition.viewerPermission.userId, clipType: "MIDI" as const,
+        sourceType: "MIDI_INPUT", mediaFileId: null, mediaUrl: null, startTick: 0,
+        durationTick: maxTick, startTimeMs: 0, durationMs: composition.project.maxDurationMs,
+        clipOffsetMs: 0, approvalStatus: "DRAFT", midiNotes: notes };
+    return { ...composition, tracks: [{ ...track, isMuted: false, isSolo: false, clips: [previewClip] }] };
   }, [composition, track, clip, notes, maxTick]);
   const playback = useCompositionPlayback(preview);
 
