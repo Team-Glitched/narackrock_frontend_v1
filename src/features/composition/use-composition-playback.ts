@@ -6,6 +6,16 @@ import type { CompositionDto } from "@/lib/api/composition";
 const frequency = (pitch: number) => 440 * Math.pow(2, (pitch - 69) / 12);
 const pianoSamplePitches = [21, 24, 36, 48];
 
+export function scheduleMidiEnvelope(gain: AudioParam, start: number, end: number, level: number) {
+  const duration = Math.max(0, end - start);
+  const attack = Math.min(0.01, duration / 4);
+  const release = Math.min(0.08, duration / 4);
+  gain.setValueAtTime(0, start);
+  gain.linearRampToValueAtTime(level, start + attack);
+  gain.setValueAtTime(level, end - release);
+  gain.linearRampToValueAtTime(0, end);
+}
+
 export function useCompositionPlayback(composition: CompositionDto | null) {
   const [playing, setPlaying] = useState(false);
   const [positionMs, setPositionMs] = useState(0);
@@ -102,26 +112,41 @@ export function useCompositionPlayback(composition: CompositionDto | null) {
             const start = now + Math.max(0, noteStartMs - position) / 1000;
             const end = now + (noteEndMs - position) / 1000;
             const gain = context.createGain();
-            gain.gain.setValueAtTime(0, start);
-            gain.gain.linearRampToValueAtTime(volume * (note.velocity / 127) * 0.8, start + 0.01);
-            gain.gain.exponentialRampToValueAtTime(0.001, Math.max(start + 0.02, end));
             gain.connect(masterGain);
             const nearest = pianoSamplePitches.reduce((best, pitch) => Math.abs(note.pitch - pitch) < Math.abs(note.pitch - best) ? pitch : best);
             const sample = pianoSamplesRef.current?.get(nearest);
             if (sample) {
+              scheduleMidiEnvelope(gain.gain, start, end, volume * (note.velocity / 127) * 0.8);
               const source = context.createBufferSource();
               source.buffer = sample;
               source.playbackRate.value = frequency(note.pitch) / frequency(nearest);
+              source.loop = end - start > sample.duration / source.playbackRate.value;
               source.connect(gain);
               source.start(start);
               source.stop(end + 0.01);
               scheduledSourcesRef.current.push(source);
+              if (end - start >= 1) {
+                // The piano recording naturally fades; keep a quiet pitched sustain
+                // underneath it until the MIDI note's actual end.
+                const sustain = context.createOscillator();
+                const sustainGain = context.createGain();
+                const sustainLevel = volume * (note.velocity / 127) * 0.06;
+                sustain.type = "triangle";
+                sustain.frequency.value = frequency(note.pitch);
+                sustainGain.gain.setValueAtTime(0, start);
+                sustainGain.gain.linearRampToValueAtTime(sustainLevel, start + 0.5);
+                sustainGain.gain.setValueAtTime(sustainLevel, end - 0.08);
+                sustainGain.gain.linearRampToValueAtTime(0, end);
+                sustain.connect(sustainGain).connect(masterGain);
+                sustain.start(start);
+                sustain.stop(end + 0.01);
+                scheduledSourcesRef.current.push(sustain);
+              }
             } else {
+              scheduleMidiEnvelope(gain.gain, start, end, volume * (note.velocity / 127) * 0.18);
               const oscillator = context.createOscillator();
               oscillator.type = "triangle";
               oscillator.frequency.value = frequency(note.pitch);
-              gain.gain.setValueAtTime(0, start);
-              gain.gain.linearRampToValueAtTime(volume * (note.velocity / 127) * 0.18, start + 0.01);
               oscillator.connect(gain);
               oscillator.start(start);
               oscillator.stop(end + 0.01);
