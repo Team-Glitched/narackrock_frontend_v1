@@ -104,8 +104,10 @@ export function AbyssScreen({ onJoin }: { onJoin: (shortId: number) => void }) {
   return (
     <div className="abyss-view">
       <div className="abyss-song">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={current.albumImageUrl || "/figma/abyss-album.png"} alt={`${current.title} 앨범 커버`} className="abyss-cover" />
+        {current.albumImageUrl ? <>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={current.albumImageUrl} alt={`${current.title} 앨범 커버`} className="abyss-cover" />
+        </> : <div className="abyss-cover abyss-cover-empty" role="img" aria-label={`${current.title} 앨범 이미지 없음`}><span>♪</span></div>}
         <div className="abyss-title">
           <h1>{current.title}</h1>
           <p>{current.author.nickname} <i /> <button disabled>작곡 참여자 보기</button></p>
