@@ -6,12 +6,17 @@ import type { View } from "@/features/navigation/types";
 import { ChartsScreen, CommunityScreen, EditProfileScreen, FriendsScreen, HomeScreen, PostsScreen, ProfileScreen, SearchScreen } from "@/features/screens/mobile-screens";
 import { AbyssScreen } from "@/features/screens/abyss-screen";
 import { NoteEditorScreen, StudioScreen } from "@/features/screens/studio-screens";
+import { CompositionChoiceScreen, CompositionRecordScreen, CompositionUploadScreen, type CreationMethod } from "@/features/screens/composition-creation-screens";
+import { prepareAudioFile } from "@/features/composition/prepare-audio-file";
+import { createAudioClip, createTrack, getComposition, uploadMedia } from "@/lib/api/composition";
 import { useWebMcpNavigation } from "@/hooks/use-webmcp-navigation";
 
 export default function Page() {
   const [view, setView] = useState<View>("home");
   const [compositionTarget, setCompositionTarget] = useState<{ shortId: number | null; projectId: number | null }>({ shortId: null, projectId: null });
   const [editorTarget, setEditorTarget] = useState<{ trackId: number; clipId: number | null } | null>(null);
+  const [choiceBusy, setChoiceBusy] = useState(false);
+  const [choiceError, setChoiceError] = useState<string | null>(null);
   const go = useCallback((next: View) => {
     if (next === "studio") setCompositionTarget({ shortId: null, projectId: null });
     setView(next);
@@ -21,6 +26,38 @@ export default function Page() {
     setView("studio");
   }, []);
   const selectProject = useCallback((projectId: number) => setCompositionTarget((current) => ({ ...current, projectId })), []);
+  const startDraft = useCallback((projectId: number) => {
+    setCompositionTarget({ shortId: null, projectId });
+    setChoiceError(null);
+    setView("choose");
+  }, []);
+  const chooseLayer = useCallback(async (method: CreationMethod) => {
+    const projectId = compositionTarget.projectId;
+    if (projectId == null || choiceBusy) return;
+    if (method !== "note") { setView(method); return; }
+    setChoiceBusy(true); setChoiceError(null);
+    try {
+      const composition = await getComposition(projectId);
+      const { trackId } = await createTrack(projectId, `피아노롤 ${composition.tracks.length + 1}`, "piano", composition.tracks.length);
+      setEditorTarget({ trackId, clipId: null });
+      setView("note");
+    } catch (cause) {
+      setChoiceError(cause instanceof Error ? cause.message : "레이어를 만들지 못했습니다.");
+    } finally { setChoiceBusy(false); }
+  }, [compositionTarget.projectId, choiceBusy]);
+  const saveAudio = useCallback(async (file: File) => {
+    const projectId = compositionTarget.projectId;
+    if (projectId == null) throw new Error("곡을 먼저 선택해 주세요.");
+    const { wav, durationMs } = await prepareAudioFile(file);
+    const composition = await getComposition(projectId);
+    if (durationMs > composition.project.maxDurationMs) throw new Error("오디오는 1분 이하여야 합니다.");
+    const mediaFileId = await uploadMedia(wav, "AUDIO");
+    const { trackId } = await createTrack(projectId, `오디오 ${composition.tracks.length + 1}`, null, composition.tracks.length);
+    const { bpm, ppq, maxTick } = composition.project;
+    const durationTick = Math.max(1, Math.min(maxTick, Math.ceil(durationMs * bpm * ppq / 60_000)));
+    await createAudioClip(projectId, trackId, mediaFileId, durationTick);
+    setView("studio");
+  }, [compositionTarget.projectId]);
   const editTrack = useCallback((trackId: number, clipId: number | null) => {
     setEditorTarget({ trackId, clipId });
     setView("note");
@@ -38,20 +75,27 @@ export default function Page() {
     if (view === "community") return <CommunityScreen />;
     if (view === "profile") return <ProfileScreen go={go} />;
     if (view === "edit") return <EditProfileScreen />;
+    if (view === "choose") return <CompositionChoiceScreen onChoose={(method) => { void chooseLayer(method); }}
+      onBack={() => setView("studio")} busy={choiceBusy} error={choiceError} />;
+    if (view === "upload") return <CompositionUploadScreen onSave={saveAudio} onBack={() => setView("choose")} />;
+    if (view === "record") return <CompositionRecordScreen onSave={saveAudio} onBack={() => setView("choose")} />;
     if (view === "note") return <NoteEditorScreen
       projectId={compositionTarget.projectId}
       trackId={editorTarget?.trackId ?? null}
       clipId={editorTarget?.clipId ?? null}
       onBack={backToStudio}
+      onAddLayer={() => { setChoiceError(null); setView("choose"); }}
     />;
     return <StudioScreen
       go={go}
       shortId={compositionTarget.shortId}
       projectId={compositionTarget.projectId}
       onProjectSelected={selectProject}
+      onDraftCreated={startDraft}
+      onAddLayer={() => { setChoiceError(null); setView("choose"); }}
       onEditTrack={editTrack}
     />;
-  }, [go, view, compositionTarget, editorTarget, joinShort, selectProject, editTrack, backToStudio]);
+  }, [go, view, compositionTarget, editorTarget, joinShort, selectProject, startDraft, chooseLayer, choiceBusy, choiceError, saveAudio, editTrack, backToStudio]);
 
   if (view === "studio" || view === "note") return <main className="studio-shell">{content}</main>;
   const noHeader = view === "charts" || view === "posts" || view === "search";

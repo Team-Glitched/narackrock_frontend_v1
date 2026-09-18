@@ -25,7 +25,12 @@ export async function apiRequest<T>(path: string, init?: RequestInit): Promise<T
     headers,
     credentials: init?.credentials ?? "omit",
   });
-  if (!response.ok) throw new ApiError(response.status, await response.text());
+  if (!response.ok) {
+    const body = await response.text();
+    let message = body;
+    try { message = (JSON.parse(body) as { message?: string }).message || body; } catch { /* plain text response */ }
+    throw new ApiError(response.status, message);
+  }
   if (response.status === 204) return undefined as T;
   return response.json() as Promise<T>;
 }

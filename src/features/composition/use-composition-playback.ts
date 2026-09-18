@@ -4,29 +4,44 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { CompositionDto } from "@/lib/api/composition";
 
 const frequency = (pitch: number) => 440 * Math.pow(2, (pitch - 69) / 12);
+const pianoSamplePitches = [21, 24, 36, 48];
 
 export function useCompositionPlayback(composition: CompositionDto | null) {
   const [playing, setPlaying] = useState(false);
   const [positionMs, setPositionMs] = useState(0);
+  const [volume, setVolumeState] = useState(20);
+  const volumeRef = useRef(20);
+  const masterGainRef = useRef<GainNode | null>(null);
   const positionRef = useRef(0);
   const contextRef = useRef<AudioContext | null>(null);
-  const oscillatorsRef = useRef<OscillatorNode[]>([]);
+  const scheduledSourcesRef = useRef<AudioScheduledSourceNode[]>([]);
+  const pianoSamplesRef = useRef<Map<number, AudioBuffer> | null>(null);
+  const playRequestRef = useRef(0);
   const audioRef = useRef<HTMLAudioElement[]>([]);
   const timersRef = useRef<number[]>([]);
   const intervalRef = useRef<number | null>(null);
+
+  const setVolume = useCallback((next: number) => {
+    const value = Math.max(0, Math.min(100, next));
+    volumeRef.current = value;
+    setVolumeState(value);
+    if (masterGainRef.current) masterGainRef.current.gain.value = value / 100;
+    audioRef.current.forEach((audio) => { audio.volume = Number(audio.dataset.trackVolume ?? 1) * value / 100; });
+  }, []);
 
   const stopSources = useCallback(() => {
     if (intervalRef.current !== null) window.clearInterval(intervalRef.current);
     intervalRef.current = null;
     timersRef.current.forEach(window.clearTimeout);
     timersRef.current = [];
-    oscillatorsRef.current.forEach((node) => { try { node.stop(); } catch { /* already stopped */ } });
-    oscillatorsRef.current = [];
+    scheduledSourcesRef.current.forEach((node) => { try { node.stop(); } catch { /* already stopped */ } });
+    scheduledSourcesRef.current = [];
     audioRef.current.forEach((audio) => { audio.pause(); audio.src = ""; });
     audioRef.current = [];
   }, []);
 
   const pause = useCallback(() => {
+    playRequestRef.current++;
     stopSources();
     setPlaying(false);
   }, [stopSources]);
@@ -39,6 +54,7 @@ export function useCompositionPlayback(composition: CompositionDto | null) {
 
   const play = useCallback(async () => {
     if (!composition) return;
+    const request = ++playRequestRef.current;
     stopSources();
     const tickMs = 60_000 / (composition.project.bpm * composition.project.ppq);
     const hasSolo = composition.tracks.some((track) => track.isSolo && !track.isMuted);
@@ -56,6 +72,22 @@ export function useCompositionPlayback(composition: CompositionDto | null) {
     const context = contextRef.current ?? new AudioContext();
     contextRef.current = context;
     await context.resume();
+    if (!pianoSamplesRef.current && composition.tracks.some((track) => track.clips.some((clip) => clip.clipType === "MIDI"))) {
+      try {
+        const samples = await Promise.all(pianoSamplePitches.map(async (pitch) => {
+          const name = pitch === 21 ? "A0" : `C${pitch / 12 - 1}`;
+          const response = await fetch(`/audio/piano/${name}.mp3`);
+          if (!response.ok) throw new Error("피아노 샘플을 불러오지 못했습니다.");
+          return [pitch, await context.decodeAudioData(await response.arrayBuffer())] as const;
+        }));
+        pianoSamplesRef.current = new Map(samples);
+      } catch { pianoSamplesRef.current = new Map(); }
+    }
+    if (request !== playRequestRef.current) return;
+    const masterGain = masterGainRef.current ?? context.createGain();
+    if (!masterGainRef.current) masterGain.connect(context.destination);
+    masterGainRef.current = masterGain;
+    masterGain.gain.setValueAtTime(volumeRef.current / 100, context.currentTime);
     const now = context.currentTime;
 
     for (const track of composition.tracks) {
@@ -69,24 +101,40 @@ export function useCompositionPlayback(composition: CompositionDto | null) {
             if (noteEndMs <= position) continue;
             const start = now + Math.max(0, noteStartMs - position) / 1000;
             const end = now + (noteEndMs - position) / 1000;
-            const oscillator = context.createOscillator();
             const gain = context.createGain();
-            oscillator.type = "triangle";
-            oscillator.frequency.value = frequency(note.pitch);
             gain.gain.setValueAtTime(0, start);
-            gain.gain.linearRampToValueAtTime(volume * (note.velocity / 127) * 0.18, start + 0.01);
+            gain.gain.linearRampToValueAtTime(volume * (note.velocity / 127) * 0.8, start + 0.01);
             gain.gain.exponentialRampToValueAtTime(0.001, Math.max(start + 0.02, end));
-            oscillator.connect(gain).connect(context.destination);
-            oscillator.start(start);
-            oscillator.stop(end + 0.01);
-            oscillatorsRef.current.push(oscillator);
+            gain.connect(masterGain);
+            const nearest = pianoSamplePitches.reduce((best, pitch) => Math.abs(note.pitch - pitch) < Math.abs(note.pitch - best) ? pitch : best);
+            const sample = pianoSamplesRef.current?.get(nearest);
+            if (sample) {
+              const source = context.createBufferSource();
+              source.buffer = sample;
+              source.playbackRate.value = frequency(note.pitch) / frequency(nearest);
+              source.connect(gain);
+              source.start(start);
+              source.stop(end + 0.01);
+              scheduledSourcesRef.current.push(source);
+            } else {
+              const oscillator = context.createOscillator();
+              oscillator.type = "triangle";
+              oscillator.frequency.value = frequency(note.pitch);
+              gain.gain.setValueAtTime(0, start);
+              gain.gain.linearRampToValueAtTime(volume * (note.velocity / 127) * 0.18, start + 0.01);
+              oscillator.connect(gain);
+              oscillator.start(start);
+              oscillator.stop(end + 0.01);
+              scheduledSourcesRef.current.push(oscillator);
+            }
           }
         } else if (clip.mediaUrl) {
           const startMs = clip.startTimeMs;
           const endMs = startMs + clip.durationMs;
           if (endMs <= position) continue;
           const audio = new Audio(clip.mediaUrl);
-          audio.volume = volume;
+          audio.dataset.trackVolume = String(volume);
+          audio.volume = volume * volumeRef.current / 100;
           audio.preload = "auto";
           audioRef.current.push(audio);
           const begin = () => {
@@ -111,10 +159,12 @@ export function useCompositionPlayback(composition: CompositionDto | null) {
   }, [composition, stopSources]);
 
   useEffect(() => () => {
+    playRequestRef.current++;
     stopSources();
     void contextRef.current?.close();
     contextRef.current = null;
+    masterGainRef.current = null;
   }, [stopSources]);
 
-  return { playing, positionMs, play, pause, seek };
+  return { playing, positionMs, volume, setVolume, play, pause, seek };
 }

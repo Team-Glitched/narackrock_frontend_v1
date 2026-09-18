@@ -109,7 +109,7 @@ export async function createDraftProject() {
   return data<{ projectId: number }>("/api/v1/projects/drafts", { method: "POST" });
 }
 
-export async function updateProjectMetadata(projectId: number, title: string, albumImageFileId: number) {
+export async function updateProjectMetadata(projectId: number, title: string, albumImageFileId: number | null) {
   return data<void>(`/api/v1/projects/${projectId}/metadata`, {
     method: "PATCH", body: JSON.stringify({ title, albumImageFileId }),
   });

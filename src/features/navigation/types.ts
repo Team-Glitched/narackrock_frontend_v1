@@ -1,10 +1,11 @@
 export type View =
   | "home" | "abyss" | "charts" | "posts" | "friends" | "search"
-  | "community" | "profile" | "edit" | "studio" | "note";
+  | "community" | "profile" | "edit" | "studio" | "note"
+  | "choose" | "upload" | "record";
 
 export type Navigate = (view: View) => void;
 
 export const views: View[] = [
   "home", "abyss", "charts", "posts", "friends", "search",
-  "community", "profile", "edit", "studio", "note",
+  "community", "profile", "edit", "studio", "note", "choose", "upload", "record",
 ];
