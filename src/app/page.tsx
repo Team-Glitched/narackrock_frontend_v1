@@ -15,12 +15,14 @@ import { useWebMcpNavigation } from "@/hooks/use-webmcp-navigation";
 export default function Page() {
   const [view, setView] = useState<View>("home");
   const [compositionTarget, setCompositionTarget] = useState<{ shortId: number | null; projectId: number | null }>({ shortId: null, projectId: null });
+  const [abyssTargetShortId, setAbyssTargetShortId] = useState<number | null>(null);
   const [editorTarget, setEditorTarget] = useState<{ trackId: number; clipId: number | null } | null>(null);
   const [reviewOrigin, setReviewOrigin] = useState(false);
   const [choiceBusy, setChoiceBusy] = useState(false);
   const [choiceError, setChoiceError] = useState<string | null>(null);
   const go = useCallback((next: View) => {
     if (next === "studio") setCompositionTarget({ shortId: null, projectId: null });
+    if (next === "abyss") setAbyssTargetShortId(null);
     setView(next);
   }, []);
   const joinShort = useCallback((shortId: number) => {
@@ -29,6 +31,10 @@ export default function Page() {
     setView("studio");
   }, []);
   const selectProject = useCallback((projectId: number) => setCompositionTarget((current) => ({ ...current, projectId })), []);
+  const returnToJoinedShort = useCallback((shortId: number) => {
+    setAbyssTargetShortId(shortId);
+    setView("abyss");
+  }, []);
   const startDraft = useCallback((projectId: number) => {
     setReviewOrigin(false);
     setCompositionTarget({ shortId: null, projectId });
@@ -76,7 +82,7 @@ export default function Page() {
 
   const content = useMemo(() => {
     if (view === "home") return <HomeScreen go={go} />;
-    if (view === "abyss") return <AbyssScreen onJoin={joinShort} />;
+    if (view === "abyss") return <AbyssScreen onJoin={joinShort} initialShortId={abyssTargetShortId} />;
     if (view === "notifications") return <NotificationsScreen onBack={() => go("home")} onOpenProject={openReviewProject} />;
     if (view === "charts") return <ChartsScreen go={go} />;
     if (view === "posts") return <PostsScreen go={go} />;
@@ -101,12 +107,13 @@ export default function Page() {
       shortId={compositionTarget.shortId}
       projectId={compositionTarget.projectId}
       returnToNotifications={reviewOrigin}
+      onReturnToShort={returnToJoinedShort}
       onProjectSelected={selectProject}
       onDraftCreated={startDraft}
       onAddLayer={() => { setChoiceError(null); setView("choose"); }}
       onEditTrack={editTrack}
     />;
-  }, [go, view, compositionTarget, editorTarget, joinShort, selectProject, startDraft, chooseLayer, choiceBusy, choiceError, saveAudio, editTrack, backToStudio, openReviewProject, reviewOrigin]);
+  }, [go, view, compositionTarget, abyssTargetShortId, editorTarget, joinShort, selectProject, returnToJoinedShort, startDraft, chooseLayer, choiceBusy, choiceError, saveAudio, editTrack, backToStudio, openReviewProject, reviewOrigin]);
 
   if (view === "studio" || view === "note") return <main className="studio-shell">{content}</main>;
   const noHeader = view === "charts" || view === "posts" || view === "search";

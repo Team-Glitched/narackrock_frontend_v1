@@ -2,13 +2,14 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Asset } from "@/components/app/shared";
+import { initialShortIndex } from "@/features/abyss/initial-short";
 import { getShorts } from "@/lib/api/shorts";
 import type { ShortItemDto, ShortsPageDto } from "@/lib/api/contracts";
 
 type FeedState = "loading" | "ready" | "error";
 type PageInfo = ShortsPageDto["page"];
 
-export function AbyssScreen({ onJoin }: { onJoin: (shortId: number) => void }) {
+export function AbyssScreen({ onJoin, initialShortId }: { onJoin: (shortId: number) => void; initialShortId?: number | null }) {
   const [shorts, setShorts] = useState<ShortItemDto[]>([]);
   const [page, setPage] = useState<PageInfo | null>(null);
   const [index, setIndex] = useState(0);
@@ -24,19 +25,26 @@ export function AbyssScreen({ onJoin }: { onJoin: (shortId: number) => void }) {
 
   useEffect(() => {
     const controller = new AbortController();
-    getShorts(undefined, controller.signal)
-      .then((result) => {
-        if (controller.signal.aborted) return;
-        setShorts(result.items);
-        setPage(result.page);
-        setIndex(0);
-        setFeedState("ready");
-      })
-      .catch(() => {
+    (async () => {
+      let result = await getShorts(undefined, controller.signal);
+      const items = [...result.items];
+      const seenCursors = new Set<number>();
+      while (initialShortId != null && !items.some((item) => item.shortId === initialShortId)
+        && result.page.hasMore && result.page.nextCursor != null && !seenCursors.has(result.page.nextCursor)) {
+        seenCursors.add(result.page.nextCursor);
+        result = await getShorts(result.page.nextCursor, controller.signal);
+        items.push(...result.items);
+      }
+      if (controller.signal.aborted) return;
+      setShorts(items);
+      setPage(result.page);
+      setIndex(initialShortIndex(items, initialShortId));
+      setFeedState("ready");
+    })().catch(() => {
         if (!controller.signal.aborted) setFeedState("error");
       });
     return () => controller.abort();
-  }, [reloadKey]);
+  }, [reloadKey, initialShortId]);
 
   const current = shorts[index];
   const mediaUrl = current?.mediaUrl?.trim() || null;

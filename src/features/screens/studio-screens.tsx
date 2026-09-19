@@ -7,6 +7,7 @@ import { useCompositionPlayback } from "@/features/composition/use-composition-p
 import { prepareAudioFile } from "@/features/composition/prepare-audio-file";
 import type { AudioSelection } from "@/features/composition/prepare-audio-file";
 import { AudioTrimPicker } from "@/features/composition/audio-trim-picker";
+import { hasOwnDraftClip, shouldShowContributionSubmit } from "@/features/composition/contribution-session";
 import { TeamPianoRoll } from "@/features/composition/team-piano-roll";
 import { createAudioClip, createDraftProject, createMidiClip, enterComposition, getComposition, getExport, getPendingContributions, publishComposition, reviewContribution, saveMidiClip, submitContribution, updateProjectMetadata, uploadMedia, type CompositionDto, type MidiNoteDto } from "@/lib/api/composition";
 
@@ -64,9 +65,10 @@ function NewProject({ onCreated, onResume, onBack }: { onCreated: (id: number) =
   </div>;
 }
 
-export function StudioScreen({ go, shortId, projectId, returnToNotifications, onProjectSelected, onDraftCreated, onAddLayer, onEditTrack }: {
+export function StudioScreen({ go, shortId, projectId, returnToNotifications, onReturnToShort, onProjectSelected, onDraftCreated, onAddLayer, onEditTrack }: {
   go: Navigate; shortId: number | null; projectId: number | null;
   returnToNotifications?: boolean;
+  onReturnToShort: (shortId: number) => void;
   onProjectSelected: (id: number) => void; onDraftCreated: (id: number) => void;
   onAddLayer: () => void; onEditTrack: (trackId: number, clipId: number | null) => void;
 }) {
@@ -126,7 +128,7 @@ export function StudioScreen({ go, shortId, projectId, returnToNotifications, on
     try {
       await submitContribution(composition.project.projectId, composition.project.version, items, submitComment.trim());
       setShowSubmitForm(false);
-      go("abyss");
+      onReturnToShort(shortId!);
     } catch (cause) { setError(errorText(cause)); }
     finally { setBusy(false); }
   }
@@ -198,20 +200,20 @@ export function StudioScreen({ go, shortId, projectId, returnToNotifications, on
   }
 
   if (shortId == null && projectId == null) return <NewProject onCreated={onDraftCreated} onResume={onProjectSelected} onBack={() => go("home")} />;
-  if (!composition) return <div className="studio studio-state" role={error ? "alert" : "status"}><p>{error ?? "작곡 데이터를 불러오는 중입니다."}</p>{error && <button onClick={() => go("abyss")}>돌아가기</button>}</div>;
+  if (!composition) return <div className="studio studio-state" role={error ? "alert" : "status"}><p>{error ?? "작곡 데이터를 불러오는 중입니다."}</p>{error && <button onClick={() => shortId == null ? go("home") : onReturnToShort(shortId)}>돌아가기</button>}</div>;
   const { project, tracks, viewerPermission } = composition;
-  const hasOwnDraftClip = tracks.some((track) => track.clips.some((clip) =>
-    clip.ownerId === viewerPermission.userId && clip.approvalStatus === "DRAFT"));
-  const canSubmit = shortId != null && !viewerPermission.canReviewContribution && hasOwnDraftClip;
+  const hasDraftClip = hasOwnDraftClip(tracks, viewerPermission.userId);
+  const canSubmit = shouldShowContributionSubmit(shortId, viewerPermission, tracks);
   return <div className="studio">
     <StudioToolbar title={project.title} bpm={project.bpm} playing={playback.playing} positionMs={playback.positionMs} maxMs={project.maxDurationMs}
-      onPlay={() => { void playback.play(); }} onPause={playback.pause} onSeek={playback.seek} onBack={() => go(returnToNotifications ? "notifications" : shortId ? "abyss" : "home")}>
+      onPlay={() => { void playback.play(); }} onPause={playback.pause} onSeek={playback.seek}
+      onBack={() => returnToNotifications ? go("notifications") : shortId == null ? go("home") : onReturnToShort(shortId)}>
       {canSubmit ? <button className="studio-submit" onClick={() => { setError(null); setShowSubmitForm(true); }} disabled={busy}>제출하기</button>
         : <button className="studio-add" onClick={onAddLayer} disabled={!viewerPermission.canContribute} aria-label="레이어 추가"><i /></button>}
     </StudioToolbar>
     {error && !showSubmitForm && <p className="studio-error" role="alert">{error}</p>}
-    {(viewerPermission.canExport && (project.status === "DRAFT" || hasOwnDraftClip) || status) && <div className="studio-workflow">
-      {viewerPermission.canExport && (project.status === "DRAFT" || hasOwnDraftClip) && <button onClick={requestPublish} disabled={busy}>{project.status === "DRAFT" ? "곡 올리기" : "내 변경 반영"}</button>}
+    {(viewerPermission.canExport && (project.status === "DRAFT" || hasDraftClip) || status) && <div className="studio-workflow">
+      {viewerPermission.canExport && (project.status === "DRAFT" || hasDraftClip) && <button onClick={requestPublish} disabled={busy}>{project.status === "DRAFT" ? "곡 올리기" : "내 변경 반영"}</button>}
       {status && <span role="status">{status}</span>}
     </div>}
     {showSubmitForm && <form className="studio-publish-form studio-submit-form" onSubmit={(event) => { void submitDrafts(event); }} role="dialog" aria-modal="true" aria-labelledby="submit-heading">
