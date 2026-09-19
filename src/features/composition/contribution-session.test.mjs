@@ -13,6 +13,6 @@ test("changes the add button to submit after the participant saves a draft clip"
   assert.equal(shouldShowContributionSubmit(7, permission, [track(22, "DRAFT")]), true);
 });
 
-test("does not show participant submission controls to the original creator", () => {
-  assert.equal(shouldShowContributionSubmit(7, { ...permission, canReviewContribution: true }, [track(22, "DRAFT")]), false);
+test("uses contribution mode when the studio was opened from a short, even with local test owner permissions", () => {
+  assert.equal(shouldShowContributionSubmit(7, { ...permission, canReviewContribution: true }, [track(22, "DRAFT")]), true);
 });

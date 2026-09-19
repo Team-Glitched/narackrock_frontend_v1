@@ -212,8 +212,8 @@ export function StudioScreen({ go, shortId, projectId, returnToNotifications, on
         : <button className="studio-add" onClick={onAddLayer} disabled={!viewerPermission.canContribute} aria-label="레이어 추가"><i /></button>}
     </StudioToolbar>
     {error && !showSubmitForm && <p className="studio-error" role="alert">{error}</p>}
-    {(viewerPermission.canExport && (project.status === "DRAFT" || hasDraftClip) || status) && <div className="studio-workflow">
-      {viewerPermission.canExport && (project.status === "DRAFT" || hasDraftClip) && <button onClick={requestPublish} disabled={busy}>{project.status === "DRAFT" ? "곡 올리기" : "내 변경 반영"}</button>}
+    {((shortId == null && viewerPermission.canExport && (project.status === "DRAFT" || hasDraftClip)) || status) && <div className="studio-workflow">
+      {shortId == null && viewerPermission.canExport && (project.status === "DRAFT" || hasDraftClip) && <button onClick={requestPublish} disabled={busy}>{project.status === "DRAFT" ? "곡 올리기" : "내 변경 반영"}</button>}
       {status && <span role="status">{status}</span>}
     </div>}
     {showSubmitForm && <form className="studio-publish-form studio-submit-form" onSubmit={(event) => { void submitDrafts(event); }} role="dialog" aria-modal="true" aria-labelledby="submit-heading">
