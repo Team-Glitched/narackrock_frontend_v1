@@ -3,6 +3,7 @@
 import { useCallback, useMemo, useState } from "react";
 import { Footer, Header } from "@/components/app/shared";
 import type { View } from "@/features/navigation/types";
+import { AuthScreen } from "@/features/screens/auth-screens";
 import { defaultJoinedCommunityIds, JoinedCommunitiesScreen } from "@/features/screens/community-directory";
 import { CommunityMembershipProvider } from "@/features/screens/community-membership";
 import type { CommunityTab } from "@/features/screens/mobile-screens";
@@ -16,10 +17,12 @@ import type { Community } from "@/features/screens/community-card";
 
 export default function Page() {
   const [view, setView] = useState<View>("home");
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [communityTab, setCommunityTab] = useState<CommunityTab>("posts");
   const [commentPostId, setCommentPostId] = useState<number | null>(null);
   const [selectedCommunity, setSelectedCommunity] = useState<Community | null>(null);
   const go = useCallback((next: View) => { setCommentPostId(null); setSelectedCommunity(null); setView(next); }, []);
+  const authenticate = useCallback(() => { setIsAuthenticated(true); setView("home"); }, []);
   useWebMcpNavigation(go);
 
   const content = useMemo(() => {
@@ -34,19 +37,21 @@ export default function Page() {
     if (view === "community") return <CommunityScreen go={go} tab={communityTab} onTabChange={setCommunityTab} onComments={setCommentPostId} onOpenCommunity={setSelectedCommunity} />;
     if (view === "joined") return <JoinedCommunitiesScreen onOpen={setSelectedCommunity} />;
     if (view === "profile") return <ProfileScreen go={go} />;
+    if (view === "login" || view === "signup") return <AuthScreen mode={view} go={go} onAuthenticate={authenticate} />;
     if (view === "edit") return <EditProfileScreen />;
     if (view === "note") return <NoteEditorScreen go={go} />;
     return <StudioScreen go={go} />;
-  }, [selectedCommunity, commentPostId, communityTab, go, view]);
+  }, [selectedCommunity, commentPostId, communityTab, authenticate, go, view]);
 
   // 가입 상태는 커뮤니티 목록·전체목록·상세가 공유한다.
   // 실제 구독 API가 준비되면 Provider에 api prop만 넘기면 된다.
   if (view === "studio" || view === "note") return <main className="studio-shell">{content}</main>;
-  const noHeader = view === "charts" || view === "posts" || view === "search";
+  const authView = view === "login" || view === "signup";
+  const noHeader = authView || view === "charts" || view === "posts" || view === "search";
   // 가입한 커뮤니티 목록은 커뮤니티 탭의 하위 화면이라 푸터는 커뮤니티를 계속 활성으로 둔다.
   const footerView = view === "joined" ? "community" : view;
   const onBack = commentPostId !== null ? () => setCommentPostId(null)
     : selectedCommunity ? () => setSelectedCommunity(null)
     : view === "joined" ? () => go("community") : undefined;
-  return <CommunityMembershipProvider defaultJoinedIds={defaultJoinedCommunityIds}><main className="page-background"><div className="phone-frame">{!noHeader && <Header blank={view === "friends"} abyss={view === "abyss"} onBack={onBack} onSearch={() => go("search")} onProfile={() => go("profile")} />}<div className="screen-body">{content}</div><Footer view={footerView} go={go} /></div></main></CommunityMembershipProvider>;
+  return <CommunityMembershipProvider defaultJoinedIds={defaultJoinedCommunityIds}><main className="page-background"><div className="phone-frame">{!noHeader && <Header blank={view === "friends"} abyss={view === "abyss"} onBack={onBack} onSearch={() => go("search")} onProfile={() => go(isAuthenticated ? "profile" : "login")} />}<div className="screen-body">{content}</div>{!authView && <Footer view={footerView} go={go} />}</div></main></CommunityMembershipProvider>;
 }
