@@ -54,6 +54,7 @@ import type {
   PostCreateResponse,
   PostDetailResponse,
   PostListResponse,
+  PostSort,
   PostUpdateResponse,
 } from "./contracts";
 
@@ -107,9 +108,30 @@ export function unsubscribeGallery(galleryId: number): Promise<void> {
   });
 }
 
-export function fetchPosts(galleryId: number, page = 0, size = 20): Promise<PostListResponse> {
+export type PostListQuery = {
+  page?: number;
+  size?: number;
+  sort?: PostSort;
+  /** 검색어. 공백만 있거나 비어 있으면 검색하지 않은 것으로 보고 파라미터를 보내지 않는다. */
+  keyword?: string | null;
+};
+
+/**
+ * 게시글 목록.
+ *
+ * `keyword`를 **빈 문자열로 보내면 400(INVALID_SEARCH_KEYWORD)** 이다. 서버에게 "검색 안 함"은
+ * 빈 값이 아니라 파라미터의 부재이므로, 여기서 trim 후 비면 아예 빼고 보낸다. 검색창을 비우는
+ * 동작이 그대로 요청이 되기 때문에 이 구분은 실제로 자주 걸린다.
+ *
+ * `size`는 1~100을 벗어나면 400(VALIDATION_ERROR)이다.
+ */
+export function fetchPosts(galleryId: number, query: PostListQuery = {}): Promise<PostListResponse> {
+  const { page = 0, size = 20, sort = "LATEST", keyword } = query;
+  const params = new URLSearchParams({ page: String(page), size: String(size), sort });
+  const trimmed = keyword?.trim();
+  if (trimmed) params.set("keyword", trimmed);
   return apiRequest<ApiResponse<PostListResponse>>(
-    `/api/v1/galleries/${galleryId}/posts?page=${page}&size=${size}`
+    `/api/v1/galleries/${galleryId}/posts?${params}`
   ).then((response) => response.data);
 }
 
