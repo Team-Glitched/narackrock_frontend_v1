@@ -1,18 +1,28 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Avatar } from "@/components/app/shared";
+import { useGalleries } from "@/hooks/use-galleries";
 import { useGalleryPosts } from "@/hooks/use-gallery-posts";
-import { CommunityJoinButton, memberLabel, type Community } from "./community-card";
+import { CommunityJoinButton, galleryToCommunity, memberLabel, type Community } from "./community-card";
 import { useCommunityMembership } from "./community-membership";
 import { CommunityPost, PostComposer } from "./mobile-screens";
 import "./community.css";
 
-export function CommunityDetailScreen({ community, onComments }: {
+export function CommunityDetailScreen({ community: selected, onComments }: {
   community: Community; onComments: (postId: number) => void;
 }) {
-  const posts = useGalleryPosts(community.galleryId);
   const membership = useCommunityMembership();
+  // 목록에서 넘어올 때 받은 값은 그 시점의 스냅샷이라, 이 화면에서 가입/탈퇴하면 가입자 수가
+  // 뒤처진다. 갤러리 목록을 다시 받아 같은 id를 덮어쓴다(아직 못 받았으면 넘겨받은 값으로 그린다).
+  const galleries = useGalleries(membership.revision);
+  const community = useMemo(() => {
+    if (galleries.status !== "ready") return selected;
+    const fresh = galleries.galleries.find(gallery => gallery.galleryId === selected.galleryId);
+    return fresh ? galleryToCommunity(fresh) : selected;
+  }, [galleries, selected]);
+
+  const posts = useGalleryPosts(community.galleryId);
   const [composing, setComposing] = useState(false);
 
   return <div className="community-detail community-view scroll-content">
@@ -23,7 +33,7 @@ export function CommunityDetailScreen({ community, onComments }: {
         <div><h1>{community.name}</h1><p>{memberLabel(community.memberCount)}</p></div>
         <CommunityJoinButton community={community} />
       </div>
-      <p className="community-detail-description">{community.description}</p>
+      {community.description && <p className="community-detail-description">{community.description}</p>}
       {membership.error && <p className="membership-error" role="alert">{membership.error}</p>}
     </section>
     {composing && <div className="community-detail-composer"><PostComposer galleryId={community.galleryId} onCreated={() => { setComposing(false); posts.refetch(); }} onCancel={() => setComposing(false)} /></div>}
@@ -34,7 +44,5 @@ export function CommunityDetailScreen({ community, onComments }: {
       {posts.posts.map(post => <CommunityPost key={post.postId} post={post} onChanged={posts.refetch} onCompose={() => setComposing(true)} onComments={onComments} />)}
       {!composing && <button className="community-compose purple-pill" onClick={() => setComposing(true)}>글쓰기</button>}
     </>}
-    {/* 갤러리 목록 API가 없어 예시 커뮤니티가 모두 같은 갤러리를 가리킨다 — 문구로 분명히 해 둔다. */}
-    <p className="directory-preview-notice">커뮤니티 소개·가입자 수는 예시입니다. 게시글은 실제 서버 데이터지만, 커뮤니티별 갤러리가 아직 없어 모든 커뮤니티가 같은 갤러리를 보여줍니다. 가입 기능도 준비 중이에요.</p>
   </div>;
 }

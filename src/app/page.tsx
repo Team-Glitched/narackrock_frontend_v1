@@ -3,8 +3,8 @@
 import { useCallback, useMemo, useState } from "react";
 import { Footer, Header } from "@/components/app/shared";
 import type { View } from "@/features/navigation/types";
-import { defaultJoinedCommunityIds, JoinedCommunitiesScreen } from "@/features/screens/community-directory";
-import { CommunityMembershipProvider } from "@/features/screens/community-membership";
+import { JoinedCommunitiesScreen } from "@/features/screens/community-directory";
+import { CommunityMembershipProvider, createServerMembershipApi } from "@/features/screens/community-membership";
 import type { CommunityTab } from "@/features/screens/mobile-screens";
 import { AbyssScreen, ChartsScreen, CommunityScreen, EditProfileScreen, FriendsScreen, HomeScreen, PostsScreen, ProfileScreen, SearchScreen } from "@/features/screens/mobile-screens";
 import { NoteEditorScreen, StudioScreen } from "@/features/screens/studio-screens";
@@ -12,6 +12,9 @@ import { useWebMcpNavigation } from "@/hooks/use-webmcp-navigation";
 import { PostCommentsScreen } from "@/features/screens/post-comments";
 import { CommunityDetailScreen } from "@/features/screens/community-detail";
 import type { Community } from "@/features/screens/community-card";
+
+// Provider가 api를 의존성으로 보므로 렌더마다 새로 만들면 목록을 계속 다시 받는다.
+const membershipApi = createServerMembershipApi();
 
 export default function Page() {
   const [view, setView] = useState<View>("home");
@@ -38,8 +41,7 @@ export default function Page() {
     return <StudioScreen go={go} />;
   }, [selectedCommunity, commentPostId, communityTab, go, view]);
 
-  // 가입 상태는 커뮤니티 목록·전체목록·상세가 공유한다.
-  // 실제 구독 API가 준비되면 Provider에 api prop만 넘기면 된다.
+  // 가입 상태는 커뮤니티 목록·전체목록·상세가 공유한다 — 갤러리 구독 API로 연동돼 있다.
   if (view === "studio" || view === "note") return <main className="studio-shell">{content}</main>;
   const noHeader = view === "charts" || view === "posts" || view === "search";
   // 가입한 커뮤니티 목록은 커뮤니티 탭의 하위 화면이라 푸터는 커뮤니티를 계속 활성으로 둔다.
@@ -47,5 +49,5 @@ export default function Page() {
   const onBack = commentPostId !== null ? () => setCommentPostId(null)
     : selectedCommunity ? () => setSelectedCommunity(null)
     : view === "joined" ? () => go("community") : undefined;
-  return <CommunityMembershipProvider defaultJoinedIds={defaultJoinedCommunityIds}><main className="page-background"><div className="phone-frame">{!noHeader && <Header blank={view === "friends"} abyss={view === "abyss"} onBack={onBack} onSearch={() => go("search")} onProfile={() => go("profile")} />}<div className="screen-body">{content}</div><Footer view={footerView} go={go} /></div></main></CommunityMembershipProvider>;
+  return <CommunityMembershipProvider api={membershipApi}><main className="page-background"><div className="phone-frame">{!noHeader && <Header blank={view === "friends"} abyss={view === "abyss"} onBack={onBack} onSearch={() => go("search")} onProfile={() => go("profile")} />}<div className="screen-body">{content}</div><Footer view={footerView} go={go} /></div></main></CommunityMembershipProvider>;
 }

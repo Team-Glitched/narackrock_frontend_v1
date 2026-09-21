@@ -1,25 +1,41 @@
 "use client";
 
 import { Avatar } from "@/components/app/shared";
+import type { GalleryListItem } from "@/lib/api/contracts";
 import { useCommunityMembership } from "./community-membership";
 
 // 가입한 커뮤니티 / 추천 커뮤니티가 함께 쓰는 표현 계층.
-// 필드 이름은 앞으로 생길 갤러리 구독 API 응답 형태에 맞춰 두었다 — API가 준비되면
-// 목록 데이터만 서버 응답으로 바꾸면 이 컴포넌트들은 그대로 쓸 수 있다.
 export type Community = {
   /** 목록 안에서의 고유 식별자. React key와 가입 상태 관리에 쓴다. */
   id: number;
-  /**
-   * 게시글을 읽어올 실제 백엔드 갤러리 id.
-   * 갤러리 목록 API가 없어 지금은 예시 커뮤니티가 모두 같은 갤러리를 가리킨다 —
-   * 없는 id를 넘기면 게시글 조회가 404(GALLERY_NOT_FOUND)로 떨어진다.
-   */
+  /** 게시글을 읽어올 백엔드 갤러리 id. 서버 연동 뒤로는 `id`와 같은 값이다. */
   galleryId: number;
   name: string;
   memberCount: number;
   description: string;
   imageUrl: string | null;
 };
+
+/**
+ * 갤러리 목록 응답 → 화면 모델.
+ *
+ * `id`와 `galleryId`를 둘 다 같은 값으로 채운다. 갤러리 목록 API가 없던 시절에는 예시
+ * 커뮤니티 번호와 실제 갤러리 id가 달라서 두 필드가 필요했는데, 이제는 하나다. 그래도
+ * 필드를 합치지 않은 것은 카드/상세/가입 버튼이 모두 이 타입을 쓰고 있어 변경면이 커지기
+ * 때문이다 — 통합이 끝난 뒤 정리한다.
+ *
+ * `description`은 서버에서 null일 수 있고, 갤러리 이미지는 백엔드에 컬럼 자체가 없다.
+ */
+export function galleryToCommunity(gallery: GalleryListItem): Community {
+  return {
+    id: gallery.galleryId,
+    galleryId: gallery.galleryId,
+    name: gallery.name,
+    memberCount: gallery.subscriberCount,
+    description: gallery.description ?? "",
+    imageUrl: null,
+  };
+}
 
 export function memberLabel(memberCount: number): string {
   return `가입자 ${memberCount.toLocaleString("ko-KR")}명`;
@@ -68,7 +84,7 @@ export function CommunityCard({ community, onOpen, headingLevel = 3 }: CardProps
         </div>
         <CommunityJoinButton community={community} />
       </div>
-      <p className="community-card-description">{community.description}</p>
+      {community.description && <p className="community-card-description">{community.description}</p>}
     </li>
   );
 }
