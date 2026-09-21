@@ -3,6 +3,13 @@ export type UserDto = { id: string; displayName: string; avatarUrl: string | nul
 
 export type ApiResponse<T> = { success: boolean; message: string; errorCode?: string; data: T };
 
+// GET /api/v1/galleries, GET /api/v1/galleries/subscribed 의 배열 원소.
+// description은 null일 수 있지만 키는 항상 온다 — 페이로드 DTO에 @JsonInclude(NON_NULL)이 없다.
+// 갤러리 이미지는 백엔드에 컬럼 자체가 없어 응답에 들어오지 않는다.
+export type GalleryListItem = { galleryId: number; name: string; description: string | null; subscriberCount: number; createdAt: string };
+
+export type GallerySubscribeResponse = { galleryId: number };
+
 export type PostWriter = { userId: number; nickname: string; profileImageUrl: string | null };
 
 export type PostSort = "LATEST" | "POPULAR" | "OLDEST";
