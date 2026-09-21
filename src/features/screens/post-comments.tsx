@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { formatDistanceToNow } from "date-fns";
 import { ko } from "date-fns/locale";
 import { Asset, Avatar } from "@/components/app/shared";
-import { createPostComment, deletePostComment, fetchPost, fetchPostComments, updatePostComment } from "@/lib/api/community";
+import { createPostComment, deletePostComment, fetchPost, fetchPostComments, recordPostView, updatePostComment } from "@/lib/api/community";
 import { ApiError, getCurrentUserId } from "@/lib/api/client";
 import type { PostComment, PostCommentPage, PostDetailResponse } from "@/lib/api/contracts";
 import "./community.css";
@@ -177,6 +177,20 @@ export function PostCommentsScreen({ postId }: { postId: number }) {
     return () => { cancelled = true; };
   }, [postId, revision]);
 
+  // 조회수는 **본문을 실제로 띄운 뒤에만** 기록한다.
+  //
+  // 화면에 들어오자마자 기록하면 상세 조회가 실패한 경우까지 집계된다. 이 화면은 인증이
+  // 필수라(비로그인은 401) 로그인 전에는 본문이 뜨지 않는데, 그때도 조회수가 오르는 것을
+  // 실제로 확인했다. 읽지 못한 글은 읽은 것이 아니다.
+  //
+  // revision(댓글 등록 후 재조회)에는 의존하지 않는다 - 같은 글을 계속 보고 있을 뿐이다.
+  const loadedPostId = post?.postId;
+  useEffect(() => {
+    if (loadedPostId !== postId) return;
+    // 조회수는 본문을 읽는 데 곁다리다. 결과를 쓰지 않고 실패해도 화면에 에러를 띄우지 않는다.
+    void recordPostView(postId).catch(() => {});
+  }, [postId, loadedPostId]);
+
   async function submit(event: React.FormEvent) {
     event.preventDefault();
     if (submitting) return;
@@ -195,7 +209,7 @@ export function PostCommentsScreen({ postId }: { postId: number }) {
       {!post && !error && <p className="comments-error" role="status">게시글을 불러오는 중...</p>}
       {post && <>
         <article className="community-post comments-post">
-          <div className="community-author"><Avatar src={post.writer.profileImageUrl} /><strong>{post.writer.nickname || "알 수 없는 사용자"}</strong><span>• {time(post.createdAt)}</span></div>
+          <div className="community-author"><Avatar src={post.writer.profileImageUrl} /><strong>{post.writer.nickname || "알 수 없는 사용자"}</strong><span>• {time(post.createdAt)}</span><span>• 조회 {post.viewCount.toLocaleString("ko-KR")}</span></div>
           <h2>{post.title}</h2><p className="comments-post-content">{post.content}</p>
           <div className="community-image" role="img" aria-label="첨부 이미지 없음" />
           <div className="community-actions">

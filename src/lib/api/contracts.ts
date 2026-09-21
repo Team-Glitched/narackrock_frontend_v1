@@ -10,6 +10,15 @@ export type GalleryListItem = { galleryId: number; name: string; description: st
 
 export type GallerySubscribeResponse = { galleryId: number };
 
+/**
+ * 조회수 기록 응답(202). `counted`는 실제로 집계됐는지 - 같은 조회자가 중복 제거 창(기본 30분)
+ * 안에 다시 열면 `false`다.
+ *
+ * 이 API만 봉투가 다르다(`errorCode` 없는 별도 ApiResponse 클래스). 성공 응답만 쓰므로
+ * 공통 ApiResponse 타입으로 받아도 문제없다 - errorCode가 선택 필드라서다.
+ */
+export type ContentViewResponse = { contentId: number; counted: boolean };
+
 export type PostWriter = { userId: number; nickname: string; profileImageUrl: string | null };
 
 export type PostSort = "LATEST" | "POPULAR" | "OLDEST";

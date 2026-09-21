@@ -1,5 +1,11 @@
 import { ApiError, apiRequest } from "./client";
-import type { GalleryListItem, GallerySubscribeResponse, PostCommentPage } from "./contracts";
+import { getDeviceId } from "./device-id";
+import type {
+  ContentViewResponse,
+  GalleryListItem,
+  GallerySubscribeResponse,
+  PostCommentPage,
+} from "./contracts";
 
 /**
  * 에러 응답 본문의 `errorCode`를 꺼낸다.
@@ -153,6 +159,28 @@ export function updatePost(postId: number, title: string, content: string): Prom
   return apiRequest<ApiResponse<PostUpdateResponse>>(`/api/v1/posts/${postId}`, {
     method: "PUT",
     body: JSON.stringify({ title, content }),
+  }).then((response) => response.data);
+}
+
+/**
+ * 게시글 조회수 기록. 게시글을 실제로 읽는 시점(상세 화면 진입)에 한 번 부른다.
+ *
+ * 비로그인도 집계되지만 그러려면 `X-Device-Id`가 있어야 한다 - 인증도 기기 ID도 없으면
+ * 400(VIEWER_ID_REQUIRED)이다. 로그인 상태면 서버가 토큰의 사용자로 식별하므로 이 헤더는
+ * 무시되지만, 로그인 여부를 여기서 따지지 않아도 되도록 항상 함께 보낸다.
+ *
+ * 202 Accepted이고 집계는 Redis에 먼저 쌓였다가 주기적으로 DB에 반영된다. 따라서 이 호출
+ * 직후에 게시글을 다시 조회해도 늘어난 값이 바로 보이지는 않는다. **화면에서 보정하지 말 것** -
+ * `counted`가 true라고 표시값에 1을 더했더니, 그 사이 서버 동기화가 끝난 뒤 재조회한 값에
+ * 또 더해져 조회수가 2로 보이는 버그가 났다(댓글 등록 후 재조회에서 실제로 발생). 조회수는
+ * 원래 최종적 일관성을 갖는 값이니 서버가 주는 대로 보여준다.
+ *
+ * 조회수는 본문을 읽는 데 곁다리라서 실패해도 화면을 막지 않는다. 호출하는 쪽에서 삼킨다.
+ */
+export function recordPostView(postId: number): Promise<ContentViewResponse> {
+  return apiRequest<ApiResponse<ContentViewResponse>>(`/api/v1/posts/${postId}/views`, {
+    method: "POST",
+    headers: { "X-Device-Id": getDeviceId() },
   }).then((response) => response.data);
 }
 
