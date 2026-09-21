@@ -204,3 +204,33 @@
   .post-list-controls { padding-inline: 16px; }
   .post-sort button { padding-inline: 9px; font-size: 12px; }
 }
+
+/* 게시글 무한 스크롤 */
+.post-feed-sentinel { height: 1px; }
+.post-feed-end { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 12px 20px 24px; }
+.post-feed-error { margin: 0; color: #ff8d8d; font-size: 12px; line-height: 18px; }
+.post-feed-end-notice { margin: 0; padding: 12px 20px 28px; text-align: center; color: var(--muted); font-size: 12px; }
+
+/* 글쓰기 버튼: 목록의 끝이 없어졌으므로 스크롤과 무관하게 떠 있어야 한다.
+   높이 0인 sticky 칸을 마지막에 두고 그 안에서 위로 띄운다 — 스크롤 영역 바닥에 고정되면서
+   목록의 흐름 높이는 차지하지 않는다. 칸 자체는 클릭을 통과시켜 아래 글을 가리지 않는다. */
+.community-fab-slot {
+  position: sticky; bottom: 0; z-index: 5;
+  height: 0; display: flex; justify-content: flex-end;
+  padding-right: 20px; pointer-events: none;
+}
+.community-fab {
+  pointer-events: auto;
+  transform: translateY(-72px);
+  width: 52px; height: 52px; border-radius: 50%;
+  background: var(--purple); color: var(--white);
+  display: grid; place-items: center;
+  font-size: 22px; line-height: 1;
+  box-shadow: 0 6px 18px #0009;
+}
+.community-fab:active { transform: translateY(-72px) scale(.95); }
+.community-fab:focus-visible { outline: 2px solid #8a56ff; outline-offset: 3px; }
+@media (max-width: 359px) {
+  .community-fab-slot { padding-right: 16px; }
+  .community-fab { width: 48px; height: 48px; font-size: 20px; }
+}

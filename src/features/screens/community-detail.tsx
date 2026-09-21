@@ -1,9 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Avatar } from "@/components/app/shared";
 import { useGalleries } from "@/hooks/use-galleries";
 import { useGalleryPosts } from "@/hooks/use-gallery-posts";
+import { useInfiniteScroll } from "@/hooks/use-infinite-scroll";
 import type { PostSort } from "@/lib/api/contracts";
 import { CommunityJoinButton, galleryToCommunity, memberLabel, type Community } from "./community-card";
 import { useCommunityMembership } from "./community-membership";
@@ -29,7 +30,15 @@ export function CommunityDetailScreen({ community: selected, onComments }: {
   const posts = useGalleryPosts(community.galleryId, { sort, keyword });
   const [composing, setComposing] = useState(false);
 
-  return <div className="community-detail community-view scroll-content">
+  // 스크롤되는 것은 window가 아니라 이 요소(.scroll-content)다. 옵저버의 기준으로 넘긴다.
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const sentinelRef = useInfiniteScroll({
+    enabled: posts.hasMore && !posts.appending && !posts.appendFailed,
+    onLoadMore: posts.loadMore,
+    rootRef: scrollRef,
+  });
+
+  return <div ref={scrollRef} className="community-detail community-view scroll-content">
     <div className="community-detail-banner" aria-hidden="true" />
     <section className="community-detail-info" aria-label="커뮤니티 소개">
       <div className="community-detail-heading">
@@ -48,7 +57,28 @@ export function CommunityDetailScreen({ community: selected, onComments }: {
       {/* 검색 중이라면 "글이 없다"가 아니라 "검색 결과가 없다"로 알려야 한다 — 원인이 다르다. */}
       {posts.posts.length === 0 && <p className="community-detail-status">{keyword ? `‘${keyword}’에 해당하는 게시글이 없어요.` : "아직 게시글이 없어요."}</p>}
       {posts.posts.map(post => <CommunityPost key={post.postId} post={post} onChanged={posts.refetch} onCompose={() => setComposing(true)} onComments={onComments} />)}
-      {!composing && <button className="community-compose purple-pill" onClick={() => setComposing(true)}>글쓰기</button>}
+
+      {/* 스크롤이 여기 닿으면 다음 페이지를 부른다. 보이는 요소가 아니라 감시용 표식이다. */}
+      {posts.hasMore && <div ref={sentinelRef} className="post-feed-sentinel" aria-hidden="true" />}
+
+      {/* 옵저버가 못 도는 경우(목록이 화면보다 짧을 때, 키보드 사용자)를 위한 같은 동작의 버튼.
+          추가 로드가 실패했을 때 재시도하는 자리이기도 하다. */}
+      {posts.hasMore && <div className="post-feed-end" role="status" aria-live="polite">
+        {posts.appendFailed && <p className="post-feed-error">게시글을 더 불러오지 못했습니다.</p>}
+        <button className="gray-pill compact" disabled={posts.appending} onClick={posts.loadMore}>
+          {posts.appending ? "불러오는 중..." : posts.appendFailed ? "다시 시도" : "더보기"}
+        </button>
+      </div>}
+
+      {!posts.hasMore && posts.posts.length > 0 && <p className="post-feed-end-notice">마지막 게시글이에요.</p>}
     </>}
+
+    {/* 무한 스크롤에는 "목록의 끝"이 없다. 끝에 있던 글쓰기 버튼은 영영 닿을 수 없으므로
+        스크롤과 무관하게 떠 있도록 옮겼다. */}
+    {!composing && <div className="community-fab-slot">
+      <button className="community-fab" aria-label="글쓰기" onClick={() => setComposing(true)}>
+        <span aria-hidden="true">✎</span>
+      </button>
+    </div>}
   </div>;
 }
