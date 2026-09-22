@@ -36,9 +36,14 @@ function PostListStatus({ state }: { state: "loading" | "error" | "empty" }) {
   return <p className="empty-community" style={{ height: "auto", padding: "40px 20px" }}>{message}</p>;
 }
 
-function MiniPost({ tall = false, post }: { tall?: boolean; post: PostListItem }) {
+function MiniPost({ tall = false, post, onOpen }: { tall?: boolean; post: PostListItem; onOpen: (postId: number) => void }) {
   return (
-    <article className={`mini-post ${tall ? "mini-post--tall" : ""}`}>
+    <button
+      type="button"
+      className={`mini-post ${tall ? "mini-post--tall" : ""}`}
+      onClick={() => onOpen(post.postId)}
+      aria-label={`${post.title} 게시글 열기`}
+    >
       {post.imageUrl && (
         <span className="post-thumb">
           <Image src={post.imageUrl} alt="게시글 첨부 이미지" width={90} height={90} unoptimized />
@@ -53,19 +58,19 @@ function MiniPost({ tall = false, post }: { tall?: boolean; post: PostListItem }
         </div>
         <div className="mini-author"><Avatar src={post.writer.profileImageUrl} /><span>{post.writer.nickname}</span></div>
       </div>
-    </article>
+    </button>
   );
 }
 function BackTitle({ title, go }: { title: string; go: Navigate }) { return <div className="back-title"><button aria-label="뒤로" onClick={() => go("home")}><Asset name="return.svg" /></button><h1>{title}</h1></div>; }
 
-export function HomeScreen({ go }: { go: Navigate }) {
+export function HomeScreen({ go, onOpenPost }: { go: Navigate; onOpenPost: (postId: number) => void }) {
   const posts = useGalleryPosts(DEFAULT_GALLERY_ID);
-  return <div className="home-content scroll-content"><section><SectionTitle onAll={() => go("charts")}>인기 곡</SectionTitle><SongRail /></section><section><SectionTitle onAll={() => go("posts")}>인기 글</SectionTitle><div className="mini-post-list">{posts.status !== "ready" ? <PostListStatus state={posts.status} /> : posts.posts.length === 0 ? <PostListStatus state="empty" /> : posts.posts.slice(0, 3).map(post => <MiniPost key={post.postId} post={post} />)}</div></section><section><SectionTitle onAll={() => go("charts")}>내 곡</SectionTitle><SongRail /></section></div>;
+  return <div className="home-content scroll-content"><section><SectionTitle onAll={() => go("charts")}>인기 곡</SectionTitle><SongRail /></section><section><SectionTitle onAll={() => go("posts")}>인기 글</SectionTitle><div className="mini-post-list">{posts.status !== "ready" ? <PostListStatus state={posts.status} /> : posts.posts.length === 0 ? <PostListStatus state="empty" /> : posts.posts.slice(0, 3).map(post => <MiniPost key={post.postId} post={post} onOpen={onOpenPost} />)}</div></section><section><SectionTitle onAll={() => go("charts")}>내 곡</SectionTitle><SongRail /></section></div>;
 }
 export function ChartsScreen({ go }: { go: Navigate }) { return <div className="list-view scroll-content"><BackTitle title="인기차트" go={go} /><div className="chart-list">{Array.from({ length: 12 }).map((_, i) => <button className="chart-row" key={i}><span className="chart-art"><Asset name={postImages[(i * 5) % postImages.length]} alt="곡 커버" /></span><span><strong>Name</strong><small>name</small></span><Asset name="option.svg" /></button>)}</div></div>; }
-export function PostsScreen({ go }: { go: Navigate }) {
+export function PostsScreen({ go, onOpenPost }: { go: Navigate; onOpenPost: (postId: number) => void }) {
   const posts = useGalleryPosts(DEFAULT_GALLERY_ID);
-  return <div className="list-view scroll-content"><BackTitle title="인기글" go={go} /><div className="posts-list">{posts.status !== "ready" ? <PostListStatus state={posts.status} /> : posts.posts.length === 0 ? <PostListStatus state="empty" /> : posts.posts.map(post => <MiniPost tall key={post.postId} post={post} />)}</div></div>;
+  return <div className="list-view scroll-content"><BackTitle title="인기글" go={go} /><div className="posts-list">{posts.status !== "ready" ? <PostListStatus state={posts.status} /> : posts.posts.length === 0 ? <PostListStatus state="empty" /> : posts.posts.map(post => <MiniPost tall key={post.postId} post={post} onOpen={onOpenPost} />)}</div></div>;
 }
 export function FriendsScreen() { const [following, setFollowing] = useState([false, true, true, false]); const [requests, setRequests] = useState([true, true]); return <div className="friends-view scroll-content"><section><SectionTitle>팔로우 추천</SectionTitle><div className="people-list">{following.map((on, i) => <div className="person" key={i}><Avatar /><span><strong>Muhehehe</strong><small>피아노</small></span><button className="purple-pill" onClick={() => setFollowing(s => s.map((v, x) => x === i ? !v : v))}>{on ? "맞팔로우" : "팔로우"}</button></div>)}</div></section><section><SectionTitle>팔로우 요청</SectionTitle><div className="people-list">{requests.map((show, i) => show && <div className="person" key={i}><Avatar /><span><strong>Muhehehe</strong><small>피아노</small></span><button className="purple-pill compact" onClick={() => setRequests(s => s.map((v, x) => x === i ? false : v))}>확인</button><button className="gray-pill" onClick={() => setRequests(s => s.map((v, x) => x === i ? false : v))}>취소</button></div>)}</div></section></div>; }
 export function SearchScreen({ go }: { go: Navigate }) { const [query, setQuery] = useState(""); return <div className="search-view"><div className="search-line"><button onClick={() => go("home")} aria-label="뒤로"><Asset name="return.svg" /></button><label><Asset name="search.svg" /><input autoFocus value={query} onChange={e => setQuery(e.target.value)} placeholder="검색" />{query && <button onClick={() => setQuery("")} aria-label="검색어 지우기">×</button>}</label></div>{query && <p className="search-result">‘{query}’ 검색 결과가 없습니다.</p>}</div>; }
