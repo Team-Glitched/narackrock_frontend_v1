@@ -190,6 +190,10 @@ export function CommunityPost({ post, onChanged, onCompose, onComments }: { post
         <Avatar src={post.writer.profileImageUrl} />
         <strong>{post.writer.nickname || "알 수 없는 사용자"}</strong>
         <span>• {relativeTime(post.createdAt)}</span>
+        {/* 조회수는 목록 응답이 이미 주는 값이다 — 상세를 따로 부르지 않는다. 상세 화면(post-comments)과
+            같은 "조회 N" 표기를 쓴다. 홈·인기글의 MiniPost에는 넣지 않았다: 그 카드는 열린 PR #20이
+            통째로 다시 쓰는 중이라 같은 자리를 건드리면 충돌만 늘어난다. #20 머지 후에 맞춘다. */}
+        <span>• 조회 {post.viewCount.toLocaleString("ko-KR")}</span>
         <button disabled={submitting} onClick={() => setMenuOpen((open) => !open)} aria-expanded={menuOpen} aria-label="게시글 더보기"><Asset name="option.svg" /></button>
       </div>
       {menuOpen && <div className="post-menu-actions"><button className="gray-pill compact" onClick={onCompose}>글쓰기</button><button className="gray-pill compact" onClick={startEdit}>수정</button><button className="gray-pill compact" onClick={() => { setConfirmDelete(true); setMenuOpen(false); }}>삭제</button></div>}
