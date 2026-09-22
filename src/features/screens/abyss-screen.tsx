@@ -2,14 +2,14 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Asset } from "@/components/app/shared";
-import type { Navigate } from "@/features/navigation/types";
+import { initialShortIndex } from "@/features/abyss/initial-short";
 import { getShorts } from "@/lib/api/shorts";
 import type { ShortItemDto, ShortsPageDto } from "@/lib/api/contracts";
 
 type FeedState = "loading" | "ready" | "error";
 type PageInfo = ShortsPageDto["page"];
 
-export function AbyssScreen({ go }: { go: Navigate }) {
+export function AbyssScreen({ onJoin, initialShortId }: { onJoin: (shortId: number) => void; initialShortId?: number | null }) {
   const [shorts, setShorts] = useState<ShortItemDto[]>([]);
   const [page, setPage] = useState<PageInfo | null>(null);
   const [index, setIndex] = useState(0);
@@ -25,24 +25,38 @@ export function AbyssScreen({ go }: { go: Navigate }) {
 
   useEffect(() => {
     const controller = new AbortController();
-    getShorts(undefined, controller.signal)
-      .then((result) => {
-        if (controller.signal.aborted) return;
-        setShorts(result.items);
-        setPage(result.page);
-        setIndex(0);
-        setFeedState("ready");
-      })
-      .catch(() => {
+    (async () => {
+      let result = await getShorts(undefined, controller.signal);
+      const items = [...result.items];
+      const seenCursors = new Set<number>();
+      while (initialShortId != null && !items.some((item) => item.shortId === initialShortId)
+        && result.page.hasMore && result.page.nextCursor != null && !seenCursors.has(result.page.nextCursor)) {
+        seenCursors.add(result.page.nextCursor);
+        result = await getShorts(result.page.nextCursor, controller.signal);
+        items.push(...result.items);
+      }
+      if (controller.signal.aborted) return;
+      setShorts(items);
+      setPage(result.page);
+      setIndex(initialShortIndex(items, initialShortId));
+      setFeedState("ready");
+    })().catch(() => {
         if (!controller.signal.aborted) setFeedState("error");
       });
     return () => controller.abort();
-  }, [reloadKey]);
+  }, [reloadKey, initialShortId]);
 
   const current = shorts[index];
   const mediaUrl = current?.mediaUrl?.trim() || null;
   const hasNext = index < shorts.length - 1 || Boolean(page?.hasMore && page.nextCursor != null);
   const progress = duration > 0 ? Math.min(100, (currentTime / duration) * 100) : 0;
+
+  useEffect(() => {
+    if (!mediaUrl || !audioRef.current) return;
+    void audioRef.current.play().catch(() => {
+      // Browsers may block unmuted autoplay until the user interacts with the page.
+    });
+  }, [mediaUrl]);
 
   function selectShort(nextIndex: number) {
     audioRef.current?.pause();
@@ -105,8 +119,10 @@ export function AbyssScreen({ go }: { go: Navigate }) {
   return (
     <div className="abyss-view">
       <div className="abyss-song">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={current.albumImageUrl || "/figma/abyss-album.png"} alt={`${current.title} 앨범 커버`} className="abyss-cover" />
+        {current.albumImageUrl ? <>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={current.albumImageUrl} alt={`${current.title} 앨범 커버`} className="abyss-cover" />
+        </> : <div className="abyss-cover abyss-cover-empty" role="img" aria-label={`${current.title} 앨범 이미지 없음`}><span>♪</span></div>}
         <div className="abyss-title">
           <h1>{current.title}</h1>
           <p>{current.author.nickname} <i /> <button disabled>작곡 참여자 보기</button></p>
@@ -128,6 +144,7 @@ export function AbyssScreen({ go }: { go: Navigate }) {
           ref={audioRef}
           src={mediaUrl ?? undefined}
           preload="metadata"
+          autoPlay
           onLoadedMetadata={(event) => setDuration(Number.isFinite(event.currentTarget.duration) ? event.currentTarget.duration : 0)}
           onTimeUpdate={(event) => setCurrentTime(event.currentTarget.currentTime)}
           onPlay={() => setPlaying(true)}
@@ -160,7 +177,9 @@ export function AbyssScreen({ go }: { go: Navigate }) {
         {!mediaUrl && <p className="abyss-playback-message">재생 가능한 음원 파일이 없습니다.</p>}
         {playbackError && <p className="abyss-playback-message" role="alert">{playbackError}</p>}
       </div>
-      <button className="abyss-join" onClick={() => go("studio")}>작곡 참여하기</button>
+      {current.completionStatus === "IN_PROGRESS" && current.projectId != null && (
+        <button className="abyss-join" onClick={() => onJoin(current.shortId)}>작곡 참여하기</button>
+      )}
     </div>
   );
 }

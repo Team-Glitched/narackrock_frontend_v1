@@ -27,7 +27,7 @@ export function Avatar({ large = false, src = null }: { large?: boolean; src?: s
 
 function Logo() { return <div className="nr-logo" aria-label="Narackrock"><Asset name="logo-wing-a.svg" /><Asset name="logo-wing-b.svg" /><Asset name="logo-dot.svg" /><b>NR</b></div>; }
 
-export function Header({ onSearch, onProfile, onBack, blank = false, abyss = false }: { onSearch: () => void; onProfile: () => void; onBack?: () => void; blank?: boolean; abyss?: boolean }) {
+export function Header({ onSearch, onProfile, onNotifications, onBack, blank = false, abyss = false }: { onSearch: () => void; onProfile: () => void; onNotifications: () => void; onBack?: () => void; blank?: boolean; abyss?: boolean }) {
   if (blank) return <div className="header-spacer" />;
   // 앞자리는 화면에 따라 뒤로가기 > 소리 > 로고 순으로 하나만 쓴다.
   const leading = onBack
@@ -35,7 +35,7 @@ export function Header({ onSearch, onProfile, onBack, blank = false, abyss = fal
     : abyss
       ? <button className="header-sound" aria-label="소리"><Asset name="sound.svg" /></button>
       : <Logo />;
-  return <header className="app-header">{leading}<div className="header-actions"><button aria-label="알림"><Asset name="bell.svg" /></button><button aria-label="검색" onClick={onSearch}><Asset name="search.svg" /></button><button aria-label="프로필" className="header-profile" onClick={onProfile}><Avatar /></button></div></header>;
+  return <header className="app-header">{leading}<div className="header-actions"><button aria-label="알림" onClick={onNotifications}><Asset name="bell.svg" /></button><button aria-label="검색" onClick={onSearch}><Asset name="search.svg" /></button><button aria-label="프로필" className="header-profile" onClick={onProfile}><Avatar /></button></div></header>;
 }
 
 // Footer icons are inline SVGs (not <img>) so the active state can be driven from one source (the `.active` class) in CSS: the interior fill toggles neutral/100 <-> none while the stroke stays neutral/200. Geometry mirrors public/figma/{home,abyss,friend,community}.svg; colors are left to CSS so they map to design tokens.

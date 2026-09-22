@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import "./composition-team.css";
 
 export const metadata: Metadata = {
   title: "Adlips — Make it heard",

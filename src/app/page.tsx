@@ -9,7 +9,11 @@ import { CommunityMembershipProvider } from "@/features/screens/community-member
 import type { CommunityTab } from "@/features/screens/mobile-screens";
 import { ChartsScreen, CommunityScreen, EditProfileScreen, FriendsScreen, HomeScreen, PostsScreen, ProfileScreen, SearchScreen } from "@/features/screens/mobile-screens";
 import { AbyssScreen } from "@/features/screens/abyss-screen";
+import { NotificationsScreen } from "@/features/screens/notifications-screen";
 import { NoteEditorScreen, StudioScreen } from "@/features/screens/studio-screens";
+import { CompositionChoiceScreen, CompositionRecordScreen, CompositionUploadScreen, type CreationMethod } from "@/features/screens/composition-creation-screens";
+import { prepareAudioFile, type AudioSelection } from "@/features/composition/prepare-audio-file";
+import { createAudioClip, createTrack, getComposition, uploadMedia } from "@/lib/api/composition";
 import { useWebMcpNavigation } from "@/hooks/use-webmcp-navigation";
 import { PostCommentsScreen } from "@/features/screens/post-comments";
 import { CommunityDetailScreen } from "@/features/screens/community-detail";
@@ -21,15 +25,81 @@ export default function Page() {
   const [communityTab, setCommunityTab] = useState<CommunityTab>("posts");
   const [commentPostId, setCommentPostId] = useState<number | null>(null);
   const [selectedCommunity, setSelectedCommunity] = useState<Community | null>(null);
-  const go = useCallback((next: View) => { setCommentPostId(null); setSelectedCommunity(null); setView(next); }, []);
+  const [compositionTarget, setCompositionTarget] = useState<{ shortId: number | null; projectId: number | null }>({ shortId: null, projectId: null });
+  const [abyssTargetShortId, setAbyssTargetShortId] = useState<number | null>(null);
+  const [editorTarget, setEditorTarget] = useState<{ trackId: number; clipId: number | null } | null>(null);
+  const [reviewOrigin, setReviewOrigin] = useState(false);
+  const [choiceBusy, setChoiceBusy] = useState(false);
+  const [choiceError, setChoiceError] = useState<string | null>(null);
+  const go = useCallback((next: View) => {
+    setCommentPostId(null);
+    setSelectedCommunity(null);
+    if (next === "studio") setCompositionTarget({ shortId: null, projectId: null });
+    if (next === "abyss") setAbyssTargetShortId(null);
+    setView(next);
+  }, []);
   const authenticate = useCallback(() => { setIsAuthenticated(true); setView("home"); }, []);
+  const joinShort = useCallback((shortId: number) => {
+    setReviewOrigin(false);
+    setCompositionTarget({ shortId, projectId: null });
+    setView("studio");
+  }, []);
+  const selectProject = useCallback((projectId: number) => setCompositionTarget((current) => ({ ...current, projectId })), []);
+  const returnToJoinedShort = useCallback((shortId: number) => {
+    setAbyssTargetShortId(shortId);
+    setView("abyss");
+  }, []);
+  const startDraft = useCallback((projectId: number) => {
+    setReviewOrigin(false);
+    setCompositionTarget({ shortId: null, projectId });
+    setChoiceError(null);
+    setView("choose");
+  }, []);
+  const chooseLayer = useCallback(async (method: CreationMethod) => {
+    const projectId = compositionTarget.projectId;
+    if (projectId == null || choiceBusy) return;
+    if (method !== "note") { setView(method); return; }
+    setChoiceBusy(true); setChoiceError(null);
+    try {
+      const composition = await getComposition(projectId);
+      const { trackId } = await createTrack(projectId, `피아노롤 ${composition.tracks.length + 1}`, "piano", composition.tracks.length);
+      setEditorTarget({ trackId, clipId: null });
+      setView("note");
+    } catch (cause) {
+      setChoiceError(cause instanceof Error ? cause.message : "레이어를 만들지 못했습니다.");
+    } finally { setChoiceBusy(false); }
+  }, [compositionTarget.projectId, choiceBusy]);
+  const saveAudio = useCallback(async (file: File, selection?: AudioSelection) => {
+    const projectId = compositionTarget.projectId;
+    if (projectId == null) throw new Error("곡을 먼저 선택해 주세요.");
+    const { wav, durationMs } = await prepareAudioFile(file, selection);
+    const composition = await getComposition(projectId);
+    if (durationMs > composition.project.maxDurationMs) throw new Error("오디오는 1분 이하여야 합니다.");
+    const mediaFileId = await uploadMedia(wav, "AUDIO");
+    const { trackId } = await createTrack(projectId, `오디오 ${composition.tracks.length + 1}`, null, composition.tracks.length);
+    const { bpm, ppq, maxTick } = composition.project;
+    const durationTick = Math.max(1, Math.min(maxTick, Math.ceil(durationMs * bpm * ppq / 60_000)));
+    await createAudioClip(projectId, trackId, mediaFileId, durationTick);
+    setView("studio");
+  }, [compositionTarget.projectId]);
+  const editTrack = useCallback((trackId: number, clipId: number | null) => {
+    setEditorTarget({ trackId, clipId });
+    setView("note");
+  }, []);
+  const backToStudio = useCallback(() => setView("studio"), []);
+  const openReviewProject = useCallback((projectId: number) => {
+    setReviewOrigin(true);
+    setCompositionTarget({ shortId: null, projectId });
+    setView("studio");
+  }, []);
   useWebMcpNavigation(go);
 
   const content = useMemo(() => {
     if (commentPostId !== null) return <PostCommentsScreen key={commentPostId} postId={commentPostId} />;
     if (selectedCommunity) return <CommunityDetailScreen key={selectedCommunity.id} community={selectedCommunity} onComments={setCommentPostId} />;
     if (view === "home") return <HomeScreen go={go} />;
-    if (view === "abyss") return <AbyssScreen go={go} />;
+    if (view === "abyss") return <AbyssScreen onJoin={joinShort} initialShortId={abyssTargetShortId} />;
+    if (view === "notifications") return <NotificationsScreen onBack={() => go("home")} onOpenProject={openReviewProject} />;
     if (view === "charts") return <ChartsScreen go={go} />;
     if (view === "posts") return <PostsScreen go={go} />;
     if (view === "friends") return <FriendsScreen />;
@@ -39,9 +109,29 @@ export default function Page() {
     if (view === "profile") return <ProfileScreen go={go} />;
     if (view === "login" || view === "signup") return <AuthScreen mode={view} go={go} onAuthenticate={authenticate} />;
     if (view === "edit") return <EditProfileScreen />;
-    if (view === "note") return <NoteEditorScreen go={go} />;
-    return <StudioScreen go={go} />;
-  }, [selectedCommunity, commentPostId, communityTab, authenticate, go, view]);
+    if (view === "choose") return <CompositionChoiceScreen onChoose={(method) => { void chooseLayer(method); }}
+      onBack={() => setView("studio")} busy={choiceBusy} error={choiceError} />;
+    if (view === "upload") return <CompositionUploadScreen onSave={saveAudio} onBack={() => setView("choose")} />;
+    if (view === "record") return <CompositionRecordScreen onSave={saveAudio} onBack={() => setView("choose")} />;
+    if (view === "note") return <NoteEditorScreen
+      projectId={compositionTarget.projectId}
+      trackId={editorTarget?.trackId ?? null}
+      clipId={editorTarget?.clipId ?? null}
+      onBack={backToStudio}
+      onAddLayer={() => { setChoiceError(null); setView("choose"); }}
+    />;
+    return <StudioScreen
+      go={go}
+      shortId={compositionTarget.shortId}
+      projectId={compositionTarget.projectId}
+      returnToNotifications={reviewOrigin}
+      onReturnToShort={returnToJoinedShort}
+      onProjectSelected={selectProject}
+      onDraftCreated={startDraft}
+      onAddLayer={() => { setChoiceError(null); setView("choose"); }}
+      onEditTrack={editTrack}
+    />;
+  }, [selectedCommunity, commentPostId, communityTab, authenticate, go, view, compositionTarget, abyssTargetShortId, editorTarget, joinShort, selectProject, returnToJoinedShort, startDraft, chooseLayer, choiceBusy, choiceError, saveAudio, editTrack, backToStudio, openReviewProject, reviewOrigin]);
 
   // 가입 상태는 커뮤니티 목록·전체목록·상세가 공유한다.
   // 실제 구독 API가 준비되면 Provider에 api prop만 넘기면 된다.
@@ -53,5 +143,5 @@ export default function Page() {
   const onBack = commentPostId !== null ? () => setCommentPostId(null)
     : selectedCommunity ? () => setSelectedCommunity(null)
     : view === "joined" ? () => go("community") : undefined;
-  return <CommunityMembershipProvider defaultJoinedIds={defaultJoinedCommunityIds}><main className="page-background"><div className="phone-frame">{!noHeader && <Header blank={view === "friends"} abyss={view === "abyss"} onBack={onBack} onSearch={() => go("search")} onProfile={() => go(isAuthenticated ? "profile" : "login")} />}<div className="screen-body">{content}</div>{!authView && <Footer view={footerView} go={go} />}</div></main></CommunityMembershipProvider>;
+  return <CommunityMembershipProvider defaultJoinedIds={defaultJoinedCommunityIds}><main className="page-background"><div className="phone-frame">{!noHeader && <Header blank={view === "friends"} abyss={view === "abyss"} onBack={onBack} onSearch={() => go("search")} onProfile={() => go(isAuthenticated ? "profile" : "login")} onNotifications={() => go("notifications")} />}<div className="screen-body">{content}</div>{!authView && <Footer view={footerView} go={go} />}</div></main></CommunityMembershipProvider>;
 }
