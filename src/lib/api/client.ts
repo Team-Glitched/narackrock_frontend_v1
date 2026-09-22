@@ -29,8 +29,20 @@ export async function apiRequest<T>(path: string, init?: RequestInit): Promise<T
   if (init?.body != null && !(init.body instanceof FormData) && !headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");
   }
-  if (accessToken) headers.set("Authorization", `Bearer ${accessToken}`);
-  const response = await fetch(`${apiBaseUrl}${path}`, { ...init, headers });
-  if (!response.ok) throw new ApiError(response.status, await response.text());
+  if (accessToken && !headers.has("Authorization")) headers.set("Authorization", `Bearer ${accessToken}`);
+
+  const url = /^https?:\/\//.test(path) ? path : `${apiBaseUrl}${path}`;
+  const response = await fetch(url, {
+    ...init,
+    headers,
+    credentials: init?.credentials ?? "omit",
+  });
+  if (!response.ok) {
+    const body = await response.text();
+    let message = body;
+    try { message = (JSON.parse(body) as { message?: string }).message || body; } catch { /* plain text response */ }
+    throw new ApiError(response.status, message);
+  }
+  if (response.status === 204) return undefined as T;
   return response.json() as Promise<T>;
 }
