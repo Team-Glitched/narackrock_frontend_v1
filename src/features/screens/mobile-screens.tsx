@@ -21,6 +21,7 @@ function postError(error: unknown): string {
   if (error instanceof ApiError) {
     if (error.status === 401) return "로그인이 필요합니다. 로그인 후 다시 시도해주세요.";
     if (error.status === 403) return "이 작업을 수행할 권한이 없습니다. 계정 상태와 작성자를 확인해주세요.";
+    if (error.errorCode === "GALLERY_NOT_FOUND") return "게시글을 등록할 커뮤니티를 찾을 수 없습니다. 잠시 후 다시 시도해주세요.";
     if (error.status === 404) return "게시글을 찾을 수 없습니다. 목록을 새로고침해주세요.";
   }
   return "요청을 처리하지 못했습니다. 잠시 후 다시 시도해주세요.";
@@ -272,7 +273,7 @@ export function CommunityScreen({ go, tab, onTabChange, onComments, onOpenCommun
       </div>
       {tab === "posts" ? (
         <>
-          {composerOpen && (
+          {composerOpen ? (
             <div style={{ padding: "0 20px" }}>
               <PostComposer
                 galleryId={DEFAULT_GALLERY_ID}
@@ -280,8 +281,7 @@ export function CommunityScreen({ go, tab, onTabChange, onComments, onOpenCommun
                 onCancel={() => setComposerOpen(false)}
               />
             </div>
-          )}
-          {posts.status !== "ready" ? (
+          ) : posts.status !== "ready" ? (
             <div role="status"><PostListStatus state={posts.status} />{posts.status === "error" && <button className="community-retry gray-pill" onClick={posts.refetch}>다시 시도</button>}</div>
           ) : posts.posts.length === 0 ? (
             <PostListStatus state="empty" />
