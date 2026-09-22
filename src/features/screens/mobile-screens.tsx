@@ -244,7 +244,7 @@ export function CommunityScreen({ go, tab, onTabChange, onComments, onOpenCommun
               <CommunityPost key={post.postId} post={post} onChanged={posts.refetch} onCompose={() => setComposerOpen(true)} onComments={onComments} />
             ))
           )}
-          {!composerOpen && posts.status === "ready" && <button className="community-compose purple-pill" onClick={() => setComposerOpen(true)}>글쓰기</button>}
+          {!composerOpen && <button className="community-compose purple-pill" onClick={() => setComposerOpen(true)}>글쓰기</button>}
         </>
       ) : (
         <CommunityDirectory go={go} onOpen={onOpenCommunity} />

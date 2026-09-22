@@ -32,8 +32,8 @@ export function CommunityDetailScreen({ community, onComments }: {
     {posts.status === "ready" && <>
       {posts.posts.length === 0 && <p className="community-detail-status">아직 게시글이 없어요.</p>}
       {posts.posts.map(post => <CommunityPost key={post.postId} post={post} onChanged={posts.refetch} onCompose={() => setComposing(true)} onComments={onComments} />)}
-      {!composing && <button className="community-compose purple-pill" onClick={() => setComposing(true)}>글쓰기</button>}
     </>}
+    {!composing && <button className="community-compose purple-pill" onClick={() => setComposing(true)}>글쓰기</button>}
     {/* 갤러리 목록 API가 없어 예시 커뮤니티가 모두 같은 갤러리를 가리킨다 — 문구로 분명히 해 둔다. */}
     <p className="directory-preview-notice">커뮤니티 소개·가입자 수는 예시입니다. 게시글은 실제 서버 데이터지만, 커뮤니티별 갤러리가 아직 없어 모든 커뮤니티가 같은 갤러리를 보여줍니다. 가입 기능도 준비 중이에요.</p>
   </div>;
