@@ -36,7 +36,26 @@ function PostListStatus({ state }: { state: "loading" | "error" | "empty" }) {
   return <p className="empty-community" style={{ height: "auto", padding: "40px 20px" }}>{message}</p>;
 }
 
-function MiniPost({ tall = false, post }: { tall?: boolean; post: PostListItem }) { return <article className={`mini-post ${tall ? "mini-post--tall" : ""}`}><div className="mini-post-copy"><strong>{post.title}</strong><div className="mini-meta"><span>{relativeTime(post.createdAt)}</span><span><Asset name="like.svg" />{post.likeCount}</span><span><Asset name="comment.svg" />{post.commentCount}</span></div><div className="mini-author"><Avatar src={post.writer.profileImageUrl} /><span>{post.writer.nickname}</span></div></div></article>; }
+function MiniPost({ tall = false, post }: { tall?: boolean; post: PostListItem }) {
+  return (
+    <article className={`mini-post ${tall ? "mini-post--tall" : ""}`}>
+      {post.imageUrl && (
+        <span className="post-thumb">
+          <Image src={post.imageUrl} alt="게시글 첨부 이미지" width={90} height={90} unoptimized />
+        </span>
+      )}
+      <div className="mini-post-copy">
+        <strong>{post.title}</strong>
+        <div className="mini-meta">
+          <span>{relativeTime(post.createdAt)}</span>
+          <span><Asset name="like.svg" />{post.likeCount}</span>
+          <span><Asset name="comment.svg" />{post.commentCount}</span>
+        </div>
+        <div className="mini-author"><Avatar src={post.writer.profileImageUrl} /><span>{post.writer.nickname}</span></div>
+      </div>
+    </article>
+  );
+}
 function BackTitle({ title, go }: { title: string; go: Navigate }) { return <div className="back-title"><button aria-label="뒤로" onClick={() => go("home")}><Asset name="return.svg" /></button><h1>{title}</h1></div>; }
 
 export function HomeScreen({ go }: { go: Navigate }) {
