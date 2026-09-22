@@ -4,8 +4,8 @@ import { useCallback, useMemo, useState } from "react";
 import { Footer, Header } from "@/components/app/shared";
 import type { View } from "@/features/navigation/types";
 import { AuthScreen } from "@/features/screens/auth-screens";
-import { defaultJoinedCommunityIds, JoinedCommunitiesScreen } from "@/features/screens/community-directory";
-import { CommunityMembershipProvider } from "@/features/screens/community-membership";
+import { JoinedCommunitiesScreen } from "@/features/screens/community-directory";
+import { CommunityMembershipProvider, createServerMembershipApi } from "@/features/screens/community-membership";
 import type { CommunityTab } from "@/features/screens/mobile-screens";
 import { ChartsScreen, CommunityScreen, EditProfileScreen, FriendsScreen, HomeScreen, PostsScreen, ProfileScreen, SearchScreen } from "@/features/screens/mobile-screens";
 import { AbyssScreen } from "@/features/screens/abyss-screen";
@@ -18,6 +18,9 @@ import { useWebMcpNavigation } from "@/hooks/use-webmcp-navigation";
 import { PostCommentsScreen } from "@/features/screens/post-comments";
 import { CommunityDetailScreen } from "@/features/screens/community-detail";
 import type { Community } from "@/features/screens/community-card";
+
+// Provider가 api를 의존성으로 보므로 렌더마다 새로 만들면 목록을 계속 다시 받는다.
+const membershipApi = createServerMembershipApi();
 
 export default function Page() {
   const [view, setView] = useState<View>("home");
@@ -133,8 +136,7 @@ export default function Page() {
     />;
   }, [selectedCommunity, commentPostId, communityTab, authenticate, go, view, compositionTarget, abyssTargetShortId, editorTarget, joinShort, selectProject, returnToJoinedShort, startDraft, chooseLayer, choiceBusy, choiceError, saveAudio, editTrack, backToStudio, openReviewProject, reviewOrigin]);
 
-  // 가입 상태는 커뮤니티 목록·전체목록·상세가 공유한다.
-  // 실제 구독 API가 준비되면 Provider에 api prop만 넘기면 된다.
+  // 가입 상태는 커뮤니티 목록·전체목록·상세가 공유한다 — 갤러리 구독 API로 연동돼 있다.
   if (view === "studio" || view === "note") return <main className="studio-shell">{content}</main>;
   const authView = view === "login" || view === "signup";
   const noHeader = authView || view === "charts" || view === "posts" || view === "search";
@@ -143,5 +145,7 @@ export default function Page() {
   const onBack = commentPostId !== null ? () => setCommentPostId(null)
     : selectedCommunity ? () => setSelectedCommunity(null)
     : view === "joined" ? () => go("community") : undefined;
-  return <CommunityMembershipProvider defaultJoinedIds={defaultJoinedCommunityIds}><main className="page-background"><div className="phone-frame">{!noHeader && <Header blank={view === "friends"} abyss={view === "abyss"} onBack={onBack} onSearch={() => go("search")} onProfile={() => go(isAuthenticated ? "profile" : "login")} onNotifications={() => go("notifications")} />}<div className="screen-body">{content}</div>{!authView && <Footer view={footerView} go={go} />}</div></main></CommunityMembershipProvider>;
+  // 가입 상태는 이제 서버(갤러리 구독 API)에서 온다 — 예시 기본값(defaultJoinedCommunityIds)은 사라졌다.
+  // 헤더·푸터의 로그인 분기는 main(PR #17·#19)에서 온 것을 그대로 유지한다.
+  return <CommunityMembershipProvider api={membershipApi}><main className="page-background"><div className="phone-frame">{!noHeader && <Header blank={view === "friends"} abyss={view === "abyss"} onBack={onBack} onSearch={() => go("search")} onProfile={() => go(isAuthenticated ? "profile" : "login")} onNotifications={() => go("notifications")} />}<div className="screen-body">{content}</div>{!authView && <Footer view={footerView} go={go} />}</div></main></CommunityMembershipProvider>;
 }
