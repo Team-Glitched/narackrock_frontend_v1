@@ -6,6 +6,7 @@ import type { Community } from "./community-card";
 
 import { formatDistanceToNow } from "date-fns";
 import { ko } from "date-fns/locale";
+import Image from "next/image";
 import { useEffect, useState } from "react";
 import { Asset, Avatar, postImages, SectionTitle, SongRail } from "@/components/app/shared";
 import type { Navigate } from "@/features/navigation/types";
@@ -13,6 +14,8 @@ import { useGalleryPosts } from "@/hooks/use-gallery-posts";
 import { createPost, DEFAULT_GALLERY_ID, deletePost, fetchPost, updatePost } from "@/lib/api/community";
 import type { PostListItem } from "@/lib/api/contracts";
 import { ApiError, getAccessToken } from "@/lib/api/client";
+import { uploadMedia } from "@/lib/api/media";
+import { validatePostImage } from "@/features/community/post-image";
 
 function postError(error: unknown): string {
   if (error instanceof ApiError) {
@@ -51,6 +54,22 @@ export function PostComposer({ galleryId, onCreated, onCancel }: { galleryId: nu
   const [content, setContent] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [image, setImage] = useState<{ file: File; previewUrl: string } | null>(null);
+
+  useEffect(() => () => {
+    if (image) URL.revokeObjectURL(image.previewUrl);
+  }, [image]);
+
+  function selectImage(file: File | undefined) {
+    if (!file) return;
+    try {
+      validatePostImage(file);
+      setImage({ file, previewUrl: URL.createObjectURL(file) });
+      setError(null);
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "이미지를 첨부하지 못했습니다.");
+    }
+  }
 
   async function submit() {
     if (!title.trim() || !content.trim()) {
@@ -60,9 +79,11 @@ export function PostComposer({ galleryId, onCreated, onCancel }: { galleryId: nu
     setSubmitting(true);
     setError(null);
     try {
-      await createPost(galleryId, title, content);
+      const imageFileId = image ? await uploadMedia(image.file, "IMAGE") : null;
+      await createPost(galleryId, title, content, imageFileId);
       setTitle("");
       setContent("");
+      setImage(null);
       onCreated();
     } catch (error) {
       setError(postError(error));
@@ -75,6 +96,26 @@ export function PostComposer({ galleryId, onCreated, onCancel }: { galleryId: nu
     <div className="post-form">
       <input aria-label="게시글 제목" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="제목" disabled={submitting} />
       <textarea aria-label="게시글 내용" value={content} onChange={(e) => setContent(e.target.value)} placeholder="내용을 입력하세요" disabled={submitting} />
+      {image ? (
+        <div className="post-image-preview">
+          <Image src={image.previewUrl} alt="첨부할 게시글 이미지 미리보기" width={350} height={262} unoptimized />
+          <button type="button" onClick={() => setImage(null)} disabled={submitting} aria-label="첨부 이미지 삭제">삭제</button>
+        </div>
+      ) : (
+        <label className="post-image-picker">
+          <input
+            type="file"
+            accept="image/jpeg,image/png,image/webp,image/gif"
+            disabled={submitting}
+            onChange={(event) => {
+              selectImage(event.currentTarget.files?.[0]);
+              event.currentTarget.value = "";
+            }}
+          />
+          <strong>사진 추가</strong>
+          <span>JPG, PNG, WEBP, GIF · 최대 100MB</span>
+        </label>
+      )}
       {error && <p className="post-form-error">{error}</p>}
       <div className="post-form-actions">
         <button className="gray-pill compact" onClick={onCancel} disabled={submitting}>취소</button>
@@ -94,6 +135,7 @@ export function CommunityPost({ post, onChanged, onCompose, onComments }: { post
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
+  const [imageUrl, setImageUrl] = useState<string | null>(post.imageUrl);
   const [expanded, setExpanded] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
@@ -101,12 +143,15 @@ export function CommunityPost({ post, onChanged, onCompose, onComments }: { post
     if (!getAccessToken()) return;
     let cancelled = false;
     fetchPost(post.postId).then(detail => {
-      if (!cancelled) setPreview(detail.content);
+      if (!cancelled) {
+        setPreview(detail.content);
+        setImageUrl(detail.imageUrl);
+      }
     }).catch(error => {
       if (!cancelled) setError(postError(error));
     });
     return () => { cancelled = true; };
-  }, [post]);
+  }, [post.postId, post.imageUrl]);
 
   async function readPost() {
     if (preview !== null) { setExpanded(value => !value); return; }
@@ -115,6 +160,7 @@ export function CommunityPost({ post, onChanged, onCompose, onComments }: { post
     try {
       const detail = await fetchPost(post.postId);
       setPreview(detail.content);
+      setImageUrl(detail.imageUrl);
       setExpanded(true);
     } catch (error) { setError(postError(error)); }
     finally { setSubmitting(false); }
@@ -198,7 +244,7 @@ export function CommunityPost({ post, onChanged, onCompose, onComments }: { post
       <button className={`post-preview ${expanded ? "expanded" : ""}`} onClick={readPost} disabled={submitting}>{preview ?? "로그인 후 게시글 내용을 확인할 수 있어요."}</button>
       {error && <p className="post-form-error" role="alert">{error}</p>}
       {confirmDelete && <div className="post-delete-confirm" role="group" aria-label="게시글 삭제 확인"><p>이 게시글을 삭제할까요?</p><button className="gray-pill" disabled={submitting} onClick={() => setConfirmDelete(false)}>취소</button><button className="purple-pill" disabled={submitting} onClick={remove}>{submitting ? "삭제 중..." : "삭제 확인"}</button></div>}
-      <div className="community-image" role="img" aria-label="첨부 이미지 없음" />
+      {imageUrl && <Image className="community-image" src={imageUrl} alt="게시글 첨부 이미지" width={350} height={262} unoptimized />}
       <div className="community-actions">
         <div className={`community-vote${vote ? " active" : ""}`} role="group" aria-label="게시글 반응"><button className={vote === "like" ? "liked" : ""} onClick={() => setVote(current => current === "like" ? null : "like")} aria-label="좋아요" aria-pressed={vote === "like"}><Asset name={vote === "like" ? "like-filled.svg" : "like.svg"} />{post.likeCount}</button><span className="community-vote-divider" aria-hidden="true" /><button aria-label="싫어요" aria-pressed={vote === "dislike"} onClick={() => setVote(current => current === "dislike" ? null : "dislike")}><Asset name={vote === "dislike" ? "like-filled.svg" : "like.svg"} className="thumb-down" /></button></div>
         <button onClick={() => onComments(post.postId)} aria-label={`댓글 ${post.commentCount}개 보기`}><Asset name="comment.svg" />{post.commentCount}</button>

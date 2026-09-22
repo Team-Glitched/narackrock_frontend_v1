@@ -33,11 +33,11 @@ export type PostWriter = { userId: number; nickname: string; profileImageUrl: st
 
 export type PostSort = "LATEST" | "POPULAR" | "OLDEST";
 
-export type PostListItem = { postId: number; writer: PostWriter; title: string; viewCount: number; likeCount: number; commentCount: number; createdAt: string };
+export type PostListItem = { postId: number; writer: PostWriter; title: string; imageUrl: string | null; viewCount: number; likeCount: number; commentCount: number; createdAt: string };
 
 export type PostListResponse = { galleryId: number; galleryName: string; currentSort: PostSort; searchedKeyword: string | null; totalCount: number; posts: PostListItem[] };
 
-export type PostDetailResponse = { postId: number; gallery: { galleryId: number; name: string }; writer: PostWriter; title: string; content: string; viewCount: number; likeCount: number; dislikeCount: number; commentCount: number; isLiked: boolean; isDisliked: boolean; createdAt: string; updatedAt: string | null };
+export type PostDetailResponse = { postId: number; gallery: { galleryId: number; name: string }; writer: PostWriter; title: string; content: string; imageUrl: string | null; viewCount: number; likeCount: number; dislikeCount: number; commentCount: number; isLiked: boolean; isDisliked: boolean; createdAt: string; updatedAt: string | null };
 
 export type PostCreateResponse = { postId: number };
 
