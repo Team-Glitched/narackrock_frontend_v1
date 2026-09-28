@@ -6,6 +6,7 @@ import type { Community } from "./community-card";
 
 import { formatDistanceToNow } from "date-fns";
 import { ko } from "date-fns/locale";
+import Image from "next/image";
 import { useEffect, useState } from "react";
 import { Asset, Avatar, postImages, SectionTitle, SongRail } from "@/components/app/shared";
 import type { Navigate } from "@/features/navigation/types";
@@ -13,11 +14,14 @@ import { useGalleryPosts } from "@/hooks/use-gallery-posts";
 import { createPost, DEFAULT_GALLERY_ID, deletePost, fetchPost, updatePost } from "@/lib/api/community";
 import type { PostListItem } from "@/lib/api/contracts";
 import { ApiError, getAccessToken } from "@/lib/api/client";
+import { uploadMedia } from "@/lib/api/media";
+import { validatePostImage } from "@/features/community/post-image";
 
 function postError(error: unknown): string {
   if (error instanceof ApiError) {
     if (error.status === 401) return "로그인이 필요합니다. 로그인 후 다시 시도해주세요.";
     if (error.status === 403) return "이 작업을 수행할 권한이 없습니다. 계정 상태와 작성자를 확인해주세요.";
+    if (error.errorCode === "GALLERY_NOT_FOUND") return "게시글을 등록할 커뮤니티를 찾을 수 없습니다. 잠시 후 다시 시도해주세요.";
     if (error.status === 404) return "게시글을 찾을 수 없습니다. 목록을 새로고침해주세요.";
   }
   return "요청을 처리하지 못했습니다. 잠시 후 다시 시도해주세요.";
@@ -32,17 +36,41 @@ function PostListStatus({ state }: { state: "loading" | "error" | "empty" }) {
   return <p className="empty-community" style={{ height: "auto", padding: "40px 20px" }}>{message}</p>;
 }
 
-function MiniPost({ tall = false, post }: { tall?: boolean; post: PostListItem }) { return <article className={`mini-post ${tall ? "mini-post--tall" : ""}`}><div className="mini-post-copy"><strong>{post.title}</strong><div className="mini-meta"><span>{relativeTime(post.createdAt)}</span><span><Asset name="like.svg" />{post.likeCount}</span><span><Asset name="comment.svg" />{post.commentCount}</span></div><div className="mini-author"><Avatar src={post.writer.profileImageUrl} /><span>{post.writer.nickname}</span></div></div></article>; }
+function MiniPost({ tall = false, post, onOpen }: { tall?: boolean; post: PostListItem; onOpen: (postId: number) => void }) {
+  return (
+    <button
+      type="button"
+      className={`mini-post ${tall ? "mini-post--tall" : ""}`}
+      onClick={() => onOpen(post.postId)}
+      aria-label={`${post.title} 게시글 열기`}
+    >
+      {post.imageUrl && (
+        <span className="post-thumb">
+          <Image src={post.imageUrl} alt="게시글 첨부 이미지" width={90} height={90} unoptimized />
+        </span>
+      )}
+      <div className="mini-post-copy">
+        <strong>{post.title}</strong>
+        <div className="mini-meta">
+          <span>{relativeTime(post.createdAt)}</span>
+          <span><Asset name="like.svg" />{post.likeCount}</span>
+          <span><Asset name="comment.svg" />{post.commentCount}</span>
+        </div>
+        <div className="mini-author"><Avatar src={post.writer.profileImageUrl} /><span>{post.writer.nickname}</span></div>
+      </div>
+    </button>
+  );
+}
 function BackTitle({ title, go }: { title: string; go: Navigate }) { return <div className="back-title"><button aria-label="뒤로" onClick={() => go("home")}><Asset name="return.svg" /></button><h1>{title}</h1></div>; }
 
-export function HomeScreen({ go }: { go: Navigate }) {
+export function HomeScreen({ go, onOpenPost }: { go: Navigate; onOpenPost: (postId: number) => void }) {
   const posts = useGalleryPosts(DEFAULT_GALLERY_ID);
-  return <div className="home-content scroll-content"><section><SectionTitle onAll={() => go("charts")}>인기 곡</SectionTitle><SongRail /></section><section><SectionTitle onAll={() => go("posts")}>인기 글</SectionTitle><div className="mini-post-list">{posts.status !== "ready" ? <PostListStatus state={posts.status} /> : posts.posts.length === 0 ? <PostListStatus state="empty" /> : posts.posts.slice(0, 3).map(post => <MiniPost key={post.postId} post={post} />)}</div></section><section><SectionTitle onAll={() => go("charts")}>내 곡</SectionTitle><SongRail /></section></div>;
+  return <div className="home-content scroll-content"><section><SectionTitle onAll={() => go("charts")}>인기 곡</SectionTitle><SongRail /></section><section><SectionTitle onAll={() => go("posts")}>인기 글</SectionTitle><div className="mini-post-list">{posts.status !== "ready" ? <PostListStatus state={posts.status} /> : posts.posts.length === 0 ? <PostListStatus state="empty" /> : posts.posts.slice(0, 3).map(post => <MiniPost key={post.postId} post={post} onOpen={onOpenPost} />)}</div></section><section><SectionTitle onAll={() => go("charts")}>내 곡</SectionTitle><SongRail /></section></div>;
 }
 export function ChartsScreen({ go }: { go: Navigate }) { return <div className="list-view scroll-content"><BackTitle title="인기차트" go={go} /><div className="chart-list">{Array.from({ length: 12 }).map((_, i) => <button className="chart-row" key={i}><span className="chart-art"><Asset name={postImages[(i * 5) % postImages.length]} alt="곡 커버" /></span><span><strong>Name</strong><small>name</small></span><Asset name="option.svg" /></button>)}</div></div>; }
-export function PostsScreen({ go }: { go: Navigate }) {
+export function PostsScreen({ go, onOpenPost }: { go: Navigate; onOpenPost: (postId: number) => void }) {
   const posts = useGalleryPosts(DEFAULT_GALLERY_ID);
-  return <div className="list-view scroll-content"><BackTitle title="인기글" go={go} /><div className="posts-list">{posts.status !== "ready" ? <PostListStatus state={posts.status} /> : posts.posts.length === 0 ? <PostListStatus state="empty" /> : posts.posts.map(post => <MiniPost tall key={post.postId} post={post} />)}</div></div>;
+  return <div className="list-view scroll-content"><BackTitle title="인기글" go={go} /><div className="posts-list">{posts.status !== "ready" ? <PostListStatus state={posts.status} /> : posts.posts.length === 0 ? <PostListStatus state="empty" /> : posts.posts.map(post => <MiniPost tall key={post.postId} post={post} onOpen={onOpenPost} />)}</div></div>;
 }
 export function FriendsScreen() { const [following, setFollowing] = useState([false, true, true, false]); const [requests, setRequests] = useState([true, true]); return <div className="friends-view scroll-content"><section><SectionTitle>팔로우 추천</SectionTitle><div className="people-list">{following.map((on, i) => <div className="person" key={i}><Avatar /><span><strong>Muhehehe</strong><small>피아노</small></span><button className="purple-pill" onClick={() => setFollowing(s => s.map((v, x) => x === i ? !v : v))}>{on ? "맞팔로우" : "팔로우"}</button></div>)}</div></section><section><SectionTitle>팔로우 요청</SectionTitle><div className="people-list">{requests.map((show, i) => show && <div className="person" key={i}><Avatar /><span><strong>Muhehehe</strong><small>피아노</small></span><button className="purple-pill compact" onClick={() => setRequests(s => s.map((v, x) => x === i ? false : v))}>확인</button><button className="gray-pill" onClick={() => setRequests(s => s.map((v, x) => x === i ? false : v))}>취소</button></div>)}</div></section></div>; }
 export function SearchScreen({ go }: { go: Navigate }) { const [query, setQuery] = useState(""); return <div className="search-view"><div className="search-line"><button onClick={() => go("home")} aria-label="뒤로"><Asset name="return.svg" /></button><label><Asset name="search.svg" /><input autoFocus value={query} onChange={e => setQuery(e.target.value)} placeholder="검색" />{query && <button onClick={() => setQuery("")} aria-label="검색어 지우기">×</button>}</label></div>{query && <p className="search-result">‘{query}’ 검색 결과가 없습니다.</p>}</div>; }
@@ -51,6 +79,22 @@ export function PostComposer({ galleryId, onCreated, onCancel }: { galleryId: nu
   const [content, setContent] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [image, setImage] = useState<{ file: File; previewUrl: string } | null>(null);
+
+  useEffect(() => () => {
+    if (image) URL.revokeObjectURL(image.previewUrl);
+  }, [image]);
+
+  function selectImage(file: File | undefined) {
+    if (!file) return;
+    try {
+      validatePostImage(file);
+      setImage({ file, previewUrl: URL.createObjectURL(file) });
+      setError(null);
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "이미지를 첨부하지 못했습니다.");
+    }
+  }
 
   async function submit() {
     if (!title.trim() || !content.trim()) {
@@ -60,9 +104,11 @@ export function PostComposer({ galleryId, onCreated, onCancel }: { galleryId: nu
     setSubmitting(true);
     setError(null);
     try {
-      await createPost(galleryId, title, content);
+      const imageFileId = image ? await uploadMedia(image.file, "IMAGE") : null;
+      await createPost(galleryId, title, content, imageFileId);
       setTitle("");
       setContent("");
+      setImage(null);
       onCreated();
     } catch (error) {
       setError(postError(error));
@@ -75,6 +121,26 @@ export function PostComposer({ galleryId, onCreated, onCancel }: { galleryId: nu
     <div className="post-form">
       <input aria-label="게시글 제목" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="제목" disabled={submitting} />
       <textarea aria-label="게시글 내용" value={content} onChange={(e) => setContent(e.target.value)} placeholder="내용을 입력하세요" disabled={submitting} />
+      {image ? (
+        <div className="post-image-preview">
+          <Image src={image.previewUrl} alt="첨부할 게시글 이미지 미리보기" width={350} height={262} unoptimized />
+          <button type="button" onClick={() => setImage(null)} disabled={submitting} aria-label="첨부 이미지 삭제">삭제</button>
+        </div>
+      ) : (
+        <label className="post-image-picker">
+          <input
+            type="file"
+            accept="image/jpeg,image/png,image/webp,image/gif"
+            disabled={submitting}
+            onChange={(event) => {
+              selectImage(event.currentTarget.files?.[0]);
+              event.currentTarget.value = "";
+            }}
+          />
+          <strong>사진 추가</strong>
+          <span>JPG, PNG, WEBP, GIF · 최대 100MB</span>
+        </label>
+      )}
       {error && <p className="post-form-error">{error}</p>}
       <div className="post-form-actions">
         <button className="gray-pill compact" onClick={onCancel} disabled={submitting}>취소</button>
@@ -94,6 +160,7 @@ export function CommunityPost({ post, onChanged, onCompose, onComments }: { post
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
+  const [imageUrl, setImageUrl] = useState<string | null>(post.imageUrl);
   const [expanded, setExpanded] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
@@ -101,12 +168,15 @@ export function CommunityPost({ post, onChanged, onCompose, onComments }: { post
     if (!getAccessToken()) return;
     let cancelled = false;
     fetchPost(post.postId).then(detail => {
-      if (!cancelled) setPreview(detail.content);
+      if (!cancelled) {
+        setPreview(detail.content);
+        setImageUrl(detail.imageUrl);
+      }
     }).catch(error => {
       if (!cancelled) setError(postError(error));
     });
     return () => { cancelled = true; };
-  }, [post]);
+  }, [post.postId, post.imageUrl]);
 
   async function readPost() {
     if (preview !== null) { setExpanded(value => !value); return; }
@@ -115,6 +185,7 @@ export function CommunityPost({ post, onChanged, onCompose, onComments }: { post
     try {
       const detail = await fetchPost(post.postId);
       setPreview(detail.content);
+      setImageUrl(detail.imageUrl);
       setExpanded(true);
     } catch (error) { setError(postError(error)); }
     finally { setSubmitting(false); }
@@ -198,7 +269,7 @@ export function CommunityPost({ post, onChanged, onCompose, onComments }: { post
       <button className={`post-preview ${expanded ? "expanded" : ""}`} onClick={readPost} disabled={submitting}>{preview ?? "로그인 후 게시글 내용을 확인할 수 있어요."}</button>
       {error && <p className="post-form-error" role="alert">{error}</p>}
       {confirmDelete && <div className="post-delete-confirm" role="group" aria-label="게시글 삭제 확인"><p>이 게시글을 삭제할까요?</p><button className="gray-pill" disabled={submitting} onClick={() => setConfirmDelete(false)}>취소</button><button className="purple-pill" disabled={submitting} onClick={remove}>{submitting ? "삭제 중..." : "삭제 확인"}</button></div>}
-      <div className="community-image" role="img" aria-label="첨부 이미지 없음" />
+      {imageUrl && <Image className="community-image" src={imageUrl} alt="게시글 첨부 이미지" width={350} height={262} unoptimized />}
       <div className="community-actions">
         <div className={`community-vote${vote ? " active" : ""}`} role="group" aria-label="게시글 반응"><button className={vote === "like" ? "liked" : ""} onClick={() => setVote(current => current === "like" ? null : "like")} aria-label="좋아요" aria-pressed={vote === "like"}><Asset name={vote === "like" ? "like-filled.svg" : "like.svg"} />{post.likeCount}</button><span className="community-vote-divider" aria-hidden="true" /><button aria-label="싫어요" aria-pressed={vote === "dislike"} onClick={() => setVote(current => current === "dislike" ? null : "dislike")}><Asset name={vote === "dislike" ? "like-filled.svg" : "like.svg"} className="thumb-down" /></button></div>
         <button onClick={() => onComments(post.postId)} aria-label={`댓글 ${post.commentCount}개 보기`}><Asset name="comment.svg" />{post.commentCount}</button>
@@ -226,7 +297,7 @@ export function CommunityScreen({ go, tab, onTabChange, onComments, onOpenCommun
       </div>
       {tab === "posts" ? (
         <>
-          {composerOpen && (
+          {composerOpen ? (
             <div style={{ padding: "0 20px" }}>
               <PostComposer
                 galleryId={DEFAULT_GALLERY_ID}
@@ -234,8 +305,7 @@ export function CommunityScreen({ go, tab, onTabChange, onComments, onOpenCommun
                 onCancel={() => setComposerOpen(false)}
               />
             </div>
-          )}
-          {posts.status !== "ready" ? (
+          ) : posts.status !== "ready" ? (
             <div role="status"><PostListStatus state={posts.status} />{posts.status === "error" && <button className="community-retry gray-pill" onClick={posts.refetch}>다시 시도</button>}</div>
           ) : posts.posts.length === 0 ? (
             <PostListStatus state="empty" />
@@ -244,7 +314,7 @@ export function CommunityScreen({ go, tab, onTabChange, onComments, onOpenCommun
               <CommunityPost key={post.postId} post={post} onChanged={posts.refetch} onCompose={() => setComposerOpen(true)} onComments={onComments} />
             ))
           )}
-          {!composerOpen && posts.status === "ready" && <button className="community-compose purple-pill" onClick={() => setComposerOpen(true)}>글쓰기</button>}
+          {!composerOpen && <button className="community-compose purple-pill" onClick={() => setComposerOpen(true)}>글쓰기</button>}
         </>
       ) : (
         <CommunityDirectory go={go} onOpen={onOpenCommunity} />

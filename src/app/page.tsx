@@ -97,11 +97,11 @@ export default function Page() {
   const content = useMemo(() => {
     if (commentPostId !== null) return <PostCommentsScreen key={commentPostId} postId={commentPostId} />;
     if (selectedCommunity) return <CommunityDetailScreen key={selectedCommunity.id} community={selectedCommunity} onComments={setCommentPostId} />;
-    if (view === "home") return <HomeScreen go={go} />;
+    if (view === "home") return <HomeScreen go={go} onOpenPost={setCommentPostId} />;
     if (view === "abyss") return <AbyssScreen onJoin={joinShort} initialShortId={abyssTargetShortId} />;
     if (view === "notifications") return <NotificationsScreen onBack={() => go("home")} onOpenProject={openReviewProject} />;
     if (view === "charts") return <ChartsScreen go={go} />;
-    if (view === "posts") return <PostsScreen go={go} />;
+    if (view === "posts") return <PostsScreen go={go} onOpenPost={setCommentPostId} />;
     if (view === "friends") return <FriendsScreen />;
     if (view === "search") return <SearchScreen go={go} />;
     if (view === "community") return <CommunityScreen go={go} tab={communityTab} onTabChange={setCommunityTab} onComments={setCommentPostId} onOpenCommunity={setSelectedCommunity} />;
@@ -137,7 +137,7 @@ export default function Page() {
   // 실제 구독 API가 준비되면 Provider에 api prop만 넘기면 된다.
   if (view === "studio" || view === "note") return <main className="studio-shell">{content}</main>;
   const authView = view === "login" || view === "signup";
-  const noHeader = authView || view === "charts" || view === "posts" || view === "search";
+  const noHeader = authView || (commentPostId === null && (view === "charts" || view === "posts" || view === "search"));
   // 가입한 커뮤니티 목록은 커뮤니티 탭의 하위 화면이라 푸터는 커뮤니티를 계속 활성으로 둔다.
   const footerView = view === "joined" ? "community" : view;
   const onBack = commentPostId !== null ? () => setCommentPostId(null)

@@ -1,5 +1,14 @@
 const apiBaseUrl = (process.env.NEXT_PUBLIC_API_BASE_URL ?? "").replace(/\/$/, "");
-export class ApiError extends Error { constructor(public status: number, message: string) { super(message); } }
+export class ApiError extends Error {
+  status: number;
+  errorCode?: string;
+
+  constructor(status: number, message: string, errorCode?: string) {
+    super(message);
+    this.status = status;
+    this.errorCode = errorCode;
+  }
+}
 
 // 로그인 세션 동안만 유지하는 액세스 토큰. 이 프런트는 아직 임시 화면이라 새로고침 시 유지는 하지 않는다.
 let accessToken: string | null = null;
@@ -40,8 +49,13 @@ export async function apiRequest<T>(path: string, init?: RequestInit): Promise<T
   if (!response.ok) {
     const body = await response.text();
     let message = body;
-    try { message = (JSON.parse(body) as { message?: string }).message || body; } catch { /* plain text response */ }
-    throw new ApiError(response.status, message);
+    let errorCode: string | undefined;
+    try {
+      const parsed = JSON.parse(body) as { message?: string; errorCode?: string };
+      message = parsed.message || body;
+      errorCode = parsed.errorCode;
+    } catch { /* plain text response */ }
+    throw new ApiError(response.status, message, errorCode);
   }
   if (response.status === 204) return undefined as T;
   return response.json() as Promise<T>;

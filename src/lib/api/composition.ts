@@ -1,6 +1,8 @@
 import { apiRequest } from "@/lib/api/client";
 import type { ApiEnvelope } from "@/lib/api/contracts";
 
+export { uploadMedia } from "@/lib/api/media";
+
 export type MidiNoteDto = {
   pitch: number;
   startTick: number;
@@ -85,18 +87,6 @@ export async function saveMidiClip(clipId: number, startTick: number, durationTi
   return data(`/api/v1/clips/${clipId}/midi`, {
     method: "PATCH", body: JSON.stringify({ startTick, durationTick, midiNotes }),
   });
-}
-
-export async function uploadMedia(file: File, fileType: "AUDIO" | "IMAGE"): Promise<number> {
-  const session = await data<{ mediaFileId: number; uploadUrl: string; method: string }>("/api/v1/media/upload-sessions", {
-    method: "POST",
-    body: JSON.stringify({ fileType, fileName: file.name, mimeType: file.type, fileSize: file.size }),
-  });
-  await apiRequest<void>(session.uploadUrl, {
-    method: "PUT", headers: { "Content-Type": file.type }, body: file,
-  });
-  await data(`/api/v1/media/${session.mediaFileId}/complete`, { method: "POST" });
-  return session.mediaFileId;
 }
 
 export async function createAudioClip(projectId: number, trackId: number, mediaFileId: number, durationTick: number) {
