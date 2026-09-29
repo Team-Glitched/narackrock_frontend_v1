@@ -1,4 +1,4 @@
-import { apiRequest, getCurrentUserId, setAuthSession } from "./client.ts";
+import { apiRequest, clearAuthSession, getCurrentUserId, setAuthSession } from "./client.ts";
 import type { ApiResponse, GoogleLoginResponse, TokenRefreshResponse } from "./contracts.ts";
 
 function storeAuthentication(response: GoogleLoginResponse): void {
@@ -32,4 +32,8 @@ export function refreshAccessToken(refreshToken: string): Promise<TokenRefreshRe
     });
     return response.data;
   });
+}
+
+export function logout(): void {
+  clearAuthSession();
 }
