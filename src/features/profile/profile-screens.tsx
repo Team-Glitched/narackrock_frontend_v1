@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Avatar, SectionTitle } from "@/components/app/shared";
+import { Asset, Avatar, SectionTitle } from "@/components/app/shared";
 import type { Navigate } from "@/features/navigation/types";
 import { useCurrentUserId } from "@/hooks/use-current-user";
 import { getProfile, updateProfile, updateProfileImage } from "@/lib/api/profile";
@@ -66,20 +66,65 @@ export function EditProfileScreen({ onSaved }: { onSaved: () => void }) {
   />;
 }
 
-export function InitialProfileSetupScreen({ suggestedNickname, pictureUrl, onSaved }: {
+export function InitialProfileSetupScreen({ suggestedNickname, onSaved }: {
   suggestedNickname: string;
   pictureUrl: string | null;
   onSaved: () => void;
 }) {
-  return <ProfileForm
-    initial={{ nickname: suggestedNickname, instrument: "", explanation: "", imageUrl: pictureUrl }}
-    submitLabel="가입하고 시작하기"
-    onSubmit={async ({ nickname, instrument, explanation, image }) => {
-      await updateProfile({ nickname, primaryInstrument: instrument, explanation });
-      if (image) await updateProfileImage(image);
+  const [step, setStep] = useState(0);
+  const [nickname, setNickname] = useState(suggestedNickname);
+  const [instrument, setInstrument] = useState("");
+  const [explanation, setExplanation] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function advance(event: React.FormEvent) {
+    event.preventDefault();
+    setError(null);
+    if (step === 0) {
+      if (!nickname.trim()) { setError("이름을 입력해 주세요."); return; }
+      setStep(1);
+      return;
+    }
+    if (step === 1) {
+      if (!instrument.trim()) { setError("주 악기를 입력해 주세요."); return; }
+      setStep(2);
+      return;
+    }
+    if (!explanation.trim()) { setError("설명을 입력해 주세요."); return; }
+    setSaving(true);
+    try {
+      await updateProfile({ nickname: nickname.trim(), primaryInstrument: instrument.trim(), explanation: explanation.trim() });
       onSaved();
-    }}
-  />;
+    } catch (cause) {
+      setError(profileErrorMessage(cause));
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return <form className="profile-onboarding" onSubmit={(event) => { void advance(event); }}>
+    <header className="auth-header"><Asset name="auth-logo.svg" alt="Narackrock" /></header>
+    <div className="profile-onboarding-content" key={step}>
+      {step === 0 && <>
+        <h1>당신의 이름은 무엇인가요?</h1>
+        <p>이름을 알려주세요</p>
+        <label>이름<input value={nickname} onChange={(event) => setNickname(event.target.value)} maxLength={30} autoFocus disabled={saving} /></label>
+      </>}
+      {step === 1 && <>
+        <h1>당신의 주 악기는 무엇인가요?</h1>
+        <p>악기를 알려주세요</p>
+        <label>악기<input value={instrument} onChange={(event) => setInstrument(event.target.value)} placeholder="피아노, 기타" autoFocus disabled={saving} /></label>
+      </>}
+      {step === 2 && <>
+        <h1>당신을 설명해주세요</h1>
+        <p>당신은 어떤 사람인가요?</p>
+        <label>설명<input value={explanation} onChange={(event) => setExplanation(event.target.value)} autoFocus disabled={saving} /></label>
+      </>}
+      {error && <p className="profile-form-error" role="alert">{error}</p>}
+      <button type="submit" className="profile-onboarding-next" disabled={saving}>{saving ? "저장 중..." : step === 2 ? "시작하기" : "다음"}</button>
+    </div>
+  </form>;
 }
 
 type ProfileDraft = {

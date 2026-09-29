@@ -191,7 +191,8 @@ export default function Page() {
   // 실제 구독 API가 준비되면 Provider에 api prop만 넘기면 된다.
   if (activeView === "studio" || activeView === "note") return <main className="studio-shell">{content}</main>;
   const authView = activeView === "login";
-  const noHeader = authView || (commentPostId === null && (activeView === "charts" || activeView === "posts" || activeView === "search"));
+  const onboardingView = Boolean(pendingProfileSetup);
+  const noHeader = authView || onboardingView || (commentPostId === null && (activeView === "charts" || activeView === "posts" || activeView === "search"));
   // 가입한 커뮤니티 목록은 커뮤니티 탭의 하위 화면이라 푸터는 커뮤니티를 계속 활성으로 둔다.
   const footerView = activeView === "joined" ? "community" : activeView;
   const onBack = commentPostId !== null ? () => setCommentPostId(null)
@@ -201,5 +202,5 @@ export default function Page() {
     if (pendingProfileSetup) setPendingProfileSetup(null);
     go(isAuthenticated ? "profile" : "login");
   } : undefined);
-  return <CommunityMembershipProvider defaultJoinedIds={defaultJoinedCommunityIds}><main className="page-background"><div className="phone-frame">{!noHeader && <Header blank={activeView === "friends"} abyss={activeView === "abyss"} profileImageUrl={headerProfileImageUrl} onBack={headerBack} onSearch={() => go("search")} onProfile={() => go(isAuthenticated ? "profile" : "login")} onNotifications={() => go("notifications")} />}<div className="screen-body">{content}</div>{!authView && <Footer view={footerView} go={go} />}</div></main></CommunityMembershipProvider>;
+  return <CommunityMembershipProvider defaultJoinedIds={defaultJoinedCommunityIds}><main className="page-background"><div className="phone-frame">{!noHeader && <Header blank={activeView === "friends"} abyss={activeView === "abyss"} profileImageUrl={headerProfileImageUrl} onBack={headerBack} onSearch={() => go("search")} onProfile={() => go(isAuthenticated ? "profile" : "login")} onNotifications={() => go("notifications")} />}<div className="screen-body">{content}</div>{!authView && !onboardingView && <Footer view={footerView} go={go} />}</div></main></CommunityMembershipProvider>;
 }
