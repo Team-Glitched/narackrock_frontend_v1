@@ -19,6 +19,7 @@ export type ShortItemDto = {
   isLiked: boolean;
   isDisliked: boolean;
   isBookmarked: boolean;
+  hasPendingContribution: boolean;
   author: { userId: number; nickname: string; profileImageUrl: string | null };
   participants: { userId: number; nickname: string; role: string }[];
   createdAt: string;

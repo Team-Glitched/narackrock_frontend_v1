@@ -10,6 +10,7 @@ const globalStyles = readFileSync(new URL("../../app/globals.css", import.meta.u
 const joinableShort = {
   completionStatus: "IN_PROGRESS",
   projectId: 12,
+  hasPendingContribution: false,
   participants: [{ userId: 7 }],
 };
 
@@ -19,6 +20,10 @@ test("hides composition participation after the current user has already partici
 
 test("keeps composition participation for a user who has not participated", () => {
   assert.equal(canJoinShort(joinableShort, 8), true);
+});
+
+test("hides composition participation while the current user's request is pending", () => {
+  assert.equal(canJoinShort({ ...joinableShort, hasPendingContribution: true }, 8), false);
 });
 
 test("does not allow participation in a completed short", () => {
