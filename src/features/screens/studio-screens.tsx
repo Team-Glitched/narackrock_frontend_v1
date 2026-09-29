@@ -7,7 +7,7 @@ import { useCompositionPlayback } from "@/features/composition/use-composition-p
 import { prepareAudioFile } from "@/features/composition/prepare-audio-file";
 import type { AudioSelection } from "@/features/composition/prepare-audio-file";
 import { AudioTrimPicker } from "@/features/composition/audio-trim-picker";
-import { hasOwnDraftClip, shouldShowContributionSubmit } from "@/features/composition/contribution-session";
+import { canCreateLayer, hasOwnDraftClip, shouldShowContributionSubmit } from "@/features/composition/contribution-session";
 import { completedExportShortId } from "@/features/composition/publish-navigation";
 import { TeamPianoRoll } from "@/features/composition/team-piano-roll";
 import { createAudioClip, createDraftProject, createMidiClip, enterComposition, getComposition, getExport, getPendingContributions, publishComposition, reviewContribution, saveMidiClip, submitContribution, updateProjectMetadata, uploadMedia, type CompositionDto, type MidiNoteDto } from "@/lib/api/composition";
@@ -206,12 +206,14 @@ export function StudioScreen({ go, shortId, projectId, returnToNotifications, on
   const { project, tracks, viewerPermission } = composition;
   const hasDraftClip = hasOwnDraftClip(tracks, viewerPermission.userId);
   const canSubmit = shouldShowContributionSubmit(shortId, viewerPermission, tracks);
+  const layerCreationAllowed = canCreateLayer(viewerPermission, tracks);
   return <div className="studio">
     <StudioToolbar title={project.title} bpm={project.bpm} playing={playback.playing} positionMs={playback.positionMs} maxMs={project.maxDurationMs}
       onPlay={() => { void playback.play(); }} onPause={playback.pause} onSeek={playback.seek}
       onBack={() => returnToNotifications ? go("notifications") : shortId == null ? go("home") : onReturnToShort(shortId)}>
       {canSubmit ? <button className="studio-submit" onClick={() => { setError(null); setShowSubmitForm(true); }} disabled={busy}>제출하기</button>
-        : <button className="studio-add" onClick={onAddLayer} disabled={!viewerPermission.canContribute} aria-label="레이어 추가"><i /></button>}
+        : <button className="studio-add" onClick={onAddLayer} disabled={!layerCreationAllowed} aria-label="레이어 추가"
+          title={!layerCreationAllowed && viewerPermission.canContribute ? "한 곡에는 하나의 레이어만 만들 수 있습니다." : undefined}><i /></button>}
     </StudioToolbar>
     {error && !showSubmitForm && <p className="studio-error" role="alert">{error}</p>}
     {((shortId == null && viewerPermission.canExport && (project.status === "DRAFT" || hasDraftClip)) || status) && <div className="studio-workflow">
@@ -276,6 +278,7 @@ export function NoteEditorScreen({ projectId, trackId, clipId, onBack, onAddLaye
   const track = composition?.tracks.find((item) => item.trackId === trackId);
   const clip = track?.clips.find((item) => item.clipId === clipId && item.clipType === "MIDI");
   const editable = Boolean(composition && track && (clip ? clip.ownerId === composition.viewerPermission.userId : composition.viewerPermission.canContribute));
+  const layerCreationAllowed = composition ? canCreateLayer(composition.viewerPermission, composition.tracks) : false;
   const stepTick = composition ? Math.max(1, Math.round(composition.project.ppq / 2)) : 240;
   const maxTick = composition?.project.maxTick ?? 57_600;
   const clipStartTick = clip?.startTick ?? 0;
@@ -318,7 +321,8 @@ export function NoteEditorScreen({ projectId, trackId, clipId, onBack, onAddLaye
   return <div className="studio note-editor">
     <StudioToolbar title={`${track.name} · 피아노롤`} bpm={composition.project.bpm} playing={playback.playing} positionMs={playback.positionMs} maxMs={composition.project.maxDurationMs}
       onPlay={() => { void playback.play(); }} onPause={playback.pause} onSeek={playback.seek} onBack={onBack}
-      piano volume={playback.volume} onVolume={playback.setVolume} onAdd={() => { if (editable) void save(onAddLayer); else onAddLayer(); }}>
+      piano volume={playback.volume} onVolume={playback.setVolume}
+      onAdd={layerCreationAllowed ? () => { if (editable) void save(onAddLayer); else onAddLayer(); } : undefined}>
       <label className="studio-note-length">길이<select value={lengthCells} onChange={(event) => setLengthCells(Number(event.target.value))}><option value={1}>1/8</option><option value={2}>1/4</option><option value={4}>1/2</option><option value={8}>한 마디</option></select></label>
       <button className="studio-save" onClick={() => { void save(); }} disabled={!editable || busy}>{busy ? "저장 중" : "저장"}</button>
     </StudioToolbar>
