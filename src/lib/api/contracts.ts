@@ -58,4 +58,21 @@ export type PostUpdateResponse = { postId: number };
 
 export type GoogleLoginResponse = { accessToken: string; refreshToken: string; tokenType: string; user: { userId: number; nickname: string; profileImageUrl: string | null } };
 
+export type GoogleSignupResponse = GoogleLoginResponse;
+
 export type TokenRefreshResponse = { accessToken: string; refreshToken: string; tokenType: string };
+
+export type UserProfile = {
+  userId: number;
+  nickname: string;
+  profileImageUrl: string | null;
+  explanation: string | null;
+  primaryInstrument: string | null;
+  relations: { followerCount: number; followingCount: number; isFollowing: boolean };
+  activities: {
+    postCount: number;
+    posts: { postId: number; title: string; thumbnailUrl: string | null }[];
+    participatedShorts: { shortId: number; title: string; albumImageUrl: string | null }[];
+    pinnedShorts: { shortId: number; title: string; albumImageUrl: string | null; mediaUrl: string | null; displayOrder: number }[];
+  };
+};
