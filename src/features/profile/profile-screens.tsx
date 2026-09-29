@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Asset, Avatar, SectionTitle } from "@/components/app/shared";
 import type { Navigate } from "@/features/navigation/types";
 import { useCurrentUserId } from "@/hooks/use-current-user";
+import { logout } from "@/lib/api/auth";
 import { getProfile, updateProfile, updateProfileImage } from "@/lib/api/profile";
 import type { UserProfile } from "@/lib/api/contracts";
 
@@ -46,6 +47,7 @@ export function ProfileScreen({ go }: { go: Navigate }) {
     {instruments.length > 0 && <div className="tags">{instruments.map(instrument => <span key={instrument}>{instrument}</span>)}</div>}
     <section className="description"><h2>Description</h2><p>{profile.explanation || "아직 소개가 없습니다."}</p></section>
     <section><SectionTitle>내 작업물</SectionTitle><p className="profile-empty-work">게시글 {profile.activities.posts.length}개 · 참여한 숏폼 {profile.activities.participatedShorts.length}개</p></section>
+    <button type="button" className="profile-logout" onClick={logout}>로그아웃</button>
   </div>;
 }
 
