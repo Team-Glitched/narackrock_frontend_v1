@@ -8,7 +8,7 @@ import { defaultJoinedCommunityIds, JoinedCommunitiesScreen } from "@/features/s
 import { CommunityMembershipProvider } from "@/features/screens/community-membership";
 import type { CommunityTab } from "@/features/screens/mobile-screens";
 import { ChartsScreen, CommunityScreen, FriendsScreen, HomeScreen, PostsScreen, SearchScreen } from "@/features/screens/mobile-screens";
-import { EditProfileScreen, ProfileScreen } from "@/features/profile/profile-screens";
+import { EditProfileScreen, InitialProfileSetupScreen, ProfileScreen } from "@/features/profile/profile-screens";
 import { AbyssScreen } from "@/features/screens/abyss-screen";
 import { NotificationsScreen } from "@/features/screens/notifications-screen";
 import { NoteEditorScreen, StudioScreen } from "@/features/screens/studio-screens";
@@ -46,7 +46,7 @@ export default function Page() {
   const authenticate = useCallback(() => { setPendingGoogleSignup(null); setView("home"); }, []);
   const requireSignup = useCallback((pending: PendingGoogleSignup) => {
     setPendingGoogleSignup(pending);
-    setView("signup");
+    setView("edit");
   }, []);
   const joinShort = useCallback((shortId: number) => {
     setReviewOrigin(false);
@@ -131,7 +131,8 @@ export default function Page() {
     if (view === "community") return <CommunityScreen go={go} tab={communityTab} onTabChange={setCommunityTab} onComments={setCommentPostId} onOpenCommunity={setSelectedCommunity} />;
     if (view === "joined") return <JoinedCommunitiesScreen onOpen={setSelectedCommunity} />;
     if (view === "profile") return <ProfileScreen go={go} />;
-    if (view === "login" || view === "signup") return <AuthScreen key={view} mode={view} go={go} onAuthenticated={authenticate} onSignupRequired={requireSignup} pendingSignup={view === "signup" ? pendingGoogleSignup : null} />;
+    if (view === "login" || view === "signup") return <AuthScreen key={view} mode={view} go={go} onAuthenticated={authenticate} onSignupRequired={requireSignup} />;
+    if (view === "edit" && pendingGoogleSignup) return <InitialProfileSetupScreen {...pendingGoogleSignup} onSaved={authenticate} />;
     if (view === "edit") return <EditProfileScreen onSaved={() => go("profile")} />;
     if (view === "choose") return <CompositionChoiceScreen onChoose={(method) => { void chooseLayer(method); }}
       onBack={() => setView("studio")} busy={choiceBusy} error={choiceError} />;
@@ -167,5 +168,9 @@ export default function Page() {
   const onBack = commentPostId !== null ? () => setCommentPostId(null)
     : selectedCommunity ? () => setSelectedCommunity(null)
     : view === "joined" ? () => go("community") : undefined;
-  return <CommunityMembershipProvider defaultJoinedIds={defaultJoinedCommunityIds}><main className="page-background"><div className="phone-frame">{!noHeader && <Header blank={view === "friends"} abyss={view === "abyss"} onBack={onBack} onSearch={() => go("search")} onProfile={() => go(isAuthenticated ? "profile" : "login")} onNotifications={() => go("notifications")} />}<div className="screen-body">{content}</div>{!authView && <Footer view={footerView} go={go} />}</div></main></CommunityMembershipProvider>;
+  const headerBack = onBack ?? (view === "edit" ? () => {
+    if (pendingGoogleSignup) setPendingGoogleSignup(null);
+    go(isAuthenticated ? "profile" : "login");
+  } : undefined);
+  return <CommunityMembershipProvider defaultJoinedIds={defaultJoinedCommunityIds}><main className="page-background"><div className="phone-frame">{!noHeader && <Header blank={view === "friends"} abyss={view === "abyss"} onBack={headerBack} onSearch={() => go("search")} onProfile={() => go(isAuthenticated ? "profile" : "login")} onNotifications={() => go("notifications")} />}<div className="screen-body">{content}</div>{!authView && <Footer view={footerView} go={go} />}</div></main></CommunityMembershipProvider>;
 }

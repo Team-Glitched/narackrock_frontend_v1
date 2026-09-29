@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Asset, Avatar, SectionTitle } from "@/components/app/shared";
 import type { Navigate } from "@/features/navigation/types";
 import { useCurrentUserId } from "@/hooks/use-current-user";
+import { signupWithGoogle } from "@/lib/api/auth";
 import { getProfile, updateProfile, updateProfileImage } from "@/lib/api/profile";
 import type { UserProfile } from "@/lib/api/contracts";
 
@@ -54,17 +55,62 @@ export function EditProfileScreen({ onSaved }: { onSaved: () => void }) {
 
   if (loading) return <div className="profile-state" role="status">프로필을 불러오는 중...</div>;
   if (loadError || !profile) return <div className="profile-state" role="alert">{loadError ?? "프로필이 없습니다."}</div>;
-  return <EditProfileForm profile={profile} onSaved={onSaved} onProfileChanged={setProfile} />;
+  return <ProfileForm
+    initial={{ nickname: profile.nickname, instrument: profile.primaryInstrument ?? "", explanation: profile.explanation ?? "", imageUrl: profile.profileImageUrl }}
+    submitLabel="프로필 저장"
+    onSubmit={async ({ nickname, instrument, explanation, image }) => {
+      const updated = await updateProfile({ nickname, primaryInstrument: instrument, explanation });
+      const uploaded = image ? await updateProfileImage(image) : null;
+      setProfile({ ...profile, ...updated, profileImageUrl: uploaded?.profileImageUrl ?? profile.profileImageUrl });
+      onSaved();
+    }}
+  />;
 }
 
-function EditProfileForm({ profile, onSaved, onProfileChanged }: {
-  profile: UserProfile;
+export function InitialProfileSetupScreen({ credential, suggestedNickname, pictureUrl, onSaved }: {
+  credential: string;
+  suggestedNickname: string;
+  pictureUrl: string | null;
   onSaved: () => void;
-  onProfileChanged: (profile: UserProfile) => void;
 }) {
-  const [nickname, setNickname] = useState(profile.nickname);
-  const [instrument, setInstrument] = useState(profile.primaryInstrument ?? "");
-  const [explanation, setExplanation] = useState(profile.explanation ?? "");
+  const [accountCreated, setAccountCreated] = useState(false);
+  return <ProfileForm
+    initial={{ nickname: suggestedNickname, instrument: "", explanation: "", imageUrl: pictureUrl }}
+    submitLabel="가입하고 시작하기"
+    onSubmit={async ({ nickname, instrument, explanation, image }) => {
+      if (!accountCreated) {
+        await signupWithGoogle(credential, nickname);
+        setAccountCreated(true);
+      }
+      await updateProfile({ nickname, primaryInstrument: instrument, explanation });
+      if (image) await updateProfileImage(image);
+      onSaved();
+    }}
+  />;
+}
+
+type ProfileDraft = {
+  nickname: string;
+  instrument: string;
+  explanation: string;
+  image: File | null;
+};
+
+function validateProfileImage(file: File): void {
+  if (!new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]).has(file.type)) {
+    throw new Error("JPG, PNG, WEBP 또는 GIF 이미지를 선택해 주세요.");
+  }
+  if (file.size > 25 * 1024 * 1024) throw new Error("프로필 이미지는 25MB 이하여야 합니다.");
+}
+
+function ProfileForm({ initial, submitLabel, onSubmit }: {
+  initial: { nickname: string; instrument: string; explanation: string; imageUrl: string | null };
+  submitLabel: string;
+  onSubmit: (draft: ProfileDraft) => Promise<void>;
+}) {
+  const [nickname, setNickname] = useState(initial.nickname);
+  const [instrument, setInstrument] = useState(initial.instrument);
+  const [explanation, setExplanation] = useState(initial.explanation);
   const [image, setImage] = useState<{ file: File; previewUrl: string } | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -78,10 +124,7 @@ function EditProfileForm({ profile, onSaved, onProfileChanged }: {
     setSaving(true);
     setError(null);
     try {
-      const updated = await updateProfile({ nickname, primaryInstrument: instrument, explanation });
-      const uploaded = image ? await updateProfileImage(image.file) : null;
-      onProfileChanged({ ...profile, ...updated, profileImageUrl: uploaded?.profileImageUrl ?? profile.profileImageUrl });
-      onSaved();
+      await onSubmit({ nickname: nickname.trim(), instrument: instrument.trim(), explanation: explanation.trim(), image: image?.file ?? null });
     } catch (cause) {
       setError(profileErrorMessage(cause));
     } finally {
@@ -91,21 +134,25 @@ function EditProfileForm({ profile, onSaved, onProfileChanged }: {
 
   return <div className="edit-view scroll-content">
     <label className="edit-avatar">
-      <Avatar large src={image?.previewUrl ?? profile.profileImageUrl} /><span><Asset name="photo-add.svg" /></span>
+      <Avatar large src={image?.previewUrl ?? initial.imageUrl} /><span><Asset name="photo-add.svg" /></span>
       <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" disabled={saving} onChange={(event) => {
         const file = event.currentTarget.files?.[0];
         event.currentTarget.value = "";
         if (!file) return;
-        setImage(current => {
-          if (current) URL.revokeObjectURL(current.previewUrl);
-          return { file, previewUrl: URL.createObjectURL(file) };
-        });
+        try {
+          validateProfileImage(file);
+          setImage(current => {
+            if (current) URL.revokeObjectURL(current.previewUrl);
+            return { file, previewUrl: URL.createObjectURL(file) };
+          });
+          setError(null);
+        } catch (cause) { setError(profileErrorMessage(cause)); }
       }} />
     </label>
     <label><strong>이름</strong><input value={nickname} onChange={event => setNickname(event.target.value)} maxLength={30} disabled={saving} /></label>
     <label><strong>악기</strong><input value={instrument} onChange={event => setInstrument(event.target.value)} disabled={saving} placeholder="예: Guitar, Piano" /></label>
     <label><strong>설명</strong><textarea value={explanation} onChange={event => setExplanation(event.target.value)} disabled={saving} /></label>
     {error && <p className="profile-form-error" role="alert">{error}</p>}
-    <button className="profile-save-button" disabled={saving} onClick={() => void save()}>{saving ? "저장 중..." : "프로필 저장"}</button>
+    <button className="profile-save-button" disabled={saving} onClick={() => void save()}>{saving ? "저장 중..." : submitLabel}</button>
   </div>;
 }

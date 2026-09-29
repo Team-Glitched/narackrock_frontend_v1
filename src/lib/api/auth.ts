@@ -1,6 +1,5 @@
 import { apiRequest, getCurrentUserId, setAuthSession } from "./client.ts";
 import type { ApiResponse, GoogleLoginResponse, GoogleSignupResponse, TokenRefreshResponse } from "./contracts.ts";
-import { updateProfileImage } from "./profile.ts";
 
 function storeAuthentication(response: GoogleLoginResponse): void {
   setAuthSession({
@@ -23,14 +22,12 @@ export function loginWithGoogle(idToken: string): Promise<GoogleLoginResponse> {
 export async function signupWithGoogle(
   idToken: string,
   nickname: string,
-  profileImage?: File,
 ): Promise<GoogleSignupResponse> {
   const response = await apiRequest<ApiResponse<GoogleSignupResponse>>("/api/v1/users", {
     method: "POST",
     body: JSON.stringify({ idToken, nickname: nickname.trim() }),
   });
   storeAuthentication(response.data);
-  if (profileImage) await updateProfileImage(profileImage);
   return response.data;
 }
 
