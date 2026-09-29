@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Asset, Avatar, SectionTitle } from "@/components/app/shared";
+import { Avatar, SectionTitle } from "@/components/app/shared";
 import type { Navigate } from "@/features/navigation/types";
 import { useCurrentUserId } from "@/hooks/use-current-user";
 import { signupWithGoogle } from "@/lib/api/auth";
@@ -134,7 +134,15 @@ function ProfileForm({ initial, submitLabel, onSubmit }: {
 
   return <div className="edit-view scroll-content">
     <label className="edit-avatar">
-      <Avatar large src={image?.previewUrl ?? initial.imageUrl} /><span><Asset name="photo-add.svg" /></span>
+      <span className="edit-avatar-visual">
+        <Avatar large src={image?.previewUrl ?? initial.imageUrl} />
+        <span className="edit-avatar-overlay" aria-hidden>
+          <svg viewBox="0 0 48 48" fill="none">
+            <path d="M9 16.5h7l3-4h10l3 4h7a3 3 0 0 1 3 3v18a3 3 0 0 1-3 3H9a3 3 0 0 1-3-3v-18a3 3 0 0 1 3-3Z" stroke="currentColor" strokeWidth="3" strokeLinejoin="round" />
+            <path d="m12 36 8-8 6 6 5-5 11 10M31 9h10M36 4v10" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </span>
+      </span>
       <input type="file" accept="image/jpeg,image/png,image/webp,image/gif" disabled={saving} onChange={(event) => {
         const file = event.currentTarget.files?.[0];
         event.currentTarget.value = "";
