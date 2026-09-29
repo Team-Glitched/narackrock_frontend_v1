@@ -3,11 +3,12 @@
 import { useCallback, useMemo, useState } from "react";
 import { Footer, Header } from "@/components/app/shared";
 import type { View } from "@/features/navigation/types";
-import { AuthScreen } from "@/features/screens/auth-screens";
+import { AuthScreen, type PendingGoogleSignup } from "@/features/screens/auth-screens";
 import { defaultJoinedCommunityIds, JoinedCommunitiesScreen } from "@/features/screens/community-directory";
 import { CommunityMembershipProvider } from "@/features/screens/community-membership";
 import type { CommunityTab } from "@/features/screens/mobile-screens";
-import { ChartsScreen, CommunityScreen, EditProfileScreen, FriendsScreen, HomeScreen, PostsScreen, ProfileScreen, SearchScreen } from "@/features/screens/mobile-screens";
+import { ChartsScreen, CommunityScreen, FriendsScreen, HomeScreen, PostsScreen, SearchScreen } from "@/features/screens/mobile-screens";
+import { EditProfileScreen, ProfileScreen } from "@/features/profile/profile-screens";
 import { AbyssScreen } from "@/features/screens/abyss-screen";
 import { NotificationsScreen } from "@/features/screens/notifications-screen";
 import { NoteEditorScreen, StudioScreen } from "@/features/screens/studio-screens";
@@ -19,10 +20,13 @@ import { useWebMcpNavigation } from "@/hooks/use-webmcp-navigation";
 import { PostCommentsScreen } from "@/features/screens/post-comments";
 import { CommunityDetailScreen } from "@/features/screens/community-detail";
 import type { Community } from "@/features/screens/community-card";
+import { useCurrentUserId } from "@/hooks/use-current-user";
 
 export default function Page() {
   const [view, setView] = useState<View>("home");
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const currentUserId = useCurrentUserId();
+  const isAuthenticated = currentUserId !== null;
+  const [pendingGoogleSignup, setPendingGoogleSignup] = useState<PendingGoogleSignup | null>(null);
   const [communityTab, setCommunityTab] = useState<CommunityTab>("posts");
   const [commentPostId, setCommentPostId] = useState<number | null>(null);
   const [selectedCommunity, setSelectedCommunity] = useState<Community | null>(null);
@@ -39,7 +43,11 @@ export default function Page() {
     if (next === "abyss") setAbyssTargetShortId(null);
     setView(next);
   }, []);
-  const authenticate = useCallback(() => { setIsAuthenticated(true); setView("home"); }, []);
+  const authenticate = useCallback(() => { setPendingGoogleSignup(null); setView("home"); }, []);
+  const requireSignup = useCallback((pending: PendingGoogleSignup) => {
+    setPendingGoogleSignup(pending);
+    setView("signup");
+  }, []);
   const joinShort = useCallback((shortId: number) => {
     setReviewOrigin(false);
     setCompositionTarget({ shortId, projectId: null });
@@ -123,8 +131,8 @@ export default function Page() {
     if (view === "community") return <CommunityScreen go={go} tab={communityTab} onTabChange={setCommunityTab} onComments={setCommentPostId} onOpenCommunity={setSelectedCommunity} />;
     if (view === "joined") return <JoinedCommunitiesScreen onOpen={setSelectedCommunity} />;
     if (view === "profile") return <ProfileScreen go={go} />;
-    if (view === "login" || view === "signup") return <AuthScreen mode={view} go={go} onAuthenticate={authenticate} />;
-    if (view === "edit") return <EditProfileScreen />;
+    if (view === "login" || view === "signup") return <AuthScreen key={view} mode={view} go={go} onAuthenticated={authenticate} onSignupRequired={requireSignup} pendingSignup={view === "signup" ? pendingGoogleSignup : null} />;
+    if (view === "edit") return <EditProfileScreen onSaved={() => go("profile")} />;
     if (view === "choose") return <CompositionChoiceScreen onChoose={(method) => { void chooseLayer(method); }}
       onBack={() => setView("studio")} busy={choiceBusy} error={choiceError} />;
     if (view === "upload") return <CompositionUploadScreen onSave={saveAudio} onBack={() => setView("choose")} />;
@@ -147,7 +155,7 @@ export default function Page() {
       onAddLayer={() => { setChoiceError(null); setView("choose"); }}
       onEditTrack={editTrack}
     />;
-  }, [selectedCommunity, commentPostId, communityTab, authenticate, go, view, compositionTarget, abyssTargetShortId, editorTarget, joinShort, selectProject, returnToJoinedShort, startDraft, chooseLayer, choiceBusy, choiceError, saveAudio, transformRecording, editTrack, backToStudio, openReviewProject, reviewOrigin]);
+  }, [selectedCommunity, commentPostId, communityTab, authenticate, requireSignup, pendingGoogleSignup, go, view, compositionTarget, abyssTargetShortId, editorTarget, joinShort, selectProject, returnToJoinedShort, startDraft, chooseLayer, choiceBusy, choiceError, saveAudio, transformRecording, editTrack, backToStudio, openReviewProject, reviewOrigin]);
 
   // 가입 상태는 커뮤니티 목록·전체목록·상세가 공유한다.
   // 실제 구독 API가 준비되면 Provider에 api prop만 넘기면 된다.
