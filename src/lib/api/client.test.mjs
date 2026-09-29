@@ -43,3 +43,21 @@ test("clears an expired session and keeps a visible message on an empty 401 resp
     globalThis.fetch = originalFetch;
   }
 });
+
+test("does not clear a newly logged-in account when an old request later returns 401", async () => {
+  const originalFetch = globalThis.fetch;
+  let resolveOldRequest;
+  globalThis.fetch = () => new Promise((resolve) => { resolveOldRequest = resolve; });
+  setAuthSession({ accessToken: "old-token", refreshToken: "old-refresh", userId: 7 });
+
+  try {
+    const oldRequest = apiRequest("/api/v1/project-contributions/inbox");
+    setAuthSession({ accessToken: "new-token", refreshToken: "new-refresh", userId: 9 });
+    resolveOldRequest(new Response(null, { status: 401 }));
+
+    await assert.rejects(oldRequest, (error) => error instanceof ApiError && error.status === 401);
+    assert.equal(getCurrentUserId(), 9);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});

@@ -81,10 +81,12 @@ export function subscribeCurrentUserId(listener: (userId: number | null) => void
 
 export async function apiRequest<T>(path: string, init?: RequestInit): Promise<T> {
   const headers = new Headers(init?.headers);
+  const requestAccessToken = accessToken;
+  const usesStoredSession = requestAccessToken != null && !headers.has("Authorization");
   if (init?.body != null && !(init.body instanceof FormData) && !headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");
   }
-  if (accessToken && !headers.has("Authorization")) headers.set("Authorization", `Bearer ${accessToken}`);
+  if (usesStoredSession) headers.set("Authorization", `Bearer ${requestAccessToken}`);
 
   const url = /^https?:\/\//.test(path) ? path : `${apiBaseUrl}${path}`;
   const response = await fetch(url, {
@@ -104,7 +106,9 @@ export async function apiRequest<T>(path: string, init?: RequestInit): Promise<T
       message = parsed.message?.trim() || fallbackMessage;
       errorCode = parsed.errorCode;
     } catch { /* plain text response */ }
-    if (response.status === 401) clearAuthSession();
+    if (response.status === 401 && usesStoredSession && accessToken === requestAccessToken) {
+      clearAuthSession();
+    }
     throw new ApiError(response.status, message, errorCode);
   }
   if (response.status === 204) return undefined as T;
