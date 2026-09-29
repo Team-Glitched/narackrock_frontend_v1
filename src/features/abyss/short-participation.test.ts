@@ -11,6 +11,7 @@ const joinableShort = {
   completionStatus: "IN_PROGRESS",
   projectId: 12,
   hasPendingContribution: false,
+  hasApprovedContribution: false,
   participants: [{ userId: 7 }],
 };
 
@@ -24,6 +25,10 @@ test("keeps composition participation for a user who has not participated", () =
 
 test("hides composition participation while the current user's request is pending", () => {
   assert.equal(canJoinShort({ ...joinableShort, hasPendingContribution: true }, 8), false);
+});
+
+test("hides composition participation after the current user's request was approved", () => {
+  assert.equal(canJoinShort({ ...joinableShort, hasApprovedContribution: true }, 8), false);
 });
 
 test("does not allow participation in a completed short", () => {
