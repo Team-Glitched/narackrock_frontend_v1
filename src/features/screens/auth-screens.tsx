@@ -3,8 +3,10 @@
 import { useEffect, useRef, useState } from "react";
 import { Asset } from "@/components/app/shared";
 import { decodeGoogleCredential, loadGoogleAccounts, type GoogleCredentialResponse } from "@/features/auth/google-identity";
+import { profileSetupRequired } from "@/features/auth/profile-setup-required";
 import { loginWithGoogle } from "@/lib/api/auth";
 import { ApiError } from "@/lib/api/client";
+import { getProfile } from "@/lib/api/profile";
 
 export type PendingProfileSetup = {
   suggestedNickname: string;
@@ -42,8 +44,9 @@ export function AuthScreen({ onAuthenticated, onFirstLogin }: AuthScreenProps) {
         callback: (response: GoogleCredentialResponse) => {
           setBusy(true);
           setError(null);
-          loginWithGoogle(response.credential).then((result) => {
-            if (result.firstLogin) {
+          loginWithGoogle(response.credential).then(async (result) => {
+            const profile = result.firstLogin ? null : await getProfile(result.user.userId);
+            if (profileSetupRequired(result.firstLogin, profile)) {
               const hints = decodeGoogleCredential(response.credential);
               onFirstLogin({
                 suggestedNickname: hints.name?.trim() || result.user.nickname,
