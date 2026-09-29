@@ -180,8 +180,10 @@ export function AbyssScreen({ onJoin, initialShortId }: { onJoin: (shortId: numb
         {!mediaUrl && <p className="abyss-playback-message">재생 가능한 음원 파일이 없습니다.</p>}
         {playbackError && <p className="abyss-playback-message" role="alert">{playbackError}</p>}
       </div>
-      {canJoinShort(current, currentUserId) && (
-        <button className="abyss-join" onClick={() => onJoin(current.shortId)}>작곡 참여하기</button>
+      {current.completionStatus === "IN_PROGRESS" && current.projectId != null && (
+        <div className="abyss-join-slot">
+          {canJoinShort(current, currentUserId) && <button className="abyss-join" onClick={() => onJoin(current.shortId)}>작곡 참여하기</button>}
+        </div>
       )}
     </div>
   );
