@@ -22,3 +22,8 @@ test("shows first-login onboarding without the regular header and footer", () =>
   assert.match(page, /const noHeader = authView \|\| onboardingView/);
   assert.match(page, /!authView && !onboardingView && <Footer/);
 });
+
+test("returns to the name step when the nickname is actually duplicated", () => {
+  assert.match(profileScreen, /cause instanceof ApiError && cause\.errorCode === "DUPLICATE_NICKNAME"/);
+  assert.match(profileScreen, /setStep\(0\)/);
+});

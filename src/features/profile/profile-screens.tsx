@@ -5,6 +5,7 @@ import { Asset, Avatar, SectionTitle } from "@/components/app/shared";
 import type { Navigate } from "@/features/navigation/types";
 import { useCurrentUserId } from "@/hooks/use-current-user";
 import { logout } from "@/lib/api/auth";
+import { ApiError } from "@/lib/api/client";
 import { getProfile, updateProfile, updateProfileImage } from "@/lib/api/profile";
 import type { UserProfile } from "@/lib/api/contracts";
 
@@ -99,6 +100,9 @@ export function InitialProfileSetupScreen({ suggestedNickname, onSaved }: {
       await updateProfile({ nickname: nickname.trim(), primaryInstrument: instrument.trim(), explanation: explanation.trim() });
       onSaved();
     } catch (cause) {
+      if (cause instanceof ApiError && cause.errorCode === "DUPLICATE_NICKNAME") {
+        setStep(0);
+      }
       setError(profileErrorMessage(cause));
     } finally {
       setSaving(false);
