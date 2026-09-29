@@ -20,11 +20,14 @@ const storedDraftId = () => {
   return Number.isSafeInteger(value) && value > 0 ? value : null;
 };
 
-function StudioToolbar({ title, bpm, playing, positionMs, maxMs, onPlay, onPause, onSeek, onBack, children, piano, volume, onVolume, onAdd }: {
-  title: string; bpm: number; playing: boolean; positionMs: number; maxMs: number;
-  onPlay: () => void; onPause: () => void; onSeek: (ms: number) => void; onBack: () => void; children?: React.ReactNode;
+function StudioToolbar({ title, bpm, playing, positionMs, onPlay, onPause, onBack, children, piano, volume, onVolume, onAdd }: {
+  title: string; bpm: number; playing: boolean; positionMs: number;
+  onPlay: () => void; onPause: () => void; onBack: () => void; children?: React.ReactNode;
   piano?: boolean; volume?: number; onVolume?: (value: number) => void; onAdd?: () => void;
 }) {
+  const masterVolume = <input className="studio-master-volume" type="range" min={0} max={100} value={volume ?? 20}
+    onChange={(event) => onVolume?.(Number(event.target.value))} disabled={!onVolume}
+    aria-label="마스터 볼륨" aria-valuetext={`${volume ?? 20}%`} />;
   return <div className={`studio-toolbar ${piano ? "team-original-toolbar" : ""}`}>
     <button onClick={onBack} aria-label="뒤로"><Asset name="return.svg" /></button>
     <button onClick={playing ? onPause : onPlay} aria-label={playing ? "일시정지" : "재생"} className={playing ? "is-playing" : ""}><Asset name="play.svg" /></button>
@@ -33,8 +36,7 @@ function StudioToolbar({ title, bpm, playing, positionMs, maxMs, onPlay, onPause
     <span><small>bpm</small>{bpm}</span>
     {piano && <span><small>beat</small>4/4</span>}
     <span><small>time</small>{clockTime(positionMs)}</span>
-    {piano ? <div className="studio-volume"><Asset name="sound.svg" /><input type="range" min={0} max={100} value={volume ?? 20} onChange={(event) => onVolume?.(Number(event.target.value))} aria-label="볼륨" /></div>
-      : <input className="studio-seek" type="range" min={0} max={maxMs || 1} value={Math.min(positionMs, maxMs || 1)} onChange={(event) => onSeek(Number(event.target.value))} aria-label="재생 위치" />}
+    {piano ? <div className="studio-volume"><Asset name="sound.svg" />{masterVolume}</div> : masterVolume}
     {children}
     {piano && onAdd && <button className="studio-add" aria-label="레이어 추가" onClick={onAdd}><i /></button>}
   </div>;
@@ -56,7 +58,7 @@ function NewProject({ onCreated, onResume, onBack }: { onCreated: (id: number) =
     finally { setBusy(false); }
   }
   return <div className="studio studio-empty">
-    <StudioToolbar title="새 곡" bpm={120} playing={false} positionMs={0} maxMs={0} onPlay={() => {}} onPause={() => {}} onSeek={() => {}} onBack={onBack} />
+    <StudioToolbar title="새 곡" bpm={120} playing={false} positionMs={0} onPlay={() => {}} onPause={() => {}} onBack={onBack} />
     <div className="studio-form"><h2>새 곡 만들기</h2>
       <p>레이어를 만들고 작곡해 보세요. 제목은 곡을 올릴 때 등록하고 앨범 이미지는 선택할 수 있습니다.</p>
       {savedDraftId && <button type="button" onClick={() => onResume(savedDraftId)}>이전 작업 이어하기</button>}
@@ -208,8 +210,8 @@ export function StudioScreen({ go, shortId, projectId, returnToNotifications, on
   const canSubmit = shouldShowContributionSubmit(shortId, viewerPermission, tracks);
   const layerCreationAllowed = canCreateLayer(viewerPermission, tracks);
   return <div className="studio">
-    <StudioToolbar title={project.title} bpm={project.bpm} playing={playback.playing} positionMs={playback.positionMs} maxMs={project.maxDurationMs}
-      onPlay={() => { void playback.play(); }} onPause={playback.pause} onSeek={playback.seek}
+    <StudioToolbar title={project.title} bpm={project.bpm} playing={playback.playing} positionMs={playback.positionMs}
+      onPlay={() => { void playback.play(); }} onPause={playback.pause} volume={playback.volume} onVolume={playback.setVolume}
       onBack={() => returnToNotifications ? go("notifications") : shortId == null ? go("home") : onReturnToShort(shortId)}>
       {canSubmit ? <button className="studio-submit" onClick={() => { setError(null); setShowSubmitForm(true); }} disabled={busy}>제출하기</button>
         : <button className="studio-add" onClick={onAddLayer} disabled={!layerCreationAllowed} aria-label="레이어 추가"
@@ -319,8 +321,8 @@ export function NoteEditorScreen({ projectId, trackId, clipId, onBack, onAddLaye
 
   if (!composition || !track) return <div className="studio studio-state" role={error ? "alert" : "status"}>{error ?? "피아노롤을 불러오는 중입니다."}<button onClick={onBack}>돌아가기</button></div>;
   return <div className="studio note-editor">
-    <StudioToolbar title={`${track.name} · 피아노롤`} bpm={composition.project.bpm} playing={playback.playing} positionMs={playback.positionMs} maxMs={composition.project.maxDurationMs}
-      onPlay={() => { void playback.play(); }} onPause={playback.pause} onSeek={playback.seek} onBack={onBack}
+    <StudioToolbar title={`${track.name} · 피아노롤`} bpm={composition.project.bpm} playing={playback.playing} positionMs={playback.positionMs}
+      onPlay={() => { void playback.play(); }} onPause={playback.pause} onBack={onBack}
       piano volume={playback.volume} onVolume={playback.setVolume}
       onAdd={layerCreationAllowed ? () => { if (editable) void save(onAddLayer); else onAddLayer(); } : undefined}>
       <label className="studio-note-length">길이<select value={lengthCells} onChange={(event) => setLengthCells(Number(event.target.value))}><option value={1}>1/8</option><option value={2}>1/4</option><option value={4}>1/2</option><option value={8}>한 마디</option></select></label>
