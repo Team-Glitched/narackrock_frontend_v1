@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { signupWithGoogle } from "../../lib/api/auth.ts";
+import { loginWithGoogle } from "../../lib/api/auth.ts";
 import { getProfile, updateProfile, updateProfileImage } from "../../lib/api/profile.ts";
 import { decodeGoogleCredential } from "./google-identity.ts";
 
@@ -16,7 +16,7 @@ test("decodes Google profile hints without treating them as authentication", () 
   );
 });
 
-test("signs up, completes the initial profile, and loads the created profile", async () => {
+test("completes the initial profile after the first unified Google login", async () => {
   const originalFetch = globalThis.fetch;
   const requests: { url: string; init?: RequestInit }[] = [];
   const responses = [
@@ -24,6 +24,7 @@ test("signs up, completes the initial profile, and loads the created profile", a
       accessToken: "access-token",
       refreshToken: "refresh-token",
       tokenType: "Bearer",
+      firstLogin: true,
       user: { userId: 7, nickname: "새사용자", profileImageUrl: null },
     } }), { status: 201, headers: { "Content-Type": "application/json" } }),
     new Response(JSON.stringify({ success: true, message: "ok", data: {
@@ -51,14 +52,15 @@ test("signs up, completes the initial profile, and loads the created profile", a
 
   try {
     const image = new File(["avatar"], "avatar.png", { type: "image/png" });
-    const signup = await signupWithGoogle("google-id-token", "새사용자");
+    const login = await loginWithGoogle("google-id-token");
+    assert.equal(login.firstLogin, true);
     await updateProfile({ nickname: "새사용자", primaryInstrument: "Piano", explanation: "첫 소개" });
     await updateProfileImage(image);
-    const profile = await getProfile(signup.user.userId);
+    const profile = await getProfile(login.user.userId);
 
     assert.equal(profile.nickname, "새사용자");
     assert.equal(profile.profileImageUrl, "/files/profiles/7/avatar.png");
-    assert.equal(requests[0].url, "/api/v1/users");
+    assert.equal(requests[0].url, "/api/v1/auth/login/google");
     assert.equal(requests[1].url, "/api/v1/users/me/profile");
     assert.equal(new Headers(requests[1].init?.headers).get("Authorization"), "Bearer access-token");
     assert.equal(requests[2].url, "/api/v1/users/me/profile/image");

@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Footer, Header } from "@/components/app/shared";
 import type { View } from "@/features/navigation/types";
-import { AuthScreen, type PendingGoogleSignup } from "@/features/screens/auth-screens";
+import { AuthScreen, type PendingProfileSetup } from "@/features/screens/auth-screens";
 import { defaultJoinedCommunityIds, JoinedCommunitiesScreen } from "@/features/screens/community-directory";
 import { CommunityMembershipProvider } from "@/features/screens/community-membership";
 import type { CommunityTab } from "@/features/screens/mobile-screens";
@@ -32,9 +32,9 @@ export default function Page() {
   const headerProfileImageUrl = currentUserId !== null && headerProfile?.userId === currentUserId
     ? headerProfile.imageUrl
     : null;
-  const [pendingGoogleSignup, setPendingGoogleSignup] = useState<PendingGoogleSignup | null>(null);
+  const [pendingProfileSetup, setPendingProfileSetup] = useState<PendingProfileSetup | null>(null);
   const activeView: View = currentUserId === null
-    && pendingGoogleSignup === null
+    && pendingProfileSetup === null
     && (view === "profile" || view === "edit")
     ? "login"
     : view;
@@ -55,7 +55,7 @@ export default function Page() {
     setView(next);
   }, []);
   const authenticate = useCallback(() => {
-    setPendingGoogleSignup(null);
+    setPendingProfileSetup(null);
     setProfileRevision(current => current + 1);
     setView("home");
   }, []);
@@ -63,8 +63,8 @@ export default function Page() {
     setProfileRevision(current => current + 1);
     go("profile");
   }, [go]);
-  const requireSignup = useCallback((pending: PendingGoogleSignup) => {
-    setPendingGoogleSignup(pending);
+  const startProfileSetup = useCallback((pending: PendingProfileSetup) => {
+    setPendingProfileSetup(pending);
     setView("edit");
   }, []);
   const joinShort = useCallback((shortId: number) => {
@@ -160,8 +160,8 @@ export default function Page() {
     if (activeView === "community") return <CommunityScreen go={go} tab={communityTab} onTabChange={setCommunityTab} onComments={setCommentPostId} onOpenCommunity={setSelectedCommunity} />;
     if (activeView === "joined") return <JoinedCommunitiesScreen onOpen={setSelectedCommunity} />;
     if (activeView === "profile") return <ProfileScreen go={go} />;
-    if (activeView === "login" || activeView === "signup") return <AuthScreen key={activeView} mode={activeView} go={go} onAuthenticated={authenticate} onSignupRequired={requireSignup} />;
-    if (activeView === "edit" && pendingGoogleSignup) return <InitialProfileSetupScreen {...pendingGoogleSignup} onSaved={authenticate} />;
+    if (activeView === "login") return <AuthScreen onAuthenticated={authenticate} onFirstLogin={startProfileSetup} />;
+    if (activeView === "edit" && pendingProfileSetup) return <InitialProfileSetupScreen {...pendingProfileSetup} onSaved={authenticate} />;
     if (activeView === "edit") return <EditProfileScreen onSaved={profileUpdated} />;
     if (activeView === "choose") return <CompositionChoiceScreen onChoose={(method) => { void chooseLayer(method); }}
       onBack={() => setView("studio")} busy={choiceBusy} error={choiceError} />;
@@ -185,12 +185,12 @@ export default function Page() {
       onAddLayer={() => { setChoiceError(null); setView("choose"); }}
       onEditTrack={editTrack}
     />;
-  }, [selectedCommunity, commentPostId, communityTab, authenticate, profileUpdated, requireSignup, pendingGoogleSignup, go, activeView, compositionTarget, abyssTargetShortId, editorTarget, joinShort, selectProject, returnToJoinedShort, startDraft, chooseLayer, choiceBusy, choiceError, saveAudio, transformRecording, editTrack, backToStudio, openReviewProject, reviewOrigin]);
+  }, [selectedCommunity, commentPostId, communityTab, authenticate, profileUpdated, startProfileSetup, pendingProfileSetup, go, activeView, compositionTarget, abyssTargetShortId, editorTarget, joinShort, selectProject, returnToJoinedShort, startDraft, chooseLayer, choiceBusy, choiceError, saveAudio, transformRecording, editTrack, backToStudio, openReviewProject, reviewOrigin]);
 
   // 가입 상태는 커뮤니티 목록·전체목록·상세가 공유한다.
   // 실제 구독 API가 준비되면 Provider에 api prop만 넘기면 된다.
   if (activeView === "studio" || activeView === "note") return <main className="studio-shell">{content}</main>;
-  const authView = activeView === "login" || activeView === "signup";
+  const authView = activeView === "login";
   const noHeader = authView || (commentPostId === null && (activeView === "charts" || activeView === "posts" || activeView === "search"));
   // 가입한 커뮤니티 목록은 커뮤니티 탭의 하위 화면이라 푸터는 커뮤니티를 계속 활성으로 둔다.
   const footerView = activeView === "joined" ? "community" : activeView;
@@ -198,7 +198,7 @@ export default function Page() {
     : selectedCommunity ? () => setSelectedCommunity(null)
     : activeView === "joined" ? () => go("community") : undefined;
   const headerBack = onBack ?? (activeView === "edit" ? () => {
-    if (pendingGoogleSignup) setPendingGoogleSignup(null);
+    if (pendingProfileSetup) setPendingProfileSetup(null);
     go(isAuthenticated ? "profile" : "login");
   } : undefined);
   return <CommunityMembershipProvider defaultJoinedIds={defaultJoinedCommunityIds}><main className="page-background"><div className="phone-frame">{!noHeader && <Header blank={activeView === "friends"} abyss={activeView === "abyss"} profileImageUrl={headerProfileImageUrl} onBack={headerBack} onSearch={() => go("search")} onProfile={() => go(isAuthenticated ? "profile" : "login")} onNotifications={() => go("notifications")} />}<div className="screen-body">{content}</div>{!authView && <Footer view={footerView} go={go} />}</div></main></CommunityMembershipProvider>;
