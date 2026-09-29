@@ -96,6 +96,15 @@ export async function createAudioClip(projectId: number, trackId: number, mediaF
   });
 }
 
+export async function transformRecordingToMidi(projectId: number, file: File) {
+  const form = new FormData();
+  form.append("audio", file);
+  return data<{ durationTick: number; midiNotes: MidiNoteDto[] }>(`/api/v1/projects/${projectId}/hti-transform`, {
+    method: "POST",
+    body: form,
+  });
+}
+
 export async function createDraftProject() {
   return data<{ projectId: number }>("/api/v1/projects/drafts", { method: "POST" });
 }

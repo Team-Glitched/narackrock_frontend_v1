@@ -51,14 +51,16 @@ export function CompositionUploadScreen({ onSave, onBack }: {
 }
 
 // The recorder UI and MediaRecorder lifecycle follow the team's RecordScreen.
-export function CompositionRecordScreen({ onSave, onBack }: {
+export function CompositionRecordScreen({ onSave, onTransform, onBack }: {
   onSave: (file: File) => Promise<void>;
+  onTransform: (file: File) => Promise<void>;
   onBack: () => void;
 }) {
   const recorder = useRef<MediaRecorder | null>(null);
   const stream = useRef<MediaStream | null>(null);
   const [recording, setRecording] = useState(false);
   const [pending, setPending] = useState(false);
+  const [pendingLabel, setPendingLabel] = useState("처리 중");
   const [file, setFile] = useState<File | null>(null);
   const [url, setUrl] = useState("");
   const [error, setError] = useState("");
@@ -94,9 +96,16 @@ export function CompositionRecordScreen({ onSave, onBack }: {
   }
   async function save() {
     if (!file || pending) return;
-    setPending(true); setError("");
+    setPendingLabel("저장 중"); setPending(true); setError("");
     try { await onSave(file); }
     catch (cause) { setError(cause instanceof Error ? cause.message : "녹음을 저장하지 못했습니다."); }
+    finally { setPending(false); }
+  }
+  async function transform() {
+    if (!file || pending) return;
+    setPendingLabel("HTI 변환 중"); setPending(true); setError("");
+    try { await onTransform(file); }
+    catch (cause) { setError(cause instanceof Error ? cause.message : "녹음을 MIDI로 변환하지 못했습니다."); }
     finally { setPending(false); }
   }
   return <div className="record-view scroll-content">
@@ -105,8 +114,11 @@ export function CompositionRecordScreen({ onSave, onBack }: {
     <div className="record-output">
       {error && <p role="alert">{error}</p>}
       {url && <audio controls src={url} />}
-      <p role="status">{recording ? "녹음 중" : pending ? "처리 중" : file ? "녹음 완료" : "버튼을 눌러 녹음하기"}</p>
-      {file && <button className="purple-pill" disabled={pending} onClick={() => { void save(); }}>레이어에 녹음 저장</button>}
+      <p role="status">{recording ? "녹음 중" : pending ? pendingLabel : file ? "녹음 완료" : "버튼을 눌러 녹음하기"}</p>
+      {file && <div className="record-actions">
+        <button className="purple-pill" disabled={pending} onClick={() => { void save(); }}>레이어에 녹음 저장</button>
+        <button className="gray-pill" disabled={pending} onClick={() => { void transform(); }}>HTI로 MIDI 변환</button>
+      </div>}
     </div>
     <button className="record-button" disabled={pending} aria-label={recording ? "녹음 종료" : "녹음 시작"}
       onClick={() => { void toggle(); }}>{recording ? "■" : <Asset name="play.svg" />}</button>

@@ -13,7 +13,8 @@ import { NotificationsScreen } from "@/features/screens/notifications-screen";
 import { NoteEditorScreen, StudioScreen } from "@/features/screens/studio-screens";
 import { CompositionChoiceScreen, CompositionRecordScreen, CompositionUploadScreen, type CreationMethod } from "@/features/screens/composition-creation-screens";
 import { prepareAudioFile, type AudioSelection } from "@/features/composition/prepare-audio-file";
-import { createAudioClip, createTrack, getComposition, uploadMedia } from "@/lib/api/composition";
+import { createHtiMidiLayerPlan } from "@/features/composition/hti-midi-flow";
+import { createAudioClip, createMidiClip, createTrack, getComposition, transformRecordingToMidi, uploadMedia } from "@/lib/api/composition";
 import { useWebMcpNavigation } from "@/hooks/use-webmcp-navigation";
 import { PostCommentsScreen } from "@/features/screens/post-comments";
 import { CommunityDetailScreen } from "@/features/screens/community-detail";
@@ -82,6 +83,21 @@ export default function Page() {
     await createAudioClip(projectId, trackId, mediaFileId, durationTick);
     setView("studio");
   }, [compositionTarget.projectId]);
+  const transformRecording = useCallback(async (file: File) => {
+    const projectId = compositionTarget.projectId;
+    if (projectId == null) throw new Error("곡을 먼저 선택해 주세요.");
+    const [{ wav, durationMs }, composition] = await Promise.all([
+      prepareAudioFile(file),
+      getComposition(projectId),
+    ]);
+    if (durationMs > composition.project.maxDurationMs) throw new Error("녹음은 1분 이하여야 합니다.");
+    const result = await transformRecordingToMidi(projectId, wav);
+    const plan = createHtiMidiLayerPlan(result, composition.tracks.length, composition.project.maxTick);
+    const { trackId } = await createTrack(projectId, plan.name, plan.instrument, plan.sortOrder);
+    const { clipId } = await createMidiClip(projectId, trackId, 0, plan.durationTick, plan.midiNotes);
+    setEditorTarget({ trackId, clipId });
+    setView("note");
+  }, [compositionTarget.projectId]);
   const editTrack = useCallback((trackId: number, clipId: number | null) => {
     setEditorTarget({ trackId, clipId });
     setView("note");
@@ -112,7 +128,7 @@ export default function Page() {
     if (view === "choose") return <CompositionChoiceScreen onChoose={(method) => { void chooseLayer(method); }}
       onBack={() => setView("studio")} busy={choiceBusy} error={choiceError} />;
     if (view === "upload") return <CompositionUploadScreen onSave={saveAudio} onBack={() => setView("choose")} />;
-    if (view === "record") return <CompositionRecordScreen onSave={saveAudio} onBack={() => setView("choose")} />;
+    if (view === "record") return <CompositionRecordScreen onSave={saveAudio} onTransform={transformRecording} onBack={() => setView("choose")} />;
     if (view === "note") return <NoteEditorScreen
       projectId={compositionTarget.projectId}
       trackId={editorTarget?.trackId ?? null}
@@ -131,7 +147,7 @@ export default function Page() {
       onAddLayer={() => { setChoiceError(null); setView("choose"); }}
       onEditTrack={editTrack}
     />;
-  }, [selectedCommunity, commentPostId, communityTab, authenticate, go, view, compositionTarget, abyssTargetShortId, editorTarget, joinShort, selectProject, returnToJoinedShort, startDraft, chooseLayer, choiceBusy, choiceError, saveAudio, editTrack, backToStudio, openReviewProject, reviewOrigin]);
+  }, [selectedCommunity, commentPostId, communityTab, authenticate, go, view, compositionTarget, abyssTargetShortId, editorTarget, joinShort, selectProject, returnToJoinedShort, startDraft, chooseLayer, choiceBusy, choiceError, saveAudio, transformRecording, editTrack, backToStudio, openReviewProject, reviewOrigin]);
 
   // 가입 상태는 커뮤니티 목록·전체목록·상세가 공유한다.
   // 실제 구독 API가 준비되면 Provider에 api prop만 넘기면 된다.
