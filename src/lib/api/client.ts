@@ -94,13 +94,17 @@ export async function apiRequest<T>(path: string, init?: RequestInit): Promise<T
   });
   if (!response.ok) {
     const body = await response.text();
-    let message = body;
+    const fallbackMessage = response.status === 401
+      ? "로그인이 만료되었습니다. 다시 로그인해 주세요."
+      : "요청을 처리하지 못했습니다.";
+    let message = body.trim() || fallbackMessage;
     let errorCode: string | undefined;
     try {
       const parsed = JSON.parse(body) as { message?: string; errorCode?: string };
-      message = parsed.message || body;
+      message = parsed.message?.trim() || fallbackMessage;
       errorCode = parsed.errorCode;
     } catch { /* plain text response */ }
+    if (response.status === 401) clearAuthSession();
     throw new ApiError(response.status, message, errorCode);
   }
   if (response.status === 204) return undefined as T;
