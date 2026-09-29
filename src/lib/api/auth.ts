@@ -1,5 +1,5 @@
 import { apiRequest, getCurrentUserId, setAuthSession } from "./client.ts";
-import type { ApiResponse, GoogleLoginResponse, GoogleSignupResponse, TokenRefreshResponse } from "./contracts.ts";
+import type { ApiResponse, GoogleLoginResponse, TokenRefreshResponse } from "./contracts.ts";
 
 function storeAuthentication(response: GoogleLoginResponse): void {
   setAuthSession({
@@ -17,18 +17,6 @@ export function loginWithGoogle(idToken: string): Promise<GoogleLoginResponse> {
     storeAuthentication(response.data);
     return response.data;
   });
-}
-
-export async function signupWithGoogle(
-  idToken: string,
-  nickname: string,
-): Promise<GoogleSignupResponse> {
-  const response = await apiRequest<ApiResponse<GoogleSignupResponse>>("/api/v1/users", {
-    method: "POST",
-    body: JSON.stringify({ idToken, nickname: nickname.trim() }),
-  });
-  storeAuthentication(response.data);
-  return response.data;
 }
 
 export function refreshAccessToken(refreshToken: string): Promise<TokenRefreshResponse> {

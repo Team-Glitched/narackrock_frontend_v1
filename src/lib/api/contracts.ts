@@ -56,9 +56,7 @@ export type PostCommentPage = {
 
 export type PostUpdateResponse = { postId: number };
 
-export type GoogleLoginResponse = { accessToken: string; refreshToken: string; tokenType: string; user: { userId: number; nickname: string; profileImageUrl: string | null } };
-
-export type GoogleSignupResponse = GoogleLoginResponse;
+export type GoogleLoginResponse = { accessToken: string; refreshToken: string; tokenType: string; firstLogin: boolean; user: { userId: number; nickname: string; profileImageUrl: string | null } };
 
 export type TokenRefreshResponse = { accessToken: string; refreshToken: string; tokenType: string };
 

@@ -2,36 +2,29 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Asset } from "@/components/app/shared";
-import type { Navigate } from "@/features/navigation/types";
 import { decodeGoogleCredential, loadGoogleAccounts, type GoogleCredentialResponse } from "@/features/auth/google-identity";
 import { loginWithGoogle } from "@/lib/api/auth";
 import { ApiError } from "@/lib/api/client";
 
-export type PendingGoogleSignup = {
-  credential: string;
+export type PendingProfileSetup = {
   suggestedNickname: string;
   pictureUrl: string | null;
 };
 
 type AuthScreenProps = {
-  mode: "login" | "signup";
-  go: Navigate;
   onAuthenticated: () => void;
-  onSignupRequired: (pending: PendingGoogleSignup) => void;
+  onFirstLogin: (pending: PendingProfileSetup) => void;
 };
 
 function authErrorMessage(error: unknown): string {
   if (error instanceof ApiError) {
-    if (error.errorCode === "DUPLICATE_NICKNAME") return "이미 사용 중인 이름입니다.";
-    if (error.errorCode === "ALREADY_REGISTERED") return "이미 가입된 계정입니다. 로그인 화면을 이용해 주세요.";
     if (error.errorCode === "AUTH_FAILED_GOOGLE") return "Google 계정 인증에 실패했습니다.";
     return error.message || "인증 요청을 처리하지 못했습니다.";
   }
   return error instanceof Error ? error.message : "인증 요청을 처리하지 못했습니다.";
 }
 
-export function AuthScreen({ mode, go, onAuthenticated, onSignupRequired }: AuthScreenProps) {
-  const isLogin = mode === "login";
+export function AuthScreen({ onAuthenticated, onFirstLogin }: AuthScreenProps) {
   const googleButtonRef = useRef<HTMLDivElement>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -49,16 +42,17 @@ export function AuthScreen({ mode, go, onAuthenticated, onSignupRequired }: Auth
         callback: (response: GoogleCredentialResponse) => {
           setBusy(true);
           setError(null);
-          loginWithGoogle(response.credential).then(() => onAuthenticated()).catch((cause) => {
-            if (cause instanceof ApiError && cause.errorCode === "SIGNUP_REQUIRED") {
+          loginWithGoogle(response.credential).then((result) => {
+            if (result.firstLogin) {
               const hints = decodeGoogleCredential(response.credential);
-              onSignupRequired({
-                credential: response.credential,
-                suggestedNickname: hints.name ?? "",
+              onFirstLogin({
+                suggestedNickname: hints.name?.trim() || result.user.nickname,
                 pictureUrl: hints.picture,
               });
               return;
             }
+            onAuthenticated();
+          }).catch((cause) => {
             setError(authErrorMessage(cause));
           }).finally(() => setBusy(false));
         },
@@ -68,7 +62,7 @@ export function AuthScreen({ mode, go, onAuthenticated, onSignupRequired }: Auth
         theme: "filled_black",
         size: "large",
         shape: "rectangular",
-        text: isLogin ? "signin_with" : "signup_with",
+        text: "continue_with",
         width: Math.min(350, googleButtonRef.current.clientWidth || 350),
         locale: "ko",
       });
@@ -76,24 +70,16 @@ export function AuthScreen({ mode, go, onAuthenticated, onSignupRequired }: Auth
       if (!cancelled) setError(authErrorMessage(cause));
     });
     return () => { cancelled = true; };
-  }, [clientId, isLogin, onAuthenticated, onSignupRequired]);
+  }, [clientId, onAuthenticated, onFirstLogin]);
 
-  const title = isLogin ? "다시 만나 반가워요" : <>나만의 음악,<br />여기서 시작해요</>;
-  const description = isLogin
-    ? <>나락락에 로그인하고<br />당신만의 음악을 이어가세요.</>
-    : <>Google 계정으로 인증한 뒤<br />프로필을 완성해 주세요.</>;
-
-  return <section className={`auth-screen auth-screen--${mode}`} aria-label={isLogin ? "로그인" : "회원가입"}>
+  return <section className="auth-screen auth-screen--login" aria-label="로그인">
     <header className="auth-header"><Asset name="auth-logo.svg" alt="Narackrock" /></header>
     <div className="auth-content">
-      <h1>{title}</h1>
-      <p>{description}</p>
+      <h1>Google로 계속하기</h1>
+      <p>처음 방문했다면 프로필을 설정하고,<br />기존 사용자라면 바로 음악을 이어가세요.</p>
       {!clientId && <p className="auth-error" role="alert">Google Client ID가 설정되지 않았습니다.</p>}
       {error && <p className="auth-error" role="alert">{error}</p>}
-      <div className={`google-identity-button ${busy ? "is-busy" : ""}`} ref={googleButtonRef} aria-label={isLogin ? "Google로 로그인" : "Google로 회원가입"} />
+      <div className={`google-identity-button ${busy ? "is-busy" : ""}`} ref={googleButtonRef} aria-label="Google로 계속하기" />
     </div>
-    <button className="auth-switch" onClick={() => go(isLogin ? "signup" : "login")}>
-      {isLogin ? <>처음 오셨나요? <strong>회원가입</strong></> : <>이미 계정이 있나요? <strong>로그인</strong></>}
-    </button>
   </section>;
 }

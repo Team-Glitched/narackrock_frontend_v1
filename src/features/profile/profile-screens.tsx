@@ -4,7 +4,6 @@ import { useEffect, useState } from "react";
 import { Avatar, SectionTitle } from "@/components/app/shared";
 import type { Navigate } from "@/features/navigation/types";
 import { useCurrentUserId } from "@/hooks/use-current-user";
-import { signupWithGoogle } from "@/lib/api/auth";
 import { getProfile, updateProfile, updateProfileImage } from "@/lib/api/profile";
 import type { UserProfile } from "@/lib/api/contracts";
 
@@ -67,21 +66,15 @@ export function EditProfileScreen({ onSaved }: { onSaved: () => void }) {
   />;
 }
 
-export function InitialProfileSetupScreen({ credential, suggestedNickname, pictureUrl, onSaved }: {
-  credential: string;
+export function InitialProfileSetupScreen({ suggestedNickname, pictureUrl, onSaved }: {
   suggestedNickname: string;
   pictureUrl: string | null;
   onSaved: () => void;
 }) {
-  const [accountCreated, setAccountCreated] = useState(false);
   return <ProfileForm
     initial={{ nickname: suggestedNickname, instrument: "", explanation: "", imageUrl: pictureUrl }}
     submitLabel="가입하고 시작하기"
     onSubmit={async ({ nickname, instrument, explanation, image }) => {
-      if (!accountCreated) {
-        await signupWithGoogle(credential, nickname);
-        setAccountCreated(true);
-      }
       await updateProfile({ nickname, primaryInstrument: instrument, explanation });
       if (image) await updateProfileImage(image);
       onSaved();
