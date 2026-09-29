@@ -8,6 +8,7 @@ import { prepareAudioFile } from "@/features/composition/prepare-audio-file";
 import type { AudioSelection } from "@/features/composition/prepare-audio-file";
 import { AudioTrimPicker } from "@/features/composition/audio-trim-picker";
 import { hasOwnDraftClip, shouldShowContributionSubmit } from "@/features/composition/contribution-session";
+import { completedExportShortId } from "@/features/composition/publish-navigation";
 import { TeamPianoRoll } from "@/features/composition/team-piano-roll";
 import { createAudioClip, createDraftProject, createMidiClip, enterComposition, getComposition, getExport, getPendingContributions, publishComposition, reviewContribution, saveMidiClip, submitContribution, updateProjectMetadata, uploadMedia, type CompositionDto, type MidiNoteDto } from "@/lib/api/composition";
 
@@ -162,10 +163,11 @@ export function StudioScreen({ go, shortId, projectId, returnToNotifications, on
       for (let attempt = 0; attempt < 30; attempt++) {
         await new Promise((resolve) => window.setTimeout(resolve, 1_000));
         const result = await getExport(id, exportId);
-        if (result.status === "COMPLETED") {
-          setStatus("숏폼 음원이 갱신되었습니다.");
+        const publishedShortId = completedExportShortId(result);
+        if (publishedShortId !== null) {
           if (shortId == null) window.localStorage.removeItem("glitched-composition-draft-id");
-          await refresh(); return;
+          onReturnToShort(publishedShortId);
+          return;
         }
         if (result.status === "FAILED") throw new Error(result.errorMessage ?? "음원 생성에 실패했습니다.");
       }
