@@ -1,4 +1,3 @@
-```tsx
 "use client";
 
 import { useEffect, useState } from "react";
@@ -555,4 +554,3 @@ function ProfileForm({
     </div>
   );
 }
-```

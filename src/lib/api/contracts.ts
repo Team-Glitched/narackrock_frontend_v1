@@ -31,6 +31,22 @@ export type ShortsPageDto = {
   page: { nextCursor: number | null; hasMore: boolean; size: number };
 };
 
+// GET /api/v1/galleries, GET /api/v1/galleries/subscribed 의 배열 원소.
+// description은 null일 수 있지만 키는 항상 온다 — 페이로드 DTO에 @JsonInclude(NON_NULL)이 없다.
+// 갤러리 이미지는 백엔드에 컬럼 자체가 없어 응답에 들어오지 않는다.
+export type GalleryListItem = { galleryId: number; name: string; description: string | null; subscriberCount: number; createdAt: string };
+
+export type GallerySubscribeResponse = { galleryId: number };
+
+/**
+ * 조회수 기록 응답(202). `counted`는 실제로 집계됐는지 - 같은 조회자가 중복 제거 창(기본 30분)
+ * 안에 다시 열면 `false`다.
+ *
+ * 이 API만 봉투가 다르다(`errorCode` 없는 별도 ApiResponse 클래스). 성공 응답만 쓰므로
+ * 공통 ApiResponse 타입으로 받아도 문제없다 - errorCode가 선택 필드라서다.
+ */
+export type ContentViewResponse = { contentId: number; counted: boolean };
+
 export type PostWriter = { userId: number; nickname: string; profileImageUrl: string | null };
 
 export type PostSort = "LATEST" | "POPULAR" | "OLDEST";

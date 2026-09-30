@@ -4,8 +4,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Footer, Header } from "@/components/app/shared";
 import type { View } from "@/features/navigation/types";
 import { AuthScreen, type PendingProfileSetup } from "@/features/screens/auth-screens";
-import { defaultJoinedCommunityIds, JoinedCommunitiesScreen } from "@/features/screens/community-directory";
-import { CommunityMembershipProvider } from "@/features/screens/community-membership";
+import { JoinedCommunitiesScreen } from "@/features/screens/community-directory";
+import { CommunityMembershipProvider, createServerMembershipApi } from "@/features/screens/community-membership";
 import type { CommunityTab } from "@/features/screens/mobile-screens";
 import { ChartsScreen, CommunityScreen, FriendsScreen, HomeScreen, PostsScreen, SearchScreen } from "@/features/screens/mobile-screens";
 import { EditProfileScreen, InitialProfileSetupScreen, ProfileScreen } from "@/features/profile/profile-screens";
@@ -22,6 +22,9 @@ import { CommunityDetailScreen } from "@/features/screens/community-detail";
 import type { Community } from "@/features/screens/community-card";
 import { useCurrentUserId } from "@/hooks/use-current-user";
 import { getProfile } from "@/lib/api/profile";
+
+// Provider가 api를 의존성으로 보므로 렌더마다 새로 만들지 않는다.
+const membershipApi = createServerMembershipApi();
 
 export default function Page() {
   const [view, setView] = useState<View>("home");
@@ -47,6 +50,7 @@ export default function Page() {
   const [reviewOrigin, setReviewOrigin] = useState(false);
   const [choiceBusy, setChoiceBusy] = useState(false);
   const [choiceError, setChoiceError] = useState<string | null>(null);
+
   const go = useCallback((next: View) => {
     setCommentPostId(null);
     setSelectedCommunity(null);
@@ -54,35 +58,43 @@ export default function Page() {
     if (next === "abyss") setAbyssTargetShortId(null);
     setView(next);
   }, []);
+
   const authenticate = useCallback(() => {
     setPendingProfileSetup(null);
     setProfileRevision(current => current + 1);
     setView("home");
   }, []);
+
   const profileUpdated = useCallback(() => {
     setProfileRevision(current => current + 1);
     go("profile");
   }, [go]);
+
   const startProfileSetup = useCallback((pending: PendingProfileSetup) => {
     setPendingProfileSetup(pending);
     setView("edit");
   }, []);
+
   const joinShort = useCallback((shortId: number) => {
     setReviewOrigin(false);
     setCompositionTarget({ shortId, projectId: null });
     setView("studio");
   }, []);
+
   const selectProject = useCallback((projectId: number) => setCompositionTarget((current) => ({ ...current, projectId })), []);
+
   const returnToJoinedShort = useCallback((shortId: number) => {
     setAbyssTargetShortId(shortId);
     setView("abyss");
   }, []);
+
   const startDraft = useCallback((projectId: number) => {
     setReviewOrigin(false);
     setCompositionTarget({ shortId: null, projectId });
     setChoiceError(null);
     setView("choose");
   }, []);
+
   const chooseLayer = useCallback(async (method: CreationMethod) => {
     const projectId = compositionTarget.projectId;
     if (projectId == null || choiceBusy) return;
@@ -97,6 +109,7 @@ export default function Page() {
       setChoiceError(cause instanceof Error ? cause.message : "레이어를 만들지 못했습니다.");
     } finally { setChoiceBusy(false); }
   }, [compositionTarget.projectId, choiceBusy]);
+
   const saveAudio = useCallback(async (file: File, selection?: AudioSelection) => {
     const projectId = compositionTarget.projectId;
     if (projectId == null) throw new Error("곡을 먼저 선택해 주세요.");
@@ -110,6 +123,7 @@ export default function Page() {
     await createAudioClip(projectId, trackId, mediaFileId, durationTick);
     setView("studio");
   }, [compositionTarget.projectId]);
+
   const transformRecording = useCallback(async (file: File) => {
     const projectId = compositionTarget.projectId;
     if (projectId == null) throw new Error("곡을 먼저 선택해 주세요.");
@@ -125,16 +139,20 @@ export default function Page() {
     setEditorTarget({ trackId, clipId });
     setView("note");
   }, [compositionTarget.projectId]);
+
   const editTrack = useCallback((trackId: number, clipId: number | null) => {
     setEditorTarget({ trackId, clipId });
     setView("note");
   }, []);
+
   const backToStudio = useCallback(() => setView("studio"), []);
+
   const openReviewProject = useCallback((projectId: number) => {
     setReviewOrigin(true);
     setCompositionTarget({ shortId: null, projectId });
     setView("studio");
   }, []);
+
   useEffect(() => {
     if (currentUserId === null) return;
     let cancelled = false;
@@ -145,6 +163,7 @@ export default function Page() {
     });
     return () => { cancelled = true; };
   }, [currentUserId, profileRevision]);
+
   useWebMcpNavigation(go);
 
   const content = useMemo(() => {
@@ -187,13 +206,11 @@ export default function Page() {
     />;
   }, [selectedCommunity, commentPostId, communityTab, authenticate, profileUpdated, startProfileSetup, pendingProfileSetup, go, activeView, compositionTarget, abyssTargetShortId, editorTarget, joinShort, selectProject, returnToJoinedShort, startDraft, chooseLayer, choiceBusy, choiceError, saveAudio, transformRecording, editTrack, backToStudio, openReviewProject, reviewOrigin]);
 
-  // 가입 상태는 커뮤니티 목록·전체목록·상세가 공유한다.
-  // 실제 구독 API가 준비되면 Provider에 api prop만 넘기면 된다.
+  // 가입 상태는 커뮤니티 목록·전체목록·상세가 공유하며 서버 구독 API에서 가져온다.
   if (activeView === "studio" || activeView === "note") return <main className="studio-shell">{content}</main>;
   const authView = activeView === "login";
   const onboardingView = Boolean(pendingProfileSetup);
   const noHeader = authView || onboardingView || (commentPostId === null && (activeView === "charts" || activeView === "posts" || activeView === "search"));
-  // 가입한 커뮤니티 목록은 커뮤니티 탭의 하위 화면이라 푸터는 커뮤니티를 계속 활성으로 둔다.
   const footerView = activeView === "joined" ? "community" : activeView;
   const onBack = commentPostId !== null ? () => setCommentPostId(null)
     : selectedCommunity ? () => setSelectedCommunity(null)
@@ -202,5 +219,6 @@ export default function Page() {
     if (pendingProfileSetup) setPendingProfileSetup(null);
     go(isAuthenticated ? "profile" : "login");
   } : undefined);
-  return <CommunityMembershipProvider defaultJoinedIds={defaultJoinedCommunityIds}><main className="page-background"><div className="phone-frame">{!noHeader && <Header blank={activeView === "friends"} abyss={activeView === "abyss"} profileImageUrl={headerProfileImageUrl} onBack={headerBack} onSearch={() => go("search")} onProfile={() => go(isAuthenticated ? "profile" : "login")} onNotifications={() => go("notifications")} />}<div className="screen-body">{content}</div>{!authView && !onboardingView && <Footer view={footerView} go={go} />}</div></main></CommunityMembershipProvider>;
+
+  return <CommunityMembershipProvider api={membershipApi}><main className="page-background"><div className="phone-frame">{!noHeader && <Header blank={activeView === "friends"} abyss={activeView === "abyss"} profileImageUrl={headerProfileImageUrl} onBack={headerBack} onSearch={() => go("search")} onProfile={() => go(isAuthenticated ? "profile" : "login")} onNotifications={() => go("notifications")} />}<div className="screen-body">{content}</div>{!authView && !onboardingView && <Footer view={footerView} go={go} />}</div></main></CommunityMembershipProvider>;
 }
