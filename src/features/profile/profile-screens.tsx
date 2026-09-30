@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { Asset, Avatar, SectionTitle } from "@/components/app/shared";
 import type { Navigate } from "@/features/navigation/types";
 import { useCurrentUserId } from "@/hooks/use-current-user";
@@ -551,6 +552,10 @@ function ProfileForm({
       >
         {saving ? "저장 중..." : submitLabel}
       </button>
+
+      <Link className="profile-privacy-link" href="/privacy">
+        개인정보처리방침
+      </Link>
     </div>
   );
 }
