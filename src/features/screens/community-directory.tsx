@@ -12,14 +12,15 @@ import { useCommunityMembership } from "./community-membership";
 
 // 가입/탈퇴 실패는 세 화면이 같은 자리에서 알린다.
 function MembershipError() {
-  const { error } = useCommunityMembership();
-  return error ? <p className="membership-error" role="alert">{error}</p> : null;
+  const { error, loadFailed } = useCommunityMembership();
+  return error && !loadFailed ? <p className="membership-error" role="alert">{error}</p> : null;
 }
 
 type DirectoryState = {
   /** 목록과 가입 상태가 둘 다 도착하기 전. 가입 여부로 가르려면 둘 다 있어야 한다. */
   loading: boolean;
   failed: boolean;
+  failureMessage: string;
   joined: Community[];
   recommended: Community[];
   retry: () => void;
@@ -46,9 +47,10 @@ function useDirectory(): DirectoryState {
 
   return {
     loading: galleries.status === "loading" || membership.loading,
-    failed: galleries.status === "error",
+    failed: galleries.status === "error" || membership.loadFailed,
+    failureMessage: membership.loadFailed ? "가입한 커뮤니티를 불러오지 못했습니다." : "커뮤니티 목록을 불러오지 못했습니다.",
     ...split,
-    retry: galleries.refetch,
+    retry: membership.loadFailed ? membership.retryLoad : galleries.refetch,
   };
 }
 
@@ -56,10 +58,10 @@ function LoadingRow() {
   return <p className="community-detail-status" role="status">커뮤니티를 불러오는 중...</p>;
 }
 
-function FailedRow({ onRetry }: { onRetry: () => void }) {
+function FailedRow({ onRetry, message }: { onRetry: () => void; message: string }) {
   return (
     <div className="community-detail-status" role="alert">
-      <p>커뮤니티 목록을 불러오지 못했습니다.</p>
+      <p>{message}</p>
       <button className="gray-pill" onClick={onRetry}>다시 시도</button>
     </div>
   );
@@ -69,8 +71,8 @@ function FailedRow({ onRetry }: { onRetry: () => void }) {
 function JoinedList({ state, userId, children }: {
   state: DirectoryState; userId: number | null; children: (joined: Community[]) => ReactNode;
 }) {
-  if (state.failed) return <FailedRow onRetry={state.retry} />;
   if (state.loading) return <LoadingRow />;
+  if (state.failed) return <FailedRow onRetry={state.retry} message={state.failureMessage} />;
   if (userId === null) return <p className="directory-preview-notice">로그인하면 가입한 커뮤니티를 볼 수 있어요.</p>;
   if (state.joined.length === 0) return <p className="community-detail-status">아직 가입한 커뮤니티가 없어요.</p>;
   return <>{children(state.joined)}</>;

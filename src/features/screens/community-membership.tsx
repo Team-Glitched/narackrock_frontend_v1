@@ -75,6 +75,8 @@ export type CommunityMembership = {
   toggle: (communityId: number) => void;
   loading: boolean;
   error: string | null;
+  loadFailed: boolean;
+  retryLoad: () => void;
   /**
    * 가입/탈퇴가 서버에 반영될 때마다 증가한다. 구독자 수는 서버가 집계로 즉시 바꾸는데
    * 목록은 이 Provider가 아니라 화면이 따로 들고 있어서, 목록을 다시 받을 시점을
@@ -95,6 +97,18 @@ export function CommunityMembershipProvider({ defaultJoinedIds = NO_DEFAULT_JOIN
   children: ReactNode;
 }) {
   const userId = useCurrentUserId();
+  // 계정이 바뀌면 이전 계정의 목록과 진행 중인 요청 상태를 함께 폐기한다.
+  return <ScopedMembershipProvider key={userId ?? "guest"} userId={userId} defaultJoinedIds={defaultJoinedIds} api={api}>
+    {children}
+  </ScopedMembershipProvider>;
+}
+
+function ScopedMembershipProvider({ userId, defaultJoinedIds, api, children }: {
+  userId: number | null;
+  defaultJoinedIds: readonly number[];
+  api?: CommunityMembershipApi;
+  children: ReactNode;
+}) {
   const resolvedApi = useMemo(
     () => api ?? createLocalMembershipApi(defaultJoinedIds),
     [api, defaultJoinedIds],
@@ -103,11 +117,14 @@ export function CommunityMembershipProvider({ defaultJoinedIds = NO_DEFAULT_JOIN
   const [joinedIds, setJoinedIds] = useState<ReadonlySet<number>>(() => new Set());
   const [pendingIds, setPendingIds] = useState<ReadonlySet<number>>(() => new Set());
   const [error, setError] = useState<string | null>(null);
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [retrying, setRetrying] = useState(false);
+  const [reloadToken, setReloadToken] = useState(0);
   const [revision, setRevision] = useState(0);
   // 어느 사용자의 목록을 받아 뒀는지. 지금 사용자와 다르면 아직 불러오는 중이다.
   // (loading을 별도 state로 두면 effect 본문에서 setState를 하게 된다)
   const [loadedUserId, setLoadedUserId] = useState<number | null | undefined>(undefined);
-  const loading = loadedUserId !== userId;
+  const loading = loadedUserId !== userId || retrying;
 
   // 로그인 사용자가 바뀌면 그 사용자의 가입 목록을 다시 불러온다.
   useEffect(() => {
@@ -116,19 +133,29 @@ export function CommunityMembershipProvider({ defaultJoinedIds = NO_DEFAULT_JOIN
       .then(ids => {
         if (cancelled) return;
         setJoinedIds(new Set(ids));
+        setLoadFailed(false);
+        setRetrying(false);
         setError(null);
         setLoadedUserId(userId);
       })
       .catch(() => {
         if (cancelled) return;
+        setJoinedIds(new Set());
+        setLoadFailed(true);
+        setRetrying(false);
         setError("가입한 커뮤니티를 불러오지 못했습니다.");
         setLoadedUserId(userId);
       });
     return () => { cancelled = true; };
-  }, [resolvedApi, userId]);
+  }, [resolvedApi, userId, reloadToken]);
+
+  const retryLoad = useCallback(() => {
+    setRetrying(true);
+    setReloadToken(token => token + 1);
+  }, []);
 
   const toggle = useCallback((communityId: number) => {
-    if (pendingIds.has(communityId)) return;
+    if (loading || loadFailed || pendingIds.has(communityId)) return;
     const joining = !joinedIds.has(communityId);
 
     const apply = (add: boolean) => setJoinedIds(previous => {
@@ -156,7 +183,7 @@ export function CommunityMembershipProvider({ defaultJoinedIds = NO_DEFAULT_JOIN
         next.delete(communityId);
         return next;
       }));
-  }, [joinedIds, pendingIds, resolvedApi, userId]);
+  }, [joinedIds, loadFailed, loading, pendingIds, resolvedApi, userId]);
 
   const value = useMemo<CommunityMembership>(() => ({
     isJoined: communityId => joinedIds.has(communityId),
@@ -164,8 +191,10 @@ export function CommunityMembershipProvider({ defaultJoinedIds = NO_DEFAULT_JOIN
     toggle,
     loading,
     error,
+    loadFailed,
+    retryLoad,
     revision,
-  }), [error, joinedIds, loading, pendingIds, revision, toggle]);
+  }), [error, joinedIds, loadFailed, loading, pendingIds, retryLoad, revision, toggle]);
 
   return <MembershipContext.Provider value={value}>{children}</MembershipContext.Provider>;
 }

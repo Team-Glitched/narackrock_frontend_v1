@@ -55,7 +55,7 @@ export function CommunityJoinButton({ community, block = false }: {
       className={`community-join ${joined ? "is-joined" : ""} ${block ? "community-join--block" : ""}`}
       aria-pressed={joined}
       aria-busy={pending}
-      disabled={pending}
+      disabled={pending || membership.loading || membership.loadFailed}
       aria-label={`${community.name} ${joined ? "가입됨 — 누르면 탈퇴" : "가입하기"}`}
       onClick={() => membership.toggle(community.id)}
     >

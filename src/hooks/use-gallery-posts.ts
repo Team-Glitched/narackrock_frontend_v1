@@ -78,11 +78,13 @@ export function useGalleryPosts(
   );
   const appending = appendingKey === queryKey;
   const appendFailed = appendFailedKey === queryKey;
-  const hasMore = state.status === "ready" && state.posts.length < state.totalCount;
+  // 중복 제거 후 표시된 개수는 서버 페이지의 진행도를 나타내지 않는다.
+  // 페이지 사이에 새 글이 삽입되면 같은 글이 겹쳐, 끝까지 받아도 표시 개수가 totalCount보다 작을 수 있다.
+  const hasMore = state.status === "ready" && state.loadedPages * PAGE_SIZE < state.totalCount;
 
   const loadMore = useCallback(() => {
     if (state.status !== "ready" || appending) return;
-    if (state.posts.length >= state.totalCount) return;
+    if (state.loadedPages * PAGE_SIZE >= state.totalCount) return;
 
     const key = queryKey;
     const nextPage = state.loadedPages;

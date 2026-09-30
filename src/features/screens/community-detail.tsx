@@ -47,7 +47,10 @@ export function CommunityDetailScreen({ community: selected, onComments }: {
         <CommunityJoinButton community={community} />
       </div>
       {community.description && <p className="community-detail-description">{community.description}</p>}
-      {membership.error && <p className="membership-error" role="alert">{membership.error}</p>}
+      {membership.error && <div className="membership-error" role="alert">
+        <span>{membership.error}</span>
+        {membership.loadFailed && <button className="gray-pill compact" disabled={membership.loading} onClick={membership.retryLoad}>다시 시도</button>}
+      </div>}
     </section>
     {composing && <div className="community-detail-composer"><PostComposer galleryId={community.galleryId} onCreated={() => { setComposing(false); posts.refetch(); }} onCancel={() => setComposing(false)} /></div>}
     <PostListControls sort={sort} onSortChange={setSort} keyword={keyword} onKeywordChange={setKeyword} />
