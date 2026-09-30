@@ -19,6 +19,8 @@ export type ShortItemDto = {
   isLiked: boolean;
   isDisliked: boolean;
   isBookmarked: boolean;
+  hasPendingContribution: boolean;
+  hasApprovedContribution: boolean;
   author: { userId: number; nickname: string; profileImageUrl: string | null };
   participants: { userId: number; nickname: string; role: string }[];
   createdAt: string;
@@ -49,11 +51,11 @@ export type PostWriter = { userId: number; nickname: string; profileImageUrl: st
 
 export type PostSort = "LATEST" | "POPULAR" | "OLDEST";
 
-export type PostListItem = { postId: number; writer: PostWriter; title: string; viewCount: number; likeCount: number; commentCount: number; createdAt: string };
+export type PostListItem = { postId: number; writer: PostWriter; title: string; imageUrl: string | null; viewCount: number; likeCount: number; commentCount: number; createdAt: string };
 
 export type PostListResponse = { galleryId: number; galleryName: string; currentSort: PostSort; searchedKeyword: string | null; totalCount: number; posts: PostListItem[] };
 
-export type PostDetailResponse = { postId: number; gallery: { galleryId: number; name: string }; writer: PostWriter; title: string; content: string; viewCount: number; likeCount: number; dislikeCount: number; commentCount: number; isLiked: boolean; isDisliked: boolean; createdAt: string; updatedAt: string | null };
+export type PostDetailResponse = { postId: number; gallery: { galleryId: number; name: string }; writer: PostWriter; title: string; content: string; imageUrl: string | null; viewCount: number; likeCount: number; dislikeCount: number; commentCount: number; isLiked: boolean; isDisliked: boolean; createdAt: string; updatedAt: string | null };
 
 export type PostCreateResponse = { postId: number };
 
@@ -72,6 +74,21 @@ export type PostCommentPage = {
 
 export type PostUpdateResponse = { postId: number };
 
-export type GoogleLoginResponse = { accessToken: string; refreshToken: string; tokenType: string; user: { userId: number; nickname: string; profileImageUrl: string | null } };
+export type GoogleLoginResponse = { accessToken: string; refreshToken: string; tokenType: string; firstLogin: boolean; user: { userId: number; nickname: string; profileImageUrl: string | null } };
 
 export type TokenRefreshResponse = { accessToken: string; refreshToken: string; tokenType: string };
+
+export type UserProfile = {
+  userId: number;
+  nickname: string;
+  profileImageUrl: string | null;
+  explanation: string | null;
+  primaryInstrument: string | null;
+  relations: { followerCount: number; followingCount: number; isFollowing: boolean };
+  activities: {
+    postCount: number;
+    posts: { postId: number; title: string; thumbnailUrl: string | null }[];
+    participatedShorts: { shortId: number; title: string; albumImageUrl: string | null }[];
+    pinnedShorts: { shortId: number; title: string; albumImageUrl: string | null; mediaUrl: string | null; displayOrder: number }[];
+  };
+};

@@ -10,6 +10,11 @@ export function hasOwnDraftClip(tracks: TrackDto[], userId: number) {
     clip.ownerId === userId && clip.approvalStatus === "DRAFT"));
 }
 
+export function canCreateLayer(permission: ViewerPermission, tracks: TrackDto[]) {
+  return permission.canContribute
+    && !tracks.some((track) => track.ownerId === permission.userId);
+}
+
 export function shouldShowContributionSubmit(shortId: number | null, permission: ViewerPermission, tracks: TrackDto[]) {
   return shortId != null
     && permission.canContribute

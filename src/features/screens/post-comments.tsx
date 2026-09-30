@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import Image from "next/image";
 import { formatDistanceToNow } from "date-fns";
 import { ko } from "date-fns/locale";
 import { Asset, Avatar } from "@/components/app/shared";
@@ -211,7 +212,7 @@ export function PostCommentsScreen({ postId }: { postId: number }) {
         <article className="community-post comments-post">
           <div className="community-author"><Avatar src={post.writer.profileImageUrl} /><strong>{post.writer.nickname || "알 수 없는 사용자"}</strong><span>• {time(post.createdAt)}</span><span>• 조회 {post.viewCount.toLocaleString("ko-KR")}</span></div>
           <h2>{post.title}</h2><p className="comments-post-content">{post.content}</p>
-          <div className="community-image" role="img" aria-label="첨부 이미지 없음" />
+          {post.imageUrl && <Image className="community-image" src={post.imageUrl} alt="게시글 첨부 이미지" width={350} height={262} unoptimized />}
           <div className="community-actions">
             <div className="community-vote"><button disabled aria-label="게시글 좋아요 준비 중"><Asset name="like.svg" />{post.likeCount}</button><span /><button disabled aria-label="게시글 싫어요 준비 중"><Asset name="like.svg" className="thumb-down" /></button></div>
             <button aria-label={`댓글 ${post.commentCount}개로 이동`} onClick={() => comments.current?.scrollIntoView({ block: "start" })}><Asset name="comment.svg" />{post.commentCount}</button><i />

@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import { Asset } from "@/components/app/shared";
 import { initialShortIndex } from "@/features/abyss/initial-short";
+import { canJoinShort } from "@/features/abyss/short-participation";
+import { useCurrentUserId } from "@/hooks/use-current-user";
 import { getShorts } from "@/lib/api/shorts";
 import type { ShortItemDto, ShortsPageDto } from "@/lib/api/contracts";
 
@@ -10,6 +12,7 @@ type FeedState = "loading" | "ready" | "error";
 type PageInfo = ShortsPageDto["page"];
 
 export function AbyssScreen({ onJoin, initialShortId }: { onJoin: (shortId: number) => void; initialShortId?: number | null }) {
+  const currentUserId = useCurrentUserId();
   const [shorts, setShorts] = useState<ShortItemDto[]>([]);
   const [page, setPage] = useState<PageInfo | null>(null);
   const [index, setIndex] = useState(0);
@@ -178,7 +181,9 @@ export function AbyssScreen({ onJoin, initialShortId }: { onJoin: (shortId: numb
         {playbackError && <p className="abyss-playback-message" role="alert">{playbackError}</p>}
       </div>
       {current.completionStatus === "IN_PROGRESS" && current.projectId != null && (
-        <button className="abyss-join" onClick={() => onJoin(current.shortId)}>작곡 참여하기</button>
+        <div className="abyss-join-slot">
+          {canJoinShort(current, currentUserId) && <button className="abyss-join" onClick={() => onJoin(current.shortId)}>작곡 참여하기</button>}
+        </div>
       )}
     </div>
   );

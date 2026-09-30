@@ -134,10 +134,15 @@ export function fetchPost(postId: number): Promise<PostDetailResponse> {
 
 // 아래 3개도 로그인(Authorization 헤더)이 필요하다 — auth.ts의 loginWithGoogle()로 먼저 토큰을 발급받아야 한다.
 
-export function createPost(galleryId: number, title: string, content: string): Promise<PostCreateResponse> {
+export function createPost(
+  galleryId: number,
+  title: string,
+  content: string,
+  imageFileId: number | null = null,
+): Promise<PostCreateResponse> {
   return apiRequest<ApiResponse<PostCreateResponse>>(`/api/v1/galleries/${galleryId}/posts`, {
     method: "POST",
-    body: JSON.stringify({ title, content }),
+    body: JSON.stringify({ title, content, imageFileId }),
   }).then((response) => response.data);
 }
 
