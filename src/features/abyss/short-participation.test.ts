@@ -8,7 +8,7 @@ const abyssScreen = readFileSync(new URL("../screens/abyss-screen.tsx", import.m
 const globalStyles = readFileSync(new URL("../../app/globals.css", import.meta.url), "utf8");
 
 const joinableShort = {
-  completionStatus: "IN_PROGRESS",
+  completionStatus: "IN_PROGRESS" as const,
   projectId: 12,
   hasPendingContribution: false,
   hasApprovedContribution: false,
