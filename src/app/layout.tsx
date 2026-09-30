@@ -3,8 +3,8 @@ import "./globals.css";
 import "./composition-team.css";
 
 export const metadata: Metadata = {
-  title: "Adlips — Make it heard",
-  description: "함께 만들고 발견하는 음악 커뮤니티 Adlips",
+  title: "Narackrock — Make it heard",
+  description: "함께 만들고 발견하는 음악 커뮤니티 Narackrock",
   icons: {
     icon: "/favicon.svg",
     shortcut: "/favicon.svg",
