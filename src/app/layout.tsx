@@ -6,8 +6,8 @@ export const metadata: Metadata = {
   title: "Narackrock — Make it heard",
   description: "함께 만들고 발견하는 음악 커뮤니티 Narackrock",
   icons: {
-    icon: "/favicon.svg",
-    shortcut: "/favicon.svg",
+    icon: "/favicon.svg?v=shark-1",
+    shortcut: "/favicon.svg?v=shark-1",
   },
 };
 
