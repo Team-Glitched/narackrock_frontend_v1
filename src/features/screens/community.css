@@ -79,9 +79,6 @@
   border-radius: 2px;
   background: var(--purple);
 }
-.phone-frame:has(.community-view) .nr-logo {
-  transform: translate(8px, -3px) scale(.8);
-}
 .community-view .community-post { padding: 16px 20px 2px; }
 .community-view .community-author { height: 32px; gap: 6px; }
 .community-view .community-author strong {

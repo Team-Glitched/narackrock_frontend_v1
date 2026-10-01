@@ -25,7 +25,7 @@ export function Avatar({ large = false, src = null }: { large?: boolean; src?: s
   return <span className={className}><Asset name="profile.png" alt="프로필" /></span>;
 }
 
-function Logo() { return <div className="nr-logo" aria-label="Narackrock"><Asset name="logo-wing-a.svg" /><Asset name="logo-wing-b.svg" /><Asset name="logo-dot.svg" /><b>NR</b></div>; }
+function Logo() { return <Asset name="auth-logo.svg" alt="Narackrock" className="nr-logo" />; }
 
 export function Header({ onSearch, onProfile, onNotifications, onBack, profileImageUrl = null, blank = false, abyss = false }: { onSearch: () => void; onProfile: () => void; onNotifications: () => void; onBack?: () => void; profileImageUrl?: string | null; blank?: boolean; abyss?: boolean }) {
   if (blank) return <div className="header-spacer" />;
