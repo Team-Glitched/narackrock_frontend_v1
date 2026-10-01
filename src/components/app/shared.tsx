@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import type { Navigate, View } from "@/features/navigation/types";
+import type { ShortItemDto } from "@/lib/api/contracts";
 
 // The five footer tabs. `studio` is the center action button, not a real tab.
 type FooterTab = "home" | "abyss" | "studio" | "friends" | "community";
@@ -49,4 +50,9 @@ const footerIcons: Partial<Record<FooterTab, ReactNode>> = {
 const nav: { id: FooterTab; label: string }[] = [{ id: "home", label: "홈" }, { id: "abyss", label: "어비스" }, { id: "studio", label: "" }, { id: "friends", label: "친구" }, { id: "community", label: "커뮤니티" }];
 export function Footer({ view, go }: { view: View; go: Navigate }) { const active = activeFooterTab(view); return <footer className="app-footer">{nav.map(item => <button key={item.id} className={`${item.id === "studio" ? "make-button" : ""} ${item.id === active ? "active" : ""}`} onClick={() => go(item.id)} aria-label={item.id === "studio" ? "곡 만들기" : item.label} aria-current={item.id === active ? "page" : undefined}>{item.id === "studio" ? <><Asset name="make-circle.svg" /><i /></> : footerIcons[item.id]}{item.label && <span>{item.label}</span>}</button>)}</footer>; }
 export function SectionTitle({ children, onAll }: { children: ReactNode; onAll?: () => void }) { return <div className="section-title"><h2>{children}</h2>{onAll && <button onClick={onAll}>모두보기</button>}</div>; }
-export function SongRail() { return <div className="song-rail">{Array.from({ length: 10 }).map((_, i) => <button className="song-card" key={i}><span className="song-art"><Asset name={postImages[(i * 7 + 1) % postImages.length]} alt="곡 커버" /></span><strong>Name</strong><small>name</small></button>)}</div>; }
+export function SongRail({ songs, onOpen }: { songs: ShortItemDto[]; onOpen: (shortId: number) => void }) {
+  return <div className="song-rail">{songs.map(song => <button type="button" className="song-card" key={song.shortId} onClick={() => onOpen(song.shortId)} aria-label={`${song.title} 열기`}><span className="song-art">{song.albumImageUrl
+    // eslint-disable-next-line @next/next/no-img-element
+    ? <img src={song.albumImageUrl} alt={`${song.title} 앨범 커버`} draggable={false} />
+    : <Asset name="abyss-album.png" alt={`${song.title} 기본 앨범 커버`} />}</span><strong>{song.title}</strong><small>{song.author.nickname}</small></button>)}</div>;
+}
