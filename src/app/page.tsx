@@ -7,7 +7,7 @@ import { AuthScreen, type PendingProfileSetup } from "@/features/screens/auth-sc
 import { JoinedCommunitiesScreen } from "@/features/screens/community-directory";
 import { CommunityMembershipProvider, createServerMembershipApi } from "@/features/screens/community-membership";
 import type { CommunityTab } from "@/features/screens/mobile-screens";
-import { ChartsScreen, CommunityScreen, FriendsScreen, HomeScreen, PostsScreen, SearchScreen } from "@/features/screens/mobile-screens";
+import { ChartsScreen, CommunityScreen, FriendsScreen, HomeScreen, PostsScreen, SearchScreen, type SongChartKind } from "@/features/screens/mobile-screens";
 import { EditProfileScreen, InitialProfileSetupScreen, ProfileScreen } from "@/features/profile/profile-screens";
 import { AbyssScreen } from "@/features/screens/abyss-screen";
 import { NotificationsScreen } from "@/features/screens/notifications-screen";
@@ -43,6 +43,7 @@ export default function Page() {
     : view;
   const [communityTab, setCommunityTab] = useState<CommunityTab>("posts");
   const [commentPostId, setCommentPostId] = useState<number | null>(null);
+  const [songChartKind, setSongChartKind] = useState<SongChartKind>("popular");
   const [selectedCommunity, setSelectedCommunity] = useState<Community | null>(null);
   const [compositionTarget, setCompositionTarget] = useState<{ shortId: number | null; projectId: number | null }>({ shortId: null, projectId: null });
   const [abyssTargetShortId, setAbyssTargetShortId] = useState<number | null>(null);
@@ -86,6 +87,16 @@ export default function Page() {
   const returnToJoinedShort = useCallback((shortId: number) => {
     setAbyssTargetShortId(shortId);
     setView("abyss");
+  }, []);
+
+  const openHomeShort = useCallback((shortId: number) => {
+    setAbyssTargetShortId(shortId);
+    setView("abyss");
+  }, []);
+
+  const openSongChart = useCallback((kind: SongChartKind) => {
+    setSongChartKind(kind);
+    setView("charts");
   }, []);
 
   const startDraft = useCallback((projectId: number) => {
@@ -169,10 +180,10 @@ export default function Page() {
   const content = useMemo(() => {
     if (commentPostId !== null) return <PostCommentsScreen key={commentPostId} postId={commentPostId} />;
     if (selectedCommunity) return <CommunityDetailScreen key={selectedCommunity.id} community={selectedCommunity} onComments={setCommentPostId} />;
-    if (activeView === "home") return <HomeScreen go={go} onOpenPost={setCommentPostId} />;
+    if (activeView === "home") return <HomeScreen go={go} onOpenPost={setCommentPostId} onOpenShort={openHomeShort} onShowSongs={openSongChart} />;
     if (activeView === "abyss") return <AbyssScreen onJoin={joinShort} initialShortId={abyssTargetShortId} />;
     if (activeView === "notifications") return <NotificationsScreen onBack={() => go("home")} onOpenProject={openReviewProject} />;
-    if (activeView === "charts") return <ChartsScreen go={go} />;
+    if (activeView === "charts") return <ChartsScreen go={go} kind={songChartKind} onOpenShort={openHomeShort} />;
     if (activeView === "posts") return <PostsScreen go={go} onOpenPost={setCommentPostId} />;
     if (activeView === "friends") return <FriendsScreen />;
     if (activeView === "search") return <SearchScreen go={go} />;
@@ -204,7 +215,7 @@ export default function Page() {
       onAddLayer={() => { setChoiceError(null); setView("choose"); }}
       onEditTrack={editTrack}
     />;
-  }, [selectedCommunity, commentPostId, communityTab, authenticate, profileUpdated, startProfileSetup, pendingProfileSetup, go, activeView, compositionTarget, abyssTargetShortId, editorTarget, joinShort, selectProject, returnToJoinedShort, startDraft, chooseLayer, choiceBusy, choiceError, saveAudio, transformRecording, editTrack, backToStudio, openReviewProject, reviewOrigin]);
+  }, [selectedCommunity, commentPostId, communityTab, authenticate, profileUpdated, startProfileSetup, pendingProfileSetup, go, activeView, compositionTarget, abyssTargetShortId, editorTarget, joinShort, selectProject, returnToJoinedShort, openHomeShort, openSongChart, songChartKind, startDraft, chooseLayer, choiceBusy, choiceError, saveAudio, transformRecording, editTrack, backToStudio, openReviewProject, reviewOrigin]);
 
   // 가입 상태는 커뮤니티 목록·전체목록·상세가 공유하며 서버 구독 API에서 가져온다.
   if (activeView === "studio" || activeView === "note") return <main className="studio-shell">{content}</main>;

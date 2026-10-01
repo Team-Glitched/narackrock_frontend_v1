@@ -8,13 +8,14 @@ import { formatDistanceToNow } from "date-fns";
 import { ko } from "date-fns/locale";
 import Image from "next/image";
 import { useEffect, useState } from "react";
-import { Asset, Avatar, postImages, SectionTitle, SongRail } from "@/components/app/shared";
+import { Asset, Avatar, SectionTitle, SongRail } from "@/components/app/shared";
 import type { Navigate } from "@/features/navigation/types";
 import { useGalleryPosts } from "@/hooks/use-gallery-posts";
 import { createPost, DEFAULT_GALLERY_ID, deletePost, fetchPost, updatePost } from "@/lib/api/community";
 import type { PostListItem } from "@/lib/api/contracts";
 import { ApiError, getAccessToken } from "@/lib/api/client";
 import { uploadMedia } from "@/lib/api/media";
+import { useHomeSongs } from "@/hooks/use-home-songs";
 import { validatePostImage } from "@/features/community/post-image";
 
 function postError(error: unknown): string {
@@ -63,11 +64,29 @@ function MiniPost({ tall = false, post, onOpen }: { tall?: boolean; post: PostLi
 }
 function BackTitle({ title, go }: { title: string; go: Navigate }) { return <div className="back-title"><button aria-label="뒤로" onClick={() => go("home")}><Asset name="return.svg" /></button><h1>{title}</h1></div>; }
 
-export function HomeScreen({ go, onOpenPost }: { go: Navigate; onOpenPost: (postId: number) => void }) {
-  const posts = useGalleryPosts(DEFAULT_GALLERY_ID);
-  return <div className="home-content scroll-content"><section><SectionTitle onAll={() => go("charts")}>인기 곡</SectionTitle><SongRail /></section><section><SectionTitle onAll={() => go("posts")}>인기 글</SectionTitle><div className="mini-post-list">{posts.status !== "ready" ? <PostListStatus state={posts.status} /> : posts.posts.length === 0 ? <PostListStatus state="empty" /> : posts.posts.slice(0, 3).map(post => <MiniPost key={post.postId} post={post} onOpen={onOpenPost} />)}</div></section><section><SectionTitle onAll={() => go("charts")}>내 곡</SectionTitle><SongRail /></section></div>;
+function SongRailStatus({ state }: { state: "loading" | "error" | "empty" | "signed-out" }) {
+  const message = state === "loading" ? "곡을 불러오는 중..."
+    : state === "error" ? "곡을 불러오지 못했습니다."
+      : state === "signed-out" ? "로그인하면 참여한 곡을 확인할 수 있어요."
+        : "아직 표시할 곡이 없어요.";
+  return <p className="song-rail-status">{message}</p>;
 }
-export function ChartsScreen({ go }: { go: Navigate }) { return <div className="list-view scroll-content"><BackTitle title="인기차트" go={go} /><div className="chart-list">{Array.from({ length: 12 }).map((_, i) => <button className="chart-row" key={i}><span className="chart-art"><Asset name={postImages[(i * 5) % postImages.length]} alt="곡 커버" /></span><span><strong>Name</strong><small>name</small></span><Asset name="option.svg" /></button>)}</div></div>; }
+
+export type SongChartKind = "popular" | "mine";
+
+export function HomeScreen({ go, onOpenPost, onOpenShort, onShowSongs }: { go: Navigate; onOpenPost: (postId: number) => void; onOpenShort: (shortId: number) => void; onShowSongs: (kind: SongChartKind) => void }) {
+  const posts = useGalleryPosts(DEFAULT_GALLERY_ID);
+  const songs = useHomeSongs();
+  return <div className="home-content scroll-content"><section><SectionTitle onAll={() => onShowSongs("popular")}>인기 곡</SectionTitle>{songs.popular.status !== "ready" ? <SongRailStatus state={songs.popular.status} /> : songs.popular.items.length === 0 ? <SongRailStatus state="empty" /> : <SongRail songs={songs.popular.items} onOpen={onOpenShort} />}</section><section><SectionTitle onAll={() => go("posts")}>인기 글</SectionTitle><div className="mini-post-list">{posts.status !== "ready" ? <PostListStatus state={posts.status} /> : posts.posts.length === 0 ? <PostListStatus state="empty" /> : posts.posts.slice(0, 3).map(post => <MiniPost key={post.postId} post={post} onOpen={onOpenPost} />)}</div></section><section><SectionTitle onAll={() => onShowSongs("mine")}>내 곡</SectionTitle>{songs.mine.status !== "ready" ? <SongRailStatus state={songs.mine.status} /> : songs.mine.items.length === 0 ? <SongRailStatus state="empty" /> : <SongRail songs={songs.mine.items} onOpen={onOpenShort} />}</section></div>;
+}
+export function ChartsScreen({ go, kind, onOpenShort }: { go: Navigate; kind: SongChartKind; onOpenShort: (shortId: number) => void }) {
+  const songs = useHomeSongs(100);
+  const selected = kind === "popular" ? songs.popular : songs.mine;
+  return <div className="list-view scroll-content"><BackTitle title={kind === "popular" ? "인기차트" : "내 곡"} go={go} /><div className="chart-list">{selected.status !== "ready" ? <SongRailStatus state={selected.status} /> : selected.items.length === 0 ? <SongRailStatus state="empty" /> : selected.items.map(song => <button type="button" className="chart-row" key={song.shortId} onClick={() => onOpenShort(song.shortId)}><span className="chart-art">{song.albumImageUrl
+    // eslint-disable-next-line @next/next/no-img-element
+    ? <img src={song.albumImageUrl} alt={`${song.title} 앨범 커버`} draggable={false} />
+    : <Asset name="abyss-album.png" alt={`${song.title} 기본 앨범 커버`} />}</span><span><strong>{song.title}</strong><small>{song.author.nickname}</small></span><Asset name="option.svg" /></button>)}</div></div>;
+}
 export function PostsScreen({ go, onOpenPost }: { go: Navigate; onOpenPost: (postId: number) => void }) {
   const posts = useGalleryPosts(DEFAULT_GALLERY_ID);
   return <div className="list-view scroll-content"><BackTitle title="인기글" go={go} /><div className="posts-list">{posts.status !== "ready" ? <PostListStatus state={posts.status} /> : posts.posts.length === 0 ? <PostListStatus state="empty" /> : posts.posts.map(post => <MiniPost tall key={post.postId} post={post} onOpen={onOpenPost} />)}</div></div>;
