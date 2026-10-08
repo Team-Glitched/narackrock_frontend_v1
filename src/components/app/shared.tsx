@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import type { Navigate, View } from "@/features/navigation/types";
+import type { ShortItemDto } from "@/lib/api/contracts";
 
 // The five footer tabs. `studio` is the center action button, not a real tab.
 type FooterTab = "home" | "abyss" | "studio" | "social" | "opensource";
@@ -8,9 +9,11 @@ const viewToFooterTab: Partial<Record<View, FooterTab>> = {
   home: "home",
   charts: "home",
   posts: "home",
-  post: "home",
   abyss: "abyss",
   social: "social",
+  friends: "social",
+  community: "social",
+  joined: "social",
   opensource: "opensource",
   opensourceDetail: "opensource",
   opensourceComments: "opensource",
@@ -42,28 +45,22 @@ export function Asset({
   );
 }
 
-export function Avatar({ large = false }: { large?: boolean }) {
-  return (
-    <span className={large ? "avatar avatar--large" : "avatar"}>
-      <Asset name="profile.png" alt="프로필" />
-    </span>
-  );
+export function Avatar({ large = false, src = null }: { large?: boolean; src?: string | null }) {
+  const className = large ? "avatar avatar--large" : "avatar";
+  if (src) {
+    // eslint-disable-next-line @next/next/no-img-element
+    return <span className={className}><img src={src} alt="프로필" draggable={false} /></span>;
+  }
+  return <span className={className}><Asset name="profile.png" alt="프로필" /></span>;
 }
 
-function Logo() {
-  return (
-    <div className="nr-logo" aria-label="Narackrock">
-      <Asset name="logo-wing-a.svg" />
-      <Asset name="logo-wing-b.svg" />
-      <Asset name="logo-dot.svg" />
-      <b>NR</b>
-    </div>
-  );
-}
+function Logo() { return <Asset name="auth-logo.svg" alt="Narackrock" className="nr-logo" />; }
 
 export function Header({
   onSearch,
   onProfile,
+  onNotifications,
+  profileImageUrl = null,
   blank = false,
   abyss = false,
   muted = false,
@@ -74,6 +71,8 @@ export function Header({
 }: {
   onSearch: () => void;
   onProfile: () => void;
+  onNotifications: () => void;
+  profileImageUrl?: string | null;
   blank?: boolean;
   abyss?: boolean;
   muted?: boolean;
@@ -85,7 +84,7 @@ export function Header({
   if (blank) return <div className="header-spacer" />;
   return (
     <header className="app-header">
-      {back ? (
+      {back || onBack ? (
         <button className="header-back" aria-label="뒤로" onClick={onBack}>
           <Asset name="return.svg" />
         </button>
@@ -105,7 +104,7 @@ export function Header({
         </button>
       )}
       <div className="header-actions">
-        <button aria-label="알림">
+        <button aria-label="알림" onClick={onNotifications}>
           <Asset name="bell.svg" />
         </button>
         <button aria-label="검색" onClick={onSearch}>
@@ -116,7 +115,7 @@ export function Header({
           className="header-profile"
           onClick={onProfile}
         >
-          <Avatar />
+          <Avatar src={profileImageUrl} />
         </button>
       </div>
     </header>
@@ -227,21 +226,9 @@ export function SectionTitle({
     </div>
   );
 }
-export function SongRail({ onSelect }: { onSelect?: () => void }) {
-  return (
-    <div className="song-rail">
-      {Array.from({ length: 10 }).map((_, i) => (
-        <button className="song-card" key={i} onClick={onSelect}>
-          <span className="song-art">
-            <Asset
-              name={postImages[(i * 7 + 1) % postImages.length]}
-              alt="곡 커버"
-            />
-          </span>
-          <strong>Name</strong>
-          <small>name</small>
-        </button>
-      ))}
-    </div>
-  );
+export function SongRail({ songs, onOpen }: { songs: ShortItemDto[]; onOpen: (shortId: number) => void }) {
+  return <div className="song-rail">{songs.map(song => <button type="button" className="song-card" key={song.shortId} onClick={() => onOpen(song.shortId)} aria-label={`${song.title} 열기`}><span className="song-art">{song.albumImageUrl
+    // eslint-disable-next-line @next/next/no-img-element
+    ? <img src={song.albumImageUrl} alt={`${song.title} 앨범 커버`} draggable={false} />
+    : <Asset name="abyss-album.png" alt={`${song.title} 기본 앨범 커버`} />}</span><strong>{song.title}</strong><small>{song.author.nickname}</small></button>)}</div>;
 }

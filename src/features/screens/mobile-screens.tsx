@@ -1,239 +1,97 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import {
-  Asset,
-  Avatar,
-  postImages,
-  SectionTitle,
-  SongRail,
-} from "@/components/app/shared";
-import { AbyssComments } from "@/features/screens/abyss-comments";
+import "./community.css";
+import { CommunityDirectory } from "./community-directory";
+import type { Community } from "./community-card";
+
+import { formatDistanceToNow } from "date-fns";
+import { ko } from "date-fns/locale";
+import Image from "next/image";
+import { useEffect, useState } from "react";
+import { Asset, Avatar, SectionTitle, SongRail } from "@/components/app/shared";
 import type { Navigate } from "@/features/navigation/types";
+import { useGalleryPosts } from "@/hooks/use-gallery-posts";
+import { createPost, DEFAULT_GALLERY_ID, deletePost, fetchPost, updatePost } from "@/lib/api/community";
+import type { PostListItem } from "@/lib/api/contracts";
+import { ApiError, getAccessToken } from "@/lib/api/client";
+import { uploadMedia } from "@/lib/api/media";
+import { useHomeSongs } from "@/hooks/use-home-songs";
+import { validatePostImage } from "@/features/community/post-image";
 
-const sampleText =
-  "미안하다 이거 보여주려고 어그로끌었다.. 나루토 사스케 싸움수준 ㄹㅇ실화냐? 진...";
-function MiniPost({
-  tall = false,
-  index = 0,
-  onOpen,
-  onProfile,
-}: {
-  tall?: boolean;
-  index?: number;
-  onOpen?: () => void;
-  onProfile?: () => void;
-}) {
-  const [liked, setLiked] = useState(false);
+function postError(error: unknown): string {
+  if (error instanceof ApiError) {
+    if (error.status === 401) return "로그인이 필요합니다. 로그인 후 다시 시도해주세요.";
+    if (error.status === 403) return "이 작업을 수행할 권한이 없습니다. 계정 상태와 작성자를 확인해주세요.";
+    if (error.errorCode === "GALLERY_NOT_FOUND") return "게시글을 등록할 커뮤니티를 찾을 수 없습니다. 잠시 후 다시 시도해주세요.";
+    if (error.status === 404) return "게시글을 찾을 수 없습니다. 목록을 새로고침해주세요.";
+  }
+  return "요청을 처리하지 못했습니다. 잠시 후 다시 시도해주세요.";
+}
+
+function relativeTime(createdAt: string): string {
+  return formatDistanceToNow(new Date(createdAt), { addSuffix: true, locale: ko });
+}
+
+function PostListStatus({ state }: { state: "loading" | "error" | "empty" }) {
+  const message = state === "loading" ? "게시글을 불러오는 중..." : state === "error" ? "게시글을 불러오지 못했습니다." : "아직 게시글이 없어요.";
+  return <p className="empty-community" style={{ height: "auto", padding: "40px 20px" }}>{message}</p>;
+}
+
+function MiniPost({ tall = false, post, onOpen }: { tall?: boolean; post: PostListItem; onOpen: (postId: number) => void }) {
   return (
-    <article className={`mini-post ${tall ? "mini-post--tall" : ""}`}>
-      {/* 제목/사진을 누르면 인기글 상세로 이동한다. */}
-      <button className="post-thumb" onClick={onOpen} aria-label="게시글 보기">
-        <Asset
-          name={postImages[index % postImages.length]}
-          alt="게시물 이미지"
-        />
-        <b>재즈</b>
-      </button>
+    <button
+      type="button"
+      className={`mini-post ${tall ? "mini-post--tall" : ""}`}
+      onClick={() => onOpen(post.postId)}
+      aria-label={`${post.title} 게시글 열기`}
+    >
+      {post.imageUrl && (
+        <span className="post-thumb">
+          <Image src={post.imageUrl} alt="게시글 첨부 이미지" width={90} height={90} unoptimized />
+        </span>
+      )}
       <div className="mini-post-copy">
-        <button className="mini-title" onClick={onOpen}>
-          {sampleText}
-        </button>
+        <strong>{post.title}</strong>
         <div className="mini-meta">
-          <span>1초 전</span>
-          <button
-            className={`mini-like${liked ? " liked" : ""}`}
-            aria-label="좋아요"
-            aria-pressed={liked}
-            onClick={() => setLiked((v) => !v)}
-          >
-            <Asset name={liked ? "like-filled.svg" : "like.svg"} />
-            {5 + (liked ? 1 : 0)}
-          </button>
-          <button className="mini-comment" aria-label="댓글" onClick={onOpen}>
-            <Asset name="comment.svg" />5
-          </button>
+          <span>{relativeTime(post.createdAt)}</span>
+          <span><Asset name="like.svg" />{post.likeCount}</span>
+          <span><Asset name="comment.svg" />{post.commentCount}</span>
         </div>
-        {/* 작성자 프로필/이름을 누르면 그 사람 프로필로 이동한다. */}
-        <button className="mini-author" onClick={onProfile}>
-          <Avatar />
-          <span>min chong</span>
-        </button>
+        <div className="mini-author"><Avatar src={post.writer.profileImageUrl} /><span>{post.writer.nickname}</span></div>
       </div>
-    </article>
+    </button>
   );
 }
-function BackTitle({ title, go }: { title: string; go: Navigate }) {
-  return (
-    <div className="back-title">
-      <button aria-label="뒤로" onClick={() => go("home")}>
-        <Asset name="return.svg" />
-      </button>
-      <h1>{title}</h1>
-    </div>
-  );
+function BackTitle({ title, go }: { title: string; go: Navigate }) { return <div className="back-title"><button aria-label="뒤로" onClick={() => go("home")}><Asset name="return.svg" /></button><h1>{title}</h1></div>; }
+
+function SongRailStatus({ state }: { state: "loading" | "error" | "empty" | "signed-out" }) {
+  const message = state === "loading" ? "곡을 불러오는 중..."
+    : state === "error" ? "곡을 불러오지 못했습니다."
+      : state === "signed-out" ? "로그인하면 참여한 곡을 확인할 수 있어요."
+        : "아직 표시할 곡이 없어요.";
+  return <p className="song-rail-status">{message}</p>;
 }
 
-export function HomeScreen({ go }: { go: Navigate }) {
-  return (
-    <div className="home-content scroll-content">
-      <section>
-        <SectionTitle onAll={() => go("charts")}>인기 곡</SectionTitle>
-        <SongRail onSelect={() => go("abyss")} />
-      </section>
-      <section>
-        <SectionTitle onAll={() => go("posts")}>인기 글</SectionTitle>
-        <div className="mini-post-list">
-          {[0, 1, 2].map((i) => (
-            <MiniPost
-              key={i}
-              index={i}
-              onOpen={() => go("post")}
-              onProfile={() => go("profile")}
-            />
-          ))}
-        </div>
-      </section>
-      <section>
-        <SectionTitle onAll={() => go("charts")}>내 곡</SectionTitle>
-        <SongRail onSelect={() => go("abyss")} />
-      </section>
-    </div>
-  );
+export type SongChartKind = "popular" | "mine";
+
+export function HomeScreen({ go, onOpenPost, onOpenShort, onShowSongs }: { go: Navigate; onOpenPost: (postId: number) => void; onOpenShort: (shortId: number) => void; onShowSongs: (kind: SongChartKind) => void }) {
+  const posts = useGalleryPosts(DEFAULT_GALLERY_ID);
+  const songs = useHomeSongs();
+  return <div className="home-content scroll-content"><section><SectionTitle onAll={() => onShowSongs("popular")}>인기 곡</SectionTitle>{songs.popular.status !== "ready" ? <SongRailStatus state={songs.popular.status} /> : songs.popular.items.length === 0 ? <SongRailStatus state="empty" /> : <SongRail songs={songs.popular.items} onOpen={onOpenShort} />}</section><section><SectionTitle onAll={() => go("posts")}>인기 글</SectionTitle><div className="mini-post-list">{posts.status !== "ready" ? <PostListStatus state={posts.status} /> : posts.posts.length === 0 ? <PostListStatus state="empty" /> : posts.posts.slice(0, 3).map(post => <MiniPost key={post.postId} post={post} onOpen={onOpenPost} />)}</div></section><section><SectionTitle onAll={() => onShowSongs("mine")}>내 곡</SectionTitle>{songs.mine.status !== "ready" ? <SongRailStatus state={songs.mine.status} /> : songs.mine.items.length === 0 ? <SongRailStatus state="empty" /> : <SongRail songs={songs.mine.items} onOpen={onOpenShort} />}</section></div>;
 }
-export function ChartsScreen({ go }: { go: Navigate }) {
-  return (
-    <div className="list-view scroll-content">
-      <BackTitle title="인기차트" go={go} />
-      <div className="chart-list">
-        {Array.from({ length: 12 }).map((_, i) => (
-          <button className="chart-row" key={i}>
-            <span className="chart-art">
-              <Asset
-                name={postImages[(i * 5) % postImages.length]}
-                alt="곡 커버"
-              />
-            </span>
-            <span>
-              <strong>Name</strong>
-              <small>name</small>
-            </span>
-            <Asset name="option.svg" />
-          </button>
-        ))}
-      </div>
-    </div>
-  );
+export function ChartsScreen({ go, kind, onOpenShort }: { go: Navigate; kind: SongChartKind; onOpenShort: (shortId: number) => void }) {
+  const songs = useHomeSongs(100);
+  const selected = kind === "popular" ? songs.popular : songs.mine;
+  return <div className="list-view scroll-content"><BackTitle title={kind === "popular" ? "인기차트" : "내 곡"} go={go} /><div className="chart-list">{selected.status !== "ready" ? <SongRailStatus state={selected.status} /> : selected.items.length === 0 ? <SongRailStatus state="empty" /> : selected.items.map(song => <button type="button" className="chart-row" key={song.shortId} onClick={() => onOpenShort(song.shortId)}><span className="chart-art">{song.albumImageUrl
+    // eslint-disable-next-line @next/next/no-img-element
+    ? <img src={song.albumImageUrl} alt={`${song.title} 앨범 커버`} draggable={false} />
+    : <Asset name="abyss-album.png" alt={`${song.title} 기본 앨범 커버`} />}</span><span><strong>{song.title}</strong><small>{song.author.nickname}</small></span><Asset name="option.svg" /></button>)}</div></div>;
 }
-export function PostsScreen({ go }: { go: Navigate }) {
-  return (
-    <div className="list-view scroll-content">
-      <BackTitle title="인기글" go={go} />
-      <div className="posts-list">
-        {Array.from({ length: 8 }).map((_, i) => (
-          <MiniPost
-            tall
-            key={i}
-            index={i}
-            onOpen={() => go("post")}
-            onProfile={() => go("profile")}
-          />
-        ))}
-      </div>
-    </div>
-  );
+export function PostsScreen({ go, onOpenPost }: { go: Navigate; onOpenPost: (postId: number) => void }) {
+  const posts = useGalleryPosts(DEFAULT_GALLERY_ID);
+  return <div className="list-view scroll-content"><BackTitle title="인기글" go={go} /><div className="posts-list">{posts.status !== "ready" ? <PostListStatus state={posts.status} /> : posts.posts.length === 0 ? <PostListStatus state="empty" /> : posts.posts.map(post => <MiniPost tall key={post.postId} post={post} onOpen={onOpenPost} />)}</div></div>;
 }
-export function AbyssScreen({ go }: { go: Navigate }) {
-  const [playing, setPlaying] = useState(false);
-  const [vote, setVote] = useState<"like" | "dislike" | null>(null);
-  const [saved, setSaved] = useState(false);
-  const [commentsOpen, setCommentsOpen] = useState(false);
-  return (
-    <div className="abyss-view">
-      <div className="abyss-song">
-        <Asset
-          name="abyss-album.png"
-          alt="Pretender 앨범 커버"
-          className="abyss-cover"
-        />
-        <div className="abyss-title">
-          <h1>Pretender</h1>
-          <p>
-            min chong <i /> <button>작곡 참여자 보기</button>
-          </p>
-        </div>
-      </div>
-      <div className="abyss-actions">
-        <div className="abyss-vote">
-          <button
-            className={vote === "like" ? "active" : ""}
-            onClick={() =>
-              setVote((current) => (current === "like" ? null : "like"))
-            }
-            aria-label="좋아요"
-            aria-pressed={vote === "like"}
-          >
-            <Asset name={vote === "like" ? "like-filled.svg" : "like.svg"} />
-            116
-          </button>
-          <i />
-          <button
-            aria-label="싫어요"
-            aria-pressed={vote === "dislike"}
-            className="abyss-dislike"
-            onClick={() =>
-              setVote((current) => (current === "dislike" ? null : "dislike"))
-            }
-          >
-            <Asset name={vote === "dislike" ? "like-filled.svg" : "like.svg"} />
-          </button>
-        </div>
-        <button
-          aria-label="댓글"
-          aria-expanded={commentsOpen}
-          onClick={() => setCommentsOpen(true)}
-        >
-          <Asset name="comment.svg" />
-          116
-        </button>
-        <button aria-label="공유">
-          <Asset name="share.svg" />
-        </button>
-        <button
-          aria-label="저장"
-          aria-pressed={saved}
-          onClick={() => setSaved((current) => !current)}
-        >
-          <Asset name={saved ? "bookmark-filled.svg" : "bookmark.svg"} />
-        </button>
-      </div>
-      <div className="abyss-player">
-        <button className="abyss-progress" aria-label="재생 위치">
-          <i style={{ width: playing ? "38%" : "18%" }}>
-            <b />
-          </i>
-        </button>
-        <button
-          className="abyss-player-controls"
-          aria-label={playing ? "일시정지" : "재생"}
-          onClick={() => setPlaying(!playing)}
-        >
-          <Asset name="abyss-player.svg" />
-        </button>
-      </div>
-      <button className="abyss-join" onClick={() => go("studio")}>
-        작곡 참여하기
-      </button>
-      <AbyssComments
-        open={commentsOpen}
-        onClose={() => setCommentsOpen(false)}
-        go={go}
-      />
-    </div>
-  );
-}
-// 소셜 페이지 "친구" 탭 본문. 프로필 이름/아바타를 누르면 프로필로 이동한다.
-function FriendsSections({ go }: { go: Navigate }) {
+export function FriendsScreen({ go }: { go: Navigate }) {
   const [following, setFollowing] = useState([false, true, true, false]);
   const [requests, setRequests] = useState([true, true]);
   return (
@@ -300,663 +158,258 @@ function FriendsSections({ go }: { go: Navigate }) {
     </div>
   );
 }
-export function SearchScreen({ go }: { go: Navigate }) {
-  const [query, setQuery] = useState("");
+export function SearchScreen({ go }: { go: Navigate }) { const [query, setQuery] = useState(""); return <div className="search-view"><div className="search-line"><button onClick={() => go("home")} aria-label="뒤로"><Asset name="return.svg" /></button><label><Asset name="search.svg" /><input autoFocus value={query} onChange={e => setQuery(e.target.value)} placeholder="검색" />{query && <button onClick={() => setQuery("")} aria-label="검색어 지우기">×</button>}</label></div>{query && <p className="search-result">‘{query}’ 검색 결과가 없습니다.</p>}</div>; }
+export function PostComposer({ galleryId, onCreated, onCancel }: { galleryId: number; onCreated: () => void; onCancel: () => void }) {
+  const [title, setTitle] = useState("");
+  const [content, setContent] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [image, setImage] = useState<{ file: File; previewUrl: string } | null>(null);
+
+  useEffect(() => () => {
+    if (image) URL.revokeObjectURL(image.previewUrl);
+  }, [image]);
+
+  function selectImage(file: File | undefined) {
+    if (!file) return;
+    try {
+      validatePostImage(file);
+      setImage({ file, previewUrl: URL.createObjectURL(file) });
+      setError(null);
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "이미지를 첨부하지 못했습니다.");
+    }
+  }
+
+  async function submit() {
+    if (!title.trim() || !content.trim()) {
+      setError("제목과 내용을 모두 입력해주세요.");
+      return;
+    }
+    setSubmitting(true);
+    setError(null);
+    try {
+      const imageFileId = image ? await uploadMedia(image.file, "IMAGE") : null;
+      await createPost(galleryId, title, content, imageFileId);
+      setTitle("");
+      setContent("");
+      setImage(null);
+      onCreated();
+    } catch (error) {
+      setError(postError(error));
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
   return (
-    <div className="search-view">
-      <div className="search-line">
-        <button onClick={() => go("home")} aria-label="뒤로">
-          <Asset name="return.svg" />
-        </button>
-        <label>
-          <Asset name="search.svg" />
+    <div className="post-form">
+      <input aria-label="게시글 제목" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="제목" disabled={submitting} />
+      <textarea aria-label="게시글 내용" value={content} onChange={(e) => setContent(e.target.value)} placeholder="내용을 입력하세요" disabled={submitting} />
+      {image ? (
+        <div className="post-image-preview">
+          <Image src={image.previewUrl} alt="첨부할 게시글 이미지 미리보기" width={350} height={262} unoptimized />
+          <button type="button" onClick={() => setImage(null)} disabled={submitting} aria-label="첨부 이미지 삭제">삭제</button>
+        </div>
+      ) : (
+        <label className="post-image-picker">
           <input
-            autoFocus
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="검색"
+            type="file"
+            accept="image/jpeg,image/png,image/webp,image/gif"
+            disabled={submitting}
+            onChange={(event) => {
+              selectImage(event.currentTarget.files?.[0]);
+              event.currentTarget.value = "";
+            }}
           />
-          {query && (
-            <button onClick={() => setQuery("")} aria-label="검색어 지우기">
-              ×
-            </button>
-          )}
+          <strong>사진 추가</strong>
+          <span>JPG, PNG, WEBP, GIF · 최대 100MB</span>
         </label>
-      </div>
-      {query && (
-        <p className="search-result">‘{query}’ 검색 결과가 없습니다.</p>
       )}
+      {error && <p className="post-form-error">{error}</p>}
+      <div className="post-form-actions">
+        <button className="gray-pill compact" onClick={onCancel} disabled={submitting}>취소</button>
+        <button className="purple-pill compact" onClick={submit} disabled={submitting}>{submitting ? "게시 중..." : "게시"}</button>
+      </div>
     </div>
   );
 }
-function CommunityPost({
-  index,
-  onProfile,
-}: {
-  index: number;
-  onProfile?: () => void;
-}) {
+
+export function CommunityPost({ post, onChanged, onCompose, onComments }: { post: PostListItem; onChanged: () => void; onCompose: () => void; onComments: (postId: number) => void }) {
+  const [menuOpen, setMenuOpen] = useState(false);
   const [vote, setVote] = useState<"like" | "dislike" | null>(null);
   const [saved, setSaved] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [title, setTitle] = useState(post.title);
+  const [content, setContent] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [preview, setPreview] = useState<string | null>(null);
+  const [imageUrl, setImageUrl] = useState<string | null>(post.imageUrl);
+  const [expanded, setExpanded] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+
+  useEffect(() => {
+    if (!getAccessToken()) return;
+    let cancelled = false;
+    fetchPost(post.postId).then(detail => {
+      if (!cancelled) {
+        setPreview(detail.content);
+        setImageUrl(detail.imageUrl);
+      }
+    }).catch(error => {
+      if (!cancelled) setError(postError(error));
+    });
+    return () => { cancelled = true; };
+  }, [post.postId, post.imageUrl]);
+
+  async function readPost() {
+    if (preview !== null) { setExpanded(value => !value); return; }
+    setSubmitting(true);
+    setError(null);
+    try {
+      const detail = await fetchPost(post.postId);
+      setPreview(detail.content);
+      setImageUrl(detail.imageUrl);
+      setExpanded(true);
+    } catch (error) { setError(postError(error)); }
+    finally { setSubmitting(false); }
+  }
+
+  async function startEdit() {
+    setMenuOpen(false);
+    setError(null);
+    setSubmitting(true);
+    try {
+      const detail = await fetchPost(post.postId);
+      setTitle(detail.title);
+      setContent(detail.content);
+      setEditing(true);
+    } catch (error) {
+      setError(postError(error));
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function saveEdit() {
+    if (!title.trim() || !content.trim()) {
+      setError("제목과 내용을 모두 입력해주세요.");
+      return;
+    }
+    setSubmitting(true);
+    setError(null);
+    try {
+      await updatePost(post.postId, title, content);
+      setPreview(content);
+      setEditing(false);
+      onChanged();
+    } catch (error) {
+      setError(postError(error));
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function remove() {
+    setMenuOpen(false);
+    setSubmitting(true);
+    setError(null);
+    try {
+      await deletePost(post.postId);
+      onChanged();
+    } catch (error) {
+      setError(postError(error));
+      setSubmitting(false);
+      setConfirmDelete(false);
+    }
+  }
+
+  if (editing) {
+    return (
+      <article className="community-post">
+        <div className="post-form">
+          <input aria-label="게시글 제목 수정" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="제목" disabled={submitting} />
+          <textarea aria-label="게시글 내용 수정" value={content} onChange={(e) => setContent(e.target.value)} placeholder="내용을 입력하세요" disabled={submitting} />
+          {error && <p className="post-form-error">{error}</p>}
+          <div className="post-form-actions">
+            <button className="gray-pill compact" onClick={() => setEditing(false)} disabled={submitting}>취소</button>
+            <button className="purple-pill compact" onClick={saveEdit} disabled={submitting}>{submitting ? "저장 중..." : "저장"}</button>
+          </div>
+        </div>
+      </article>
+    );
+  }
+
   return (
     <article className="community-post">
       <div className="community-author">
-        {/* 작성자 프로필/이름 클릭 → 그 사람 프로필로 이동 */}
-        <button className="community-author-link" onClick={onProfile}>
-          <Avatar />
-          <strong>min chong</strong>
-        </button>
-        <span>• 1초 전</span>
-        <Asset name="option.svg" />
+        <Avatar src={post.writer.profileImageUrl} />
+        <strong>{post.writer.nickname || "알 수 없는 사용자"}</strong>
+        <span>• {relativeTime(post.createdAt)}</span>
+        {/* 조회수는 목록 응답이 이미 주는 값이다 — 상세를 따로 부르지 않는다. 상세 화면(post-comments)과
+            같은 "조회 N" 표기를 쓴다. 홈·인기글의 MiniPost에는 넣지 않았다: 그 카드는 열린 PR #20이
+            통째로 다시 쓰는 중이라 같은 자리를 건드리면 충돌만 늘어난다. #20 머지 후에 맞춘다. */}
+        <span>• 조회 {post.viewCount.toLocaleString("ko-KR")}</span>
+        <button disabled={submitting} onClick={() => setMenuOpen((open) => !open)} aria-expanded={menuOpen} aria-label="게시글 더보기"><Asset name="option.svg" /></button>
       </div>
-      <h2>이거 좋냐?</h2>
-      <p>{sampleText}</p>
-      <Asset
-        name={postImages[index % postImages.length]}
-        alt="게시물 이미지"
-        className="community-image"
-      />
+      {menuOpen && <div className="post-menu-actions"><button className="gray-pill compact" onClick={onCompose}>글쓰기</button><button className="gray-pill compact" onClick={startEdit}>수정</button><button className="gray-pill compact" onClick={() => { setConfirmDelete(true); setMenuOpen(false); }}>삭제</button></div>}
+      <h2><button className="post-read" disabled={submitting} onClick={readPost} aria-expanded={expanded}>{post.title}</button></h2>
+      <button className={`post-preview ${expanded ? "expanded" : ""}`} onClick={readPost} disabled={submitting}>{preview ?? "로그인 후 게시글 내용을 확인할 수 있어요."}</button>
+      {error && <p className="post-form-error" role="alert">{error}</p>}
+      {confirmDelete && <div className="post-delete-confirm" role="group" aria-label="게시글 삭제 확인"><p>이 게시글을 삭제할까요?</p><button className="gray-pill" disabled={submitting} onClick={() => setConfirmDelete(false)}>취소</button><button className="purple-pill" disabled={submitting} onClick={remove}>{submitting ? "삭제 중..." : "삭제 확인"}</button></div>}
+      {imageUrl && <Image className="community-image" src={imageUrl} alt="게시글 첨부 이미지" width={350} height={262} unoptimized />}
       <div className="community-actions">
-        <div
-          className={`community-vote${vote ? " active" : ""}`}
-          role="group"
-          aria-label="게시글 반응"
-        >
-          <button
-            className={vote === "like" ? "liked" : ""}
-            onClick={() =>
-              setVote((current) => (current === "like" ? null : "like"))
-            }
-            aria-label="좋아요"
-            aria-pressed={vote === "like"}
-          >
-            <Asset name={vote === "like" ? "like-filled.svg" : "like.svg"} />
-            116
-          </button>
-          <span className="community-vote-divider" aria-hidden="true" />
-          <button
-            aria-label="싫어요"
-            aria-pressed={vote === "dislike"}
-            onClick={() =>
-              setVote((current) => (current === "dislike" ? null : "dislike"))
-            }
-          >
-            <Asset
-              name={vote === "dislike" ? "like-filled.svg" : "like.svg"}
-              className="thumb-down"
-            />
-          </button>
-        </div>
-        <button>
-          <Asset name="comment.svg" />
-          116
-        </button>
+        <div className={`community-vote${vote ? " active" : ""}`} role="group" aria-label="게시글 반응"><button className={vote === "like" ? "liked" : ""} onClick={() => setVote(current => current === "like" ? null : "like")} aria-label="좋아요" aria-pressed={vote === "like"}><Asset name={vote === "like" ? "like-filled.svg" : "like.svg"} />{post.likeCount}</button><span className="community-vote-divider" aria-hidden="true" /><button aria-label="싫어요" aria-pressed={vote === "dislike"} onClick={() => setVote(current => current === "dislike" ? null : "dislike")}><Asset name={vote === "dislike" ? "like-filled.svg" : "like.svg"} className="thumb-down" /></button></div>
+        <button onClick={() => onComments(post.postId)} aria-label={`댓글 ${post.commentCount}개 보기`}><Asset name="comment.svg" />{post.commentCount}</button>
         <i />
-        <button>
-          <Asset name="share.svg" />
-        </button>
-        <button
-          className={saved ? "active" : ""}
-          aria-label="저장"
-          aria-pressed={saved}
-          onClick={() => setSaved((current) => !current)}
-        >
-          <Asset name={saved ? "bookmark-filled.svg" : "bookmark.svg"} />
-        </button>
-      </div>
-    </article>
-  );
-}
-// 가입한 커뮤니티(가로 갤러리) + 추천 커뮤니티(세로 리스트). 버튼은 토글 목업.
-function CommunitiesTab() {
-  const [joined, setJoined] = useState([true, true, true]);
-  const [recommended, setRecommended] = useState([false, false, false]);
-  return (
-    <>
-      <section>
-        <SectionTitle onAll={() => undefined}>가입한 커뮤니티</SectionTitle>
-        <div className="community-gallery">
-          {joined.map((on, i) => (
-            <div className="community-card" key={i}>
-              <span className="community-card-art">
-                <Asset name="profile.png" alt="커뮤니티" />
-              </span>
-              <strong>Muhehehe</strong>
-              <small>가입자 100명</small>
-              <button
-                className="purple-pill community-join-button"
-                aria-pressed={on}
-                onClick={() =>
-                  setJoined((s) => s.map((v, x) => (x === i ? !v : v)))
-                }
-              >
-                {on ? "가입됨" : "가입"}
-              </button>
-            </div>
-          ))}
-        </div>
-      </section>
-      <section>
-        <SectionTitle>추천 커뮤니티</SectionTitle>
-        <div className="community-rec-list">
-          {recommended.map((on, i) => (
-            <div className="community-rec" key={i}>
-              <span className="community-rec-art">
-                <Asset name="profile.png" alt="커뮤니티" />
-              </span>
-              <div className="community-rec-body">
-                <strong>Muhehehe</strong>
-                <small>가입자 100명</small>
-                <p>
-                  이곳은 Muhehe를 찬성하는 곳입니다 이곳은 Muhehe를 찬성하는
-                  곳입니다 이곳은 Muhehe를 찬성하는 곳입니다
-                </p>
-              </div>
-              <button
-                className="purple-pill community-join-button"
-                aria-pressed={on}
-                onClick={() =>
-                  setRecommended((s) => s.map((v, x) => (x === i ? !v : v)))
-                }
-              >
-                {on ? "가입됨" : "가입"}
-              </button>
-            </div>
-          ))}
-        </div>
-      </section>
-    </>
-  );
-}
-// 소셜 페이지: 게시글 / 커뮤니티 / 친구 3개 탭.
-export function SocialScreen({ go }: { go: Navigate }) {
-  const [tab, setTab] = useState<"posts" | "communities" | "friends">("posts");
-  return (
-    <div className="social-view">
-      <div className="community-tabs">
-        <button
-          className={tab === "posts" ? "active" : ""}
-          onClick={() => setTab("posts")}
-        >
-          게시글
-        </button>
-        <button
-          className={tab === "communities" ? "active" : ""}
-          onClick={() => setTab("communities")}
-        >
-          커뮤니티
-        </button>
-        <button
-          className={tab === "friends" ? "active" : ""}
-          onClick={() => setTab("friends")}
-        >
-          친구
-        </button>
-      </div>
-      <div className="social-body scroll-content">
-        {tab === "posts" &&
-          [0, 1].map((i) => (
-            <CommunityPost key={i} index={i} onProfile={() => go("profile")} />
-          ))}
-        {tab === "communities" && <CommunitiesTab />}
-        {tab === "friends" && <FriendsSections go={go} />}
-      </div>
-    </div>
-  );
-}
-// 오픈소스: 공유된 파트 카드 피드. 저장/좋아요는 토글 목업.
-export function OpensourceScreen({ go }: { go: Navigate }) {
-  return (
-    <div className="opensource-view scroll-content">
-      {[0, 1, 2, 3, 4].map((i) => (
-        <OpensourcePart
-          key={i}
-          onOpen={() => go("opensourceDetail")}
-          onProfile={() => go("profile")}
-          onComments={() => go("opensourceComments")}
-        />
-      ))}
-    </div>
-  );
-}
-function OpensourcePart({
-  onOpen,
-  onProfile,
-  onComments,
-}: {
-  onOpen?: () => void;
-  onProfile?: () => void;
-  onComments?: () => void;
-}) {
-  const [saved, setSaved] = useState(false);
-  const [vote, setVote] = useState<"like" | "dislike" | null>(null);
-  return (
-    <article className="os-card">
-      <div className="os-head">
-        <button className="os-author" onClick={onOpen} aria-label="오픈소스 글 보기">
-          <Avatar />
-          <span>
-            <strong>개쩌는 파트</strong>
-            <small>사용 수 123123</small>
-          </span>
-        </button>
-        <button
-          className="purple-pill os-save-button"
-          aria-pressed={saved}
-          onClick={() => setSaved((v) => !v)}
-        >
-          {saved ? "저장됨" : "저장"}
-        </button>
-      </div>
-      <button className="os-body" onClick={onOpen}>
-        제가 만들다 보니까 쫌 개쩔게 나와서 한번 올려봅니당
-      </button>
-      <div className="os-foot">
-        <button className="os-foot-author" onClick={onProfile}>
-          <Avatar />
-          <span>min chong</span>
-        </button>
-        <div className="os-reactions">
-          <button
-            className={vote === "like" ? "voted" : ""}
-            aria-label="좋아요"
-            aria-pressed={vote === "like"}
-            onClick={() => setVote((c) => (c === "like" ? null : "like"))}
-          >
-            <Asset name={vote === "like" ? "like-filled.svg" : "like.svg"} />5
-          </button>
-          <button
-            className={`os-dislike${vote === "dislike" ? " voted" : ""}`}
-            aria-label="싫어요"
-            aria-pressed={vote === "dislike"}
-            onClick={() => setVote((c) => (c === "dislike" ? null : "dislike"))}
-          >
-            <Asset name={vote === "dislike" ? "like-filled.svg" : "like.svg"} />
-          </button>
-          <button aria-label="댓글" onClick={onComments}>
-            <Asset name="comment.svg" />5
-          </button>
-        </div>
+        <button disabled aria-label="공유 기능 준비 중" title="공유 기능 준비 중"><Asset name="share.svg" /></button>
+        <button className={saved ? "active" : ""} aria-label="저장" aria-pressed={saved} onClick={() => setSaved(current => !current)}><Asset name={saved ? "bookmark-filled.svg" : "bookmark.svg"} /></button>
       </div>
     </article>
   );
 }
 
-type OsDetailCommentData = {
-  id: number;
-  parentId?: number;
-  author: string;
-  time: string;
-  text: string;
-  likes: number;
-  vote: "like" | "dislike" | null;
-};
+export type CommunityTab = "posts" | "community" | "friends";
 
-const initialOsComments: OsDetailCommentData[] = [
-  { id: 1, author: "min chong", time: "1초 전", text: "이거 아무튼 댓글이긴한데 댓글이 아닌거 같기도 하고", likes: 116, vote: null },
-  { id: 2, parentId: 1, author: "min chong", time: "1초 전", text: "이거 아무튼 댓글이긴한데 댓글이 아닌거 같기도 하고", likes: 116, vote: null },
-  { id: 3, author: "min chong", time: "1초 전", text: "이거 아무튼 댓글이긴한데 댓글이 아닌거 같기도 하고", likes: 116, vote: null },
-  { id: 4, author: "min chong", time: "1초 전", text: "이거 아무튼 댓글이긴한데 댓글이 아닌거 같기도 하고", likes: 116, vote: null },
-];
-
-const OS_REPLIES_PAGE = 10;
-
-function OpensourceComment({
-  comment,
-  reply = false,
-  canReply = true,
-  menuOpen,
-  onMenu,
-  onReply,
-  onVote,
-  onReport,
-}: {
-  comment: OsDetailCommentData;
-  reply?: boolean;
-  canReply?: boolean;
-  menuOpen: boolean;
-  onMenu: () => void;
-  onReply: () => void;
-  onVote: (vote: "like" | "dislike") => void;
-  onReport: () => void;
-}) {
-  return (
-    <article className={reply ? "os-detail-comment reply" : "os-detail-comment"}>
-      <div className="os-detail-comment-head">
-        <Avatar />
-        <span className="os-detail-comment-meta"><strong>{comment.author}</strong><small>• {comment.time}</small></span>
-        <button aria-label="댓글 옵션" onClick={onMenu}><Asset name="option.svg" /></button>
-        {menuOpen && <button className="os-detail-report" onClick={onReport}>신고</button>}
-      </div>
-      {canReply ? (
-        <button className="os-detail-comment-text" onClick={onReply}>{comment.text}</button>
-      ) : (
-        <p className="os-detail-comment-text">{comment.text}</p>
-      )}
-      <div className="os-detail-comment-actions">
-        {canReply && <button aria-label="답글" onClick={onReply}><Asset name="comment.svg" /></button>}
-        <button
-          className={comment.vote === "like" ? "active" : ""}
-          aria-label="댓글 좋아요"
-          aria-pressed={comment.vote === "like"}
-          onClick={() => onVote("like")}
-        ><Asset name={comment.vote === "like" ? "like-filled.svg" : "like.svg"} />{comment.likes}</button>
-        <button
-          className={comment.vote === "dislike" ? "active dislike" : "dislike"}
-          aria-label="댓글 싫어요"
-          aria-pressed={comment.vote === "dislike"}
-          onClick={() => onVote("dislike")}
-        ><Asset name={comment.vote === "dislike" ? "like-filled.svg" : "like.svg"} /></button>
-      </div>
-    </article>
-  );
-}
-
-function OpensourceCommentThread({
-  comment,
-  replies,
-  menuId,
-  onMenu,
-  onReply,
-  onVote,
-  onReport,
-}: {
-  comment: OsDetailCommentData;
-  replies: OsDetailCommentData[];
-  menuId: number | null;
-  onMenu: (id: number) => void;
-  onReply: (comment: OsDetailCommentData) => void;
-  onVote: (id: number, vote: "like" | "dislike") => void;
-  onReport: (id: number) => void;
-}) {
-  const [collapsed, setCollapsed] = useState(true);
-  const [visible, setVisible] = useState(OS_REPLIES_PAGE);
-  const shownReplies = replies.slice(0, visible);
+// tab은 page.tsx가 들고 있다 — "모두보기"로 전체 목록에 다녀와도 커뮤니티 탭이 유지되도록.
+export function CommunityScreen({ go, tab, onTabChange, onComments, onOpenCommunity }: { go: Navigate; tab: CommunityTab; onTabChange: (tab: CommunityTab) => void; onComments: (postId: number) => void; onOpenCommunity: (community: Community) => void }) {
+  const [composerOpen, setComposerOpen] = useState(false);
+  const posts = useGalleryPosts(DEFAULT_GALLERY_ID);
 
   return (
-    <div className="os-detail-comment-thread">
-      <OpensourceComment
-        comment={comment}
-        menuOpen={menuId === comment.id}
-        onMenu={() => onMenu(comment.id)}
-        onReply={() => onReply(comment)}
-        onVote={(next) => onVote(comment.id, next)}
-        onReport={() => onReport(comment.id)}
-      />
-      {replies.length > 0 && collapsed && (
-        <button
-          className="abyss-replies-toggle"
-          onClick={() => setCollapsed(false)}
-        >
-          답글 {replies.length}개
-        </button>
-      )}
-      {replies.length > 0 && !collapsed && (
-        <div className="abyss-comment-replies">
-          <button
-            className="abyss-replies-bar"
-            aria-label="답글 접기"
-            onClick={() => setCollapsed(true)}
-          />
-          <div className="abyss-replies-body">
-            {shownReplies.map((reply) => (
-              <OpensourceComment
-                key={reply.id}
-                comment={reply}
-                reply
-                canReply={false}
-                menuOpen={menuId === reply.id}
-                onMenu={() => onMenu(reply.id)}
-                onReply={() => undefined}
-                onVote={(next) => onVote(reply.id, next)}
-                onReport={() => onReport(reply.id)}
+    <div className="community-view scroll-content">
+      <div className="community-tabs" aria-label="소셜 메뉴">
+        <button aria-pressed={tab === "posts"} className={tab === "posts" ? "active" : ""} onClick={() => onTabChange("posts")}>게시글</button>
+        <button aria-pressed={tab === "community"} className={tab === "community" ? "active" : ""} onClick={() => onTabChange("community")}>커뮤니티</button>
+        <button aria-pressed={tab === "friends"} className={tab === "friends" ? "active" : ""} onClick={() => onTabChange("friends")}>친구</button>
+      </div>
+      {tab === "posts" ? (
+        <>
+          {composerOpen ? (
+            <div style={{ padding: "0 20px" }}>
+              <PostComposer
+                galleryId={DEFAULT_GALLERY_ID}
+                onCreated={() => { setComposerOpen(false); posts.refetch(); }}
+                onCancel={() => setComposerOpen(false)}
               />
-            ))}
-            {replies.length > visible && (
-              <button
-                className="abyss-replies-more"
-                onClick={() => setVisible((current) => current + OS_REPLIES_PAGE)}
-              >
-                더보기 ({replies.length - visible})
-              </button>
-            )}
-          </div>
-        </div>
+            </div>
+          ) : posts.status !== "ready" ? (
+            <div role="status"><PostListStatus state={posts.status} />{posts.status === "error" && <button className="community-retry gray-pill" onClick={posts.refetch}>다시 시도</button>}</div>
+          ) : posts.posts.length === 0 ? (
+            <PostListStatus state="empty" />
+          ) : (
+            posts.posts.map((post) => (
+              <CommunityPost key={post.postId} post={post} onChanged={posts.refetch} onCompose={() => setComposerOpen(true)} onComments={onComments} />
+            ))
+          )}
+          {!composerOpen && <button className="community-compose purple-pill" onClick={() => setComposerOpen(true)}>글쓰기</button>}
+        </>
+      ) : tab === "friends" ? (
+        <FriendsScreen go={go} />
+      ) : (
+        <CommunityDirectory go={go} onOpen={onOpenCommunity} />
       )}
-    </div>
-  );
-}
-
-export function OpensourceDetailScreen({
-  focusComments = false,
-}: {
-  focusComments?: boolean;
-}) {
-  const [saved, setSaved] = useState(false);
-  const [playing, setPlaying] = useState(false);
-  const [muted, setMuted] = useState(false);
-  const [vote, setVote] = useState<"like" | "dislike" | null>(null);
-  const [comments, setComments] = useState(initialOsComments);
-  const [replyTo, setReplyTo] = useState<OsDetailCommentData | null>(null);
-  const [menuId, setMenuId] = useState<number | null>(null);
-  const [draft, setDraft] = useState("");
-  const commentsRef = useRef<HTMLElement>(null);
-  const composerInputRef = useRef<HTMLInputElement>(null);
-
-  const focusCommentComposer = (behavior: ScrollBehavior = "smooth") => {
-    setReplyTo(null);
-    commentsRef.current?.scrollIntoView({ behavior, block: "start" });
-    requestAnimationFrame(() => composerInputRef.current?.focus());
-  };
-  useEffect(() => {
-    if (!focusComments) return;
-    const frame = requestAnimationFrame(() => focusCommentComposer("auto"));
-    return () => cancelAnimationFrame(frame);
-  }, [focusComments]);
-
-  const toggleCommentVote = (id: number, next: "like" | "dislike") => {
-    setComments((items) => items.map((comment) => {
-      if (comment.id !== id) return comment;
-      const vote = comment.vote === next ? null : next;
-      const likes = comment.likes + (vote === "like" ? 1 : 0) - (comment.vote === "like" ? 1 : 0);
-      return { ...comment, vote, likes };
-    }));
-  };
-  const submitComment = () => {
-    const text = draft.trim();
-    if (!text) return;
-    setComments((items) => [...items, {
-      id: Date.now(),
-      parentId: replyTo?.parentId ?? replyTo?.id,
-      author: "나",
-      time: "방금",
-      text,
-      likes: 0,
-      vote: null,
-    }]);
-    setDraft("");
-    setReplyTo(null);
-  };
-  return (
-    <div className="opensource-detail-shell">
-      <div className="opensource-detail scroll-content">
-        <section className="os-detail-article">
-        <div className="os-detail-title-row">
-          <div className="os-detail-title">
-            <Avatar />
-            <span><strong>개쩌는 파트</strong><small>사용 수 123123</small></span>
-          </div>
-          <button
-            className="purple-pill os-save-button"
-            aria-pressed={saved}
-            onClick={() => setSaved((current) => !current)}
-          >{saved ? "저장됨" : "저장"}</button>
-        </div>
-        <div className="os-detail-byline"><Avatar /><span>min chong · 2026.03.18</span></div>
-        <p className="os-detail-copy">제가 만들다 보니까 쫌 개쩔게 나와서 한번 올려봅니당</p>
-        <div className="os-audio-player">
-          <button
-            className="os-audio-play-toggle"
-            aria-label={playing ? "일시정지" : "재생"}
-            aria-pressed={playing}
-            onClick={() => setPlaying((current) => !current)}
-          >
-            <Asset name="play.svg" />
-            <span>{playing ? "0:01" : "0:00"} / 0:02</span>
-            <i><b style={{ width: playing ? "58%" : "28%" }} /></i>
-          </button>
-          <button
-            className="os-audio-mute"
-            aria-label={muted ? "소리 켜기" : "무음"}
-            aria-pressed={muted}
-            title={muted ? "소리 켜기" : "소리 끄기"}
-            onClick={() => setMuted((current) => !current)}
-          >
-            <Asset name={muted ? "sound-muted.svg" : "sound.svg"} />
-          </button>
-        </div>
-        <div className="os-detail-reactions">
-          <div className={`os-detail-vote${vote ? " active" : ""}`}>
-            <button
-              aria-label="좋아요"
-              aria-pressed={vote === "like"}
-              onClick={() => setVote((current) => current === "like" ? null : "like")}
-            ><Asset name={vote === "like" ? "like-filled.svg" : "like.svg"} />116</button>
-            <i />
-            <button
-              className="dislike"
-              aria-label="싫어요"
-              aria-pressed={vote === "dislike"}
-              onClick={() => setVote((current) => current === "dislike" ? null : "dislike")}
-            ><Asset name={vote === "dislike" ? "like-filled.svg" : "like.svg"} /></button>
-          </div>
-          <button className="os-detail-comment-count" onClick={() => focusCommentComposer()}><Asset name="comment.svg" />116</button>
-          <span />
-          <button className="os-detail-share" aria-label="공유"><Asset name="share.svg" /></button>
-        </div>
-        </section>
-        <section ref={commentsRef} className="os-detail-comments" aria-label="댓글">
-          {comments.filter((comment) => !comment.parentId).map((comment) => (
-            <OpensourceCommentThread
-              key={comment.id}
-              comment={comment}
-              replies={comments.filter((reply) => reply.parentId === comment.id)}
-              menuId={menuId}
-              onMenu={(id) => setMenuId((current) => current === id ? null : id)}
-              onReply={(target) => {
-                setReplyTo(target);
-                requestAnimationFrame(() => composerInputRef.current?.focus());
-              }}
-              onVote={toggleCommentVote}
-              onReport={(id) => {
-                setComments((items) => items.filter((item) => item.id !== id && item.parentId !== id));
-                setMenuId(null);
-              }}
-            />
-          ))}
-        </section>
-      </div>
-      <div className="os-detail-composer">
-        {replyTo && (
-          <div className="os-detail-replying">
-            <span>{replyTo.author}에게 답글</span>
-            <button aria-label="답글 취소" onClick={() => setReplyTo(null)}>×</button>
-          </div>
-        )}
-        <div className="os-detail-composer-row">
-          <Avatar />
-          <input
-            ref={composerInputRef}
-            value={draft}
-            onChange={(event) => setDraft(event.target.value)}
-            onKeyDown={(event) => event.key === "Enter" && submitComment()}
-            placeholder={replyTo ? `${replyTo.author}에게 답글 남기기` : "댓글 달기"}
-          />
-          <button disabled={!draft.trim()} onClick={submitComment}>게시</button>
-        </div>
-      </div>
-    </div>
-  );
-}
-// 인기글 상세: Figma 10637:17534의 Article 영역. 댓글 목록은 요청에 따라 제외한다.
-export function PostDetailScreen({ go }: { go: Navigate }) {
-  return (
-    <div className="post-detail-view scroll-content">
-      <CommunityPost index={0} onProfile={() => go("profile")} />
-    </div>
-  );
-}
-export function ProfileScreen({ go }: { go: Navigate }) {
-  return (
-    <div className="profile-view scroll-content">
-      <button
-        className="profile-edit-trigger"
-        onClick={() => go("edit")}
-        aria-label="프로필 편집"
-      >
-        <Avatar large />
-      </button>
-      <h1>oii_aio_iiiaii</h1>
-      <div className="stats">
-        <span>
-          <strong>Follower</strong>
-          <small>12k</small>
-        </span>
-        <span>
-          <strong>Following</strong>
-          <small>12k</small>
-        </span>
-        <span>
-          <strong>Articles</strong>
-          <small>12k</small>
-        </span>
-      </div>
-      <div className="tags">
-        <span>Guitar</span>
-        <span>Piano</span>
-        <span>Wa Sans</span>
-      </div>
-      <section className="description">
-        <h2>Description</h2>
-        <p>
-          안녕하십니까 저는 지금 SO MUHEHE 합니다 하지만 모든것이 MUHEHE할순
-          없겠죠
-          <br />
-          hahahahahahahadfsgdsfsfsadfasdfdsafasdfasdfdsafdas
-        </p>
-      </section>
-      <section>
-        <SectionTitle>내 작업물</SectionTitle>
-        <SongRail />
-      </section>
-    </div>
-  );
-}
-export function EditProfileScreen() {
-  return (
-    <div className="edit-view scroll-content">
-      <button className="edit-avatar" aria-label="프로필 사진 변경">
-        <Avatar large />
-        <span>
-          <Asset name="photo-add.svg" />
-        </span>
-      </button>
-      <label>
-        <strong>이름</strong>
-        <input defaultValue="oii_aio_iiiaii" />
-      </label>
-      <label>
-        <strong>악기</strong>
-        <input defaultValue="Guitar, Piano, Wa Sans" />
-      </label>
-      <label>
-        <strong>설명</strong>
-        <textarea
-          defaultValue={
-            "안녕하십니까 저는 지금 SO MUHEHE 합니다 하지만 모든것이 MUHEHE할순 없겠죠\nhahahahahahahadfsgdsfsfsadfasdfdsafasdfasdfdsafdas"
-          }
-        />
-      </label>
     </div>
   );
 }

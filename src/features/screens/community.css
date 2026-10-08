@@ -1,0 +1,278 @@
+/* Community.pdf: 390 × 844 mobile feed. */
+.community-card, .community-rail-card { position: relative; }
+.community-open { text-align: inherit; font: inherit; }
+.community-open::after { content: ""; position: absolute; inset: 0; border-radius: 12px; }
+.community-open:focus-visible::after { outline: 2px solid #8a56ff; outline-offset: 2px; }
+.community-card .community-join, .community-rail-card .community-join { position: relative; z-index: 1; }
+.community-detail-banner { height: 90px; background: #383838; }
+.community-detail-info { margin: 0 20px 8px; padding: 6px 0 22px; border-bottom: 1px solid #303940; }
+.community-detail-heading { display: flex; align-items: center; gap: 10px; }
+.community-detail-heading .avatar { width: 52px; height: 52px; border: 0; }
+.community-detail-heading > div { flex: 1; min-width: 0; }
+.community-detail-heading h1 { margin: 0; font-size: 18px; line-height: 22px; font-weight: 700; overflow-wrap: anywhere; }
+.community-detail-heading p { margin: 4px 0 0; color: var(--muted); font-size: 12px; }
+.community-detail-heading .community-join { min-width: 60px; height: 40px; font-size: 16px; }
+.community-detail-heading .community-join:disabled { opacity: 1; cursor: not-allowed; }
+.community-detail-description { margin: 14px 0 0; color: var(--muted); font-size: 12px; line-height: 14px; overflow-wrap: anywhere; }
+.community-detail-status { padding: 24px 20px; text-align: center; color: var(--muted); font-size: 14px; }
+.community-detail-composer { padding-inline: 20px; }
+.community-directory { padding-top: 10px; }
+.directory-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 0 20px; margin-bottom: 8px; }
+.directory-heading h2 { margin: 0; font-size: 20px; line-height: 24px; font-weight: 700; letter-spacing: -.4px; }
+.directory-heading h2 small { font-size: 10px; font-weight: 400; color: var(--muted); letter-spacing: 0; vertical-align: middle; }
+.directory-heading > button { flex-shrink: 0; color: var(--muted); font-size: 15px; line-height: 24px; }
+.recommended-communities { margin-top: 18px; }
+.membership-error { margin: 10px 20px 0; color: #ff8d8d; font-size: 12px; line-height: 18px; }
+.community-detail-info .membership-error { margin-inline: 0; }
+.community-join[aria-busy="true"] { opacity: .6; cursor: progress; }
+.directory-preview-notice { margin: 16px 20px 24px; color: var(--muted); font-size: 12px; line-height: 18px; }
+
+/* CommunityCard / CommunityRailCard — 가입한 커뮤니티와 추천 커뮤니티가 함께 쓴다. */
+.community-card-list { display: flex; flex-direction: column; gap: 16px; list-style: none; padding: 0 20px; margin: 0; }
+.community-card { border: 1px solid #2d353c; border-radius: 12px; background: #212529; padding: 14px; min-width: 0; }
+.community-card-header { display: flex; align-items: center; gap: 10px; }
+.community-card-header .avatar { width: 44px; height: 44px; }
+.community-card-title { flex: 1; min-width: 0; }
+.community-card-description { margin: 12px 0 0; color: var(--muted); font-size: 13px; line-height: 18px; overflow-wrap: anywhere; }
+
+.community-rail { display: flex; gap: 20px; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none; padding: 0 20px; margin: 0; list-style: none; scroll-snap-type: x proximity; }
+.community-rail::-webkit-scrollbar { display: none; }
+.community-rail:focus-visible { outline: 2px solid #8a56ff; outline-offset: -2px; }
+.community-rail-card { flex: 0 0 140px; min-width: 0; height: 216px; padding: 14px 9px; border: 1px solid #2d353c; border-radius: 12px; background: #212529; display: flex; flex-direction: column; align-items: center; text-align: center; scroll-snap-align: center; }
+.community-rail-card .avatar { width: 100px; height: 100px; margin-bottom: 10px; }
+
+.community-card h2, .community-card h3,
+.community-rail-card h2, .community-rail-card h3 { margin: 0; font-size: 17px; line-height: 21px; font-weight: 700; overflow-wrap: anywhere; }
+.community-card p:not(.community-card-description),
+.community-rail-card p { margin: 2px 0 0; color: var(--muted); font-size: 12px; line-height: 16px; }
+
+/* 가입됨은 체크된 상태라 어둡게, 미가입은 원래 보라색으로 돌아온다. */
+.community-join { flex-shrink: 0; min-width: 72px; height: 38px; padding: 0 14px; border-radius: 999px; background: var(--purple); display: grid; place-items: center; font-size: 14px; font-weight: 600; }
+.community-join.is-joined { background: #1e004a; }
+/* 레일 카드 안에서는 카드 폭에 눌리지 않게 납작한 알약으로 — 카드 안쪽 폭의 약 86%. */
+.community-join--block { width: 86%; min-width: 0; height: 26px; padding: 0 8px; margin-top: auto; font-size: 13px; }
+
+@media (max-width: 359px) {
+  .directory-heading, .community-rail, .community-card-list { padding-inline: 16px; }
+  .directory-heading h2 { font-size: 18px; }
+  .community-join:not(.community-join--block) { min-width: 64px; padding-inline: 10px; }
+}
+.community-view .community-tabs {
+  height: 30px;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  padding: 0;
+}
+.community-view .community-tabs button {
+  position: relative;
+  border: 0;
+  padding-bottom: 8px;
+  color: var(--white);
+  font-size: 14px;
+}
+.community-view .community-tabs button.active::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: 10px;
+  right: 10px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--purple);
+}
+.community-view .community-post { padding: 16px 20px 2px; }
+.community-view .community-author { height: 32px; gap: 6px; }
+.community-view .community-author strong {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: 600;
+}
+.community-view .community-author > span:not(.avatar) {
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.community-view .community-author > button {
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  display: grid;
+  place-items: center;
+}
+.community-view .community-author > button img { width: 18px; height: 24px; }
+.community-view .community-post h2 {
+  margin: 12px 0 8px;
+  font-size: 18px;
+  line-height: 24px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+.community-view .post-read { text-align: left; width: 100%; }
+.community-view .post-preview {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  width: 100%;
+  min-height: 36px;
+  margin-bottom: 12px;
+  text-align: left;
+  font-size: 14px;
+  line-height: 18px;
+  color: var(--muted);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.community-view .post-preview.expanded { -webkit-line-clamp: unset; }
+.community-view .community-image {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 350 / 262;
+  border-radius: 4px;
+  background: #f2f4f6;
+  object-fit: cover;
+}
+.community-view .community-actions { height: 36px; margin-top: 6px; gap: 6px; }
+.community-view .community-actions > button,
+.community-view .community-vote {
+  height: 27px;
+  border: 1px solid #697887;
+  border-radius: 20px;
+  flex-shrink: 0;
+}
+.community-view .community-actions > button { padding: 0 8px; gap: 6px; }
+.community-view .community-actions > button:nth-last-child(-n+2) { width: 36px; padding: 0 8px; }
+.community-view .community-actions button:disabled { cursor: not-allowed; opacity: 1; }
+.community-view .community-vote { display: flex; align-items: center; overflow: hidden; }
+.community-view .community-vote button {
+  border: 0;
+  border-radius: 0;
+  height: 25px;
+  min-width: 35px;
+  padding: 0 8px;
+  gap: 6px;
+}
+.community-view .community-vote > span { width: 1px; height: 22px; background: var(--white); }
+.community-view .community-actions img { width: 18px; height: 18px; }
+.community-view .community-actions > i { min-width: 0; }
+.community-view .post-form-error { color: #ff8d8d; }
+.community-view .post-image-picker,
+.community-view .post-image-preview {
+  position: relative;
+  display: grid;
+  width: 100%;
+  aspect-ratio: 350 / 262;
+  overflow: hidden;
+  border-radius: 4px;
+}
+.community-view .post-image-picker {
+  place-items: center;
+  align-content: center;
+  gap: 6px;
+  border: 1px dashed #697887;
+  background: #20252a;
+  color: var(--white);
+  cursor: pointer;
+}
+.community-view .post-image-picker input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+.community-view .post-image-picker strong { font-size: 16px; }
+.community-view .post-image-picker span { color: var(--muted); font-size: 12px; }
+.community-view .post-image-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.community-view .post-image-preview button {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  padding: 7px 12px;
+  border-radius: 999px;
+  background: rgb(20 24 28 / 78%);
+  color: var(--white);
+  font-size: 13px;
+}
+.community-view .post-delete-confirm { margin-bottom: 16px; }
+.community-view .post-delete-confirm button + button { margin-left: 8px; }
+.community-compose, .community-retry { display: block; margin: 16px auto 24px; }
+
+/* Community.pdf: "가입한 커뮤니티" 전체 목록 화면의 헤더/제목. 카드는 공용 스타일을 쓴다. */
+.header-back { width: 44px; height: 44px; display: grid; place-items: center; }
+.header-back img { width: 28px; height: 28px; }
+.joined-view { padding-top: 6px; }
+.joined-title { margin: 0 20px 14px; font-size: 24px; line-height: 30px; font-weight: 700; letter-spacing: -.4px; }
+@media (max-width: 359px) {
+  .joined-title { margin-inline: 16px; font-size: 21px; }
+}
+@media (max-width: 359px) {
+  .community-view .community-post { padding-inline: 16px; }
+  .community-view .community-author { gap: 4px; font-size: 11px; }
+  .community-view .community-author strong { font-size: 14px; }
+  .community-view .community-actions { gap: 4px; }
+  .community-view .community-actions > button,
+  .community-view .community-vote button { padding-inline: 5px; font-size: 12px; }
+}
+
+/* 게시글 정렬·검색 컨트롤 */
+.post-list-controls { padding: 4px 20px 2px; display: flex; flex-direction: column; gap: 10px; }
+.post-search { display: flex; align-items: center; gap: 8px; }
+.post-search input {
+  flex: 1; min-width: 0; height: 36px; padding: 0 12px;
+  border: 0; border-radius: 20px; background: var(--blue-gray);
+  color: var(--white); font-size: 14px; outline: 0;
+}
+.post-search input::placeholder { color: var(--muted); }
+.post-search input:focus-visible { outline: 2px solid #8a56ff; outline-offset: 1px; }
+.post-search .gray-pill { height: 36px; flex-shrink: 0; font-size: 14px; }
+.post-sort { display: flex; gap: 6px; }
+.post-sort button {
+  height: 28px; padding: 0 12px; border: 1px solid #2d353c; border-radius: 14px;
+  background: transparent; color: var(--muted); font-size: 13px;
+}
+.post-sort button.active { border-color: #5e00ef; background: #1e004a; color: var(--white); }
+.post-search-active {
+  margin: 0; display: flex; align-items: center; gap: 8px;
+  color: var(--muted); font-size: 12px; line-height: 18px; overflow-wrap: anywhere;
+}
+.post-search-active .gray-pill { height: 26px; padding: 0 10px; font-size: 12px; }
+@media (max-width: 359px) {
+  .post-list-controls { padding-inline: 16px; }
+  .post-sort button { padding-inline: 9px; font-size: 12px; }
+}
+
+/* 게시글 무한 스크롤 */
+.post-feed-sentinel { height: 1px; }
+.post-feed-end { display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 12px 20px 24px; }
+.post-feed-error { margin: 0; color: #ff8d8d; font-size: 12px; line-height: 18px; }
+.post-feed-end-notice { margin: 0; padding: 12px 20px 28px; text-align: center; color: var(--muted); font-size: 12px; }
+
+/* 글쓰기 버튼: 목록의 끝이 없어졌으므로 스크롤과 무관하게 떠 있어야 한다.
+   높이 0인 sticky 칸을 마지막에 두고 그 안에서 위로 띄운다 — 스크롤 영역 바닥에 고정되면서
+   목록의 흐름 높이는 차지하지 않는다. 칸 자체는 클릭을 통과시켜 아래 글을 가리지 않는다. */
+.community-fab-slot {
+  position: sticky; bottom: 0; z-index: 5;
+  height: 0; display: flex; justify-content: flex-end;
+  padding-right: 20px; pointer-events: none;
+}
+.community-fab {
+  pointer-events: auto;
+  transform: translateY(-72px);
+  width: 52px; height: 52px; border-radius: 50%;
+  background: var(--purple); color: var(--white);
+  display: grid; place-items: center;
+  font-size: 22px; line-height: 1;
+  box-shadow: 0 6px 18px #0009;
+}
+.community-fab:active { transform: translateY(-72px) scale(.95); }
+.community-fab:focus-visible { outline: 2px solid #8a56ff; outline-offset: 3px; }
+@media (max-width: 359px) {
+  .community-fab-slot { padding-right: 16px; }
+  .community-fab { width: 48px; height: 48px; font-size: 20px; }
+}
