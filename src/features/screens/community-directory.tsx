@@ -1,5 +1,6 @@
 "use client";
 
+import { ProposalEntry } from "@/features/community/admin/proposal-panel";
 import { useMemo } from "react";
 import type { ReactNode } from "react";
 import "./community.css";
@@ -84,6 +85,7 @@ export function CommunityDirectory({ go, onOpen }: { go: Navigate; onOpen: (comm
 
   return (
     <div className="community-directory">
+      <ProposalEntry onLogin={() => go("login")} />
       <section aria-labelledby="joined-communities-heading">
         <div className="directory-heading">
           <h2 id="joined-communities-heading">가입한 커뮤니티</h2>
