@@ -1,6 +1,7 @@
 name: Main source policy
 
 on:
+  workflow_dispatch:
   pull_request_target:
     branches: [main]
     types: [opened, reopened, synchronize, edited, ready_for_review]
@@ -44,10 +45,10 @@ jobs:
               )
               sha = head["sha"]
               description = "Allowed: dev -> main" if allowed else "Blocked: main only accepts this repository's dev branch"
-          elif event_name == "push" and os.environ["GITHUB_REF"] == "refs/heads/main":
+          elif event_name in ("push", "workflow_dispatch") and os.environ["GITHUB_REF"] == "refs/heads/main":
               # Register the required context after installing/merging the policy.
               allowed = True
-              sha = event["after"]
+              sha = event["after"] if event_name == "push" else os.environ["GITHUB_SHA"]
               description = "Policy ready: main requires a dev-source PR check"
           else:
               raise SystemExit("Unsupported policy event")
