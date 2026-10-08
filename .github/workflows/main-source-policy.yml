@@ -1,0 +1,76 @@
+name: Main source policy
+
+on:
+  pull_request_target:
+    branches: [main]
+    types: [opened, reopened, synchronize, edited, ready_for_review]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  statuses: write
+
+jobs:
+  source-policy:
+    name: Report dev-only source policy
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      # Use the trusted main workflow without checking out or executing PR code.
+      # Publish the result on the PR head, because pull_request_target runs on main.
+      - name: Require this repository's dev branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: python
+        run: |
+          import json
+          import os
+          import urllib.request
+
+          with open(os.environ["GITHUB_EVENT_PATH"], encoding="utf-8") as file:
+              event = json.load(file)
+
+          event_name = os.environ["GITHUB_EVENT_NAME"]
+          repository = os.environ["GITHUB_REPOSITORY"]
+          if event_name == "pull_request_target":
+              pr = event["pull_request"]
+              head = pr["head"]
+              head_repository = head.get("repo") or {}
+              allowed = (
+                  pr["base"]["ref"] == "main"
+                  and head["ref"] == "dev"
+                  and str(head_repository.get("id")) == os.environ["GITHUB_REPOSITORY_ID"]
+              )
+              sha = head["sha"]
+              description = "Allowed: dev -> main" if allowed else "Blocked: main only accepts this repository's dev branch"
+          elif event_name == "push" and os.environ["GITHUB_REF"] == "refs/heads/main":
+              # Register the required context after installing/merging the policy.
+              allowed = True
+              sha = event["after"]
+              description = "Policy ready: main requires a dev-source PR check"
+          else:
+              raise SystemExit("Unsupported policy event")
+
+          payload = {
+              "state": "success" if allowed else "failure",
+              "context": "dev-source",
+              "description": description,
+              "target_url": f'{os.environ["GITHUB_SERVER_URL"]}/{repository}/actions/runs/{os.environ["GITHUB_RUN_ID"]}',
+          }
+          request = urllib.request.Request(
+              f'{os.environ["GITHUB_API_URL"]}/repos/{repository}/statuses/{sha}',
+              data=json.dumps(payload).encode("utf-8"),
+              headers={
+                  "Authorization": f'Bearer {os.environ["GH_TOKEN"]}',
+                  "Accept": "application/vnd.github+json",
+                  "Content-Type": "application/json",
+                  "X-GitHub-Api-Version": "2022-11-28",
+              },
+              method="POST",
+          )
+          with urllib.request.urlopen(request, timeout=30) as response:
+              response.read()
+          print(description)
+          if not allowed:
+              raise SystemExit(1)
