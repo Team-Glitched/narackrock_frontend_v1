@@ -11,6 +11,7 @@ import { ChartsScreen, CommunityScreen, FriendsScreen, HomeScreen, PostsScreen, 
 import { EditProfileScreen, InitialProfileSetupScreen, ProfileScreen } from "@/features/profile/profile-screens";
 import { AbyssScreen } from "@/features/screens/abyss-screen";
 import { NotificationsScreen } from "@/features/screens/notifications-screen";
+import { OpensourceScreen, OpensourceDetailScreen } from "@/features/screens/opensource-screens";
 import { NoteEditorScreen, StudioScreen } from "@/features/screens/studio-screens";
 import { CompositionChoiceScreen, CompositionRecordScreen, CompositionUploadScreen, type CreationMethod } from "@/features/screens/composition-creation-screens";
 import { prepareAudioFile, type AudioSelection } from "@/features/composition/prepare-audio-file";
@@ -41,6 +42,7 @@ export default function Page() {
     && (view === "profile" || view === "edit")
     ? "login"
     : view;
+  const [abyssMuted, setAbyssMuted] = useState(false);
   const [communityTab, setCommunityTab] = useState<CommunityTab>("posts");
   const [commentPostId, setCommentPostId] = useState<number | null>(null);
   const [songChartKind, setSongChartKind] = useState<SongChartKind>("popular");
@@ -57,7 +59,9 @@ export default function Page() {
     setSelectedCommunity(null);
     if (next === "studio") setCompositionTarget({ shortId: null, projectId: null });
     if (next === "abyss") setAbyssTargetShortId(null);
-    setView(next);
+    if (next === "friends") setCommunityTab("friends");
+    if (next === "community") setCommunityTab("community");
+    setView(next === "friends" || next === "community" ? "social" : next);
   }, []);
 
   const authenticate = useCallback(() => {
@@ -181,13 +185,16 @@ export default function Page() {
     if (commentPostId !== null) return <PostCommentsScreen key={commentPostId} postId={commentPostId} />;
     if (selectedCommunity) return <CommunityDetailScreen key={selectedCommunity.id} community={selectedCommunity} onComments={setCommentPostId} />;
     if (activeView === "home") return <HomeScreen go={go} onOpenPost={setCommentPostId} onOpenShort={openHomeShort} onShowSongs={openSongChart} />;
-    if (activeView === "abyss") return <AbyssScreen onJoin={joinShort} initialShortId={abyssTargetShortId} />;
+    if (activeView === "abyss") return <AbyssScreen onJoin={joinShort} initialShortId={abyssTargetShortId} muted={abyssMuted} />;
     if (activeView === "notifications") return <NotificationsScreen onBack={() => go("home")} onOpenProject={openReviewProject} />;
     if (activeView === "charts") return <ChartsScreen go={go} kind={songChartKind} onOpenShort={openHomeShort} />;
     if (activeView === "posts") return <PostsScreen go={go} onOpenPost={setCommentPostId} />;
-    if (activeView === "friends") return <FriendsScreen />;
+    if (activeView === "friends") return <FriendsScreen go={go} />;
     if (activeView === "search") return <SearchScreen go={go} />;
-    if (activeView === "community") return <CommunityScreen go={go} tab={communityTab} onTabChange={setCommunityTab} onComments={setCommentPostId} onOpenCommunity={setSelectedCommunity} />;
+    if (activeView === "social" || activeView === "community") return <CommunityScreen go={go} tab={communityTab} onTabChange={setCommunityTab} onComments={setCommentPostId} onOpenCommunity={setSelectedCommunity} />;
+    if (activeView === "opensource") return <OpensourceScreen go={go} />;
+    if (activeView === "opensourceDetail") return <OpensourceDetailScreen />;
+    if (activeView === "opensourceComments") return <OpensourceDetailScreen focusComments />;
     if (activeView === "joined") return <JoinedCommunitiesScreen onOpen={setSelectedCommunity} />;
     if (activeView === "profile") return <ProfileScreen go={go} />;
     if (activeView === "login") return <AuthScreen onAuthenticated={authenticate} onFirstLogin={startProfileSetup} />;
@@ -215,20 +222,21 @@ export default function Page() {
       onAddLayer={() => { setChoiceError(null); setView("choose"); }}
       onEditTrack={editTrack}
     />;
-  }, [selectedCommunity, commentPostId, communityTab, authenticate, profileUpdated, startProfileSetup, pendingProfileSetup, go, activeView, compositionTarget, abyssTargetShortId, editorTarget, joinShort, selectProject, returnToJoinedShort, openHomeShort, openSongChart, songChartKind, startDraft, chooseLayer, choiceBusy, choiceError, saveAudio, transformRecording, editTrack, backToStudio, openReviewProject, reviewOrigin]);
+  }, [abyssMuted, selectedCommunity, commentPostId, communityTab, authenticate, profileUpdated, startProfileSetup, pendingProfileSetup, go, activeView, compositionTarget, abyssTargetShortId, editorTarget, joinShort, selectProject, returnToJoinedShort, openHomeShort, openSongChart, songChartKind, startDraft, chooseLayer, choiceBusy, choiceError, saveAudio, transformRecording, editTrack, backToStudio, openReviewProject, reviewOrigin]);
 
   // 가입 상태는 커뮤니티 목록·전체목록·상세가 공유하며 서버 구독 API에서 가져온다.
   if (activeView === "studio" || activeView === "note") return <main className="studio-shell">{content}</main>;
   const authView = activeView === "login";
   const onboardingView = Boolean(pendingProfileSetup);
   const noHeader = authView || onboardingView || (commentPostId === null && (activeView === "charts" || activeView === "posts" || activeView === "search"));
-  const footerView = activeView === "joined" ? "community" : activeView;
+  const footerView = activeView === "joined" ? "social" : activeView;
   const onBack = commentPostId !== null ? () => setCommentPostId(null)
     : selectedCommunity ? () => setSelectedCommunity(null)
-    : activeView === "joined" ? () => go("community") : undefined;
+    : activeView === "joined" ? () => go("social")
+     : activeView === "opensourceDetail" || activeView === "opensourceComments" ? () => go("opensource") : undefined;
   const headerBack = onBack ?? (activeView === "edit" ? () => {
     if (pendingProfileSetup) setPendingProfileSetup(null);
     go(isAuthenticated ? "profile" : "login");
   } : undefined);
-  return <CommunityMembershipProvider api={membershipApi}><main className="page-background"><div className="phone-frame">{!noHeader && <Header blank={activeView === "friends"} abyss={activeView === "abyss"} profileImageUrl={headerProfileImageUrl} onBack={headerBack} onSearch={() => go("search")} onProfile={() => go(isAuthenticated ? "profile" : "login")} onNotifications={() => go("notifications")} />}<div className="screen-body">{content}</div>{!authView && !onboardingView && <Footer view={footerView} go={go} />}</div></main></CommunityMembershipProvider>;
+  return <CommunityMembershipProvider api={membershipApi}><main className="page-background"><div className="phone-frame">{!noHeader && <Header abyss={activeView === "abyss"} muted={abyssMuted} onToggleMute={() => setAbyssMuted(current => !current)} onHome={() => go("home")} profileImageUrl={headerProfileImageUrl} onBack={headerBack} onSearch={() => go("search")} onProfile={() => go(isAuthenticated ? "profile" : "login")} onNotifications={() => go("notifications")} />}<div className="screen-body">{content}</div>{!authView && !onboardingView && <Footer view={footerView} go={go} />}</div></main></CommunityMembershipProvider>;
 }

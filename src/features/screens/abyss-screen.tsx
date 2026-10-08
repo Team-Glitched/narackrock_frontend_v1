@@ -11,7 +11,7 @@ import type { ShortItemDto, ShortsPageDto } from "@/lib/api/contracts";
 type FeedState = "loading" | "ready" | "error";
 type PageInfo = ShortsPageDto["page"];
 
-export function AbyssScreen({ onJoin, initialShortId }: { onJoin: (shortId: number) => void; initialShortId?: number | null }) {
+export function AbyssScreen({ onJoin, initialShortId, muted = false }: { onJoin: (shortId: number) => void; initialShortId?: number | null; muted?: boolean }) {
   const currentUserId = useCurrentUserId();
   const [shorts, setShorts] = useState<ShortItemDto[]>([]);
   const [page, setPage] = useState<PageInfo | null>(null);
@@ -148,6 +148,7 @@ export function AbyssScreen({ onJoin, initialShortId }: { onJoin: (shortId: numb
           src={mediaUrl ?? undefined}
           preload="metadata"
           autoPlay
+          muted={muted}
           onLoadedMetadata={(event) => setDuration(Number.isFinite(event.currentTarget.duration) ? event.currentTarget.duration : 0)}
           onTimeUpdate={(event) => setCurrentTime(event.currentTarget.currentTime)}
           onPlay={() => setPlaying(true)}
