@@ -5,6 +5,7 @@ import Image from "next/image";
 import { formatDistanceToNow } from "date-fns";
 import { ko } from "date-fns/locale";
 import { Asset, Avatar } from "@/components/app/shared";
+import { ContentShareDialog } from "@/features/screens/content-share";
 import { createPostComment, deletePostComment, fetchPost, fetchPostComments, recordPostView, togglePostBookmark, togglePostCommentReaction, togglePostReaction, updatePostComment } from "@/lib/api/community";
 import { ApiError, getCurrentUserId } from "@/lib/api/client";
 import type { PostComment, PostCommentPage, PostDetailResponse } from "@/lib/api/contracts";
@@ -180,6 +181,7 @@ export function PostCommentsScreen({ postId }: { postId: number }) {
   const [notice, setNotice] = useState("");
   const [reactionBusy, setReactionBusy] = useState(false);
   const [bookmarkBusy, setBookmarkBusy] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
   const input = useRef<HTMLTextAreaElement>(null);
   const comments = useRef<HTMLElement>(null);
   useEffect(() => {
@@ -245,7 +247,7 @@ export function PostCommentsScreen({ postId }: { postId: number }) {
           <div className="community-actions">
             <div className="community-vote"><button disabled={reactionBusy} onClick={() => react("like")} aria-label="게시글 좋아요" aria-pressed={post.isLiked}><Asset name={post.isLiked ? "like-filled.svg" : "like.svg"} />{post.likeCount}</button><span /><button disabled={reactionBusy} onClick={() => react("dislike")} aria-label="게시글 싫어요" aria-pressed={post.isDisliked}><Asset name={post.isDisliked ? "like-filled.svg" : "like.svg"} className="thumb-down" /></button></div>
             <button aria-label={`댓글 ${post.commentCount}개로 이동`} onClick={() => comments.current?.scrollIntoView({ block: "start" })}><Asset name="comment.svg" />{post.commentCount}</button><i />
-            <button disabled aria-label="공유 준비 중"><Asset name="share.svg" /></button><button disabled={bookmarkBusy} aria-label="게시글 북마크" aria-pressed={post.isBookmarked} onClick={bookmark}><Asset name={post.isBookmarked ? "bookmark-filled.svg" : "bookmark.svg"} /></button>
+            <button aria-label="게시글 공유" onClick={() => setShareOpen(true)}><Asset name="share.svg" /></button><button disabled={bookmarkBusy} aria-label="게시글 북마크" aria-pressed={post.isBookmarked} onClick={bookmark}><Asset name={post.isBookmarked ? "bookmark-filled.svg" : "bookmark.svg"} /></button>
           </div>
         </article>
         <section ref={comments} className="post-comment-list" aria-label="댓글 목록"><CommentThread postId={postId} parentId={null} revision={revision} onReply={target => { setReply(target); input.current?.focus(); }} onChanged={() => { setNotice(""); setRevision(v => v + 1); }} /></section>
@@ -256,5 +258,6 @@ export function PostCommentsScreen({ postId }: { postId: number }) {
       {writeError && <p role="alert">{writeError}</p>}{notice && <p role="status">{notice}</p>}
       <div className="comment-input-row"><textarea ref={input} aria-label="댓글 내용" placeholder="댓글을 남겨보세요" value={content} onChange={event => setContent(event.target.value)} disabled={submitting || !post} rows={1} /><button type="submit" disabled={submitting || !post}>{submitting ? "등록 중" : "등록"}</button></div>
     </form>
+    {shareOpen && <ContentShareDialog content={{ kind: "post", id: postId }} onClose={() => setShareOpen(false)} />}
   </div>;
 }

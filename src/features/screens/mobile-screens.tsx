@@ -17,6 +17,7 @@ import { ApiError, getAccessToken } from "@/lib/api/client";
 import { uploadMedia } from "@/lib/api/media";
 import { useHomeSongs } from "@/hooks/use-home-songs";
 import { validatePostImage } from "@/features/community/post-image";
+import { ContentShareDialog } from "@/features/screens/content-share";
 
 function postError(error: unknown): string {
   if (error instanceof ApiError) {
@@ -242,6 +243,7 @@ export function CommunityPost({ post, onChanged, onCompose, onComments }: { post
   const [reactionBusy, setReactionBusy] = useState(false);
   const [saved, setSaved] = useState(false);
   const [bookmarkBusy, setBookmarkBusy] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState(post.title);
   const [content, setContent] = useState("");
@@ -389,9 +391,10 @@ export function CommunityPost({ post, onChanged, onCompose, onComments }: { post
         <div className={`community-vote${vote ? " active" : ""}`} role="group" aria-label="게시글 반응"><button className={vote === "like" ? "liked" : ""} onClick={() => react("like")} disabled={reactionBusy} aria-label="좋아요" aria-pressed={vote === "like"}><Asset name={vote === "like" ? "like-filled.svg" : "like.svg"} />{likeCount}</button><span className="community-vote-divider" aria-hidden="true" /><button aria-label="싫어요" aria-pressed={vote === "dislike"} disabled={reactionBusy} onClick={() => react("dislike")}><Asset name={vote === "dislike" ? "like-filled.svg" : "like.svg"} className="thumb-down" /></button></div>
         <button onClick={() => onComments(post.postId)} aria-label={`댓글 ${post.commentCount}개 보기`}><Asset name="comment.svg" />{post.commentCount}</button>
         <i />
-        <button disabled aria-label="공유 기능 준비 중" title="공유 기능 준비 중"><Asset name="share.svg" /></button>
+        <button aria-label="게시글 공유" onClick={() => setShareOpen(true)}><Asset name="share.svg" /></button>
         <button className={saved ? "active" : ""} aria-label="게시글 북마크" aria-pressed={saved} disabled={bookmarkBusy} onClick={bookmark}><Asset name={saved ? "bookmark-filled.svg" : "bookmark.svg"} /></button>
       </div>
+      {shareOpen && <ContentShareDialog content={{ kind: "post", id: post.postId }} onClose={() => setShareOpen(false)} />}
     </article>
   );
 }
