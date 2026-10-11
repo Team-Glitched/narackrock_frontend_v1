@@ -11,7 +11,7 @@ import { useEffect, useState } from "react";
 import { Asset, Avatar, SectionTitle, SongRail } from "@/components/app/shared";
 import type { Navigate } from "@/features/navigation/types";
 import { useGalleryPosts } from "@/hooks/use-gallery-posts";
-import { createPost, DEFAULT_GALLERY_ID, deletePost, fetchPost, updatePost } from "@/lib/api/community";
+import { createPost, DEFAULT_GALLERY_ID, deletePost, fetchPost, togglePostReaction, updatePost } from "@/lib/api/community";
 import type { PostListItem } from "@/lib/api/contracts";
 import { ApiError, getAccessToken } from "@/lib/api/client";
 import { uploadMedia } from "@/lib/api/media";
@@ -238,6 +238,8 @@ export function PostComposer({ galleryId, onCreated, onCancel }: { galleryId: nu
 export function CommunityPost({ post, onChanged, onCompose, onComments }: { post: PostListItem; onChanged: () => void; onCompose: () => void; onComments: (postId: number) => void }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [vote, setVote] = useState<"like" | "dislike" | null>(null);
+  const [likeCount, setLikeCount] = useState(post.likeCount);
+  const [reactionBusy, setReactionBusy] = useState(false);
   const [saved, setSaved] = useState(false);
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState(post.title);
@@ -256,6 +258,8 @@ export function CommunityPost({ post, onChanged, onCompose, onComments }: { post
       if (!cancelled) {
         setPreview(detail.content);
         setImageUrl(detail.imageUrl);
+        setVote(detail.isLiked ? "like" : detail.isDisliked ? "dislike" : null);
+        setLikeCount(detail.likeCount);
       }
     }).catch(error => {
       if (!cancelled) setError(postError(error));
@@ -274,6 +278,18 @@ export function CommunityPost({ post, onChanged, onCompose, onComments }: { post
       setExpanded(true);
     } catch (error) { setError(postError(error)); }
     finally { setSubmitting(false); }
+  }
+
+  async function react(type: "like" | "dislike") {
+    if (reactionBusy) return;
+    setReactionBusy(true);
+    setError(null);
+    try {
+      const result = await togglePostReaction(post.postId, type);
+      setVote(result.isLiked ? "like" : result.isDisliked ? "dislike" : null);
+      setLikeCount(result.likeCount);
+    } catch (cause) { setError(postError(cause)); }
+    finally { setReactionBusy(false); }
   }
 
   async function startEdit() {
@@ -360,7 +376,7 @@ export function CommunityPost({ post, onChanged, onCompose, onComments }: { post
       {confirmDelete && <div className="post-delete-confirm" role="group" aria-label="게시글 삭제 확인"><p>이 게시글을 삭제할까요?</p><button className="gray-pill" disabled={submitting} onClick={() => setConfirmDelete(false)}>취소</button><button className="purple-pill" disabled={submitting} onClick={remove}>{submitting ? "삭제 중..." : "삭제 확인"}</button></div>}
       {imageUrl && <Image className="community-image" src={imageUrl} alt="게시글 첨부 이미지" width={350} height={262} unoptimized />}
       <div className="community-actions">
-        <div className={`community-vote${vote ? " active" : ""}`} role="group" aria-label="게시글 반응"><button className={vote === "like" ? "liked" : ""} onClick={() => setVote(current => current === "like" ? null : "like")} aria-label="좋아요" aria-pressed={vote === "like"}><Asset name={vote === "like" ? "like-filled.svg" : "like.svg"} />{post.likeCount}</button><span className="community-vote-divider" aria-hidden="true" /><button aria-label="싫어요" aria-pressed={vote === "dislike"} onClick={() => setVote(current => current === "dislike" ? null : "dislike")}><Asset name={vote === "dislike" ? "like-filled.svg" : "like.svg"} className="thumb-down" /></button></div>
+        <div className={`community-vote${vote ? " active" : ""}`} role="group" aria-label="게시글 반응"><button className={vote === "like" ? "liked" : ""} onClick={() => react("like")} disabled={reactionBusy} aria-label="좋아요" aria-pressed={vote === "like"}><Asset name={vote === "like" ? "like-filled.svg" : "like.svg"} />{likeCount}</button><span className="community-vote-divider" aria-hidden="true" /><button aria-label="싫어요" aria-pressed={vote === "dislike"} disabled={reactionBusy} onClick={() => react("dislike")}><Asset name={vote === "dislike" ? "like-filled.svg" : "like.svg"} className="thumb-down" /></button></div>
         <button onClick={() => onComments(post.postId)} aria-label={`댓글 ${post.commentCount}개 보기`}><Asset name="comment.svg" />{post.commentCount}</button>
         <i />
         <button disabled aria-label="공유 기능 준비 중" title="공유 기능 준비 중"><Asset name="share.svg" /></button>
