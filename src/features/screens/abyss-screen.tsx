@@ -172,7 +172,7 @@ export function AbyssScreen({ onJoin, initialShortId, muted = false }: { onJoin:
         <div className="abyss-vote">
           <button className={current.isLiked ? "active" : ""} aria-label={`좋아요 ${current.likeCount}개`} aria-pressed={current.isLiked} disabled={reactionBusy} onClick={() => react("like")}><Asset name={current.isLiked ? "like-filled.svg" : "like.svg"} />{current.likeCount}</button>
           <i />
-          <button className={`abyss-dislike ${current.isDisliked ? "active" : ""}`} aria-label={`싫어요 ${current.dislikeCount}개`} aria-pressed={current.isDisliked} disabled={reactionBusy} onClick={() => react("dislike")}><Asset name={current.isDisliked ? "like-filled.svg" : "like.svg"} /></button>
+          <button className={`abyss-dislike ${current.isDisliked ? "active" : ""}`} aria-label={`싫어요 ${current.dislikeCount}개`} aria-pressed={current.isDisliked} disabled={reactionBusy} onClick={() => react("dislike")}><Asset name={current.isDisliked ? "like-filled.svg" : "like.svg"} />{current.dislikeCount}</button>
         </div>
         <button aria-label={`댓글 ${current.commentCount}개`} onClick={() => setCommentsOpen(true)}><Asset name="comment.svg" />{current.commentCount}</button>
         <button aria-label="숏폼 공유" onClick={() => setShareOpen(true)}><Asset name="share.svg" /></button>
