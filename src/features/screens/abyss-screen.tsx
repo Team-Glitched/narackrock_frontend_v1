@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Asset } from "@/components/app/shared";
 import { initialShortIndex } from "@/features/abyss/initial-short";
+import { ShortCommentsSheet } from "@/features/screens/short-comments";
 import { canJoinShort } from "@/features/abyss/short-participation";
 import { useCurrentUserId } from "@/hooks/use-current-user";
 import { getShorts, toggleShortReaction } from "@/lib/api/shorts";
@@ -25,6 +26,7 @@ export function AbyssScreen({ onJoin, initialShortId, muted = false }: { onJoin:
   const [playbackError, setPlaybackError] = useState<string | null>(null);
   const [reactionBusy, setReactionBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [commentsOpen, setCommentsOpen] = useState(false);
   const audioRef = useRef<HTMLAudioElement>(null);
   const loadingMoreRef = useRef(false);
 
@@ -64,6 +66,7 @@ export function AbyssScreen({ onJoin, initialShortId, muted = false }: { onJoin:
   }, [mediaUrl]);
 
   function selectShort(nextIndex: number) {
+    setCommentsOpen(false);
     audioRef.current?.pause();
     setPlaying(false);
     setCurrentTime(0);
@@ -157,7 +160,7 @@ export function AbyssScreen({ onJoin, initialShortId, muted = false }: { onJoin:
           <i />
           <button className={`abyss-dislike ${current.isDisliked ? "active" : ""}`} aria-label={`싫어요 ${current.dislikeCount}개`} aria-pressed={current.isDisliked} disabled={reactionBusy} onClick={() => react("dislike")}><Asset name={current.isDisliked ? "like-filled.svg" : "like.svg"} /></button>
         </div>
-        <button disabled aria-label={`댓글 ${current.commentCount}개`}><Asset name="comment.svg" />{current.commentCount}</button>
+        <button aria-label={`댓글 ${current.commentCount}개`} onClick={() => setCommentsOpen(true)}><Asset name="comment.svg" />{current.commentCount}</button>
         <button disabled aria-label="공유"><Asset name="share.svg" /></button>
         <button disabled aria-label="저장"><Asset name="bookmark.svg" /></button>
       </div>
@@ -207,6 +210,7 @@ export function AbyssScreen({ onJoin, initialShortId, muted = false }: { onJoin:
           {canJoinShort(current, currentUserId) && <button className="abyss-join" onClick={() => onJoin(current.shortId)}>작곡 참여하기</button>}
         </div>
       )}
+      {commentsOpen && <ShortCommentsSheet key={current.shortId} shortId={current.shortId} onClose={() => setCommentsOpen(false)} onCountChange={delta => setShorts(items => items.map(item => item.shortId === current.shortId ? { ...item, commentCount: Math.max(0, item.commentCount + delta) } : item))} />}
     </div>
   );
 }
