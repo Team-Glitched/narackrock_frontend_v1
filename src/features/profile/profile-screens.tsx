@@ -155,6 +155,11 @@ export function ProfileScreen({ go }: { go: Navigate }) {
         </p>
       </section>
 
+      <section className="profile-bookmarks">
+        <SectionTitle onAll={() => go("bookmarks")}>북마크</SectionTitle>
+        <button type="button" onClick={() => go("bookmarks")}><Asset name="bookmark.svg" />저장한 게시물과 음악 보기</button>
+      </section>
+
       <button type="button" className="profile-logout" onClick={logout}>
         로그아웃
       </button>

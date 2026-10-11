@@ -1,0 +1,29 @@
+.saved-content-view { padding: 20px 20px 28px; }
+.saved-content-tabs { display: flex; align-items: center; gap: 8px; margin: 0 0 30px; }
+.saved-content-tabs button { min-width: 45px; height: 26px; padding: 4px 12px; border: 1px solid #2c3238; border-radius: 15px; color: #f2f4f6; font-size: 12px; }
+.saved-content-tabs button.active { background: #2c3238; }
+.saved-post-list { display: flex; flex-direction: column; gap: 32px; }
+.saved-post { display: flex; align-items: flex-start; gap: 20px; width: 100%; min-height: 90px; text-align: left; }
+.saved-post-image { width: 90px; height: 90px; flex: 0 0 90px; border-radius: 4px; background: #f2f4f6; overflow: hidden; }
+.saved-post-image img { width: 100%; height: 100%; object-fit: cover; }
+.saved-post-copy { display: flex; flex-direction: column; align-items: flex-start; min-width: 0; flex: 1; min-height: 90px; }
+.saved-post-copy strong { width: 100%; max-height: 36px; overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; font-size: 14px; font-weight: 500; line-height: 18px; }
+.saved-post-meta { display: flex; align-items: center; gap: 8px; margin-top: 4px; color: #aab6c2; font-size: 11px; }
+.saved-post-meta span { display: inline-flex; align-items: center; gap: 3px; }
+.saved-post-meta img { width: 12px; height: 12px; }
+.saved-post-author { display: flex; align-items: center; gap: 6px; margin-top: auto; font-size: 11px; }
+.saved-post-author .avatar { width: 20px; height: 20px; border: 0; }
+.saved-short-list { display: flex; flex-direction: column; gap: 29px; }
+.saved-short { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 52px; text-align: left; }
+.saved-short-image { flex: 0 0 52px; width: 52px; height: 52px; border-radius: 4px; background: #f2f4f6; overflow: hidden; }
+.saved-short-image img { width: 100%; height: 100%; object-fit: cover; }
+.saved-short-copy { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.saved-short-copy strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 18px; font-weight: 500; }
+.saved-short-copy small { color: #aab6c2; font-size: 14px; }
+.saved-content-state { padding: 15px 0; color: #aab6c2; font-size: 13px; }
+.saved-content-state button, .saved-content-more { color: #b095ff; }
+.saved-content-more { display: block; margin: 30px auto 0; font-size: 13px; }
+.profile-bookmarks { padding: 14px 20px 0; }
+.profile-bookmarks .section-title { padding: 0; }
+.profile-bookmarks > button { display: flex; align-items: center; gap: 9px; width: 100%; padding: 12px; border: 1px solid #3d4650; border-radius: 10px; color: #d7dce2; font-size: 14px; text-align: left; }
+.profile-bookmarks > button img { width: 18px; height: 18px; }
