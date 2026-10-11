@@ -29,15 +29,10 @@ export function SavedContentScreen({ onOpenPost, onOpenShort }: { onOpenPost: (i
   const [error, setError] = useState<string | null>(null);
   const [loaded, setLoaded] = useState<Record<Tab, boolean>>({ posts: false, shorts: false });
 
+  const tabLoaded = loaded[tab];
   useEffect(() => {
-    setPosts([]); setShorts([]); setPostPage(0); setPostTotal(0); setShortCursor(null); setShortHasMore(false);
-    setLoaded({ posts: false, shorts: false }); setError(null);
-  }, [userId]);
-
-  useEffect(() => {
-    if (userId === null || loaded[tab] || error) return;
+    if (userId === null || tabLoaded || error) return;
     let cancelled = false;
-    setBusy(true); setError(null);
     const request = tab === "posts" ? getBookmarkedPosts() : getBookmarkedShorts();
     request.then(result => {
       if (cancelled) return;
@@ -47,10 +42,9 @@ export function SavedContentScreen({ onOpenPost, onOpenShort }: { onOpenPost: (i
         setShorts(result.items); setShortCursor(result.page.nextCursor); setShortHasMore(result.page.hasMore);
       }
       setLoaded(current => ({ ...current, [tab]: true }));
-    }).catch(cause => { if (!cancelled) setError(cause instanceof Error ? cause.message : "북마크를 불러오지 못했습니다."); })
-      .finally(() => { if (!cancelled) setBusy(false); });
+    }).catch(cause => { if (!cancelled) setError(cause instanceof Error ? cause.message : "북마크를 불러오지 못했습니다."); });
     return () => { cancelled = true; };
-  }, [tab, userId, loaded.posts, loaded.shorts, error]);
+  }, [tab, userId, tabLoaded, error]);
 
   async function more() {
     if (busy) return;
@@ -79,7 +73,7 @@ export function SavedContentScreen({ onOpenPost, onOpenShort }: { onOpenPost: (i
       <button role="tab" aria-selected={tab === "shorts"} className={tab === "shorts" ? "active" : ""} onClick={() => { setError(null); setTab("shorts"); }}>음악</button>
     </div>
     {error && <p className="saved-content-state" role="alert">{error} <button onClick={() => { setError(null); setLoaded(current => ({ ...current, [tab]: false })); }}>다시 시도</button></p>}
-    {busy && !loaded[tab] && <p className="saved-content-state" role="status">북마크를 불러오는 중...</p>}
+    {!tabLoaded && !error && <p className="saved-content-state" role="status">북마크를 불러오는 중...</p>}
     {loaded[tab] && entries.length === 0 && !error && <p className="saved-content-state">저장한 {tab === "posts" ? "게시물" : "음악"}이 없습니다.</p>}
     {tab === "posts" && <div className="saved-post-list">{posts.map(post => <button className="saved-post" key={post.postId} onClick={() => onOpenPost(post.postId)}>
       <span className="saved-post-image">{post.imageUrl && <Image src={post.imageUrl} alt="" width={90} height={90} unoptimized />}</span>
