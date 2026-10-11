@@ -7,7 +7,7 @@ import { ShortCommentsSheet } from "@/features/screens/short-comments";
 import { ContentShareDialog } from "@/features/screens/content-share";
 import { canJoinShort } from "@/features/abyss/short-participation";
 import { useCurrentUserId } from "@/hooks/use-current-user";
-import { getShorts, toggleShortBookmark, toggleShortReaction } from "@/lib/api/shorts";
+import { getShort, getShorts, toggleShortBookmark, toggleShortReaction } from "@/lib/api/shorts";
 import type { ShortItemDto, ShortsPageDto } from "@/lib/api/contracts";
 
 type FeedState = "loading" | "ready" | "error";
@@ -36,14 +36,15 @@ export function AbyssScreen({ onJoin, initialShortId, muted = false }: { onJoin:
   useEffect(() => {
     const controller = new AbortController();
     (async () => {
-      let result = await getShorts(undefined, controller.signal);
+      const [result, sharedShort] = await Promise.all([
+        getShorts(undefined, controller.signal),
+        initialShortId == null ? Promise.resolve(null) : getShort(initialShortId, controller.signal),
+      ]);
       const items = [...result.items];
-      const seenCursors = new Set<number>();
-      while (initialShortId != null && !items.some((item) => item.shortId === initialShortId)
-        && result.page.hasMore && result.page.nextCursor != null && !seenCursors.has(result.page.nextCursor)) {
-        seenCursors.add(result.page.nextCursor);
-        result = await getShorts(result.page.nextCursor, controller.signal);
-        items.push(...result.items);
+      if (sharedShort) {
+        const existingIndex = items.findIndex(item => item.shortId === sharedShort.shortId);
+        if (existingIndex === -1) items.unshift(sharedShort);
+        else items[existingIndex] = sharedShort;
       }
       if (controller.signal.aborted) return;
       setShorts(items);

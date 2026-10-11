@@ -58,7 +58,7 @@ export default function Page() {
 
   useEffect(() => {
     const openSharedContent = () => {
-      const target = parseContentLink(window.location.search);
+      const target = parseContentLink(window.location.pathname, window.location.search);
       if (!target) return;
       if (target.kind === "post") {
         if (currentUserId === null) { setView("login"); return; }
