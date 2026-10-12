@@ -16,6 +16,7 @@ import { NoteEditorScreen, StudioScreen } from "@/features/screens/studio-screen
 import { CompositionChoiceScreen, CompositionRecordScreen, CompositionUploadScreen, type CreationMethod } from "@/features/screens/composition-creation-screens";
 import { prepareAudioFile, type AudioSelection } from "@/features/composition/prepare-audio-file";
 import { createHtiMidiLayerPlan } from "@/features/composition/hti-midi-flow";
+import { instrumentFor } from "@/features/composition/instrument-catalog";
 import { createAudioClip, createMidiClip, createTrack, getComposition, transformRecordingToMidi, uploadMedia } from "@/lib/api/composition";
 import { useWebMcpNavigation } from "@/hooks/use-webmcp-navigation";
 import { PostCommentsScreen } from "@/features/screens/post-comments";
@@ -110,14 +111,14 @@ export default function Page() {
     setView("choose");
   }, []);
 
-  const chooseLayer = useCallback(async (method: CreationMethod) => {
+  const chooseLayer = useCallback(async (method: CreationMethod, instrument: string) => {
     const projectId = compositionTarget.projectId;
     if (projectId == null || choiceBusy) return;
     if (method !== "note") { setView(method); return; }
     setChoiceBusy(true); setChoiceError(null);
     try {
       const composition = await getComposition(projectId);
-      const { trackId } = await createTrack(projectId, `피아노롤 ${composition.tracks.length + 1}`, "piano", composition.tracks.length);
+      const { trackId } = await createTrack(projectId, `${instrumentFor(instrument).label} ${composition.tracks.length + 1}`, instrument, composition.tracks.length);
       setEditorTarget({ trackId, clipId: null });
       setView("note");
     } catch (cause) {
@@ -200,7 +201,7 @@ export default function Page() {
     if (activeView === "login") return <AuthScreen onAuthenticated={authenticate} onFirstLogin={startProfileSetup} />;
     if (activeView === "edit" && pendingProfileSetup) return <InitialProfileSetupScreen {...pendingProfileSetup} onSaved={authenticate} />;
     if (activeView === "edit") return <EditProfileScreen onSaved={profileUpdated} />;
-    if (activeView === "choose") return <CompositionChoiceScreen onChoose={(method) => { void chooseLayer(method); }}
+    if (activeView === "choose") return <CompositionChoiceScreen onChoose={(method, instrument) => { void chooseLayer(method, instrument); }}
       onBack={() => setView("studio")} busy={choiceBusy} error={choiceError} />;
     if (activeView === "upload") return <CompositionUploadScreen onSave={saveAudio} onBack={() => setView("choose")} />;
     if (activeView === "record") return <CompositionRecordScreen onSave={saveAudio} onTransform={transformRecording} onBack={() => setView("choose")} />;

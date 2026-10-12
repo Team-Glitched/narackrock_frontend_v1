@@ -4,6 +4,8 @@
 .creation-choice strong{font-size:20px;line-height:24px}
 .creation-choice img{width:100%;height:auto;aspect-ratio:316/113;object-fit:cover;border-radius:24px}
 .creation-choice:disabled{opacity:.55}
+.creation-instrument{display:flex;align-items:center;gap:12px;color:#fff;font-size:14px}
+.creation-instrument select{min-width:180px;padding:8px 10px;border:1px solid #758394;border-radius:7px;background:#343b42;color:#fff}
 .creation-back{align-self:flex-start;color:#fff;font-size:14px;padding:5px 0}
 .upload-view{padding:30px 16px;display:flex;flex-direction:column;align-items:center;gap:20px}
 .upload-area{background:#2c3238;border-radius:20px;min-height:240px;width:100%;padding:24px;display:flex;flex-direction:column;justify-content:center;gap:24px;text-align:center;overflow-wrap:anywhere}
@@ -40,6 +42,10 @@
 .team-note-workspace .note-ruler i{border-left:1px solid #dfe5eb;height:10px;align-self:end;font:normal 10px sans-serif;padding-left:3px}
 .team-note-workspace .note-ruler i.bar-tick{height:26px;border-left-width:2px}
 .team-note-workspace .piano-keys{position:sticky;left:0;z-index:5;width:87px;display:grid;grid-auto-rows:30px;background:#fff}
+.team-note-workspace.drum-workspace{grid-template-columns:125px max-content}
+.team-note-workspace.drum-workspace .piano-keys{width:125px}
+.team-note-workspace .piano-key.drum-key{background:#e4e7ef;color:#222;border-bottom:1px solid #adb6c2}
+.team-note-workspace .piano-key.drum-key span{left:8px;right:4px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .team-note-workspace .piano-keys,.team-note-workspace .piano-row>.team-note-cell{cursor:grab;touch-action:none}
 .team-note-workspace .piano-keys:active,.team-note-workspace .piano-row>.team-note-cell:active{cursor:grabbing}
 .team-note-workspace .piano-key{height:30px}

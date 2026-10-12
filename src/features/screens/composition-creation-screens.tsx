@@ -4,25 +4,32 @@ import { useEffect, useRef, useState } from "react";
 import { Asset } from "@/components/app/shared";
 import { AudioTrimPicker } from "@/features/composition/audio-trim-picker";
 import type { AudioSelection } from "@/features/composition/prepare-audio-file";
+import { instruments } from "@/features/composition/instrument-catalog";
 
 export type CreationMethod = "upload" | "record" | "note";
 
 // The three-card selection layout comes from the team's origin/fix/overall ChooseScreen.
 export function CompositionChoiceScreen({ onChoose, onBack, busy, error }: {
-  onChoose: (method: CreationMethod) => void;
+  onChoose: (method: CreationMethod, instrument: string) => void;
   onBack: () => void;
   busy: boolean;
   error: string | null;
 }) {
+  const [instrument, setInstrument] = useState("piano");
   return <div className="choose-view scroll-content">
     <button className="creation-back" onClick={onBack}>← 작곡 화면</button>
     {error && <p role="alert">{error}</p>}
+    <label className="creation-instrument">노트로 작곡할 악기
+      <select value={instrument} onChange={(event) => setInstrument(event.target.value)} disabled={busy}>
+        {instruments.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
+      </select>
+    </label>
     {([
       { method: "upload", label: "업로드", image: "choose-upload.png" },
       { method: "record", label: "녹음", image: "choose-record.png" },
-      { method: "note", label: "피아노롤", image: "choose-piano.png" },
+      { method: "note", label: "노트로 작곡", image: "choose-piano.png" },
     ] as const).map((item) => <button className="creation-choice" key={item.method}
-      disabled={busy} onClick={() => onChoose(item.method)}>
+      disabled={busy} onClick={() => onChoose(item.method, instrument)}>
       <strong>{item.label}</strong><Asset name={item.image} />
     </button>)}
   </div>;
