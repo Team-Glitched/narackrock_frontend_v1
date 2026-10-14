@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Asset } from "@/components/app/shared";
+import { Asset, Avatar } from "@/components/app/shared";
 import { getContributionInbox, reviewContribution, type ContributionNotificationDto } from "@/lib/api/composition";
 import { getFollowRequests, reviewFollowRequest, type FollowRequest } from "@/lib/api/social";
 
@@ -73,7 +73,7 @@ export function NotificationsScreen({ onBack, onOpenProject }: {
     <h2>팔로우 요청</h2>
     {followRequests.length === 0 ? <p className="notification-empty">대기 중인 팔로우 요청이 없습니다.</p>
       : <ul className="notification-list">{followRequests.map(item => <li key={item.requestId} className="notification-card">
-        <strong>{item.nickname}님의 팔로우 요청</strong>
+        <div className="notification-person"><Avatar src={item.profileImageUrl} /><strong>{item.nickname}님의 팔로우 요청</strong></div>
         {item.primaryInstrument && <span>{item.primaryInstrument}</span>}
         <div><button onClick={() => void reviewFollow(item, "accept")} disabled={busyId !== null}>승인</button><button onClick={() => void reviewFollow(item, "reject")} disabled={busyId !== null}>거절</button></div>
       </li>)}</ul>}

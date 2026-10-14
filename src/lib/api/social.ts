@@ -3,7 +3,7 @@ import type { ApiResponse } from "./contracts.ts";
 
 export type Person = { userId: number; nickname: string; profileImageUrl: string | null; primaryInstrument: string | null };
 export type RecommendedPerson = Person & { recommendType: "COLLABORATOR" | "FRIEND_OF_FRIEND" | "POPULAR_CREATOR"; explanation: string; isFollowing: boolean };
-export type FollowRequest = { requestId: number; requesterId: number; nickname: string; primaryInstrument: string | null };
+export type FollowRequest = { requestId: number; requesterId: number; nickname: string; primaryInstrument: string | null; profileImageUrl: string | null };
 export type OutgoingRequest = { id: number; requesterId: number; targetId: number };
 export type ChatMessage = { id: number; senderId: number; recipientId: number; content: string; createdAt: string };
 

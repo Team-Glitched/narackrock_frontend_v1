@@ -20,6 +20,8 @@
 .profile-post-item>span{display:flex;flex-direction:column;gap:4px;min-width:0}
 .profile-post-item strong{font-size:15px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .profile-post-item small{font-size:12px;color:#aab6c2}
+.notification-card>.notification-person{display:flex;align-items:center;gap:10px;margin-top:0}
+.notification-person .avatar{width:36px;height:36px;flex:none}
 
 .person > .avatar { margin-right: 0; }
 
