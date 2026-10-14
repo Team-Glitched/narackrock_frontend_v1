@@ -53,6 +53,9 @@ export type PostSort = "LATEST" | "POPULAR" | "OLDEST";
 
 export type PostListItem = { postId: number; writer: PostWriter; title: string; imageUrl: string | null; viewCount: number; likeCount: number; commentCount: number; createdAt: string };
 
+export type PopularPostItem = PostListItem & { dislikeCount: number; gallery: { galleryId: number; name: string }; contentPreview: string };
+export type PopularPostListResponse = { page: number; size: number; totalCount: number; posts: PopularPostItem[] };
+
 export type PostListResponse = { galleryId: number; galleryName: string; currentSort: PostSort; searchedKeyword: string | null; totalCount: number; posts: PostListItem[] };
 
 export type PostDetailResponse = { postId: number; gallery: { galleryId: number; name: string }; writer: PostWriter; title: string; content: string; imageUrl: string | null; viewCount: number; likeCount: number; dislikeCount: number; commentCount: number; isLiked: boolean; isDisliked: boolean; createdAt: string; updatedAt: string | null };
