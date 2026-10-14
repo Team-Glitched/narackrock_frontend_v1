@@ -6,6 +6,13 @@ export async function getProfile(userId: number): Promise<UserProfile> {
   return response.data;
 }
 
+export async function updateProfilePrivacy(isPrivate: boolean): Promise<boolean> {
+  const response = await apiRequest<ApiResponse<{ isPrivate: boolean }>>("/api/v1/users/me/profile/privacy", {
+    method: "PATCH", body: JSON.stringify({ isPrivate }),
+  });
+  return response.data.isPrivate;
+}
+
 export async function updateProfile(input: {
   nickname: string;
   primaryInstrument: string;

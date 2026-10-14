@@ -7,8 +7,9 @@ import type { Navigate } from "@/features/navigation/types";
 import { useCurrentUserId } from "@/hooks/use-current-user";
 import { logout } from "@/lib/api/auth";
 import { ApiError } from "@/lib/api/client";
-import { getProfile, updateProfile, updateProfileImage } from "@/lib/api/profile";
+import { getProfile, updateProfile, updateProfileImage, updateProfilePrivacy } from "@/lib/api/profile";
 import type { UserProfile } from "@/lib/api/contracts";
+import { followPerson, getOutgoingFollowRequests, unfollowPerson } from "@/lib/api/social";
 
 function profileErrorMessage(error: unknown): string {
   return error instanceof Error
@@ -16,8 +17,9 @@ function profileErrorMessage(error: unknown): string {
     : "프로필을 불러오지 못했습니다.";
 }
 
-function useOwnProfile() {
-  const userId = useCurrentUserId();
+function useOwnProfile(targetUserId?: number | null) {
+  const ownUserId = useCurrentUserId();
+  const userId = targetUserId ?? ownUserId;
   const [result, setResult] = useState<{
     userId: number;
     profile: UserProfile | null;
@@ -82,8 +84,21 @@ function useOwnProfile() {
   };
 }
 
-export function ProfileScreen({ go }: { go: Navigate }) {
-  const { profile, loading, error } = useOwnProfile();
+export function ProfileScreen({ go, targetUserId = null }: { go: Navigate; targetUserId?: number | null }) {
+  const ownUserId = useCurrentUserId();
+  const { profile, loading, error, setProfile } = useOwnProfile(targetUserId);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [privacyError, setPrivacyError] = useState<string | null>(null);
+  const [savingPrivacy, setSavingPrivacy] = useState(false);
+  const [pendingFollow, setPendingFollow] = useState(false);
+  const [followBusy, setFollowBusy] = useState(false);
+
+  useEffect(() => {
+    if (targetUserId == null) return;
+    let alive = true;
+    getOutgoingFollowRequests().then(requests => { if (alive) setPendingFollow(requests.some(request => request.targetId === targetUserId)); }).catch(() => {});
+    return () => { alive = false; };
+  }, [targetUserId]);
 
   if (loading) {
     return (
@@ -106,33 +121,69 @@ export function ProfileScreen({ go }: { go: Navigate }) {
       ?.split(",")
       .map((item) => item.trim())
       .filter(Boolean) ?? [];
+  const owner = profile.userId === ownUserId;
+
+  async function changePrivacy() {
+    if (!profile || savingPrivacy) return;
+    setSavingPrivacy(true); setPrivacyError(null);
+    try { const isPrivate = await updateProfilePrivacy(!profile.isPrivate); setProfile({ ...profile, isPrivate }); setMenuOpen(false); }
+    catch (cause) { setPrivacyError(profileErrorMessage(cause)); }
+    finally { setSavingPrivacy(false); }
+  }
+
+  async function toggleFollow() {
+    if (!profile || followBusy) return;
+    setFollowBusy(true); setPrivacyError(null);
+    try {
+      if (profile.relations.isFollowing || pendingFollow) {
+        await unfollowPerson(profile.userId);
+        setPendingFollow(false);
+      } else {
+        const result = await followPerson(profile.userId);
+        setPendingFollow(result.status === "PENDING");
+      }
+      setProfile(await getProfile(profile.userId));
+    } catch (cause) { setPrivacyError(profileErrorMessage(cause)); }
+    finally { setFollowBusy(false); }
+  }
 
   return (
     <div className="profile-view scroll-content">
-      <button
+      {owner && <div className="profile-settings"><button aria-label="프로필 설정" aria-expanded={menuOpen} onClick={() => setMenuOpen(current => !current)}><Asset name="settings.svg" /></button>
+        {menuOpen && <div className="profile-settings-menu" role="menu">
+          <button onClick={() => setMenuOpen(false)}>프로필 보기</button>
+          <button onClick={() => { setMenuOpen(false); go("edit"); }}>프로필 편집</button>
+          <button onClick={() => void changePrivacy()} disabled={savingPrivacy}>{profile.isPrivate ? "공개로 전환" : "비공개로 전환"}</button>
+          <button onClick={() => go("savedPosts")}>북마크한 게시물 보기</button>
+          <button onClick={() => go("likedPosts")}>좋아요한 게시물 보기</button>
+          <button onClick={logout}>로그아웃</button>
+        </div>}
+      </div>}
+      {privacyError && <p className="profile-form-error" role="alert">{privacyError}</p>}
+      <div
         className="profile-edit-trigger"
-        onClick={() => go("edit")}
-        aria-label="프로필 편집"
       >
         <Avatar large src={profile.profileImageUrl} />
-      </button>
+      </div>
 
       <h1>{profile.nickname}</h1>
 
       <div className="stats">
-        <span>
+        <button onClick={() => owner && go("followers")} disabled={!owner}>
           <strong>Follower</strong>
           <small>{profile.relations.followerCount}</small>
-        </span>
-        <span>
+        </button>
+        <button onClick={() => owner && go("following")} disabled={!owner}>
           <strong>Following</strong>
           <small>{profile.relations.followingCount}</small>
-        </span>
+        </button>
         <span>
           <strong>Articles</strong>
           <small>{profile.activities.postCount}</small>
         </span>
       </div>
+
+      {!owner && <button className="profile-follow-action" disabled={followBusy} onClick={() => void toggleFollow()}>{pendingFollow ? "요청 취소" : profile.relations.isFollowing ? "팔로잉" : "팔로우"}</button>}
 
       {instruments.length > 0 && (
         <div className="tags">
@@ -142,7 +193,7 @@ export function ProfileScreen({ go }: { go: Navigate }) {
         </div>
       )}
 
-      <section className="description">
+      {!owner && profile.isPrivate ? <p className="profile-private-notice">이 계정은 비공개 계정입니다.</p> : <><section className="description">
         <h2>Description</h2>
         <p>{profile.explanation || "아직 소개가 없습니다."}</p>
       </section>
@@ -150,14 +201,10 @@ export function ProfileScreen({ go }: { go: Navigate }) {
       <section>
         <SectionTitle>내 작업물</SectionTitle>
         <p className="profile-empty-work">
-          게시글 {profile.activities.posts.length}개 · 참여한 숏폼{" "}
+          게시글 {profile.activities.postCount}개 · 참여한 숏폼{" "}
           {profile.activities.participatedShorts.length}개
         </p>
-      </section>
-
-      <button type="button" className="profile-logout" onClick={logout}>
-        로그아웃
-      </button>
+      </section></>}
     </div>
   );
 }

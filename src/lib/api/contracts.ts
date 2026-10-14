@@ -80,6 +80,7 @@ export type TokenRefreshResponse = { accessToken: string; refreshToken: string; 
 
 export type UserProfile = {
   userId: number;
+  isPrivate: boolean;
   nickname: string;
   profileImageUrl: string | null;
   explanation: string | null;
