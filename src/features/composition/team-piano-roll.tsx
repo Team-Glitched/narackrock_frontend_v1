@@ -2,16 +2,17 @@
 
 import { useEffect, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import type { MidiNoteDto } from "@/lib/api/composition";
+import { drumNames } from "@/features/composition/instrument-catalog";
 
 const pitchNames = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
-const pitches = Array.from({ length: 128 }, (_, row) => 127 - row);
+const allPitches = Array.from({ length: 128 }, (_, row) => 127 - row);
 const cellWidth = 21;
 const rowHeight = 30;
 
 // Adapted from the team's origin/fix/overall NoteEditorScreen: rows, ruler,
 // pointer drag, edge resize, keyboard movement, and keyboard resize.
 export function TeamPianoRoll({ notes, setNotes, stepTick, maxTick, lengthCells, editable,
-  positionMs, maxDurationMs, onSeek, initialPitch }: {
+  positionMs, maxDurationMs, onSeek, initialPitch, percussion = false }: {
   notes: MidiNoteDto[];
   setNotes: Dispatch<SetStateAction<MidiNoteDto[]>>;
   stepTick: number;
@@ -22,7 +23,12 @@ export function TeamPianoRoll({ notes, setNotes, stepTick, maxTick, lengthCells,
   maxDurationMs: number;
   onSeek: (ms: number) => void;
   initialPitch: number;
+  percussion?: boolean;
 }) {
+  const pitches = percussion ? Array.from({ length: 47 }, (_, row) => 81 - row) : allPitches;
+  const pitchLabel = (pitch: number) => percussion
+    ? drumNames[pitch] ?? `퍼커션 ${pitch}`
+    : `${pitchNames[pitch % 12]}${Math.floor(pitch / 12) - 1}`;
   const columns = Math.ceil(maxTick / stepTick);
   const width = columns * cellWidth;
   const workspaceRef = useRef<HTMLDivElement>(null);
@@ -33,8 +39,8 @@ export function TeamPianoRoll({ notes, setNotes, stepTick, maxTick, lengthCells,
 
   useEffect(() => {
     const workspace = workspaceRef.current;
-    if (workspace) workspace.scrollTop = (127 - initialPitch) * rowHeight - (workspace.clientHeight - 30) / 2;
-  }, [initialPitch]);
+    if (workspace) workspace.scrollTop = ((percussion ? 81 : 127) - initialPitch) * rowHeight - (workspace.clientHeight - 30) / 2;
+  }, [initialPitch, percussion]);
 
   function overlaps(current: MidiNoteDto[], index: number, pitch: number, startTick: number, durationTick: number) {
     return current.some((note, other) => other !== index && note.pitch === pitch
@@ -71,8 +77,8 @@ export function TeamPianoRoll({ notes, setNotes, stepTick, maxTick, lengthCells,
     onSeek(Math.max(0, Math.min(maxDurationMs, (clientX - bounds.left) / bounds.width * maxDurationMs)));
   }
   const progress = maxDurationMs > 0 ? Math.min(1, positionMs / maxDurationMs) : 0;
-  return <div className="note-workspace team-note-workspace" ref={workspaceRef}
-    aria-label="피아노롤, 빈 영역을 위아래로 드래그하여 음역 이동"
+  return <div className={`note-workspace team-note-workspace ${percussion ? "drum-workspace" : ""}`} ref={workspaceRef}
+    aria-label={percussion ? "드럼 노트 편집기" : "피아노롤, 빈 영역을 위아래로 드래그하여 음역 이동"}
     onPointerDown={(event) => {
       if (event.button !== 0 || (event.target as Element).closest(".piano-note")) return;
       const rowElement = (event.target as Element).closest<HTMLElement>(".piano-row");
@@ -123,14 +129,14 @@ export function TeamPianoRoll({ notes, setNotes, stepTick, maxTick, lengthCells,
         }} />
     </div>
     <div className="piano-keys" style={{ height: pitches.length * rowHeight, gridTemplateRows: `repeat(${pitches.length}, ${rowHeight}px)` }}>
-      {pitches.map((pitch) => <div className={`piano-key ${pitchNames[pitch % 12].includes("#") ? "black" : ""}`} key={pitch}>
-      <span>{pitchNames[pitch % 12]}{Math.floor(pitch / 12) - 1}</span>
+      {pitches.map((pitch) => <div className={`piano-key ${percussion ? "drum-key" : pitchNames[pitch % 12].includes("#") ? "black" : ""}`} key={pitch}>
+      <span>{pitchLabel(pitch)}</span>
     </div>)}</div>
     <div className="piano-roll" style={{ width, height: pitches.length * rowHeight, gridTemplateRows: `repeat(${pitches.length}, ${rowHeight}px)` }}>
-      {pitches.map((pitch, row) => <div className={`piano-row ${pitchNames[pitch % 12].includes("#") ? "sharp-row" : "natural-row"}`}
+      {pitches.map((pitch, row) => <div className={`piano-row ${!percussion && pitchNames[pitch % 12].includes("#") ? "sharp-row" : "natural-row"}`}
         style={{ width }} data-row={row} key={pitch}>
         <button className="team-note-cell"
-          aria-label={`${pitchNames[pitch % 12]}${Math.floor(pitch / 12) - 1} 8분음표 추가`}
+          aria-label={`${pitchLabel(pitch)} 8분음표 추가`}
           disabled={!editable} onKeyDown={(event) => {
             if (event.key !== "Enter" && event.key !== " ") return;
             event.preventDefault();
@@ -140,7 +146,7 @@ export function TeamPianoRoll({ notes, setNotes, stepTick, maxTick, lengthCells,
           style={{ left: note.startTick / stepTick * cellWidth,
             width: Math.max(20, note.durationTick / stepTick * cellWidth - 1),
             transform: preview?.index === index ? `translate(${(preview.col * stepTick - note.startTick) / stepTick * cellWidth}px, ${(preview.row - row) * rowHeight}px)` : undefined }}
-          aria-label={`${pitchNames[pitch % 12]}${Math.floor(pitch / 12) - 1} 노트, 길이 ${Math.round(note.durationTick / stepTick)}칸`}
+          aria-label={`${pitchLabel(pitch)} 노트, 길이 ${Math.round(note.durationTick / stepTick)}칸`}
           title="드래그로 이동 · 오른쪽 끝으로 길이 조절 · Shift+좌우로 길이 조절 · Delete로 삭제"
           disabled={!editable}
           onPointerDown={(event) => {
