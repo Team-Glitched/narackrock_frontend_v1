@@ -62,6 +62,7 @@ export function Header({
   onNotifications,
   notificationCount = 0,
   hideProfileAction = false,
+  hideSearchAction = false,
   profileImageUrl = null,
   blank = false,
   abyss = false,
@@ -76,6 +77,7 @@ export function Header({
   onNotifications: () => void;
   notificationCount?: number;
   hideProfileAction?: boolean;
+  hideSearchAction?: boolean;
   profileImageUrl?: string | null;
   blank?: boolean;
   abyss?: boolean;
@@ -112,9 +114,9 @@ export function Header({
           <Asset name="bell.svg" />
           {notificationCount > 0 && <span className="header-notification-badge">{notificationCount > 99 ? "99+" : notificationCount}</span>}
         </button>
-        <button aria-label="검색" onClick={onSearch}>
+        {hideSearchAction ? <span className="header-action-placeholder" aria-hidden="true" /> : <button aria-label="검색" onClick={onSearch}>
           <Asset name="search.svg" />
-        </button>
+        </button>}
         {!hideProfileAction && <button
           aria-label="프로필"
           className="header-profile"
