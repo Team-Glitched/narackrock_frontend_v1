@@ -41,6 +41,11 @@ export function deletePostComment(commentId: number): Promise<void> {
   // 삭제 응답에는 data 키가 없으므로(NON_NULL 봉투) 본문을 읽지 않는다.
   return apiRequest<ApiResponse<void>>(`/api/v1/posts/comments/${commentId}`, { method: "DELETE" }).then(() => undefined);
 }
+
+export type PostCommentReaction = { commentId: number; isLiked: boolean; isDisliked: boolean; likeCount: number; dislikeCount: number };
+export function togglePostCommentReaction(commentId: number, type: "like" | "dislike"): Promise<PostCommentReaction> {
+  return apiRequest<ApiResponse<PostCommentReaction>>(`/api/v1/posts/comments/${commentId}/${type}s`, { method: "POST" }).then(response => response.data);
+}
 import type {
   ApiResponse,
   PostCreateResponse,

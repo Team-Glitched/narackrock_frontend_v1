@@ -65,12 +65,30 @@ export type PostComment = {
   writer: { userId: number; nickname: string | null; profileImageUrl: string | null };
   content: string;
   replyCount: number;
+  likeCount: number;
+  dislikeCount: number;
+  isLiked: boolean;
+  isDisliked: boolean;
   createdAt: string;
 };
 export type PostCommentPage = {
   postId: number; parentCommentId: number | null; page: number; size: number;
   totalCount: number; comments: PostComment[];
 };
+
+export type ShortComment = {
+  commentId: number;
+  parentCommentId: number | null;
+  content: string;
+  writer: PostWriter;
+  likeCount: number;
+  dislikeCount: number;
+  replyCount: number;
+  isLiked: boolean;
+  isDisliked: boolean;
+  createdAt: string;
+};
+export type ShortCommentList = { shortId: number; comments: ShortComment[] };
 
 export type PostUpdateResponse = { postId: number };
 
