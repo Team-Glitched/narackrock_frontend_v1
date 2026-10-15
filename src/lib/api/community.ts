@@ -41,6 +41,11 @@ export function deletePostComment(commentId: number): Promise<void> {
   // 삭제 응답에는 data 키가 없으므로(NON_NULL 봉투) 본문을 읽지 않는다.
   return apiRequest<ApiResponse<void>>(`/api/v1/posts/comments/${commentId}`, { method: "DELETE" }).then(() => undefined);
 }
+
+export type PostCommentReaction = { commentId: number; isLiked: boolean; isDisliked: boolean; likeCount: number; dislikeCount: number };
+export function togglePostCommentReaction(commentId: number, type: "like" | "dislike"): Promise<PostCommentReaction> {
+  return apiRequest<ApiResponse<PostCommentReaction>>(`/api/v1/posts/comments/${commentId}/${type}s`, { method: "POST" }).then(response => response.data);
+}
 import type {
   ApiResponse,
   PostCreateResponse,
@@ -144,6 +149,16 @@ export function fetchPosts(galleryId: number, query: PostListQuery = {}): Promis
 // 상세 조회는 로그인(Authorization 헤더)이 필요하다 — 백엔드가 isLiked/isDisliked를 계산하려면 요청자 식별이 필요하기 때문.
 export function fetchPost(postId: number): Promise<PostDetailResponse> {
   return apiRequest<ApiResponse<PostDetailResponse>>(`/api/v1/posts/${postId}`).then((response) => response.data);
+}
+
+export type PostReaction = { postId: number; isLiked: boolean; isDisliked: boolean; likeCount: number; dislikeCount: number };
+
+export function togglePostReaction(postId: number, type: "like" | "dislike"): Promise<PostReaction> {
+  return apiRequest<ApiResponse<PostReaction>>(`/api/v1/posts/${postId}/${type}s`, { method: "POST" }).then(response => response.data);
+}
+
+export function togglePostBookmark(postId: number): Promise<{ postId: number; isBookmarked: boolean }> {
+  return apiRequest<ApiResponse<{ postId: number; isBookmarked: boolean }>>(`/api/v1/posts/${postId}/bookmark`, { method: "POST" }).then(response => response.data);
 }
 
 // 아래 3개도 로그인(Authorization 헤더)이 필요하다 — auth.ts의 loginWithGoogle()로 먼저 토큰을 발급받아야 한다.

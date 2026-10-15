@@ -2,6 +2,8 @@
 
 import "./community.css";
 import "./popular-charts.css";
+import { ContentActions } from "@/features/community/admin/content-actions";
+import { useCurrentUserId } from "@/hooks/use-current-user";
 import { CommunityDirectory } from "./community-directory";
 import type { Community } from "./community-card";
 
@@ -12,7 +14,7 @@ import { useEffect, useState } from "react";
 import { Asset, Avatar, SectionTitle, SongRail } from "@/components/app/shared";
 import type { Navigate } from "@/features/navigation/types";
 import { useGalleryPosts } from "@/hooks/use-gallery-posts";
-import { createPost, DEFAULT_GALLERY_ID, deletePost, fetchPost, updatePost } from "@/lib/api/community";
+import { createPost, DEFAULT_GALLERY_ID, deletePost, fetchPost, togglePostBookmark, togglePostReaction, updatePost } from "@/lib/api/community";
 import type { PostListItem } from "@/lib/api/contracts";
 import { ApiError, getAccessToken } from "@/lib/api/client";
 import { uploadMedia } from "@/lib/api/media";
@@ -20,6 +22,7 @@ import { useHomeSongs } from "@/hooks/use-home-songs";
 import { usePopularPosts } from "@/hooks/use-popular-posts";
 import { validatePostImage } from "@/features/community/post-image";
 import { PopularActions } from "./popular-actions";
+import { ContentShareDialog } from "@/features/screens/content-share";
 
 function postError(error: unknown): string {
   if (error instanceof ApiError) {
@@ -251,9 +254,15 @@ export function PostComposer({ galleryId, onCreated, onCancel }: { galleryId: nu
 }
 
 export function CommunityPost({ post, onChanged, onCompose, onComments }: { post: PostListItem; onChanged: () => void; onCompose: () => void; onComments: (postId: number) => void }) {
+  const currentUserId = useCurrentUserId();
   const [menuOpen, setMenuOpen] = useState(false);
   const [vote, setVote] = useState<"like" | "dislike" | null>(null);
+  const [likeCount, setLikeCount] = useState(post.likeCount);
+  const [dislikeCount, setDislikeCount] = useState(post.dislikeCount);
+  const [reactionBusy, setReactionBusy] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [bookmarkBusy, setBookmarkBusy] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState(post.title);
   const [content, setContent] = useState("");
@@ -271,6 +280,10 @@ export function CommunityPost({ post, onChanged, onCompose, onComments }: { post
       if (!cancelled) {
         setPreview(detail.content);
         setImageUrl(detail.imageUrl);
+        setVote(detail.isLiked ? "like" : detail.isDisliked ? "dislike" : null);
+        setLikeCount(detail.likeCount);
+        setDislikeCount(detail.dislikeCount);
+        setSaved(detail.isBookmarked);
       }
     }).catch(error => {
       if (!cancelled) setError(postError(error));
@@ -289,6 +302,27 @@ export function CommunityPost({ post, onChanged, onCompose, onComments }: { post
       setExpanded(true);
     } catch (error) { setError(postError(error)); }
     finally { setSubmitting(false); }
+  }
+
+  async function react(type: "like" | "dislike") {
+    if (reactionBusy) return;
+    setReactionBusy(true);
+    setError(null);
+    try {
+      const result = await togglePostReaction(post.postId, type);
+      setVote(result.isLiked ? "like" : result.isDisliked ? "dislike" : null);
+      setLikeCount(result.likeCount);
+      setDislikeCount(result.dislikeCount);
+    } catch (cause) { setError(postError(cause)); }
+    finally { setReactionBusy(false); }
+  }
+
+  async function bookmark() {
+    if (bookmarkBusy) return;
+    setBookmarkBusy(true); setError(null);
+    try { setSaved((await togglePostBookmark(post.postId)).isBookmarked); }
+    catch (cause) { setError(postError(cause)); }
+    finally { setBookmarkBusy(false); }
   }
 
   async function startEdit() {
@@ -368,19 +402,20 @@ export function CommunityPost({ post, onChanged, onCompose, onComments }: { post
         <span>• 조회 {post.viewCount.toLocaleString("ko-KR")}</span>
         <button disabled={submitting} onClick={() => setMenuOpen((open) => !open)} aria-expanded={menuOpen} aria-label="게시글 더보기"><Asset name="option.svg" /></button>
       </div>
-      {menuOpen && <div className="post-menu-actions"><button className="gray-pill compact" onClick={onCompose}>글쓰기</button><button className="gray-pill compact" onClick={startEdit}>수정</button><button className="gray-pill compact" onClick={() => { setConfirmDelete(true); setMenuOpen(false); }}>삭제</button></div>}
+      {menuOpen && <div className="post-menu-actions"><button className="gray-pill compact" onClick={onCompose}>글쓰기</button>{currentUserId === post.writer.userId && <><button className="gray-pill compact" onClick={startEdit}>수정</button><button className="gray-pill compact" onClick={() => { setConfirmDelete(true); setMenuOpen(false); }}>삭제</button></>}<ContentActions key={currentUserId} kind="post" contentId={post.postId} onChanged={onChanged} /></div>}
       <h2><button className="post-read" disabled={submitting} onClick={readPost} aria-expanded={expanded}>{post.title}</button></h2>
       <button className={`post-preview ${expanded ? "expanded" : ""}`} onClick={readPost} disabled={submitting}>{preview ?? "로그인 후 게시글 내용을 확인할 수 있어요."}</button>
       {error && <p className="post-form-error" role="alert">{error}</p>}
       {confirmDelete && <div className="post-delete-confirm" role="group" aria-label="게시글 삭제 확인"><p>이 게시글을 삭제할까요?</p><button className="gray-pill" disabled={submitting} onClick={() => setConfirmDelete(false)}>취소</button><button className="purple-pill" disabled={submitting} onClick={remove}>{submitting ? "삭제 중..." : "삭제 확인"}</button></div>}
       {imageUrl && <Image className="community-image" src={imageUrl} alt="게시글 첨부 이미지" width={350} height={262} unoptimized />}
       <div className="community-actions">
-        <div className={`community-vote${vote ? " active" : ""}`} role="group" aria-label="게시글 반응"><button className={vote === "like" ? "liked" : ""} onClick={() => setVote(current => current === "like" ? null : "like")} aria-label="좋아요" aria-pressed={vote === "like"}><Asset name={vote === "like" ? "like-filled.svg" : "like.svg"} />{post.likeCount}</button><span className="community-vote-divider" aria-hidden="true" /><button aria-label="싫어요" aria-pressed={vote === "dislike"} onClick={() => setVote(current => current === "dislike" ? null : "dislike")}><Asset name={vote === "dislike" ? "like-filled.svg" : "like.svg"} className="thumb-down" /></button></div>
+        <div className={`community-vote${vote ? " active" : ""}`} role="group" aria-label="게시글 반응"><button className={vote === "like" ? "liked" : ""} onClick={() => react("like")} disabled={reactionBusy} aria-label={`좋아요 ${likeCount}개`} aria-pressed={vote === "like"}><Asset name={vote === "like" ? "like-filled.svg" : "like.svg"} />{likeCount}</button><span className="community-vote-divider" aria-hidden="true" /><button aria-label={`싫어요 ${dislikeCount}개`} aria-pressed={vote === "dislike"} disabled={reactionBusy} onClick={() => react("dislike")}><Asset name={vote === "dislike" ? "like-filled.svg" : "like.svg"} className="thumb-down" />{dislikeCount}</button></div>
         <button onClick={() => onComments(post.postId)} aria-label={`댓글 ${post.commentCount}개 보기`}><Asset name="comment.svg" />{post.commentCount}</button>
         <i />
-        <button disabled aria-label="공유 기능 준비 중" title="공유 기능 준비 중"><Asset name="share.svg" /></button>
-        <button className={saved ? "active" : ""} aria-label="저장" aria-pressed={saved} onClick={() => setSaved(current => !current)}><Asset name={saved ? "bookmark-filled.svg" : "bookmark.svg"} /></button>
+        <button aria-label="게시글 공유" onClick={() => setShareOpen(true)}><Asset name="share.svg" /></button>
+        <button className={saved ? "active" : ""} aria-label="게시글 북마크" aria-pressed={saved} disabled={bookmarkBusy} onClick={bookmark}><Asset name={saved ? "bookmark-filled.svg" : "bookmark.svg"} /></button>
       </div>
+      {shareOpen && <ContentShareDialog content={{ kind: "post", id: post.postId }} onClose={() => setShareOpen(false)} />}
     </article>
   );
 }

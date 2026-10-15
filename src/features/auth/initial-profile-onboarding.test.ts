@@ -20,7 +20,7 @@ test("collects a first-time user's profile in name, instrument, description orde
   assert.match(profileScreen, /setStep\(2\)/);
   assert.match(
     profileScreen,
-    /updateProfile\({ nickname: nickname.trim\(\), primaryInstrument: instrument.trim\(\), explanation: explanation.trim\(\) }\)/,
+    /updateProfile\(\{\s*nickname:\s*nickname.trim\(\),\s*primaryInstrument:\s*instrument.trim\(\),\s*explanation:\s*explanation.trim\(\),?\s*\}\)/,
   );
 });
 
@@ -33,7 +33,7 @@ test("shows first-login onboarding without the regular header and footer", () =>
 test("returns to the name step when the nickname is actually duplicated", () => {
   assert.match(
     profileScreen,
-    /cause instanceof ApiError && cause.errorCode === "DUPLICATE_NICKNAME"/,
+    /if\s*\(\s*cause instanceof ApiError\s*&&\s*cause.errorCode === "DUPLICATE_NICKNAME"\s*\)\s*\{\s*setStep\(0\)/,
   );
-  assert.match(profileScreen, /setStep\(0\)/);
+
 });
