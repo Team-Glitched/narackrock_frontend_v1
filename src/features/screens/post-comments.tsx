@@ -5,7 +5,7 @@ import Image from "next/image";
 import { formatDistanceToNow } from "date-fns";
 import { ko } from "date-fns/locale";
 import { Asset, Avatar } from "@/components/app/shared";
-import { createPostComment, deletePostComment, fetchPost, fetchPostComments, recordPostView, togglePostReaction, updatePostComment } from "@/lib/api/community";
+import { createPostComment, deletePostComment, fetchPost, fetchPostComments, recordPostView, togglePostCommentReaction, togglePostReaction, updatePostComment } from "@/lib/api/community";
 import { ApiError, getCurrentUserId } from "@/lib/api/client";
 import type { PostComment, PostCommentPage, PostDetailResponse } from "@/lib/api/contracts";
 import "./community.css";
@@ -26,6 +26,12 @@ function errorMessage(error: unknown, forbidden = "현재 계정은 댓글을 �
 
 // 작성자 권한 및 계정 정지는 서버가 최종 판정한다.
 const FORBIDDEN_OWN_COMMENT = "본인이 작성한 댓글만 수정·삭제할 수 있어요. 계정 정지 상태도 확인해주세요.";
+
+
+function canManage(writerId: number): boolean {
+  const me = getCurrentUserId();
+  return me !== null && me === writerId;
+}
 
 function time(value: string) {
   const date = new Date(value);
@@ -78,9 +84,21 @@ function CommentRow({ comment, postId, revision, onReply, onChanged, depth }: { 
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [reaction, setReaction] = useState({ likeCount: comment.likeCount, dislikeCount: comment.dislikeCount, isLiked: comment.isLiked, isDisliked: comment.isDisliked });
+  const [reactionBusy, setReactionBusy] = useState(false);
   const nickname = comment.writer.nickname || "알 수 없는 사용자";
   const currentUserId = useCurrentUserId();
   const manageable = currentUserId === comment.writer.userId;
+
+  useEffect(() => { setReaction({ likeCount: comment.likeCount, dislikeCount: comment.dislikeCount, isLiked: comment.isLiked, isDisliked: comment.isDisliked }); }, [comment.likeCount, comment.dislikeCount, comment.isLiked, comment.isDisliked]);
+
+  async function react(type: "like" | "dislike") {
+    if (reactionBusy) return;
+    setReactionBusy(true); setError(null);
+    try { setReaction(await togglePostCommentReaction(comment.commentId, type)); }
+    catch (cause) { setError(errorMessage(cause)); }
+    finally { setReactionBusy(false); }
+  }
 
   function startEdit() {
     setMenuOpen(false);
@@ -149,12 +167,12 @@ function CommentRow({ comment, postId, revision, onReply, onChanged, depth }: { 
     {error && <p className="comment-error" role="alert">{error}</p>}
 
     {!editing && <div className="comment-actions">
-      {comment.replyCount > 0 && <button className="reply-toggle" aria-expanded={open} onClick={() => setOpen(v => !v)}>{open ? "답글 접기" : `답글 ${comment.replyCount}개`}</button>}
-      <button aria-label={`${nickname}에게 답글 작성`} onClick={() => { setOpen(true); onReply({ commentId: comment.commentId, nickname }); }}><Asset name="comment.svg" /></button>
-      <button disabled aria-label="댓글 좋아요 준비 중"><Asset name="like.svg" /></button>
-      <button disabled aria-label="댓글 싫어요 준비 중"><Asset name="like.svg" className="thumb-down" /></button>
+      {depth === 0 && comment.replyCount > 0 && <button className="reply-toggle" aria-expanded={open} onClick={() => setOpen(v => !v)}>{open ? "답글 접기" : `답글 ${comment.replyCount}개`}</button>}
+      <button disabled={reactionBusy} aria-label="댓글 좋아요" aria-pressed={reaction.isLiked} onClick={() => react("like")}><Asset name={reaction.isLiked ? "like-filled.svg" : "like.svg"} />{reaction.likeCount}</button>
+      <button disabled={reactionBusy} aria-label="댓글 싫어요" aria-pressed={reaction.isDisliked} onClick={() => react("dislike")}><Asset name={reaction.isDisliked ? "like-filled.svg" : "like.svg"} className="thumb-down" /></button>
+      {depth === 0 && <button aria-label={`${nickname}에게 답글 작성`} onClick={() => { setOpen(true); onReply({ commentId: comment.commentId, nickname }); }}><Asset name="comment.svg" /></button>}
     </div>}
-    {open && <div className={depth < 2 ? "comment-replies" : "comment-replies shallow"}><CommentThread postId={postId} parentId={comment.commentId} revision={revision} onReply={onReply} onChanged={onChanged} depth={depth + 1} /></div>}
+    {depth === 0 && open && <div className="comment-replies"><CommentThread postId={postId} parentId={comment.commentId} revision={revision} onReply={onReply} onChanged={onChanged} depth={1} /></div>}
   </article>;
 }
 
