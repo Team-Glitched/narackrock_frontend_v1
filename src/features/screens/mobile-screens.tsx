@@ -82,7 +82,7 @@ export function HomeScreen({ go, onOpenPost, onOpenShort, onShowSongs }: { go: N
   const songs = useHomeSongs();
   return <div className="home-content scroll-content"><section><SectionTitle onAll={() => onShowSongs("popular")}>인기 차트</SectionTitle>{songs.popular.status !== "ready" ? <SongRailStatus state={songs.popular.status} /> : songs.popular.items.length === 0 ? <SongRailStatus state="empty" /> : <SongRail songs={songs.popular.items} onOpen={onOpenShort} />}</section><section><SectionTitle onAll={() => go("posts")}>인기 글</SectionTitle><div className="mini-post-list">{posts.status !== "ready" ? <PostListStatus state={posts.status} /> : posts.posts.length === 0 ? <PostListStatus state="empty" /> : posts.posts.map(post => <MiniPost key={post.postId} post={post} onOpen={onOpenPost} />)}</div></section><section><SectionTitle onAll={() => onShowSongs("mine")}>내 곡</SectionTitle>{songs.mine.status !== "ready" ? <SongRailStatus state={songs.mine.status} /> : songs.mine.items.length === 0 ? <SongRailStatus state="empty" /> : <SongRail songs={songs.mine.items} onOpen={onOpenShort} />}</section></div>;
 }
-export function ChartsScreen({ go, kind, onOpenShort }: { go: Navigate; kind: SongChartKind; onOpenShort: (shortId: number) => void }) {
+export function ChartsScreen({ kind, onOpenShort }: { go: Navigate; kind: SongChartKind; onOpenShort: (shortId: number) => void }) {
   const songs = useHomeSongs(100);
   const selected = kind === "popular" ? songs.popular : songs.mine;
   return <div className="list-view scroll-content popular-page"><h1 className="popular-page-title">{kind === "popular" ? "인기 차트" : "내 곡"}</h1><div className="popular-list popular-song-list">{selected.status !== "ready" ? <SongRailStatus state={selected.status} /> : selected.items.length === 0 ? <SongRailStatus state="empty" /> : selected.items.map((song, index) => {
@@ -98,7 +98,7 @@ export function ChartsScreen({ go, kind, onOpenShort }: { go: Navigate; kind: So
     </div>;
   })}</div></div>;
 }
-export function PostsScreen({ go, onOpenPost }: { go: Navigate; onOpenPost: (postId: number) => void }) {
+export function PostsScreen({ onOpenPost }: { go: Navigate; onOpenPost: (postId: number) => void }) {
   const posts = usePopularPosts(100);
   return <div className="list-view scroll-content popular-page"><h1 className="popular-page-title">인기 글</h1><div className="popular-list popular-post-list">{posts.status !== "ready" ? <PostListStatus state={posts.status} /> : posts.posts.length === 0 ? <PostListStatus state="empty" /> : posts.posts.map((post, index) => <div className="popular-row popular-post-row" key={post.postId}>
     <button type="button" className="popular-row-main" onClick={() => onOpenPost(post.postId)} aria-label={`${index + 1}위 ${post.title} 게시글 열기`}>

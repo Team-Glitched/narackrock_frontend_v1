@@ -67,7 +67,7 @@ function CommentThread({ postId, parentId, revision, onReply, onChanged, depth =
     {!result && !error && <p role="status">댓글을 불러오는 중...</p>}
     {error && <div role="alert"><p>{error}</p><button onClick={() => setRetry(v => v + 1)}>다시 시도</button></div>}
     {result?.comments.length === 0 && <p className="comments-empty">{parentId === null ? "첫 댓글을 남겨보세요." : "아직 답글이 없어요."}</p>}
-    {result?.comments.map(comment => <CommentRow key={comment.commentId} comment={comment} postId={postId} revision={revision} onReply={onReply} onChanged={onChanged} depth={depth} />)}
+    {result?.comments.map(comment => <CommentRow key={`${comment.commentId}:${comment.likeCount}:${comment.dislikeCount}:${comment.isLiked}:${comment.isDisliked}`} comment={comment} postId={postId} revision={revision} onReply={onReply} onChanged={onChanged} depth={depth} />)}
     {result && result.comments.length < result.totalCount && <button className="comments-more" disabled={busy} onClick={more}>{busy ? "불러오는 중..." : "댓글 더보기"}</button>}
   </div>;
 }
@@ -84,8 +84,6 @@ function CommentRow({ comment, postId, revision, onReply, onChanged, depth }: { 
   const [reactionBusy, setReactionBusy] = useState(false);
   const nickname = comment.writer.nickname || "알 수 없는 사용자";
   const manageable = canManage(comment.writer.userId);
-
-  useEffect(() => { setReaction({ likeCount: comment.likeCount, dislikeCount: comment.dislikeCount, isLiked: comment.isLiked, isDisliked: comment.isDisliked }); }, [comment.likeCount, comment.dislikeCount, comment.isLiked, comment.isDisliked]);
 
   async function react(type: "like" | "dislike") {
     if (reactionBusy) return;

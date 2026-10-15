@@ -45,7 +45,10 @@ export default function Page() {
   const [pendingProfileSetup, setPendingProfileSetup] = useState<PendingProfileSetup | null>(null);
   const activeView: View = currentUserId === null
     && pendingProfileSetup === null
-    && (view === "profile" || view === "bookmarks" || view === "edit")
+    && (view === "profile" || view === "bookmarks" || view === "edit"
+      || view === "mutual" || view === "recommendations" || view === "followers"
+      || view === "following" || view === "chat" || view === "savedPosts"
+      || view === "likedPosts" || view === "notifications")
     ? "login"
     : view;
   const [abyssMuted, setAbyssMuted] = useState(false);
@@ -248,7 +251,7 @@ export default function Page() {
     if (activeView === "opensourceComments") return <OpensourceDetailScreen focusComments />;
     if (activeView === "joined") return <JoinedCommunitiesScreen onOpen={setSelectedCommunity} />;
     if (activeView === "profile") return <ProfileScreen go={go} targetUserId={profileTargetId} playbackMode={playbackMode} onPlaybackModeChange={changePlaybackMode} />;
-    if (activeView === "bookmarks") return <SavedContentScreen onOpenPost={setCommentPostId} onOpenShort={openHomeShort} />;
+    if (activeView === "bookmarks") return <SavedContentScreen key={currentUserId} onOpenPost={setCommentPostId} onOpenShort={openHomeShort} />;
     if (activeView === "savedPosts" || activeView === "likedPosts") return <ProfilePostsScreen kind={activeView} onOpen={setCommentPostId} />;
     if (activeView === "login") return <AuthScreen onAuthenticated={authenticate} onFirstLogin={startProfileSetup} />;
     if (activeView === "edit" && pendingProfileSetup) return <InitialProfileSetupScreen {...pendingProfileSetup} onSaved={authenticate} />;
@@ -275,7 +278,7 @@ export default function Page() {
       onAddLayer={() => { setChoiceError(null); setView("choose"); }}
       onEditTrack={editTrack}
     />;
-  }, [abyssMuted, playbackMode, changePlaybackMode, selectedCommunity, commentPostId, communityTab, authenticate, profileUpdated, startProfileSetup, pendingProfileSetup, go, activeView, compositionTarget, abyssTargetShortId, editorTarget, joinShort, selectProject, returnToJoinedShort, openHomeShort, openSongChart, songChartKind, startDraft, chooseLayer, choiceBusy, choiceError, saveAudio, transformRecording, editTrack, backToStudio, openReviewProject, reviewOrigin, openChat, openPersonProfile, chatFriend, profileTargetId]);
+  }, [abyssMuted, playbackMode, changePlaybackMode, selectedCommunity, commentPostId, communityTab, authenticate, profileUpdated, startProfileSetup, pendingProfileSetup, go, activeView, currentUserId, compositionTarget, abyssTargetShortId, editorTarget, joinShort, selectProject, returnToJoinedShort, openHomeShort, openSongChart, songChartKind, startDraft, chooseLayer, choiceBusy, choiceError, saveAudio, transformRecording, editTrack, backToStudio, openReviewProject, reviewOrigin, openChat, openPersonProfile, chatFriend, profileTargetId]);
 
   // 가입 상태는 커뮤니티 목록·전체목록·상세가 공유하며 서버 구독 API에서 가져온다.
   if (activeView === "studio" || activeView === "note") return <main className="studio-shell">{content}</main>;
