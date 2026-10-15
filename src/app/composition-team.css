@@ -42,7 +42,9 @@
 .team-note-workspace .piano-keys{position:sticky;left:0;z-index:5;width:87px;display:grid;grid-auto-rows:30px;background:#fff}
 .team-note-workspace .piano-keys,.team-note-workspace .piano-row>.team-note-cell{cursor:grab;touch-action:none}
 .team-note-workspace .piano-keys:active,.team-note-workspace .piano-row>.team-note-cell:active{cursor:grabbing}
-.team-note-workspace .piano-key{height:30px}
+.team-note-workspace .piano-key{position:relative;left:auto;z-index:auto;width:87px;height:30px;border:0;border-bottom:1px solid #c3c8cd;border-radius:0;background:#fff;color:#111}
+.team-note-workspace .piano-key.black{position:relative;left:auto;z-index:auto;width:87px;height:30px;border:0;border-bottom:1px solid #c3c8cd;border-radius:0;background:#fff}
+.team-note-workspace .piano-key span{transform:none}
 .team-note-workspace .piano-roll{display:block;position:relative;flex:none;background:none}
 .team-note-workspace .piano-row{height:30px;display:block;padding:0;position:relative;background:#384048}
 .team-note-workspace .piano-row.sharp-row{background:#2c3238}
