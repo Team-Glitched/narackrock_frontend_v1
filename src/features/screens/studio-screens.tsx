@@ -10,6 +10,7 @@ import { AudioTrimPicker } from "@/features/composition/audio-trim-picker";
 import { canCreateLayer, hasOwnDraftClip, shouldShowContributionSubmit } from "@/features/composition/contribution-session";
 import { completedExportShortId } from "@/features/composition/publish-navigation";
 import { TeamPianoRoll } from "@/features/composition/team-piano-roll";
+import { instrumentFor } from "@/features/composition/instrument-catalog";
 import { createAudioClip, createDraftProject, createMidiClip, enterComposition, getComposition, getExport, getPendingContributions, publishComposition, reviewContribution, saveMidiClip, submitContribution, updateProjectMetadata, uploadMedia, type CompositionDto, type MidiNoteDto } from "@/lib/api/composition";
 
 const errorText = (cause: unknown) => cause instanceof Error ? cause.message : "요청을 처리하지 못했습니다.";
@@ -218,6 +219,7 @@ export function StudioScreen({ go, shortId, projectId, returnToNotifications, on
           title={!layerCreationAllowed && viewerPermission.canContribute ? "한 곡에는 하나의 레이어만 만들 수 있습니다." : undefined}><i /></button>}
     </StudioToolbar>
     {error && !showSubmitForm && <p className="studio-error" role="alert">{error}</p>}
+    {playback.error && !error && <p className="studio-error" role="alert">{playback.error}</p>}
     {((shortId == null && viewerPermission.canExport && (project.status === "DRAFT" || hasDraftClip)) || status) && <div className="studio-workflow">
       {shortId == null && viewerPermission.canExport && (project.status === "DRAFT" || hasDraftClip) && <button onClick={requestPublish} disabled={busy}>{project.status === "DRAFT" ? "곡 올리기" : "내 변경 반영"}</button>}
       {status && <span role="status">{status}</span>}
@@ -252,7 +254,7 @@ export function StudioScreen({ go, shortId, projectId, returnToNotifications, on
       <div className="studio-playhead" style={{ left: `${120 + playback.positionMs / project.maxDurationMs * 756}px` }} />
       {tracks.length === 0 && <p className="studio-hint">레이어를 추가해 작곡을 시작하세요.</p>}
       {tracks.map((track) => <div className="track studio-track" key={track.trackId}>
-        <div className="track-person"><strong title={track.name}>{track.name}</strong><small>{track.instrument ? "MIDI" : "오디오"}</small></div>
+        <div className="track-person"><strong title={track.name}>{track.name}</strong><small>{track.instrument ? instrumentFor(track.instrument).label : "오디오"}</small></div>
         <div className="studio-track-clips">{track.clips.map((clip) => <button key={clip.clipId} className={`studio-clip ${clip.clipType === "MIDI" ? "midi" : "audio"}`}
           style={{ left: `${clip.startTick / project.maxTick * 100}%`, width: `${Math.max(4, clip.durationTick / project.maxTick * 100)}%` }}
           onClick={() => { if (clip.clipType === "MIDI") onEditTrack(track.trackId, clip.clipId); }}
@@ -278,6 +280,7 @@ export function NoteEditorScreen({ projectId, trackId, clipId, onBack, onAddLaye
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const track = composition?.tracks.find((item) => item.trackId === trackId);
+  const instrument = instrumentFor(track?.instrument);
   const clip = track?.clips.find((item) => item.clipId === clipId && item.clipType === "MIDI");
   const editable = Boolean(composition && track && (clip ? clip.ownerId === composition.viewerPermission.userId : composition.viewerPermission.canContribute));
   const layerCreationAllowed = composition ? canCreateLayer(composition.viewerPermission, composition.tracks) : false;
@@ -302,7 +305,7 @@ export function NoteEditorScreen({ projectId, trackId, clipId, onBack, onAddLaye
       if (cancelled) return;
       const found = result.tracks.find((item) => item.trackId === trackId)?.clips.find((item) => item.clipId === clipId);
       setComposition(result); setNotes(found?.midiNotes ?? []);
-      setInitialPitch(found?.midiNotes?.[0]?.pitch ?? 60);
+      setInitialPitch(found?.midiNotes?.[0]?.pitch ?? (instrumentFor(result.tracks.find((item) => item.trackId === trackId)?.instrument).kind === "drum" ? 36 : 60));
     }).catch((cause) => { if (!cancelled) setError(errorText(cause)); });
     return () => { cancelled = true; };
   }, [projectId, trackId, clipId]);
@@ -321,7 +324,7 @@ export function NoteEditorScreen({ projectId, trackId, clipId, onBack, onAddLaye
 
   if (!composition || !track) return <div className="studio studio-state" role={error ? "alert" : "status"}>{error ?? "피아노롤을 불러오는 중입니다."}<button onClick={onBack}>돌아가기</button></div>;
   return <div className="studio note-editor">
-    <StudioToolbar title={`${track.name} · 피아노롤`} bpm={composition.project.bpm} playing={playback.playing} positionMs={playback.positionMs}
+    <StudioToolbar title={`${track.name} · ${instrument.label}`} bpm={composition.project.bpm} playing={playback.playing} positionMs={playback.positionMs}
       onPlay={() => { void playback.play(); }} onPause={playback.pause} onBack={onBack}
       piano volume={playback.volume} onVolume={playback.setVolume}
       onAdd={layerCreationAllowed ? () => { if (editable) void save(onAddLayer); else onAddLayer(); } : undefined}>
@@ -329,10 +332,11 @@ export function NoteEditorScreen({ projectId, trackId, clipId, onBack, onAddLaye
       <button className="studio-save" onClick={() => { void save(); }} disabled={!editable || busy}>{busy ? "저장 중" : "저장"}</button>
     </StudioToolbar>
     {error && <p className="studio-error" role="alert">{error}</p>}
+    {playback.error && !error && <p className="studio-error" role="alert">{playback.error}</p>}
     {!editable && <p className="studio-error">다른 참여자의 MIDI는 수정할 수 없습니다. 새 클립을 만들어 주세요.</p>}
     <TeamPianoRoll notes={notes} setNotes={setNotes} stepTick={stepTick}
       maxTick={maxTick - clipStartTick} lengthCells={lengthCells} editable={editable}
       positionMs={playback.positionMs} maxDurationMs={composition.project.maxDurationMs}
-      onSeek={playback.seek} initialPitch={initialPitch} />
+      onSeek={playback.seek} initialPitch={initialPitch} percussion={instrument.kind === "drum"} />
   </div>;
 }

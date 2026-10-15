@@ -12,6 +12,7 @@ import { ChatConversationScreen, PeopleListScreen } from "@/features/social/soci
 import { getFollowRequests, type Person } from "@/lib/api/social";
 import { EditProfileScreen, InitialProfileSetupScreen, ProfileScreen } from "@/features/profile/profile-screens";
 import { ProfilePostsScreen } from "@/features/profile/profile-posts";
+import { SavedContentScreen } from "@/features/profile/saved-content";
 import { AbyssScreen } from "@/features/screens/abyss-screen";
 import { readPlaybackMode, writePlaybackMode, type PlaybackMode } from "@/features/abyss/playback-mode";
 import { NotificationsScreen } from "@/features/screens/notifications-screen";
@@ -21,12 +22,14 @@ import { CompositionChoiceScreen, CompositionRecordScreen, CompositionUploadScre
 import { prepareAudioFile, type AudioSelection } from "@/features/composition/prepare-audio-file";
 import { createHtiMidiLayerPlan } from "@/features/composition/hti-midi-flow";
 import { createAudioClip, createMidiClip, createTrack, getComposition, getContributionInbox, transformRecordingToMidi, uploadMedia } from "@/lib/api/composition";
+import { instrumentFor } from "@/features/composition/instrument-catalog";
 import { useWebMcpNavigation } from "@/hooks/use-webmcp-navigation";
 import { PostCommentsScreen } from "@/features/screens/post-comments";
 import { CommunityDetailScreen } from "@/features/screens/community-detail";
 import type { Community } from "@/features/screens/community-card";
 import { useCurrentUserId } from "@/hooks/use-current-user";
 import { getProfile } from "@/lib/api/profile";
+import { parseContentLink } from "@/lib/api/content-link";
 
 // Provider가 api를 의존성으로 보므로 렌더마다 새로 만들지 않는다.
 const membershipApi = createServerMembershipApi();
@@ -43,7 +46,7 @@ export default function Page() {
   const [pendingProfileSetup, setPendingProfileSetup] = useState<PendingProfileSetup | null>(null);
   const activeView: View = currentUserId === null
     && pendingProfileSetup === null
-    && (view === "profile" || view === "edit")
+    && (view === "profile" || view === "bookmarks" || view === "edit")
     ? "login"
     : view;
   const [abyssMuted, setAbyssMuted] = useState(false);
@@ -67,6 +70,24 @@ export default function Page() {
     setPlaybackMode(mode);
     writePlaybackMode(window.localStorage, mode);
   }, []);
+
+  useEffect(() => {
+    const openSharedContent = () => {
+      const target = parseContentLink(window.location.pathname, window.location.search);
+      if (!target) return;
+      if (target.kind === "post") {
+        if (currentUserId === null) { setView("login"); return; }
+        setCommentPostId(target.id);
+        setView("social");
+      } else {
+        setAbyssTargetShortId(target.id);
+        setView("abyss");
+      }
+    };
+    openSharedContent();
+    window.addEventListener("popstate", openSharedContent);
+    return () => window.removeEventListener("popstate", openSharedContent);
+  }, [currentUserId]);
 
   const go = useCallback((next: View) => {
     setCommentPostId(null);
@@ -140,14 +161,14 @@ export default function Page() {
     setView("choose");
   }, []);
 
-  const chooseLayer = useCallback(async (method: CreationMethod) => {
+  const chooseLayer = useCallback(async (method: CreationMethod, instrument: string) => {
     const projectId = compositionTarget.projectId;
     if (projectId == null || choiceBusy) return;
     if (method !== "note") { setView(method); return; }
     setChoiceBusy(true); setChoiceError(null);
     try {
       const composition = await getComposition(projectId);
-      const { trackId } = await createTrack(projectId, `피아노롤 ${composition.tracks.length + 1}`, "piano", composition.tracks.length);
+      const { trackId } = await createTrack(projectId, `${instrumentFor(instrument).label} ${composition.tracks.length + 1}`, instrument, composition.tracks.length);
       setEditorTarget({ trackId, clipId: null });
       setView("note");
     } catch (cause) {
@@ -229,10 +250,11 @@ export default function Page() {
     if (activeView === "joined") return <JoinedCommunitiesScreen onOpen={setSelectedCommunity} />;
     if (activeView === "profile") return <ProfileScreen go={go} targetUserId={profileTargetId} playbackMode={playbackMode} onPlaybackModeChange={changePlaybackMode} />;
     if (activeView === "savedPosts" || activeView === "likedPosts") return <ProfilePostsScreen kind={activeView} onOpen={setCommentPostId} />;
+    if (activeView === "bookmarks") return <SavedContentScreen key={currentUserId} onOpenPost={setCommentPostId} onOpenShort={openHomeShort} />;
     if (activeView === "login") return <AuthScreen onAuthenticated={authenticate} onFirstLogin={startProfileSetup} />;
     if (activeView === "edit" && pendingProfileSetup) return <InitialProfileSetupScreen {...pendingProfileSetup} onSaved={authenticate} />;
     if (activeView === "edit") return <EditProfileScreen onSaved={profileUpdated} />;
-    if (activeView === "choose") return <CompositionChoiceScreen onChoose={(method) => { void chooseLayer(method); }}
+    if (activeView === "choose") return <CompositionChoiceScreen onChoose={(method, instrument) => { void chooseLayer(method, instrument); }}
       onBack={() => setView("studio")} busy={choiceBusy} error={choiceError} />;
     if (activeView === "upload") return <CompositionUploadScreen onSave={saveAudio} onBack={() => setView("choose")} />;
     if (activeView === "record") return <CompositionRecordScreen onSave={saveAudio} onTransform={transformRecording} onBack={() => setView("choose")} />;
@@ -254,20 +276,22 @@ export default function Page() {
       onAddLayer={() => { setChoiceError(null); setView("choose"); }}
       onEditTrack={editTrack}
     />;
-  }, [abyssMuted, playbackMode, changePlaybackMode, selectedCommunity, commentPostId, communityTab, authenticate, profileUpdated, startProfileSetup, pendingProfileSetup, go, activeView, compositionTarget, abyssTargetShortId, editorTarget, joinShort, selectProject, returnToJoinedShort, openHomeShort, openSongChart, songChartKind, startDraft, chooseLayer, choiceBusy, choiceError, saveAudio, transformRecording, editTrack, backToStudio, openReviewProject, reviewOrigin, openChat, openPersonProfile, chatFriend, profileTargetId]);
+  }, [abyssMuted, playbackMode, changePlaybackMode, selectedCommunity, commentPostId, communityTab, authenticate, profileUpdated, startProfileSetup, pendingProfileSetup, go, activeView, currentUserId, compositionTarget, abyssTargetShortId, editorTarget, joinShort, selectProject, returnToJoinedShort, openHomeShort, openSongChart, songChartKind, startDraft, chooseLayer, choiceBusy, choiceError, saveAudio, transformRecording, editTrack, backToStudio, openReviewProject, reviewOrigin, openChat, openPersonProfile, chatFriend, profileTargetId]);
 
   // 가입 상태는 커뮤니티 목록·전체목록·상세가 공유하며 서버 구독 API에서 가져온다.
   if (activeView === "studio" || activeView === "note") return <main className="studio-shell">{content}</main>;
   const authView = activeView === "login";
   const onboardingView = Boolean(pendingProfileSetup);
-  const noHeader = authView || onboardingView || activeView === "chat" || (commentPostId === null && (activeView === "charts" || activeView === "posts" || activeView === "search"));
+  const noHeader = authView || onboardingView || activeView === "chat" || (commentPostId === null && activeView === "search");
   const footerView = activeView === "joined" ? "social" : activeView;
   const onBack = commentPostId !== null ? () => setCommentPostId(null)
+    : activeView === "bookmarks" ? () => go("profile")
     : selectedCommunity ? () => setSelectedCommunity(null)
     : activeView === "mutual" || activeView === "recommendations" ? () => go("friends")
     : activeView === "followers" || activeView === "following" ? () => go("profile")
     : activeView === "savedPosts" || activeView === "likedPosts" ? () => go("profile")
     : activeView === "profile" && profileTargetId !== null ? () => { setProfileTargetId(null); go("friends"); }
+    : activeView === "charts" || activeView === "posts" ? () => go("home")
     : activeView === "joined" ? () => go("social")
      : activeView === "opensourceDetail" || activeView === "opensourceComments" ? () => go("opensource") : undefined;
   const headerBack = onBack ?? (activeView === "edit" ? () => {

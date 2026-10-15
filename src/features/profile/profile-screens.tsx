@@ -207,6 +207,11 @@ export function ProfileScreen({ go, targetUserId = null, playbackMode, onPlaybac
           {profile.activities.participatedShorts.length}개
         </p>
       </section></>}
+
+      {owner && <section className="profile-bookmarks">
+        <SectionTitle onAll={() => go("bookmarks")}>북마크</SectionTitle>
+        <button type="button" onClick={() => go("bookmarks")}><Asset name="bookmark.svg" />저장한 게시물과 음악 보기</button>
+      </section>}
     </div>
   );
 }

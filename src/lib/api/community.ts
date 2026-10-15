@@ -41,11 +41,17 @@ export function deletePostComment(commentId: number): Promise<void> {
   // 삭제 응답에는 data 키가 없으므로(NON_NULL 봉투) 본문을 읽지 않는다.
   return apiRequest<ApiResponse<void>>(`/api/v1/posts/comments/${commentId}`, { method: "DELETE" }).then(() => undefined);
 }
+
+export type PostCommentReaction = { commentId: number; isLiked: boolean; isDisliked: boolean; likeCount: number; dislikeCount: number };
+export function togglePostCommentReaction(commentId: number, type: "like" | "dislike"): Promise<PostCommentReaction> {
+  return apiRequest<ApiResponse<PostCommentReaction>>(`/api/v1/posts/comments/${commentId}/${type}s`, { method: "POST" }).then(response => response.data);
+}
 import type {
   ApiResponse,
   PostCreateResponse,
   PostDetailResponse,
   PostListResponse,
+  PopularPostListResponse,
   PostSort,
   PostUpdateResponse,
 } from "./contracts";
@@ -61,6 +67,19 @@ import type {
  * 커뮤니티 목록·상세는 더 이상 이 값을 쓰지 않고 서버가 준 galleryId를 쓴다.
  */
 export const DEFAULT_GALLERY_ID = 1;
+
+export function fetchPopularPosts(size = 100, signal?: AbortSignal): Promise<PopularPostListResponse> {
+  return apiRequest<ApiResponse<PopularPostListResponse>>(
+    `/api/v1/posts/popular?page=0&size=${encodeURIComponent(size)}`,
+    { signal, credentials: "omit" },
+  ).then(response => response.data);
+}
+
+export function reportPost(postId: number, reason: string, description = ""): Promise<void> {
+  return apiRequest<ApiResponse<unknown>>(`/api/v1/posts/${postId}/reports`, {
+    method: "POST", body: JSON.stringify({ reason, description }),
+  }).then(() => undefined);
+}
 
 // 전체 갤러리 목록. 비로그인도 호출할 수 있고, 페이지네이션 없이 전량이 온다.
 // 정렬은 서버가 구독자 수 내림차순 → id 오름차순으로 고정한다.
@@ -130,6 +149,16 @@ export function fetchPosts(galleryId: number, query: PostListQuery = {}): Promis
 // 상세 조회는 로그인(Authorization 헤더)이 필요하다 — 백엔드가 isLiked/isDisliked를 계산하려면 요청자 식별이 필요하기 때문.
 export function fetchPost(postId: number): Promise<PostDetailResponse> {
   return apiRequest<ApiResponse<PostDetailResponse>>(`/api/v1/posts/${postId}`).then((response) => response.data);
+}
+
+export type PostReaction = { postId: number; isLiked: boolean; isDisliked: boolean; likeCount: number; dislikeCount: number };
+
+export function togglePostReaction(postId: number, type: "like" | "dislike"): Promise<PostReaction> {
+  return apiRequest<ApiResponse<PostReaction>>(`/api/v1/posts/${postId}/${type}s`, { method: "POST" }).then(response => response.data);
+}
+
+export function togglePostBookmark(postId: number): Promise<{ postId: number; isBookmarked: boolean }> {
+  return apiRequest<ApiResponse<{ postId: number; isBookmarked: boolean }>>(`/api/v1/posts/${postId}/bookmark`, { method: "POST" }).then(response => response.data);
 }
 
 // 아래 3개도 로그인(Authorization 헤더)이 필요하다 — auth.ts의 loginWithGoogle()로 먼저 토큰을 발급받아야 한다.

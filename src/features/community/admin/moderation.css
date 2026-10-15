@@ -1,0 +1,32 @@
+.moderation-dialog { background: #202022; color: #f2f2f4; border: 1px solid #44444c; border-radius: 20px; max-height: 85dvh; overflow-y: auto; width: min(480px, calc(100vw - 28px)); padding: 26px 22px; }
+.moderation-dialog [data-slot=dialog-description] { color: #aeb0bc; line-height: 1.6; }
+.moderation-panel { color: #eeeef2; padding: 20px 16px 36px; background: #1e1e20; min-width: 0; }
+.moderation-panel h2 { font-size: 20px; font-weight: 700; margin: 0 0 16px; }
+.moderation-panel h3 { font-size: 15px; font-weight: 650; }
+.moderation-form { display: grid; gap: 20px; }
+.moderation-form label { display: grid; gap: 9px; font-size: 14px; font-weight: 600; }
+.moderation-form input, .moderation-form textarea, .moderation-form select { box-sizing: border-box; width: 100%; min-width: 0; border: 1px solid #686b75; background: #202022; color: #f5f5f7; padding: 12px; border-radius: 9px; font: inherit; }
+.moderation-form textarea { resize: vertical; }
+.moderation-form small { color: #aeb0bc; text-align: right; font-weight: 400; }
+.moderation-form :focus-visible, .moderation-panel :focus-visible { outline: 2px solid #b59aff; outline-offset: 3px; }
+.moderation-form .purple-pill, .moderation-actions button { min-height: 42px; padding: 9px 18px; }
+.moderation-actions { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
+.moderation-error { color: #ffb0b6; font-size: 13px; line-height: 1.6; overflow-wrap: anywhere; }
+.moderation-notice { color: #b4e1ce; font-size: 13px; line-height: 1.6; }
+.moderation-tabs { display: flex; gap: 8px; overflow-x: auto; padding: 4px 0 16px; }
+.moderation-tabs button { white-space: nowrap; border: 1px solid #44444c; border-radius: 24px; padding: 8px 13px; font-size: 13px; }
+.moderation-tabs button[aria-pressed=true] { background: #5600e8; border-color: #5600e8; color: #fff; }
+.moderation-list { display: grid; gap: 12px; padding: 0; margin: 16px 0; list-style: none; }
+.moderation-card { border: 1px solid #3d3d45; border-radius: 14px; padding: 16px; display: grid; gap: 10px; overflow-wrap: anywhere; }
+.moderation-card p { font-size: 13px; color: #b9bbc5; line-height: 1.6; white-space: pre-wrap; }
+.moderation-card time, .moderation-meta { font-size: 12px; color: #9da0ad; }
+.moderation-heading { display: flex; gap: 10px; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+.moderation-heading h2 { margin: 0; }
+.moderation-status { padding: 24px 8px; color: #b9bbc5; font-size: 14px; text-align: center; }
+.moderation-entry { display: flex; justify-content: flex-end; gap: 8px; padding: 12px 0; }
+.moderation-entry button, .moderation-inline button { border: 1px solid #4b465c; border-radius: 18px; padding: 7px 12px; font-size: 12px; color: #d4c4ff; }
+.moderation-inline { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0; }
+.moderation-user { display: flex; align-items: center; gap: 12px; }
+.moderation-user strong { flex: 1; }
+.moderation-panel button:disabled, .moderation-dialog button:disabled { opacity: .45; cursor: not-allowed; }
+@media (max-width: 380px) { .moderation-dialog { padding: 24px 16px; } .moderation-panel { padding-inline: 12px; } }

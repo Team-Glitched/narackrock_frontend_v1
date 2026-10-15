@@ -1,0 +1,38 @@
+.popular-page{padding:30px 20px 20px}
+.popular-page-title{margin:0 0 20px;color:#eceef1;font-size:20px;font-weight:700;line-height:18px}
+.popular-list{display:flex;flex-direction:column}
+.popular-song-list{gap:30px}
+.popular-post-list{gap:40px}
+.popular-row{width:100%;min-height:90px;display:flex;align-items:center;position:relative}
+.popular-row-main{min-width:0;flex:1;display:flex;align-items:center;text-align:left}
+.popular-song-row .popular-row-main{gap:10px}
+.popular-post-row .popular-row-main{gap:20px}
+.popular-art{width:90px;height:90px;flex:0 0 90px;border-radius:5px;background:#f2f4f6;position:relative;display:block;overflow:hidden}
+.popular-art>img{width:100%;height:100%;object-fit:cover}
+.popular-rank{position:absolute;top:5px;left:5px;min-width:25px;padding:3px 5px;border-radius:4px;background:#1d1d1de8;color:#f2f4f6;font-size:11px;font-weight:700;text-align:center;line-height:14px}
+.popular-song-copy,.popular-post-copy{min-width:0;flex:1;display:flex;flex-direction:column}
+.popular-song-copy{gap:4px}
+.popular-song-copy strong{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-family:Paperlogy,Pretendard,sans-serif;font-size:18px;font-weight:700;color:#f2f4f6}
+.popular-song-copy small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#aab6c2;font-size:14px}
+.popular-post-copy{height:90px;justify-content:space-between;gap:3px}
+.popular-post-copy>strong{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;color:#f2f4f6;font-size:14px;font-weight:500;line-height:17px}
+.popular-post-meta{display:flex;align-items:center;gap:8px;color:#aab6c2;font-size:11px;white-space:nowrap}
+.popular-post-meta>span{display:flex;align-items:center;gap:3px}
+.popular-post-meta img{width:12px;height:12px}
+.popular-post-author{display:flex;align-items:center;gap:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px}
+.popular-post-author .avatar{width:20px;height:20px;border:0}
+.popular-actions{width:40px;height:40px;flex:0 0 40px;position:relative;align-self:center}
+.popular-more{width:40px;height:40px;display:grid;place-items:center}
+.popular-more img{width:20px;height:20px}
+.popular-menu{position:absolute;right:0;top:38px;z-index:25;width:106px;padding:4px;border:1px solid #4b5661;border-radius:8px;background:#2c3238;box-shadow:0 8px 18px #0008}
+.popular-menu button{display:block;width:100%;padding:8px 10px;border-radius:5px;text-align:left;font-size:13px}
+.popular-menu button:hover{background:#3d4650}
+.popular-action-message{position:absolute;z-index:1;right:0;top:40px;width:150px;padding:6px;border-radius:5px;background:#343b42;color:#f2f4f6;font-size:11px;text-align:center}
+.popular-report-dialog{display:flex;flex-direction:column;gap:12px}
+.popular-report-dialog label{display:flex;flex-direction:column;gap:5px;font-size:13px}
+.popular-report-dialog input,.popular-report-dialog textarea{width:100%;border:1px solid #697887;border-radius:7px;padding:9px;background:#1d1d1d;color:#f2f4f6;font-size:13px}
+.popular-report-dialog textarea{height:78px;resize:vertical}
+.popular-report-dialog p{margin:0;color:#ff9ca8;font-size:12px}
+.popular-report-submit{align-self:flex-end;padding:9px 14px;border-radius:7px;background:#4c00e5;font-size:13px}
+.popular-report-submit:disabled{opacity:.5}
+@media(max-width:389px){.popular-page{padding-left:16px;padding-right:16px}.popular-post-row .popular-row-main{gap:12px}}
