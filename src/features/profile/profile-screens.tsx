@@ -10,6 +10,7 @@ import { ApiError } from "@/lib/api/client";
 import { getProfile, updateProfile, updateProfileImage, updateProfilePrivacy } from "@/lib/api/profile";
 import type { UserProfile } from "@/lib/api/contracts";
 import { followPerson, getOutgoingFollowRequests, unfollowPerson } from "@/lib/api/social";
+import type { PlaybackMode } from "@/features/abyss/playback-mode";
 
 function profileErrorMessage(error: unknown): string {
   return error instanceof Error
@@ -84,7 +85,7 @@ function useOwnProfile(targetUserId?: number | null) {
   };
 }
 
-export function ProfileScreen({ go, targetUserId = null }: { go: Navigate; targetUserId?: number | null }) {
+export function ProfileScreen({ go, targetUserId = null, playbackMode, onPlaybackModeChange }: { go: Navigate; targetUserId?: number | null; playbackMode: PlaybackMode; onPlaybackModeChange: (mode: PlaybackMode) => void }) {
   const ownUserId = useCurrentUserId();
   const { profile, loading, error, setProfile } = useOwnProfile(targetUserId);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -156,6 +157,7 @@ export function ProfileScreen({ go, targetUserId = null }: { go: Navigate; targe
           <button onClick={() => void changePrivacy()} disabled={savingPrivacy}>{profile.isPrivate ? "공개로 전환" : "비공개로 전환"}</button>
           <button onClick={() => go("savedPosts")}>북마크한 게시물 보기</button>
           <button onClick={() => go("likedPosts")}>좋아요한 게시물 보기</button>
+          <button className="profile-playback-setting" role="menuitemcheckbox" aria-checked={playbackMode === "next"} onClick={() => onPlaybackModeChange(playbackMode === "next" ? "repeat" : "next")}>숏폼 자동 넘기기 <span>{playbackMode === "next" ? "켬" : "끔"}</span></button>
           <button onClick={logout}>로그아웃</button>
         </div>}
       </div>}

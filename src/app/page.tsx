@@ -13,6 +13,7 @@ import { getFollowRequests, type Person } from "@/lib/api/social";
 import { EditProfileScreen, InitialProfileSetupScreen, ProfileScreen } from "@/features/profile/profile-screens";
 import { ProfilePostsScreen } from "@/features/profile/profile-posts";
 import { AbyssScreen } from "@/features/screens/abyss-screen";
+import { readPlaybackMode, writePlaybackMode, type PlaybackMode } from "@/features/abyss/playback-mode";
 import { NotificationsScreen } from "@/features/screens/notifications-screen";
 import { OpensourceScreen, OpensourceDetailScreen } from "@/features/screens/opensource-screens";
 import { NoteEditorScreen, StudioScreen } from "@/features/screens/studio-screens";
@@ -46,6 +47,8 @@ export default function Page() {
     ? "login"
     : view;
   const [abyssMuted, setAbyssMuted] = useState(false);
+  const [playbackMode, setPlaybackMode] = useState<PlaybackMode>(() =>
+    typeof window === "undefined" ? "repeat" : readPlaybackMode(window.localStorage));
   const [communityTab, setCommunityTab] = useState<CommunityTab>("posts");
   const [chatFriend, setChatFriend] = useState<Person | null>(null);
   const [profileTargetId, setProfileTargetId] = useState<number | null>(null);
@@ -59,6 +62,11 @@ export default function Page() {
   const [reviewOrigin, setReviewOrigin] = useState(false);
   const [choiceBusy, setChoiceBusy] = useState(false);
   const [choiceError, setChoiceError] = useState<string | null>(null);
+
+  const changePlaybackMode = useCallback((mode: PlaybackMode) => {
+    setPlaybackMode(mode);
+    writePlaybackMode(window.localStorage, mode);
+  }, []);
 
   const go = useCallback((next: View) => {
     setCommentPostId(null);
@@ -207,7 +215,7 @@ export default function Page() {
     if (commentPostId !== null) return <PostCommentsScreen key={commentPostId} postId={commentPostId} />;
     if (selectedCommunity) return <CommunityDetailScreen key={selectedCommunity.id} community={selectedCommunity} onComments={setCommentPostId} />;
     if (activeView === "home") return <HomeScreen go={go} onOpenPost={setCommentPostId} onOpenShort={openHomeShort} onShowSongs={openSongChart} />;
-    if (activeView === "abyss") return <AbyssScreen onJoin={joinShort} initialShortId={abyssTargetShortId} muted={abyssMuted} />;
+    if (activeView === "abyss") return <AbyssScreen onJoin={joinShort} initialShortId={abyssTargetShortId} muted={abyssMuted} playbackMode={playbackMode} />;
     if (activeView === "notifications") return <NotificationsScreen onBack={() => go("home")} onOpenProject={openReviewProject} />;
     if (activeView === "charts") return <ChartsScreen go={go} kind={songChartKind} onOpenShort={openHomeShort} />;
     if (activeView === "posts") return <PostsScreen go={go} onOpenPost={setCommentPostId} />;
@@ -219,7 +227,7 @@ export default function Page() {
     if (activeView === "opensourceDetail") return <OpensourceDetailScreen />;
     if (activeView === "opensourceComments") return <OpensourceDetailScreen focusComments />;
     if (activeView === "joined") return <JoinedCommunitiesScreen onOpen={setSelectedCommunity} />;
-    if (activeView === "profile") return <ProfileScreen go={go} targetUserId={profileTargetId} />;
+    if (activeView === "profile") return <ProfileScreen go={go} targetUserId={profileTargetId} playbackMode={playbackMode} onPlaybackModeChange={changePlaybackMode} />;
     if (activeView === "savedPosts" || activeView === "likedPosts") return <ProfilePostsScreen kind={activeView} onOpen={setCommentPostId} />;
     if (activeView === "login") return <AuthScreen onAuthenticated={authenticate} onFirstLogin={startProfileSetup} />;
     if (activeView === "edit" && pendingProfileSetup) return <InitialProfileSetupScreen {...pendingProfileSetup} onSaved={authenticate} />;
@@ -246,7 +254,7 @@ export default function Page() {
       onAddLayer={() => { setChoiceError(null); setView("choose"); }}
       onEditTrack={editTrack}
     />;
-  }, [abyssMuted, selectedCommunity, commentPostId, communityTab, authenticate, profileUpdated, startProfileSetup, pendingProfileSetup, go, activeView, compositionTarget, abyssTargetShortId, editorTarget, joinShort, selectProject, returnToJoinedShort, openHomeShort, openSongChart, songChartKind, startDraft, chooseLayer, choiceBusy, choiceError, saveAudio, transformRecording, editTrack, backToStudio, openReviewProject, reviewOrigin, openChat, openPersonProfile, chatFriend, profileTargetId]);
+  }, [abyssMuted, playbackMode, changePlaybackMode, selectedCommunity, commentPostId, communityTab, authenticate, profileUpdated, startProfileSetup, pendingProfileSetup, go, activeView, compositionTarget, abyssTargetShortId, editorTarget, joinShort, selectProject, returnToJoinedShort, openHomeShort, openSongChart, songChartKind, startDraft, chooseLayer, choiceBusy, choiceError, saveAudio, transformRecording, editTrack, backToStudio, openReviewProject, reviewOrigin, openChat, openPersonProfile, chatFriend, profileTargetId]);
 
   // 가입 상태는 커뮤니티 목록·전체목록·상세가 공유하며 서버 구독 API에서 가져온다.
   if (activeView === "studio" || activeView === "note") return <main className="studio-shell">{content}</main>;

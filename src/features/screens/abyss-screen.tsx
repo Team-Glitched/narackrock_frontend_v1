@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Asset } from "@/components/app/shared";
 import { initialShortIndex } from "@/features/abyss/initial-short";
+import type { PlaybackMode } from "@/features/abyss/playback-mode";
 import { canJoinShort } from "@/features/abyss/short-participation";
 import { useCurrentUserId } from "@/hooks/use-current-user";
 import { getShorts } from "@/lib/api/shorts";
@@ -11,7 +12,7 @@ import type { ShortItemDto, ShortsPageDto } from "@/lib/api/contracts";
 type FeedState = "loading" | "ready" | "error";
 type PageInfo = ShortsPageDto["page"];
 
-export function AbyssScreen({ onJoin, initialShortId, muted = false }: { onJoin: (shortId: number) => void; initialShortId?: number | null; muted?: boolean }) {
+export function AbyssScreen({ onJoin, initialShortId, muted = false, playbackMode = "repeat" }: { onJoin: (shortId: number) => void; initialShortId?: number | null; muted?: boolean; playbackMode?: PlaybackMode }) {
   const currentUserId = useCurrentUserId();
   const [shorts, setShorts] = useState<ShortItemDto[]>([]);
   const [page, setPage] = useState<PageInfo | null>(null);
@@ -59,7 +60,7 @@ export function AbyssScreen({ onJoin, initialShortId, muted = false }: { onJoin:
     void audioRef.current.play().catch(() => {
       // Browsers may block unmuted autoplay until the user interacts with the page.
     });
-  }, [mediaUrl]);
+  }, [current?.shortId, mediaUrl]);
 
   function selectShort(nextIndex: number) {
     audioRef.current?.pause();
@@ -148,12 +149,16 @@ export function AbyssScreen({ onJoin, initialShortId, muted = false }: { onJoin:
           src={mediaUrl ?? undefined}
           preload="metadata"
           autoPlay
+          loop={playbackMode === "repeat"}
           muted={muted}
           onLoadedMetadata={(event) => setDuration(Number.isFinite(event.currentTarget.duration) ? event.currentTarget.duration : 0)}
           onTimeUpdate={(event) => setCurrentTime(event.currentTarget.currentTime)}
           onPlay={() => setPlaying(true)}
           onPause={() => setPlaying(false)}
-          onEnded={() => setPlaying(false)}
+          onEnded={() => {
+            setPlaying(false);
+            if (playbackMode === "next" && hasNext) void selectNext();
+          }}
           onError={() => { if (mediaUrl) setPlaybackError("음원 파일을 불러오지 못했습니다."); }}
         />
         <input
