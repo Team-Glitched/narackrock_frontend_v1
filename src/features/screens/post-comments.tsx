@@ -9,6 +9,9 @@ import { createPostComment, deletePostComment, fetchPost, fetchPostComments, rec
 import { ApiError, getCurrentUserId } from "@/lib/api/client";
 import type { PostComment, PostCommentPage, PostDetailResponse } from "@/lib/api/contracts";
 import "./community.css";
+import { ContentActions } from "@/features/community/admin/content-actions";
+import { GalleryPermissionProvider } from "@/features/community/admin/moderation-state";
+import { useCurrentUserId } from "@/hooks/use-current-user";
 import "./post-comments.css";
 
 function errorMessage(error: unknown, forbidden = "현재 계정은 댓글을 작성할 수 없습니다.") {
@@ -21,16 +24,9 @@ function errorMessage(error: unknown, forbidden = "현재 계정은 댓글을 �
   return "불러오지 못했습니다. 잠시 후 다시 시도해주세요.";
 }
 
-// 서버가 NOT_COMMENT_OWNER / BANNED_USER_ACCESS 를 모두 403으로 내려주는데
-// client.ts가 errorCode를 파싱하지 않아 상태 코드만으로는 구분할 수 없다.
+// 작성자 권한 및 계정 정지는 서버가 최종 판정한다.
 const FORBIDDEN_OWN_COMMENT = "본인이 작성한 댓글만 수정·삭제할 수 있어요. 계정 정지 상태도 확인해주세요.";
 
-// 로그인 사용자 id를 모르면(아직 로그인 화면이 없다) 일단 노출하고 서버 403으로 거른다.
-// 로그인이 붙으면 자동으로 본인 댓글에만 보이게 좁혀진다.
-function canManage(writerId: number): boolean {
-  const me = getCurrentUserId();
-  return me === null || me === writerId;
-}
 function time(value: string) {
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? "" : formatDistanceToNow(date, { addSuffix: true, locale: ko });
@@ -83,7 +79,8 @@ function CommentRow({ comment, postId, revision, onReply, onChanged, depth }: { 
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const nickname = comment.writer.nickname || "알 수 없는 사용자";
-  const manageable = canManage(comment.writer.userId);
+  const currentUserId = useCurrentUserId();
+  const manageable = currentUserId === comment.writer.userId;
 
   function startEdit() {
     setMenuOpen(false);
@@ -126,11 +123,12 @@ function CommentRow({ comment, postId, revision, onReply, onChanged, depth }: { 
   return <article className="comment-row">
     <div className="comment-author">
       <Avatar src={comment.writer.profileImageUrl} /><strong>{nickname}</strong><span>• {time(comment.createdAt)}</span>
-      {manageable && !editing && <button className="comment-menu-trigger" disabled={busy} aria-expanded={menuOpen} aria-label={`${nickname}의 댓글 더보기`} onClick={() => setMenuOpen(v => !v)}><Asset name="option.svg" /></button>}
+      {!editing && <button className="comment-menu-trigger" disabled={busy} aria-expanded={menuOpen} aria-label={`${nickname}의 댓글 더보기`} onClick={() => setMenuOpen(v => !v)}><Asset name="option.svg" /></button>}
     </div>
     {menuOpen && !editing && <div className="comment-menu">
-      <button className="gray-pill compact" disabled={busy} onClick={startEdit}>수정</button>
-      <button className="gray-pill compact" disabled={busy} onClick={() => { setMenuOpen(false); setError(null); setConfirmDelete(true); }}>삭제</button>
+      {manageable && <><button className="gray-pill compact" disabled={busy} onClick={startEdit}>수정</button>
+      <button className="gray-pill compact" disabled={busy} onClick={() => { setMenuOpen(false); setError(null); setConfirmDelete(true); }}>삭제</button></>}
+      <ContentActions key={currentUserId} kind="comment" contentId={comment.commentId} onChanged={onChanged} />
     </div>}
 
     {editing
@@ -161,6 +159,7 @@ function CommentRow({ comment, postId, revision, onReply, onChanged, depth }: { 
 }
 
 export function PostCommentsScreen({ postId }: { postId: number }) {
+  const currentUserId = useCurrentUserId();
   const [post, setPost] = useState<PostDetailResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [revision, setRevision] = useState(0);
@@ -218,9 +217,10 @@ export function PostCommentsScreen({ postId }: { postId: number }) {
     <div className="comments-scroll scroll-content">
       {error && <div className="comments-error" role="alert"><p>{error}</p><button onClick={() => setRevision(v => v + 1)}>다시 시도</button></div>}
       {!post && !error && <p className="comments-error" role="status">게시글을 불러오는 중...</p>}
-      {post && <>
+      {post && <GalleryPermissionProvider galleryId={post.gallery.galleryId}>
         <article className="community-post comments-post">
           <div className="community-author"><Avatar src={post.writer.profileImageUrl} /><strong>{post.writer.nickname || "알 수 없는 사용자"}</strong><span>• {time(post.createdAt)}</span><span>• 조회 {post.viewCount.toLocaleString("ko-KR")}</span></div>
+          <ContentActions key={currentUserId} kind="post" contentId={post.postId} onChanged={() => { setPost(null); setRevision(v => v + 1); }} />
           <h2>{post.title}</h2><p className="comments-post-content">{post.content}</p>
           {post.imageUrl && <Image className="community-image" src={post.imageUrl} alt="게시글 첨부 이미지" width={350} height={262} unoptimized />}
           <div className="community-actions">
@@ -230,7 +230,7 @@ export function PostCommentsScreen({ postId }: { postId: number }) {
           </div>
         </article>
         <section ref={comments} className="post-comment-list" aria-label="댓글 목록"><CommentThread postId={postId} parentId={null} revision={revision} onReply={target => { setReply(target); input.current?.focus(); }} onChanged={() => { setNotice(""); setRevision(v => v + 1); }} /></section>
-      </>}
+      </GalleryPermissionProvider>}
     </div>
     <form className="comment-composer" onSubmit={submit}>
       {reply && <div className="reply-target">{reply.nickname}에게 답글 <button type="button" disabled={submitting} onClick={() => setReply(null)}>취소</button></div>}
