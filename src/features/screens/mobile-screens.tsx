@@ -21,6 +21,8 @@ import { uploadMedia } from "@/lib/api/media";
 import { useHomeSongs } from "@/hooks/use-home-songs";
 import { usePopularPosts } from "@/hooks/use-popular-posts";
 import { validatePostImage } from "@/features/community/post-image";
+import { FriendsHome } from "@/features/social/social-screens";
+import type { Person } from "@/lib/api/social";
 import { PopularActions } from "./popular-actions";
 import { ContentShareDialog } from "@/features/screens/content-share";
 
@@ -108,73 +110,6 @@ export function PostsScreen({ go, onOpenPost }: { go: Navigate; onOpenPost: (pos
     </button>
     <PopularActions content={{ kind: "post", id: post.postId }} />
   </div>)}</div></div>;
-}
-export function FriendsScreen({ go }: { go: Navigate }) {
-  const [following, setFollowing] = useState([false, true, true, false]);
-  const [requests, setRequests] = useState([true, true]);
-  return (
-    <div className="friends-view">
-      <section>
-        <SectionTitle>팔로우 추천</SectionTitle>
-        <div className="people-list">
-          {following.map((on, i) => (
-            <div className="person" key={i}>
-              <button className="person-link" onClick={() => go("profile")}>
-                <Avatar />
-                <span>
-                  <strong>Muhehehe</strong>
-                  <small>피아노</small>
-                </span>
-              </button>
-              <button
-                className="purple-pill"
-                onClick={() =>
-                  setFollowing((s) => s.map((v, x) => (x === i ? !v : v)))
-                }
-              >
-                {on ? "맞팔로우" : "팔로우"}
-              </button>
-            </div>
-          ))}
-        </div>
-      </section>
-      <section>
-        <SectionTitle>팔로우 요청</SectionTitle>
-        <div className="people-list">
-          {requests.map(
-            (show, i) =>
-              show && (
-                <div className="person" key={i}>
-                  <button className="person-link" onClick={() => go("profile")}>
-                    <Avatar />
-                    <span>
-                      <strong>Muhehehe</strong>
-                      <small>피아노</small>
-                    </span>
-                  </button>
-                  <button
-                    className="purple-pill compact"
-                    onClick={() =>
-                      setRequests((s) => s.map((v, x) => (x === i ? false : v)))
-                    }
-                  >
-                    확인
-                  </button>
-                  <button
-                    className="gray-pill"
-                    onClick={() =>
-                      setRequests((s) => s.map((v, x) => (x === i ? false : v)))
-                    }
-                  >
-                    취소
-                  </button>
-                </div>
-              ),
-          )}
-        </div>
-      </section>
-    </div>
-  );
 }
 export function SearchScreen({ go }: { go: Navigate }) { const [query, setQuery] = useState(""); return <div className="search-view"><div className="search-line"><button onClick={() => go("home")} aria-label="뒤로"><Asset name="return.svg" /></button><label><Asset name="search.svg" /><input autoFocus value={query} onChange={e => setQuery(e.target.value)} placeholder="검색" />{query && <button onClick={() => setQuery("")} aria-label="검색어 지우기">×</button>}</label></div>{query && <p className="search-result">‘{query}’ 검색 결과가 없습니다.</p>}</div>; }
 export function PostComposer({ galleryId, onCreated, onCancel }: { galleryId: number; onCreated: () => void; onCancel: () => void }) {
@@ -423,7 +358,7 @@ export function CommunityPost({ post, onChanged, onCompose, onComments }: { post
 export type CommunityTab = "posts" | "community" | "friends";
 
 // tab은 page.tsx가 들고 있다 — "모두보기"로 전체 목록에 다녀와도 커뮤니티 탭이 유지되도록.
-export function CommunityScreen({ go, tab, onTabChange, onComments, onOpenCommunity }: { go: Navigate; tab: CommunityTab; onTabChange: (tab: CommunityTab) => void; onComments: (postId: number) => void; onOpenCommunity: (community: Community) => void }) {
+export function CommunityScreen({ go, tab, onTabChange, onComments, onOpenCommunity, onChat, onProfile }: { go: Navigate; tab: CommunityTab; onTabChange: (tab: CommunityTab) => void; onComments: (postId: number) => void; onOpenCommunity: (community: Community) => void; onChat: (person: Person) => void; onProfile: (person: Person) => void }) {
   const [composerOpen, setComposerOpen] = useState(false);
   const posts = useGalleryPosts(DEFAULT_GALLERY_ID);
 
@@ -456,7 +391,7 @@ export function CommunityScreen({ go, tab, onTabChange, onComments, onOpenCommun
           {!composerOpen && <button className="community-compose purple-pill" onClick={() => setComposerOpen(true)}>글쓰기</button>}
         </>
       ) : tab === "friends" ? (
-        <FriendsScreen go={go} />
+        <FriendsHome onAllMutual={() => go("mutual")} onAllRecommendations={() => go("recommendations")} onChat={onChat} onProfile={onProfile} onLogin={() => go("login")} />
       ) : (
         <CommunityDirectory go={go} onOpen={onOpenCommunity} />
       )}
