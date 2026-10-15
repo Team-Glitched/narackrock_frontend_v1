@@ -10,6 +10,7 @@ const { d1, r2 } = hostingConfig;
 
 // macOS Seatbelt blocks FSEvents, so Codex previews need polling for HMR.
 const isCodexSeatbeltSandbox = process.env.CODEX_SANDBOX === "seatbelt";
+const previewApiProxyTarget = process.env.NARACKROCK_API_PROXY_TARGET;
 
 const localBindingConfig = {
   main: "vinext/server/fetch-handler",
@@ -51,6 +52,20 @@ export default defineConfig(async () => {
   return {
     server: {
       allowedHosts: ["narackrock.com"],
+      ...(previewApiProxyTarget
+        ? {
+            proxy: {
+              "/api": {
+                target: previewApiProxyTarget,
+                changeOrigin: true,
+                configure(proxy: { on: (event: "proxyReq", handler: (request: { removeHeader: (name: string) => void }) => void) => void }) {
+                  // The browser calls the preview's own origin; the upstream request is server-side.
+                  proxy.on("proxyReq", (request) => request.removeHeader("origin"));
+                },
+              },
+            },
+          }
+        : {}),
       ...(isCodexSeatbeltSandbox
         ? { watch: { useFsEvents: false, usePolling: true } }
         : {}),
