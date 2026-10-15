@@ -5,7 +5,7 @@ import { Asset } from "@/components/app/shared";
 import { initialShortIndex } from "@/features/abyss/initial-short";
 import { canJoinShort } from "@/features/abyss/short-participation";
 import { useCurrentUserId } from "@/hooks/use-current-user";
-import { getShorts } from "@/lib/api/shorts";
+import { getShorts, toggleShortReaction } from "@/lib/api/shorts";
 import type { ShortItemDto, ShortsPageDto } from "@/lib/api/contracts";
 
 type FeedState = "loading" | "ready" | "error";
@@ -23,6 +23,8 @@ export function AbyssScreen({ onJoin, initialShortId, muted = false }: { onJoin:
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
   const [playbackError, setPlaybackError] = useState<string | null>(null);
+  const [reactionBusy, setReactionBusy] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
   const loadingMoreRef = useRef(false);
 
@@ -109,6 +111,24 @@ export function AbyssScreen({ onJoin, initialShortId, muted = false }: { onJoin:
     }
   }
 
+  async function react(type: "like" | "dislike") {
+    if (!current || reactionBusy) return;
+    setReactionBusy(true);
+    setActionError(null);
+    try {
+      const result = await toggleShortReaction(current.shortId, type);
+      setShorts(items => items.map(item => item.shortId !== current.shortId ? item : {
+        ...item,
+        isLiked: type === "like" ? Boolean(result.isLiked) : false,
+        isDisliked: type === "dislike" ? Boolean(result.isDisliked) : false,
+        likeCount: type === "like" ? result.likeCount ?? item.likeCount : Math.max(0, item.likeCount - (item.isLiked ? 1 : 0)),
+        dislikeCount: type === "dislike" ? result.dislikeCount ?? item.dislikeCount : Math.max(0, item.dislikeCount - (item.isDisliked ? 1 : 0)),
+      }));
+    } catch (error) {
+      setActionError(error instanceof Error ? error.message : "반응을 저장하지 못했습니다.");
+    } finally { setReactionBusy(false); }
+  }
+
   if (feedState === "loading") {
     return <div className="abyss-view abyss-state" role="status">숏폼을 불러오는 중입니다.</div>;
   }
@@ -133,14 +153,15 @@ export function AbyssScreen({ onJoin, initialShortId, muted = false }: { onJoin:
       </div>
       <div className="abyss-actions">
         <div className="abyss-vote">
-          <button className={current.isLiked ? "active" : ""} aria-label={`좋아요 ${current.likeCount}개`} disabled><Asset name="like.svg" />{current.likeCount}</button>
+          <button className={current.isLiked ? "active" : ""} aria-label={`좋아요 ${current.likeCount}개`} aria-pressed={current.isLiked} disabled={reactionBusy} onClick={() => react("like")}><Asset name={current.isLiked ? "like-filled.svg" : "like.svg"} />{current.likeCount}</button>
           <i />
-          <button className="abyss-dislike" aria-label={`싫어요 ${current.dislikeCount}개`} disabled><Asset name="like.svg" /></button>
+          <button className={`abyss-dislike ${current.isDisliked ? "active" : ""}`} aria-label={`싫어요 ${current.dislikeCount}개`} aria-pressed={current.isDisliked} disabled={reactionBusy} onClick={() => react("dislike")}><Asset name={current.isDisliked ? "like-filled.svg" : "like.svg"} /></button>
         </div>
         <button disabled aria-label={`댓글 ${current.commentCount}개`}><Asset name="comment.svg" />{current.commentCount}</button>
         <button disabled aria-label="공유"><Asset name="share.svg" /></button>
         <button disabled aria-label="저장"><Asset name="bookmark.svg" /></button>
       </div>
+      {actionError && <p className="abyss-action-error" role="alert">{actionError}</p>}
       <div className="abyss-player">
         <audio
           key={current.shortId}

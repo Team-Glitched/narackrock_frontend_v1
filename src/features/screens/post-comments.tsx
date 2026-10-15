@@ -5,8 +5,8 @@ import Image from "next/image";
 import { formatDistanceToNow } from "date-fns";
 import { ko } from "date-fns/locale";
 import { Asset, Avatar } from "@/components/app/shared";
-import { createPostComment, deletePostComment, fetchPost, fetchPostComments, recordPostView, updatePostComment } from "@/lib/api/community";
-import { ApiError } from "@/lib/api/client";
+import { createPostComment, deletePostComment, fetchPost, fetchPostComments, recordPostView, togglePostReaction, updatePostComment } from "@/lib/api/community";
+import { ApiError, getCurrentUserId } from "@/lib/api/client";
 import type { PostComment, PostCommentPage, PostDetailResponse } from "@/lib/api/contracts";
 import "./community.css";
 import { ContentActions } from "@/features/community/admin/content-actions";
@@ -168,6 +168,7 @@ export function PostCommentsScreen({ postId }: { postId: number }) {
   const [submitting, setSubmitting] = useState(false);
   const [writeError, setWriteError] = useState<string | null>(null);
   const [notice, setNotice] = useState("");
+  const [reactionBusy, setReactionBusy] = useState(false);
   const input = useRef<HTMLTextAreaElement>(null);
   const comments = useRef<HTMLElement>(null);
   useEffect(() => {
@@ -203,6 +204,15 @@ export function PostCommentsScreen({ postId }: { postId: number }) {
     } catch (error) { setWriteError(errorMessage(error)); }
     finally { setSubmitting(false); }
   }
+  async function react(type: "like" | "dislike") {
+    if (!post || reactionBusy) return;
+    setReactionBusy(true); setError(null);
+    try {
+      const result = await togglePostReaction(postId, type);
+      setPost(current => current && ({ ...current, ...result }));
+    } catch (cause) { setError(errorMessage(cause)); }
+    finally { setReactionBusy(false); }
+  }
   return <div className="comments-screen community-view">
     <div className="comments-scroll scroll-content">
       {error && <div className="comments-error" role="alert"><p>{error}</p><button onClick={() => setRevision(v => v + 1)}>다시 시도</button></div>}
@@ -214,7 +224,7 @@ export function PostCommentsScreen({ postId }: { postId: number }) {
           <h2>{post.title}</h2><p className="comments-post-content">{post.content}</p>
           {post.imageUrl && <Image className="community-image" src={post.imageUrl} alt="게시글 첨부 이미지" width={350} height={262} unoptimized />}
           <div className="community-actions">
-            <div className="community-vote"><button disabled aria-label="게시글 좋아요 준비 중"><Asset name="like.svg" />{post.likeCount}</button><span /><button disabled aria-label="게시글 싫어요 준비 중"><Asset name="like.svg" className="thumb-down" /></button></div>
+            <div className="community-vote"><button disabled={reactionBusy} onClick={() => react("like")} aria-label="게시글 좋아요" aria-pressed={post.isLiked}><Asset name={post.isLiked ? "like-filled.svg" : "like.svg"} />{post.likeCount}</button><span /><button disabled={reactionBusy} onClick={() => react("dislike")} aria-label="게시글 싫어요" aria-pressed={post.isDisliked}><Asset name={post.isDisliked ? "like-filled.svg" : "like.svg"} className="thumb-down" /></button></div>
             <button aria-label={`댓글 ${post.commentCount}개로 이동`} onClick={() => comments.current?.scrollIntoView({ block: "start" })}><Asset name="comment.svg" />{post.commentCount}</button><i />
             <button disabled aria-label="공유 준비 중"><Asset name="share.svg" /></button><button disabled aria-label="북마크 준비 중"><Asset name="bookmark.svg" /></button>
           </div>

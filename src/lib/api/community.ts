@@ -132,6 +132,12 @@ export function fetchPost(postId: number): Promise<PostDetailResponse> {
   return apiRequest<ApiResponse<PostDetailResponse>>(`/api/v1/posts/${postId}`).then((response) => response.data);
 }
 
+export type PostReaction = { postId: number; isLiked: boolean; isDisliked: boolean; likeCount: number; dislikeCount: number };
+
+export function togglePostReaction(postId: number, type: "like" | "dislike"): Promise<PostReaction> {
+  return apiRequest<ApiResponse<PostReaction>>(`/api/v1/posts/${postId}/${type}s`, { method: "POST" }).then(response => response.data);
+}
+
 // 아래 3개도 로그인(Authorization 헤더)이 필요하다 — auth.ts의 loginWithGoogle()로 먼저 토큰을 발급받아야 한다.
 
 export function createPost(
