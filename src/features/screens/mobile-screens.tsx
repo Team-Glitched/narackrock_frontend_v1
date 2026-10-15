@@ -19,6 +19,7 @@ import { ApiError, getAccessToken } from "@/lib/api/client";
 import { uploadMedia } from "@/lib/api/media";
 import { useHomeSongs } from "@/hooks/use-home-songs";
 import { validatePostImage } from "@/features/community/post-image";
+import { ContentShareDialog } from "@/features/screens/content-share";
 
 function postError(error: unknown): string {
   if (error instanceof ApiError) {
@@ -242,9 +243,11 @@ export function CommunityPost({ post, onChanged, onCompose, onComments }: { post
   const [menuOpen, setMenuOpen] = useState(false);
   const [vote, setVote] = useState<"like" | "dislike" | null>(null);
   const [likeCount, setLikeCount] = useState(post.likeCount);
+  const [dislikeCount, setDislikeCount] = useState(post.dislikeCount);
   const [reactionBusy, setReactionBusy] = useState(false);
   const [saved, setSaved] = useState(false);
   const [bookmarkBusy, setBookmarkBusy] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState(post.title);
   const [content, setContent] = useState("");
@@ -264,6 +267,7 @@ export function CommunityPost({ post, onChanged, onCompose, onComments }: { post
         setImageUrl(detail.imageUrl);
         setVote(detail.isLiked ? "like" : detail.isDisliked ? "dislike" : null);
         setLikeCount(detail.likeCount);
+        setDislikeCount(detail.dislikeCount);
         setSaved(detail.isBookmarked);
       }
     }).catch(error => {
@@ -293,6 +297,7 @@ export function CommunityPost({ post, onChanged, onCompose, onComments }: { post
       const result = await togglePostReaction(post.postId, type);
       setVote(result.isLiked ? "like" : result.isDisliked ? "dislike" : null);
       setLikeCount(result.likeCount);
+      setDislikeCount(result.dislikeCount);
     } catch (cause) { setError(postError(cause)); }
     finally { setReactionBusy(false); }
   }
@@ -389,12 +394,13 @@ export function CommunityPost({ post, onChanged, onCompose, onComments }: { post
       {confirmDelete && <div className="post-delete-confirm" role="group" aria-label="게시글 삭제 확인"><p>이 게시글을 삭제할까요?</p><button className="gray-pill" disabled={submitting} onClick={() => setConfirmDelete(false)}>취소</button><button className="purple-pill" disabled={submitting} onClick={remove}>{submitting ? "삭제 중..." : "삭제 확인"}</button></div>}
       {imageUrl && <Image className="community-image" src={imageUrl} alt="게시글 첨부 이미지" width={350} height={262} unoptimized />}
       <div className="community-actions">
-        <div className={`community-vote${vote ? " active" : ""}`} role="group" aria-label="게시글 반응"><button className={vote === "like" ? "liked" : ""} onClick={() => react("like")} disabled={reactionBusy} aria-label="좋아요" aria-pressed={vote === "like"}><Asset name={vote === "like" ? "like-filled.svg" : "like.svg"} />{likeCount}</button><span className="community-vote-divider" aria-hidden="true" /><button aria-label="싫어요" aria-pressed={vote === "dislike"} disabled={reactionBusy} onClick={() => react("dislike")}><Asset name={vote === "dislike" ? "like-filled.svg" : "like.svg"} className="thumb-down" /></button></div>
+        <div className={`community-vote${vote ? " active" : ""}`} role="group" aria-label="게시글 반응"><button className={vote === "like" ? "liked" : ""} onClick={() => react("like")} disabled={reactionBusy} aria-label={`좋아요 ${likeCount}개`} aria-pressed={vote === "like"}><Asset name={vote === "like" ? "like-filled.svg" : "like.svg"} />{likeCount}</button><span className="community-vote-divider" aria-hidden="true" /><button aria-label={`싫어요 ${dislikeCount}개`} aria-pressed={vote === "dislike"} disabled={reactionBusy} onClick={() => react("dislike")}><Asset name={vote === "dislike" ? "like-filled.svg" : "like.svg"} className="thumb-down" />{dislikeCount}</button></div>
         <button onClick={() => onComments(post.postId)} aria-label={`댓글 ${post.commentCount}개 보기`}><Asset name="comment.svg" />{post.commentCount}</button>
         <i />
-        <button disabled aria-label="공유 기능 준비 중" title="공유 기능 준비 중"><Asset name="share.svg" /></button>
+        <button aria-label="게시글 공유" onClick={() => setShareOpen(true)}><Asset name="share.svg" /></button>
         <button className={saved ? "active" : ""} aria-label="게시글 북마크" aria-pressed={saved} disabled={bookmarkBusy} onClick={bookmark}><Asset name={saved ? "bookmark-filled.svg" : "bookmark.svg"} /></button>
       </div>
+      {shareOpen && <ContentShareDialog content={{ kind: "post", id: post.postId }} onClose={() => setShareOpen(false)} />}
     </article>
   );
 }
