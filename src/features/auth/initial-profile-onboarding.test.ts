@@ -20,20 +20,20 @@ test("collects a first-time user's profile in name, instrument, description orde
   assert.match(profileScreen, /setStep\(2\)/);
   assert.match(
     profileScreen,
-    /updateProfile\({ nickname: nickname.trim\(\), primaryInstrument: instrument.trim\(\), explanation: explanation.trim\(\) }\)/,
+    /updateProfile\(\{\s*nickname: nickname.trim\(\),\s*primaryInstrument: instrument.trim\(\),\s*explanation: explanation.trim\(\),?\s*\}\)/,
   );
 });
 
 test("shows first-login onboarding without the regular header and footer", () => {
   assert.match(page, /const onboardingView = Boolean\(pendingProfileSetup\)/);
   assert.match(page, /const noHeader = authView \|\| onboardingView/);
-  assert.match(page, /!authView && !onboardingView && <Footer/);
+  assert.match(page, /!authView && !onboardingView && activeView !== "chat" && <Footer/);
 });
 
 test("returns to the name step when the nickname is actually duplicated", () => {
   assert.match(
     profileScreen,
-    /cause instanceof ApiError && cause.errorCode === "DUPLICATE_NICKNAME"/,
+    /cause instanceof ApiError &&\s*cause.errorCode === "DUPLICATE_NICKNAME"/,
   );
   assert.match(profileScreen, /setStep\(0\)/);
 });
