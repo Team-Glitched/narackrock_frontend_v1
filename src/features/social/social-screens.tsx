@@ -24,10 +24,14 @@ export function FriendsHome({ onAllMutual, onAllRecommendations, onChat, onProfi
   const [busy, setBusy] = useState<number | null>(null);
   const load = useCallback(async () => {
     if (userId == null) return;
-    const [friends, suggestions, pending] = await Promise.all([getMutualFollowers(), getRecommendations(0, 5), getOutgoingFollowRequests()]);
-    setMutual(friends); setRecommended(suggestions.recommendedUsers); setOutgoing(pending);
+    const [friends, suggestions, pending] = await Promise.allSettled([getMutualFollowers(), getRecommendations(0, 5), getOutgoingFollowRequests()]);
+    if (friends.status === "fulfilled") setMutual(friends.value);
+    if (suggestions.status === "fulfilled") setRecommended(suggestions.value.recommendedUsers);
+    if (pending.status === "fulfilled") setOutgoing(pending.value);
+    setError(suggestions.status === "rejected" ? "팔로우 추천을 불러오지 못했습니다."
+      : friends.status === "rejected" || pending.status === "rejected" ? "일부 친구 정보를 불러오지 못했습니다." : null);
   }, [userId]);
-  useEffect(() => { void Promise.resolve().then(load).catch(() => setError("친구 목록을 불러오지 못했습니다.")); }, [load]);
+  useEffect(() => { void Promise.resolve().then(load); }, [load]);
   async function toggle(person: RecommendedPerson) {
     if (busy != null) return;
     setBusy(person.userId); setError(null);
@@ -61,13 +65,17 @@ export function PeopleListScreen({ kind, onChat, onProfile }: { kind: "mutual" |
   const [busy, setBusy] = useState<number | null>(null);
   const load = useCallback(async () => {
     if (userId == null) return;
-    const [list, friends, pending] = await Promise.all([
+    const [list, friends, pending] = await Promise.allSettled([
       kind === "mutual" ? getMutualFollowers() : kind === "followers" ? getFollowers(userId) : kind === "following" ? getFollowing(userId) : getRecommendations(0, 100).then(result => result.recommendedUsers),
       getMutualFollowers(), getOutgoingFollowRequests(),
     ]);
-    setPeople(list); setMutual(friends); setOutgoing(pending);
+    if (list.status === "fulfilled") setPeople(list.value);
+    if (friends.status === "fulfilled") setMutual(friends.value);
+    if (pending.status === "fulfilled") setOutgoing(pending.value);
+    setError(list.status === "rejected" ? "목록을 불러오지 못했습니다."
+      : friends.status === "rejected" || pending.status === "rejected" ? "일부 친구 정보를 불러오지 못했습니다." : null);
   }, [kind, userId]);
-  useEffect(() => { void Promise.resolve().then(load).catch(() => setError("목록을 불러오지 못했습니다.")); }, [load]);
+  useEffect(() => { void Promise.resolve().then(load); }, [load]);
   const title = { mutual: "맞팔로우 된 사용자", recommendations: "팔로우 추천", followers: "Follower", following: "Following" }[kind];
   const mutualIds = new Set(mutual.map(person => person.userId));
   const shown = kind === "followers" && filter === "mutual" ? people.filter(person => mutualIds.has(person.userId)) : people;

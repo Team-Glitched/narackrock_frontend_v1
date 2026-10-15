@@ -29,6 +29,7 @@ import type { Community } from "@/features/screens/community-card";
 import { useCurrentUserId } from "@/hooks/use-current-user";
 import { getProfile } from "@/lib/api/profile";
 import { parseContentLink } from "@/lib/api/content-link";
+import { ApiError } from "@/lib/api/client";
 
 // Provider가 api를 의존성으로 보므로 렌더마다 새로 만들지 않는다.
 const membershipApi = createServerMembershipApi();
@@ -107,8 +108,14 @@ export default function Page() {
   useEffect(() => {
     if (currentUserId == null) return;
     let alive = true;
+    let followRequestsRetryAfter = 0;
     const refresh = async () => {
-      const [contributions, follows] = await Promise.allSettled([getContributionInbox(), getFollowRequests()]);
+      const loadFollows = Date.now() >= followRequestsRetryAfter;
+      const [contributions, follows] = await Promise.allSettled([getContributionInbox(), loadFollows ? getFollowRequests() : Promise.resolve([])]);
+      if (follows.status === "rejected" && follows.reason instanceof ApiError && follows.reason.status === 401) {
+        // The deployed API may not have the follow-request route yet. Retry later instead of rotating tokens every poll.
+        followRequestsRetryAfter = Date.now() + 5 * 60_000;
+      }
       if (alive) setNotificationCount((contributions.status === "fulfilled" ? contributions.value.length : 0) + (follows.status === "fulfilled" ? follows.value.length : 0));
     };
     void refresh();
