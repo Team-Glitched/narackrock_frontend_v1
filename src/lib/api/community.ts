@@ -143,6 +143,10 @@ export function togglePostReaction(postId: number, type: "like" | "dislike"): Pr
   return apiRequest<ApiResponse<PostReaction>>(`/api/v1/posts/${postId}/${type}s`, { method: "POST" }).then(response => response.data);
 }
 
+export function togglePostBookmark(postId: number): Promise<{ postId: number; isBookmarked: boolean }> {
+  return apiRequest<ApiResponse<{ postId: number; isBookmarked: boolean }>>(`/api/v1/posts/${postId}/bookmark`, { method: "POST" }).then(response => response.data);
+}
+
 // 아래 3개도 로그인(Authorization 헤더)이 필요하다 — auth.ts의 loginWithGoogle()로 먼저 토큰을 발급받아야 한다.
 
 export function createPost(

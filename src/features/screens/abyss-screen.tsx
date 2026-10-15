@@ -6,7 +6,7 @@ import { initialShortIndex } from "@/features/abyss/initial-short";
 import { ShortCommentsSheet } from "@/features/screens/short-comments";
 import { canJoinShort } from "@/features/abyss/short-participation";
 import { useCurrentUserId } from "@/hooks/use-current-user";
-import { getShorts, toggleShortReaction } from "@/lib/api/shorts";
+import { getShorts, toggleShortBookmark, toggleShortReaction } from "@/lib/api/shorts";
 import type { ShortItemDto, ShortsPageDto } from "@/lib/api/contracts";
 
 type FeedState = "loading" | "ready" | "error";
@@ -25,6 +25,7 @@ export function AbyssScreen({ onJoin, initialShortId, muted = false }: { onJoin:
   const [duration, setDuration] = useState(0);
   const [playbackError, setPlaybackError] = useState<string | null>(null);
   const [reactionBusy, setReactionBusy] = useState(false);
+  const [bookmarkBusy, setBookmarkBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [commentsOpen, setCommentsOpen] = useState(false);
   const audioRef = useRef<HTMLAudioElement>(null);
@@ -132,6 +133,16 @@ export function AbyssScreen({ onJoin, initialShortId, muted = false }: { onJoin:
     } finally { setReactionBusy(false); }
   }
 
+  async function bookmark() {
+    if (!current || bookmarkBusy) return;
+    setBookmarkBusy(true); setActionError(null);
+    try {
+      const result = await toggleShortBookmark(current.shortId);
+      setShorts(items => items.map(item => item.shortId === current.shortId ? { ...item, isBookmarked: result.isBookmarked } : item));
+    } catch (cause) { setActionError(cause instanceof Error ? cause.message : "북마크를 저장하지 못했습니다."); }
+    finally { setBookmarkBusy(false); }
+  }
+
   if (feedState === "loading") {
     return <div className="abyss-view abyss-state" role="status">숏폼을 불러오는 중입니다.</div>;
   }
@@ -162,7 +173,7 @@ export function AbyssScreen({ onJoin, initialShortId, muted = false }: { onJoin:
         </div>
         <button aria-label={`댓글 ${current.commentCount}개`} onClick={() => setCommentsOpen(true)}><Asset name="comment.svg" />{current.commentCount}</button>
         <button disabled aria-label="공유"><Asset name="share.svg" /></button>
-        <button disabled aria-label="저장"><Asset name="bookmark.svg" /></button>
+        <button disabled={bookmarkBusy} aria-label="숏폼 북마크" aria-pressed={current.isBookmarked} onClick={bookmark}><Asset name={current.isBookmarked ? "bookmark-filled.svg" : "bookmark.svg"} /></button>
       </div>
       {actionError && <p className="abyss-action-error" role="alert">{actionError}</p>}
       <div className="abyss-player">
