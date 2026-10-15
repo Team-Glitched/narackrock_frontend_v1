@@ -250,11 +250,12 @@ export default function Page() {
   if (activeView === "studio" || activeView === "note") return <main className="studio-shell">{content}</main>;
   const authView = activeView === "login";
   const onboardingView = Boolean(pendingProfileSetup);
-  const noHeader = authView || onboardingView || (commentPostId === null && (activeView === "charts" || activeView === "posts" || activeView === "search"));
+  const noHeader = authView || onboardingView || (commentPostId === null && activeView === "search");
   const footerView = activeView === "joined" ? "social" : activeView;
   const onBack = commentPostId !== null ? () => setCommentPostId(null)
     : activeView === "bookmarks" ? () => go("profile")
     : selectedCommunity ? () => setSelectedCommunity(null)
+    : activeView === "charts" || activeView === "posts" ? () => go("home")
     : activeView === "joined" ? () => go("social")
      : activeView === "opensourceDetail" || activeView === "opensourceComments" ? () => go("opensource") : undefined;
   const headerBack = onBack ?? (activeView === "edit" ? () => {

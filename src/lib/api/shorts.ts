@@ -59,6 +59,12 @@ export async function getPopularShorts(size = 10, signal?: AbortSignal): Promise
   return response.data;
 }
 
+export function reportShort(shortId: number, reason: string, description = ""): Promise<void> {
+  return apiRequest<ApiEnvelope<unknown>>(`/api/v1/shorts/${shortId}/reports`, {
+    method: "POST", body: JSON.stringify({ reason, description }),
+  }).then(() => undefined);
+}
+
 export async function getMyShorts(size = 10, signal?: AbortSignal): Promise<ShortsPageDto> {
   const response = await apiRequest<ApiEnvelope<ShortsPageDto>>(
     `/api/v1/shorts/mine?size=${encodeURIComponent(size)}`,
