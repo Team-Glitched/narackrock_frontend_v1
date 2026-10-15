@@ -24,6 +24,7 @@ import { CommunityDetailScreen } from "@/features/screens/community-detail";
 import type { Community } from "@/features/screens/community-card";
 import { useCurrentUserId } from "@/hooks/use-current-user";
 import { getProfile } from "@/lib/api/profile";
+import { parseContentLink } from "@/lib/api/content-link";
 
 // Provider가 api를 의존성으로 보므로 렌더마다 새로 만들지 않는다.
 const membershipApi = createServerMembershipApi();
@@ -54,6 +55,24 @@ export default function Page() {
   const [reviewOrigin, setReviewOrigin] = useState(false);
   const [choiceBusy, setChoiceBusy] = useState(false);
   const [choiceError, setChoiceError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const openSharedContent = () => {
+      const target = parseContentLink(window.location.pathname, window.location.search);
+      if (!target) return;
+      if (target.kind === "post") {
+        if (currentUserId === null) { setView("login"); return; }
+        setCommentPostId(target.id);
+        setView("social");
+      } else {
+        setAbyssTargetShortId(target.id);
+        setView("abyss");
+      }
+    };
+    openSharedContent();
+    window.addEventListener("popstate", openSharedContent);
+    return () => window.removeEventListener("popstate", openSharedContent);
+  }, [currentUserId]);
 
   const go = useCallback((next: View) => {
     setCommentPostId(null);
@@ -230,11 +249,12 @@ export default function Page() {
   if (activeView === "studio" || activeView === "note") return <main className="studio-shell">{content}</main>;
   const authView = activeView === "login";
   const onboardingView = Boolean(pendingProfileSetup);
-  const noHeader = authView || onboardingView || (commentPostId === null && (activeView === "charts" || activeView === "posts" || activeView === "search"));
+  const noHeader = authView || onboardingView || (commentPostId === null && activeView === "search");
   const footerView = activeView === "joined" ? "social" : activeView;
   const onBack = commentPostId !== null ? () => setCommentPostId(null)
     : activeView === "bookmarks" ? () => go("profile")
     : selectedCommunity ? () => setSelectedCommunity(null)
+    : activeView === "charts" || activeView === "posts" ? () => go("home")
     : activeView === "joined" ? () => go("social")
      : activeView === "opensourceDetail" || activeView === "opensourceComments" ? () => go("opensource") : undefined;
   const headerBack = onBack ?? (activeView === "edit" ? () => {

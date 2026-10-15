@@ -51,6 +51,7 @@ import type {
   PostCreateResponse,
   PostDetailResponse,
   PostListResponse,
+  PopularPostListResponse,
   PostSort,
   PostUpdateResponse,
 } from "./contracts";
@@ -66,6 +67,19 @@ import type {
  * 커뮤니티 목록·상세는 더 이상 이 값을 쓰지 않고 서버가 준 galleryId를 쓴다.
  */
 export const DEFAULT_GALLERY_ID = 1;
+
+export function fetchPopularPosts(size = 100, signal?: AbortSignal): Promise<PopularPostListResponse> {
+  return apiRequest<ApiResponse<PopularPostListResponse>>(
+    `/api/v1/posts/popular?page=0&size=${encodeURIComponent(size)}`,
+    { signal, credentials: "omit" },
+  ).then(response => response.data);
+}
+
+export function reportPost(postId: number, reason: string, description = ""): Promise<void> {
+  return apiRequest<ApiResponse<unknown>>(`/api/v1/posts/${postId}/reports`, {
+    method: "POST", body: JSON.stringify({ reason, description }),
+  }).then(() => undefined);
+}
 
 // 전체 갤러리 목록. 비로그인도 호출할 수 있고, 페이지네이션 없이 전량이 온다.
 // 정렬은 서버가 구독자 수 내림차순 → id 오름차순으로 고정한다.
