@@ -1,5 +1,7 @@
 "use client";
 
+import { GalleryPermissionProvider } from "@/features/community/admin/moderation-state";
+import { ManageEntry } from "@/features/community/admin/manage-panel";
 import { useMemo, useRef, useState } from "react";
 import { Avatar } from "@/components/app/shared";
 import { useGalleries } from "@/hooks/use-galleries";
@@ -12,7 +14,11 @@ import { CommunityPost, PostComposer } from "./mobile-screens";
 import { PostListControls } from "./post-list-controls";
 import "./community.css";
 
-export function CommunityDetailScreen({ community: selected, onComments }: {
+export function CommunityDetailScreen(props: { community: Community; onComments: (postId: number) => void }) {
+  return <GalleryPermissionProvider galleryId={props.community.galleryId}><CommunityDetailContent {...props} /></GalleryPermissionProvider>;
+}
+
+function CommunityDetailContent({ community: selected, onComments }: {
   community: Community; onComments: (postId: number) => void;
 }) {
   const membership = useCommunityMembership();
@@ -40,6 +46,7 @@ export function CommunityDetailScreen({ community: selected, onComments }: {
 
   return <div ref={scrollRef} className="community-detail community-view scroll-content">
     <div className="community-detail-banner" aria-hidden="true" />
+    <ManageEntry name={community.name} description={community.description || ""} onChanged={galleries.refetch} />
     <section className="community-detail-info" aria-label="커뮤니티 소개">
       <div className="community-detail-heading">
         <Avatar src={community.imageUrl} />

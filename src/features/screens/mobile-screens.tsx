@@ -1,6 +1,8 @@
 "use client";
 
 import "./community.css";
+import { ContentActions } from "@/features/community/admin/content-actions";
+import { useCurrentUserId } from "@/hooks/use-current-user";
 import { CommunityDirectory } from "./community-directory";
 import type { Community } from "./community-card";
 
@@ -236,6 +238,7 @@ export function PostComposer({ galleryId, onCreated, onCancel }: { galleryId: nu
 }
 
 export function CommunityPost({ post, onChanged, onCompose, onComments }: { post: PostListItem; onChanged: () => void; onCompose: () => void; onComments: (postId: number) => void }) {
+  const currentUserId = useCurrentUserId();
   const [menuOpen, setMenuOpen] = useState(false);
   const [vote, setVote] = useState<"like" | "dislike" | null>(null);
   const [saved, setSaved] = useState(false);
@@ -353,7 +356,7 @@ export function CommunityPost({ post, onChanged, onCompose, onComments }: { post
         <span>• 조회 {post.viewCount.toLocaleString("ko-KR")}</span>
         <button disabled={submitting} onClick={() => setMenuOpen((open) => !open)} aria-expanded={menuOpen} aria-label="게시글 더보기"><Asset name="option.svg" /></button>
       </div>
-      {menuOpen && <div className="post-menu-actions"><button className="gray-pill compact" onClick={onCompose}>글쓰기</button><button className="gray-pill compact" onClick={startEdit}>수정</button><button className="gray-pill compact" onClick={() => { setConfirmDelete(true); setMenuOpen(false); }}>삭제</button></div>}
+      {menuOpen && <div className="post-menu-actions"><button className="gray-pill compact" onClick={onCompose}>글쓰기</button>{currentUserId === post.writer.userId && <><button className="gray-pill compact" onClick={startEdit}>수정</button><button className="gray-pill compact" onClick={() => { setConfirmDelete(true); setMenuOpen(false); }}>삭제</button></>}<ContentActions key={currentUserId} kind="post" contentId={post.postId} onChanged={onChanged} /></div>}
       <h2><button className="post-read" disabled={submitting} onClick={readPost} aria-expanded={expanded}>{post.title}</button></h2>
       <button className={`post-preview ${expanded ? "expanded" : ""}`} onClick={readPost} disabled={submitting}>{preview ?? "로그인 후 게시글 내용을 확인할 수 있어요."}</button>
       {error && <p className="post-form-error" role="alert">{error}</p>}
