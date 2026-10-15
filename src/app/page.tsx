@@ -9,6 +9,7 @@ import { CommunityMembershipProvider, createServerMembershipApi } from "@/featur
 import type { CommunityTab } from "@/features/screens/mobile-screens";
 import { ChartsScreen, CommunityScreen, FriendsScreen, HomeScreen, PostsScreen, SearchScreen, type SongChartKind } from "@/features/screens/mobile-screens";
 import { EditProfileScreen, InitialProfileSetupScreen, ProfileScreen } from "@/features/profile/profile-screens";
+import { SavedContentScreen } from "@/features/profile/saved-content";
 import { AbyssScreen } from "@/features/screens/abyss-screen";
 import { NotificationsScreen } from "@/features/screens/notifications-screen";
 import { OpensourceScreen, OpensourceDetailScreen } from "@/features/screens/opensource-screens";
@@ -39,7 +40,7 @@ export default function Page() {
   const [pendingProfileSetup, setPendingProfileSetup] = useState<PendingProfileSetup | null>(null);
   const activeView: View = currentUserId === null
     && pendingProfileSetup === null
-    && (view === "profile" || view === "edit")
+    && (view === "profile" || view === "bookmarks" || view === "edit")
     ? "login"
     : view;
   const [abyssMuted, setAbyssMuted] = useState(false);
@@ -197,6 +198,7 @@ export default function Page() {
     if (activeView === "opensourceComments") return <OpensourceDetailScreen focusComments />;
     if (activeView === "joined") return <JoinedCommunitiesScreen onOpen={setSelectedCommunity} />;
     if (activeView === "profile") return <ProfileScreen go={go} />;
+    if (activeView === "bookmarks") return <SavedContentScreen onOpenPost={setCommentPostId} onOpenShort={openHomeShort} />;
     if (activeView === "login") return <AuthScreen onAuthenticated={authenticate} onFirstLogin={startProfileSetup} />;
     if (activeView === "edit" && pendingProfileSetup) return <InitialProfileSetupScreen {...pendingProfileSetup} onSaved={authenticate} />;
     if (activeView === "edit") return <EditProfileScreen onSaved={profileUpdated} />;
@@ -231,6 +233,7 @@ export default function Page() {
   const noHeader = authView || onboardingView || (commentPostId === null && (activeView === "charts" || activeView === "posts" || activeView === "search"));
   const footerView = activeView === "joined" ? "social" : activeView;
   const onBack = commentPostId !== null ? () => setCommentPostId(null)
+    : activeView === "bookmarks" ? () => go("profile")
     : selectedCommunity ? () => setSelectedCommunity(null)
     : activeView === "joined" ? () => go("social")
      : activeView === "opensourceDetail" || activeView === "opensourceComments" ? () => go("opensource") : undefined;

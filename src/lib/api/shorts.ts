@@ -7,6 +7,10 @@ export function toggleShortReaction(shortId: number, type: "like" | "dislike"): 
   return apiRequest<ApiEnvelope<ShortReaction>>(`/api/v1/shorts/${shortId}/${type}`, { method: "POST" }).then(response => response.data);
 }
 
+export function toggleShortBookmark(shortId: number): Promise<{ shortId: number; isBookmarked: boolean }> {
+  return apiRequest<ApiEnvelope<{ shortId: number; isBookmarked: boolean }>>(`/api/v1/shorts/${shortId}/bookmark`, { method: "POST" }).then(response => response.data);
+}
+
 export function getShortComments(shortId: number): Promise<ShortCommentList> {
   return apiRequest<ApiEnvelope<ShortCommentList>>(`/api/v1/shorts/${shortId}/comments`).then(response => response.data);
 }

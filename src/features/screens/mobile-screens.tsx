@@ -13,7 +13,7 @@ import { useEffect, useState } from "react";
 import { Asset, Avatar, SectionTitle, SongRail } from "@/components/app/shared";
 import type { Navigate } from "@/features/navigation/types";
 import { useGalleryPosts } from "@/hooks/use-gallery-posts";
-import { createPost, DEFAULT_GALLERY_ID, deletePost, fetchPost, togglePostReaction, updatePost } from "@/lib/api/community";
+import { createPost, DEFAULT_GALLERY_ID, deletePost, fetchPost, togglePostBookmark, togglePostReaction, updatePost } from "@/lib/api/community";
 import type { PostListItem } from "@/lib/api/contracts";
 import { ApiError, getAccessToken } from "@/lib/api/client";
 import { uploadMedia } from "@/lib/api/media";
@@ -244,6 +244,7 @@ export function CommunityPost({ post, onChanged, onCompose, onComments }: { post
   const [likeCount, setLikeCount] = useState(post.likeCount);
   const [reactionBusy, setReactionBusy] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [bookmarkBusy, setBookmarkBusy] = useState(false);
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState(post.title);
   const [content, setContent] = useState("");
@@ -263,6 +264,7 @@ export function CommunityPost({ post, onChanged, onCompose, onComments }: { post
         setImageUrl(detail.imageUrl);
         setVote(detail.isLiked ? "like" : detail.isDisliked ? "dislike" : null);
         setLikeCount(detail.likeCount);
+        setSaved(detail.isBookmarked);
       }
     }).catch(error => {
       if (!cancelled) setError(postError(error));
@@ -293,6 +295,14 @@ export function CommunityPost({ post, onChanged, onCompose, onComments }: { post
       setLikeCount(result.likeCount);
     } catch (cause) { setError(postError(cause)); }
     finally { setReactionBusy(false); }
+  }
+
+  async function bookmark() {
+    if (bookmarkBusy) return;
+    setBookmarkBusy(true); setError(null);
+    try { setSaved((await togglePostBookmark(post.postId)).isBookmarked); }
+    catch (cause) { setError(postError(cause)); }
+    finally { setBookmarkBusy(false); }
   }
 
   async function startEdit() {
@@ -383,7 +393,7 @@ export function CommunityPost({ post, onChanged, onCompose, onComments }: { post
         <button onClick={() => onComments(post.postId)} aria-label={`댓글 ${post.commentCount}개 보기`}><Asset name="comment.svg" />{post.commentCount}</button>
         <i />
         <button disabled aria-label="공유 기능 준비 중" title="공유 기능 준비 중"><Asset name="share.svg" /></button>
-        <button className={saved ? "active" : ""} aria-label="저장" aria-pressed={saved} onClick={() => setSaved(current => !current)}><Asset name={saved ? "bookmark-filled.svg" : "bookmark.svg"} /></button>
+        <button className={saved ? "active" : ""} aria-label="게시글 북마크" aria-pressed={saved} disabled={bookmarkBusy} onClick={bookmark}><Asset name={saved ? "bookmark-filled.svg" : "bookmark.svg"} /></button>
       </div>
     </article>
   );
