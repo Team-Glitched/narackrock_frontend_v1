@@ -8,9 +8,34 @@ import { useCurrentUserId } from "@/hooks/use-current-user";
 import { logout } from "@/lib/api/auth";
 import { ApiError } from "@/lib/api/client";
 import { getProfile, updateProfile, updateProfileImage, updateProfilePrivacy } from "@/lib/api/profile";
-import type { UserProfile } from "@/lib/api/contracts";
+import type { ShortItemDto, UserProfile } from "@/lib/api/contracts";
 import { followPerson, getOutgoingFollowRequests, unfollowPerson } from "@/lib/api/social";
+import { getMyShorts } from "@/lib/api/shorts";
 import type { PlaybackMode } from "@/features/abyss/playback-mode";
+import "./profile.css";
+
+type ProfileSong = { shortId: number; title: string; albumImageUrl: string | null; subtitle: string };
+
+function ProfileMusicSection({ title, songs, status, onOpen, onAll }: {
+  title: string;
+  songs: ProfileSong[];
+  status: "loading" | "ready" | "error";
+  onOpen: (shortId: number) => void;
+  onAll?: () => void;
+}) {
+  return <section className="profile-work">
+    <SectionTitle onAll={onAll}>{title}</SectionTitle>
+    {status !== "ready" || songs.length === 0
+      ? <p className="profile-work-state" role={status === "error" ? "alert" : "status"}>{status === "loading" ? "음악을 불러오는 중..." : status === "error" ? "음악을 불러오지 못했습니다." : "아직 공개된 음악이 없습니다."}</p>
+      : <div className="song-rail profile-work-rail">{songs.map(song => <button type="button" className="song-card" key={song.shortId} onClick={() => onOpen(song.shortId)} aria-label={`${song.title} 열기`}>
+        <span className="song-art">{song.albumImageUrl ?
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={song.albumImageUrl} alt={`${song.title} 앨범 커버`} draggable={false} />
+          : <Asset name="abyss-album.png" alt={`${song.title} 기본 앨범 커버`} />}</span>
+        <strong>{song.title}</strong><small>{song.subtitle}</small>
+      </button>)}</div>}
+  </section>;
+}
 
 function profileErrorMessage(error: unknown): string {
   return error instanceof Error
@@ -85,14 +110,24 @@ function useOwnProfile(targetUserId?: number | null) {
   };
 }
 
-export function ProfileScreen({ go, targetUserId = null, playbackMode, onPlaybackModeChange }: { go: Navigate; targetUserId?: number | null; playbackMode: PlaybackMode; onPlaybackModeChange: (mode: PlaybackMode) => void }) {
+export function ProfileScreen({ go, targetUserId = null, playbackMode, onPlaybackModeChange, onOpenShort, onShowSongs }: { go: Navigate; targetUserId?: number | null; playbackMode: PlaybackMode; onPlaybackModeChange: (mode: PlaybackMode) => void; onOpenShort: (shortId: number) => void; onShowSongs: (kind: "authored" | "participated") => void }) {
   const ownUserId = useCurrentUserId();
   const { profile, loading, error, setProfile } = useOwnProfile(targetUserId);
+  const [ownShorts, setOwnShorts] = useState<{ userId: number; items: ShortItemDto[]; error: boolean } | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [privacyError, setPrivacyError] = useState<string | null>(null);
   const [savingPrivacy, setSavingPrivacy] = useState(false);
   const [pendingFollow, setPendingFollow] = useState(false);
   const [followBusy, setFollowBusy] = useState(false);
+
+  useEffect(() => {
+    if (ownUserId == null || (targetUserId != null && targetUserId !== ownUserId)) return;
+    const controller = new AbortController();
+    getMyShorts(100, controller.signal)
+      .then(page => setOwnShorts({ userId: ownUserId, items: page.items, error: false }))
+      .catch(() => { if (!controller.signal.aborted) setOwnShorts({ userId: ownUserId, items: [], error: true }); });
+    return () => controller.abort();
+  }, [ownUserId, targetUserId]);
 
   useEffect(() => {
     if (targetUserId == null) return;
@@ -123,6 +158,14 @@ export function ProfileScreen({ go, targetUserId = null, playbackMode, onPlaybac
       .map((item) => item.trim())
       .filter(Boolean) ?? [];
   const owner = profile.userId === ownUserId;
+  const ownSongsState = owner && ownShorts?.userId === profile.userId ? ownShorts : null;
+  const workStatus = owner ? ownSongsState === null ? "loading" : ownSongsState.error ? "error" : "ready" : "ready";
+  const authoredSongs: ProfileSong[] = owner
+    ? (ownSongsState?.items ?? []).filter(song => song.author.userId === profile.userId).map(song => ({ shortId: song.shortId, title: song.title, albumImageUrl: song.albumImageUrl, subtitle: song.author.nickname }))
+    : profile.activities.pinnedShorts.map(song => ({ shortId: song.shortId, title: song.title, albumImageUrl: song.albumImageUrl, subtitle: profile.nickname }));
+  const participatedSongs: ProfileSong[] = owner
+    ? (ownSongsState?.items ?? []).filter(song => song.author.userId !== profile.userId).map(song => ({ shortId: song.shortId, title: song.title, albumImageUrl: song.albumImageUrl, subtitle: song.author.nickname }))
+    : profile.activities.participatedShorts.map(song => ({ shortId: song.shortId, title: song.title, albumImageUrl: song.albumImageUrl, subtitle: profile.nickname }));
 
   async function changePrivacy() {
     if (!profile || savingPrivacy) return;
@@ -200,13 +243,8 @@ export function ProfileScreen({ go, targetUserId = null, playbackMode, onPlaybac
         <p>{profile.explanation || "아직 소개가 없습니다."}</p>
       </section>
 
-      <section>
-        <SectionTitle>내 작업물</SectionTitle>
-        <p className="profile-empty-work">
-          게시글 {profile.activities.postCount}개 · 참여한 숏폼{" "}
-          {profile.activities.participatedShorts.length}개
-        </p>
-      </section></>}
+      <ProfileMusicSection title="내 작업물" songs={authoredSongs} status={workStatus} onOpen={onOpenShort} onAll={owner ? () => onShowSongs("authored") : undefined} />
+      <ProfileMusicSection title="내 참가작" songs={participatedSongs} status={workStatus} onOpen={onOpenShort} onAll={owner ? () => onShowSongs("participated") : undefined} /></>}
       {owner && <section className="profile-bookmarks">
         <SectionTitle onAll={() => go("bookmarks")}>북마크</SectionTitle>
         <button type="button" onClick={() => go("bookmarks")}><Asset name="bookmark.svg" />저장한 게시물과 음악 보기</button>

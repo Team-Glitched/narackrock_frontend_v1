@@ -1,0 +1,61 @@
+.profile-view .profile-edit-trigger {
+  display: grid;
+  place-items: center;
+  width: 136px;
+  height: 136px;
+  margin-inline: auto;
+}
+
+.profile-view .avatar--large {
+  width: 136px;
+  height: 136px;
+}
+
+.profile-view .tags {
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.profile-view .description {
+  padding-bottom: 30px;
+}
+
+.profile-work {
+  margin-bottom: 30px;
+}
+
+.profile-work-rail {
+  min-height: 206px;
+  height: auto;
+  overflow-y: hidden;
+}
+
+.profile-work-rail .song-card {
+  min-height: 206px;
+}
+
+.profile-work-rail .song-card strong {
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 16px;
+  line-height: 20px;
+}
+
+.profile-work-rail .song-card small {
+  max-width: 160px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
+  line-height: 18px;
+}
+
+.profile-work-state {
+  min-height: 100px;
+  margin: 0;
+  padding: 28px 20px;
+  color: var(--muted);
+  font-size: 14px;
+}

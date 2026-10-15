@@ -17,6 +17,7 @@ import type { PostListItem } from "@/lib/api/contracts";
 import { ApiError, getAccessToken } from "@/lib/api/client";
 import { uploadMedia } from "@/lib/api/media";
 import { useHomeSongs } from "@/hooks/use-home-songs";
+import { useCurrentUserId } from "@/hooks/use-current-user";
 import { usePopularPosts } from "@/hooks/use-popular-posts";
 import { validatePostImage } from "@/features/community/post-image";
 import { PopularActions } from "./popular-actions";
@@ -75,7 +76,7 @@ function SongRailStatus({ state }: { state: "loading" | "error" | "empty" | "sig
   return <p className="song-rail-status">{message}</p>;
 }
 
-export type SongChartKind = "popular" | "mine";
+export type SongChartKind = "popular" | "mine" | "authored" | "participated";
 
 export function HomeScreen({ go, onOpenPost, onOpenShort, onShowSongs }: { go: Navigate; onOpenPost: (postId: number) => void; onOpenShort: (shortId: number) => void; onShowSongs: (kind: SongChartKind) => void }) {
   const posts = usePopularPosts(3);
@@ -84,8 +85,11 @@ export function HomeScreen({ go, onOpenPost, onOpenShort, onShowSongs }: { go: N
 }
 export function ChartsScreen({ kind, onOpenShort }: { go: Navigate; kind: SongChartKind; onOpenShort: (shortId: number) => void }) {
   const songs = useHomeSongs(100);
+  const currentUserId = useCurrentUserId();
   const selected = kind === "popular" ? songs.popular : songs.mine;
-  return <div className="list-view scroll-content popular-page"><h1 className="popular-page-title">{kind === "popular" ? "인기 차트" : "내 곡"}</h1><div className="popular-list popular-song-list">{selected.status !== "ready" ? <SongRailStatus state={selected.status} /> : selected.items.length === 0 ? <SongRailStatus state="empty" /> : selected.items.map((song, index) => {
+  const items = selected.items.filter(song => kind === "authored" ? song.author.userId === currentUserId : kind === "participated" ? song.author.userId !== currentUserId : true);
+  const title = kind === "popular" ? "인기 차트" : kind === "authored" ? "내 작업물" : kind === "participated" ? "내 참가작" : "내 곡";
+  return <div className="list-view scroll-content popular-page"><h1 className="popular-page-title">{title}</h1><div className="popular-list popular-song-list">{selected.status !== "ready" ? <SongRailStatus state={selected.status} /> : items.length === 0 ? <SongRailStatus state="empty" /> : items.map((song, index) => {
     const composers = [...new Set([song.author.nickname, ...song.participants.map(person => person.nickname)].filter(Boolean))].join(", ");
     return <div className="popular-row popular-song-row" key={song.shortId}>
       <button type="button" className="popular-row-main" onClick={() => onOpenShort(song.shortId)} aria-label={`${kind === "popular" ? `${index + 1}위 ` : ""}${song.title} 열기`}>

@@ -250,7 +250,7 @@ export default function Page() {
     if (activeView === "opensourceDetail") return <OpensourceDetailScreen />;
     if (activeView === "opensourceComments") return <OpensourceDetailScreen focusComments />;
     if (activeView === "joined") return <JoinedCommunitiesScreen onOpen={setSelectedCommunity} />;
-    if (activeView === "profile") return <ProfileScreen go={go} targetUserId={profileTargetId} playbackMode={playbackMode} onPlaybackModeChange={changePlaybackMode} />;
+    if (activeView === "profile") return <ProfileScreen go={go} targetUserId={profileTargetId} playbackMode={playbackMode} onPlaybackModeChange={changePlaybackMode} onOpenShort={openHomeShort} onShowSongs={openSongChart} />;
     if (activeView === "bookmarks") return <SavedContentScreen key={currentUserId} onOpenPost={setCommentPostId} onOpenShort={openHomeShort} />;
     if (activeView === "savedPosts" || activeView === "likedPosts") return <ProfilePostsScreen kind={activeView} onOpen={setCommentPostId} />;
     if (activeView === "login") return <AuthScreen onAuthenticated={authenticate} onFirstLogin={startProfileSetup} />;
