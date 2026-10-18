@@ -3,7 +3,7 @@ export type View =
   | "community" | "joined" | "profile" | "bookmarks" | "edit" | "studio" | "note"
   | "social" | "opensource" | "opensourceDetail" | "opensourceComments"
   | "login" | "choose" | "upload" | "record" | "notifications"
-  | "mutual" | "recommendations" | "followers" | "following" | "chat" | "savedPosts" | "likedPosts";
+  | "mutual" | "recommendations" | "followers" | "following" | "chatInbox" | "chat" | "savedPosts" | "likedPosts";
 
 export type Navigate = (view: View) => void;
 
@@ -12,6 +12,6 @@ export const views: View[] = [
   "community", "joined", "profile", "bookmarks", "edit", "studio", "note", "login",
   "social", "opensource", "opensourceDetail", "opensourceComments",
   "choose", "upload", "record", "notifications",
-  "mutual", "recommendations", "followers", "following", "chat",
+  "mutual", "recommendations", "followers", "following", "chatInbox", "chat",
   "savedPosts", "likedPosts",
 ];

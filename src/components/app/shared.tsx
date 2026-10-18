@@ -14,6 +14,7 @@ const viewToFooterTab: Partial<Record<View, FooterTab>> = {
   friends: "social",
   community: "social",
   joined: "social",
+  chatInbox: "social",
   opensource: "opensource",
   opensourceDetail: "opensource",
   opensourceComments: "opensource",
@@ -60,9 +61,11 @@ export function Header({
   onSearch,
   onProfile,
   onNotifications,
+  onChat,
   notificationCount = 0,
   hideProfileAction = false,
   hideSearchAction = false,
+  hideChatAction = false,
   profileImageUrl = null,
   blank = false,
   abyss = false,
@@ -75,9 +78,11 @@ export function Header({
   onSearch: () => void;
   onProfile: () => void;
   onNotifications: () => void;
+  onChat: () => void;
   notificationCount?: number;
   hideProfileAction?: boolean;
   hideSearchAction?: boolean;
+  hideChatAction?: boolean;
   profileImageUrl?: string | null;
   blank?: boolean;
   abyss?: boolean;
@@ -114,6 +119,12 @@ export function Header({
           <Asset name="bell.svg" />
           {notificationCount > 0 && <span className="header-notification-badge">{notificationCount > 99 ? "99+" : notificationCount}</span>}
         </button>
+        {!hideChatAction && <button aria-label="채팅" onClick={onChat}>
+          <svg viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M20 11.5a8.5 8.5 0 0 1-8.5 8.5 9 9 0 0 1-4-.9L3 20l.9-4.5a8.5 8.5 0 1 1 16.1-4z" />
+            <path d="M8 11.5h8" />
+          </svg>
+        </button>}
         {hideSearchAction ? <span className="header-action-placeholder" aria-hidden="true" /> : <button aria-label="검색" onClick={onSearch}>
           <Asset name="search.svg" />
         </button>}
