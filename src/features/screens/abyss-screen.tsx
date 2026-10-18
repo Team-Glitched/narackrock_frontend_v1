@@ -5,6 +5,7 @@ import { Asset } from "@/components/app/shared";
 import { initialShortIndex } from "@/features/abyss/initial-short";
 import { ShortCommentsSheet } from "@/features/screens/short-comments";
 import type { PlaybackMode } from "@/features/abyss/playback-mode";
+import { ContentShareDialog } from "@/features/screens/content-share";
 import { canJoinShort } from "@/features/abyss/short-participation";
 import { useCurrentUserId } from "@/hooks/use-current-user";
 import { getShorts, toggleShortBookmark, toggleShortReaction } from "@/lib/api/shorts";
@@ -29,6 +30,7 @@ export function AbyssScreen({ onJoin, initialShortId, muted = false, playbackMod
   const [bookmarkBusy, setBookmarkBusy] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [commentsOpen, setCommentsOpen] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
   const audioRef = useRef<HTMLAudioElement>(null);
   const loadingMoreRef = useRef(false);
 
@@ -69,6 +71,7 @@ export function AbyssScreen({ onJoin, initialShortId, muted = false, playbackMod
 
   function selectShort(nextIndex: number) {
     setCommentsOpen(false);
+    setShareOpen(false);
     audioRef.current?.pause();
     setPlaying(false);
     setCurrentTime(0);
@@ -170,10 +173,10 @@ export function AbyssScreen({ onJoin, initialShortId, muted = false, playbackMod
         <div className="abyss-vote">
           <button className={current.isLiked ? "active" : ""} aria-label={`좋아요 ${current.likeCount}개`} aria-pressed={current.isLiked} disabled={reactionBusy} onClick={() => react("like")}><Asset name={current.isLiked ? "like-filled.svg" : "like.svg"} />{current.likeCount}</button>
           <i />
-          <button className={`abyss-dislike ${current.isDisliked ? "active" : ""}`} aria-label={`싫어요 ${current.dislikeCount}개`} aria-pressed={current.isDisliked} disabled={reactionBusy} onClick={() => react("dislike")}><Asset name={current.isDisliked ? "like-filled.svg" : "like.svg"} /></button>
+          <button className={`abyss-dislike ${current.isDisliked ? "active" : ""}`} aria-label={`싫어요 ${current.dislikeCount}개`} aria-pressed={current.isDisliked} disabled={reactionBusy} onClick={() => react("dislike")}><Asset name={current.isDisliked ? "like-filled.svg" : "like.svg"} />{current.dislikeCount}</button>
         </div>
         <button aria-label={`댓글 ${current.commentCount}개`} onClick={() => setCommentsOpen(true)}><Asset name="comment.svg" />{current.commentCount}</button>
-        <button disabled aria-label="공유"><Asset name="share.svg" /></button>
+        <button aria-label="숏폼 공유" onClick={() => setShareOpen(true)}><Asset name="share.svg" /></button>
         <button disabled={bookmarkBusy} aria-label="숏폼 북마크" aria-pressed={current.isBookmarked} onClick={bookmark}><Asset name={current.isBookmarked ? "bookmark-filled.svg" : "bookmark.svg"} /></button>
       </div>
       {actionError && <p className="abyss-action-error" role="alert">{actionError}</p>}
@@ -227,6 +230,7 @@ export function AbyssScreen({ onJoin, initialShortId, muted = false, playbackMod
         </div>
       )}
       {commentsOpen && <ShortCommentsSheet key={current.shortId} shortId={current.shortId} onClose={() => setCommentsOpen(false)} onCountChange={delta => setShorts(items => items.map(item => item.shortId === current.shortId ? { ...item, commentCount: Math.max(0, item.commentCount + delta) } : item))} />}
+      {shareOpen && <ContentShareDialog content={{ kind: "short", id: current.shortId }} onClose={() => setShareOpen(false)} />}
     </div>
   );
 }
