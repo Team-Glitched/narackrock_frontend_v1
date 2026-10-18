@@ -63,6 +63,7 @@ export default defineConfig(async () => {
                   proxy.on("proxyReq", (request) => request.removeHeader("origin"));
                 },
               },
+              "/ws": { target: previewApiProxyTarget, changeOrigin: true, ws: true },
             },
           }
         : {}),

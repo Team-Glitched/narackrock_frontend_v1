@@ -9,7 +9,7 @@ import { logout } from "@/lib/api/auth";
 import { ApiError } from "@/lib/api/client";
 import { getProfile, updateProfile, updateProfileImage, updateProfilePrivacy } from "@/lib/api/profile";
 import type { ShortItemDto, UserProfile } from "@/lib/api/contracts";
-import { followPerson, getOutgoingFollowRequests, unfollowPerson } from "@/lib/api/social";
+import { followPerson, getOutgoingFollowRequests, unfollowPerson, type Person } from "@/lib/api/social";
 import { getMyShorts } from "@/lib/api/shorts";
 import type { PlaybackMode } from "@/features/abyss/playback-mode";
 import "./profile.css";
@@ -110,7 +110,7 @@ function useOwnProfile(targetUserId?: number | null) {
   };
 }
 
-export function ProfileScreen({ go, targetUserId = null, playbackMode, onPlaybackModeChange, onOpenShort, onShowSongs }: { go: Navigate; targetUserId?: number | null; playbackMode: PlaybackMode; onPlaybackModeChange: (mode: PlaybackMode) => void; onOpenShort: (shortId: number) => void; onShowSongs: (kind: "authored" | "participated") => void }) {
+export function ProfileScreen({ go, targetUserId = null, playbackMode, onPlaybackModeChange, onOpenShort, onShowSongs, onChat }: { go: Navigate; targetUserId?: number | null; playbackMode: PlaybackMode; onPlaybackModeChange: (mode: PlaybackMode) => void; onOpenShort: (shortId: number) => void; onShowSongs: (kind: "authored" | "participated") => void; onChat: (person: Person) => void }) {
   const ownUserId = useCurrentUserId();
   const { profile, loading, error, setProfile } = useOwnProfile(targetUserId);
   const [ownShorts, setOwnShorts] = useState<{ userId: number; items: ShortItemDto[]; error: boolean } | null>(null);
@@ -119,6 +119,15 @@ export function ProfileScreen({ go, targetUserId = null, playbackMode, onPlaybac
   const [savingPrivacy, setSavingPrivacy] = useState(false);
   const [pendingFollow, setPendingFollow] = useState(false);
   const [followBusy, setFollowBusy] = useState(false);
+  const [ownPrivacy, setOwnPrivacy] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    if (ownUserId == null || targetUserId == null || targetUserId === ownUserId) return;
+    let active = true;
+    getProfile(ownUserId).then(own => { if (active) setOwnPrivacy(own.isPrivate); })
+      .catch(() => { if (active) setOwnPrivacy(null); });
+    return () => { active = false; };
+  }, [ownUserId, targetUserId]);
 
   useEffect(() => {
     if (ownUserId == null || (targetUserId != null && targetUserId !== ownUserId)) return;
@@ -158,6 +167,8 @@ export function ProfileScreen({ go, targetUserId = null, playbackMode, onPlaybac
       .map((item) => item.trim())
       .filter(Boolean) ?? [];
   const owner = profile.userId === ownUserId;
+  const mutual = profile.relations.isFollowing && profile.relations.isFollowedBy;
+  const canChat = !owner && (mutual || (!profile.isPrivate && ownPrivacy === false));
   const ownSongsState = owner && ownShorts?.userId === profile.userId ? ownShorts : null;
   const workStatus = owner ? ownSongsState === null ? "loading" : ownSongsState.error ? "error" : "ready" : "ready";
   const authoredSongs: ProfileSong[] = owner
@@ -228,7 +239,11 @@ export function ProfileScreen({ go, targetUserId = null, playbackMode, onPlaybac
         </span>
       </div>
 
-      {!owner && <button className="profile-follow-action" disabled={followBusy} onClick={() => void toggleFollow()}>{pendingFollow ? "요청 취소" : profile.relations.isFollowing ? "팔로잉" : "팔로우"}</button>}
+      {!owner && <div className="profile-actions">
+        <button className="profile-follow-action" disabled={followBusy} onClick={() => void toggleFollow()}>{pendingFollow ? "요청 취소" : mutual ? "맞팔로우" : profile.relations.isFollowing ? "팔로잉" : "팔로우"}</button>
+        <button className="profile-chat-action" disabled={!canChat} title={!canChat ? "비공개 계정은 맞팔로우한 경우에만 대화할 수 있습니다." : undefined}
+          onClick={() => onChat({ userId: profile.userId, nickname: profile.nickname, profileImageUrl: profile.profileImageUrl, primaryInstrument: profile.primaryInstrument })}>채팅하기</button>
+      </div>}
 
       {instruments.length > 0 && (
         <div className="tags">

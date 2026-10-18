@@ -1,9 +1,11 @@
 "use client";
 
+import { Client } from "@stomp/stompjs";
 import { useCallback, useEffect, useState } from "react";
 import { Asset, Avatar } from "@/components/app/shared";
 import { useCurrentUserId } from "@/hooks/use-current-user";
-import { followPerson, getChatMessages, getFollowers, getFollowing, getMutualFollowers, getOutgoingFollowRequests, getRecommendations, sendChatMessage, unfollowPerson, type ChatMessage, type OutgoingRequest, type Person, type RecommendedPerson } from "@/lib/api/social";
+import { chatWebSocketUrl, followPerson, getChatMessages, getFollowers, getFollowing, getMutualFollowers, getOutgoingFollowRequests, getRecommendations, sendChatMessage, unfollowPerson, type ChatMessage, type OutgoingRequest, type Person, type RecommendedPerson } from "@/lib/api/social";
+import { ApiError, getAccessToken } from "@/lib/api/client";
 import "./social.css";
 
 function PersonRow({ person, action, onChat, onProfile }: { person: Person; action?: React.ReactNode; onChat?: (person: Person) => void; onProfile?: (person: Person) => void }) {
@@ -104,17 +106,61 @@ export function ChatConversationScreen({ friend, onBack, onNotifications, onSear
   const [sending, setSending] = useState(false);
   useEffect(() => {
     let alive = true;
-    const refresh = () => getChatMessages(friend.userId).then(items => { if (alive) setMessages(items); }).catch(() => { if (alive) setError("대화를 불러오지 못했습니다."); });
-    void refresh();
-    const timer = window.setInterval(() => { if (document.visibilityState === "visible") void refresh(); }, 3000);
-    return () => { alive = false; window.clearInterval(timer); };
-  }, [friend.userId]);
+    let connected = false;
+    let forbidden = false;
+    let client: Client | null = null;
+    const merge = (items: ChatMessage[]) => setMessages(current => {
+      const byId = new Map(current.map(item => [item.id, item]));
+      items.forEach(item => byId.set(item.id, item));
+      return [...byId.values()].sort((a, b) => a.id - b.id);
+    });
+    const refresh = async () => {
+      try {
+        const items = await getChatMessages(friend.userId);
+        if (alive) { merge(items); setError(null); }
+        return true;
+      } catch (cause) {
+        if (cause instanceof ApiError && cause.status === 403) forbidden = true;
+        if (alive) setError(forbidden ? "비공개 계정은 맞팔로우한 경우에만 대화할 수 있습니다." : "대화를 불러오지 못했습니다.");
+        return false;
+      }
+    };
+    void refresh().then(allowed => {
+      if (!alive || !allowed) return;
+      client = new Client({
+        brokerURL: chatWebSocketUrl(),
+        reconnectDelay: 3000,
+        connectionTimeout: 8000,
+        heartbeatIncoming: 10000,
+        heartbeatOutgoing: 10000,
+        beforeConnect: () => { client!.connectHeaders = { Authorization: `Bearer ${getAccessToken() ?? ""}` }; },
+        onConnect: () => {
+          connected = true;
+          client!.subscribe("/user/queue/chat", frame => {
+            try {
+              const message = JSON.parse(frame.body) as ChatMessage;
+              if (alive && userId != null && ((message.senderId === userId && message.recipientId === friend.userId)
+                || (message.senderId === friend.userId && message.recipientId === userId))) merge([message]);
+            } catch { /* An invalid frame does not replace the REST conversation. */ }
+          });
+          void refresh();
+        },
+        onWebSocketClose: () => { connected = false; },
+        onStompError: () => { connected = false; },
+      });
+      client.activate();
+    });
+    const timer = window.setInterval(() => {
+      if (!connected && !forbidden && document.visibilityState === "visible") void refresh();
+    }, 3000);
+    return () => { alive = false; window.clearInterval(timer); void client?.deactivate(); };
+  }, [friend.userId, userId]);
   async function send(event: React.FormEvent) {
     event.preventDefault();
     const content = draft.trim();
     if (!content || sending) return;
     setSending(true); setError(null);
-    try { const message = await sendChatMessage(friend.userId, content); setMessages(current => [...current.filter(item => item.id !== message.id), message]); setDraft(""); }
+    try { const message = await sendChatMessage(friend.userId, content); setMessages(current => [...current.filter(item => item.id !== message.id), message].sort((a, b) => a.id - b.id)); setDraft(""); }
     catch (cause) { setError(cause instanceof Error ? cause.message : "메시지를 보내지 못했습니다."); }
     finally { setSending(false); }
   }

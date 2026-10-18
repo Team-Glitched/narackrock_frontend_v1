@@ -106,7 +106,7 @@ export type UserProfile = {
   profileImageUrl: string | null;
   explanation: string | null;
   primaryInstrument: string | null;
-  relations: { followerCount: number; followingCount: number; isFollowing: boolean };
+  relations: { followerCount: number; followingCount: number; isFollowing: boolean; isFollowedBy: boolean };
   activities: {
     postCount: number;
     posts: { postId: number; title: string; thumbnailUrl: string | null }[];

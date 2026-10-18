@@ -7,6 +7,11 @@ export type FollowRequest = { requestId: number; requesterId: number; nickname: 
 export type OutgoingRequest = { id: number; requesterId: number; targetId: number };
 export type ChatMessage = { id: number; senderId: number; recipientId: number; content: string; createdAt: string };
 
+export function chatWebSocketUrl(): string {
+  const base = (process.env.NEXT_PUBLIC_API_BASE_URL || window.location.origin).replace(/\/$/, "");
+  return `${base.replace(/^http/, "ws")}/ws/chat`;
+}
+
 async function data<T>(path: string, init?: RequestInit): Promise<T> {
   return (await apiRequest<ApiResponse<T>>(path, init)).data;
 }
