@@ -6,6 +6,7 @@ export type RecommendedPerson = Person & { recommendType: "COLLABORATOR" | "FRIE
 export type FollowRequest = { requestId: number; requesterId: number; nickname: string; primaryInstrument: string | null; profileImageUrl: string | null };
 export type OutgoingRequest = { id: number; requesterId: number; targetId: number };
 export type ChatMessage = { id: number; senderId: number; recipientId: number; content: string; createdAt: string };
+export type ChatThread = Person & { lastMessageId: number; lastMessage: string; lastMessageAt: string; outgoing: boolean };
 
 export function chatWebSocketUrl(): string {
   const base = (process.env.NEXT_PUBLIC_API_BASE_URL || window.location.origin).replace(/\/$/, "");
@@ -26,4 +27,5 @@ export const followPerson = (userId: number) => data<{ status: "FOLLOWING" | "PE
 export const unfollowPerson = (userId: number) => data<unknown>(`/api/v1/users/${userId}/follow`, { method: "DELETE" });
 export const reviewFollowRequest = (requestId: number, decision: "accept" | "reject") => data<number>(`/api/v1/users/me/follow-requests/${requestId}/${decision}`, { method: "POST" });
 export const getChatMessages = (friendId: number) => data<ChatMessage[]>(`/api/v1/chats/${friendId}/messages`);
+export const getChatThreads = () => data<ChatThread[]>("/api/v1/chats");
 export const sendChatMessage = (friendId: number, content: string) => data<ChatMessage>(`/api/v1/chats/${friendId}/messages`, { method: "POST", body: JSON.stringify({ content }) });

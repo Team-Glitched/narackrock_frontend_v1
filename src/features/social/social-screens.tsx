@@ -4,8 +4,9 @@ import { Client } from "@stomp/stompjs";
 import { useCallback, useEffect, useState } from "react";
 import { Asset, Avatar } from "@/components/app/shared";
 import { useCurrentUserId } from "@/hooks/use-current-user";
-import { chatWebSocketUrl, followPerson, getChatMessages, getFollowers, getFollowing, getMutualFollowers, getOutgoingFollowRequests, getRecommendations, sendChatMessage, unfollowPerson, type ChatMessage, type OutgoingRequest, type Person, type RecommendedPerson } from "@/lib/api/social";
+import { chatWebSocketUrl, followPerson, getChatMessages, getChatThreads, getFollowers, getFollowing, getMutualFollowers, getOutgoingFollowRequests, getRecommendations, sendChatMessage, unfollowPerson, type ChatMessage, type OutgoingRequest, type Person, type RecommendedPerson } from "@/lib/api/social";
 import { ApiError, getAccessToken } from "@/lib/api/client";
+import { buildChatInbox, type ChatInboxRow } from "./chat-inbox";
 import "./social.css";
 
 function PersonRow({ person, action, onChat, onProfile }: { person: Person; action?: React.ReactNode; onChat?: (person: Person) => void; onProfile?: (person: Person) => void }) {
@@ -95,6 +96,74 @@ export function PeopleListScreen({ kind, onChat, onProfile }: { kind: "mutual" |
     {kind === "followers" && <div className="social-segmented" role="group" aria-label="팔로워 필터"><button className={filter === "all" ? "active" : ""} aria-pressed={filter === "all"} onClick={() => setFilter("all")}>전체</button><button className={filter === "mutual" ? "active" : ""} aria-pressed={filter === "mutual"} onClick={() => setFilter("mutual")}>맞팔로우</button></div>}
     {error && <p role="alert" className="social-error">{error}</p>}
     <div className="social-person-list">{shown.length ? shown.map(person => <PersonRow key={person.userId} person={person} onProfile={onProfile} onChat={mutualIds.has(person.userId) ? onChat : undefined} action={kind === "recommendations" || kind === "following" ? <button className="social-follow-button" disabled={busy === person.userId} onClick={() => void toggle(person)}>{outgoing.some(item => item.targetId === person.userId) ? "요청 취소" : kind === "following" || ("isFollowing" in person && person.isFollowing) ? "팔로잉" : "팔로우"}</button> : undefined} />) : <p className="social-empty">표시할 사용자가 없습니다.</p>}</div>
+  </div>;
+}
+
+function chatTime(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  const today = new Date();
+  return date.toDateString() === today.toDateString()
+    ? new Intl.DateTimeFormat("ko-KR", { hour: "numeric", minute: "2-digit" }).format(date)
+    : new Intl.DateTimeFormat("ko-KR", { month: "numeric", day: "numeric" }).format(date);
+}
+
+export function ChatInboxScreen({ onChat }: { onChat: (person: Person) => void }) {
+  const userId = useCurrentUserId();
+  const [rows, setRows] = useState<ChatInboxRow[]>([]);
+  const [query, setQuery] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (userId == null) return;
+    let alive = true;
+    let connected = false;
+    let unavailable = false;
+    const load = async () => {
+      const [threads, mutual] = await Promise.allSettled([getChatThreads(), getMutualFollowers()]);
+      if (!alive) return false;
+      unavailable = threads.status === "rejected" && threads.reason instanceof ApiError && threads.reason.status === 404;
+      setRows(buildChatInbox(threads.status === "fulfilled" ? threads.value : [], mutual.status === "fulfilled" ? mutual.value : []));
+      setError(threads.status === "rejected" ? "최근 대화를 불러오지 못했습니다."
+        : mutual.status === "rejected" ? "맞팔로우 목록을 불러오지 못했습니다." : null);
+      setLoading(false);
+      return threads.status === "fulfilled";
+    };
+    const client = new Client({
+      brokerURL: chatWebSocketUrl(),
+      reconnectDelay: 3000,
+      connectionTimeout: 8000,
+      beforeConnect: () => { client.connectHeaders = { Authorization: `Bearer ${getAccessToken() ?? ""}` }; },
+      onConnect: () => {
+        connected = true;
+        client.subscribe("/user/queue/chat", () => { void load(); });
+        void load();
+      },
+      onWebSocketClose: () => { connected = false; },
+      onStompError: () => { connected = false; },
+    });
+    const refresh = () => { void load().then(available => { if (alive && available && !client.active) client.activate(); }); };
+    refresh();
+    const poll = window.setInterval(() => { if (!connected && !unavailable && document.visibilityState === "visible") refresh(); }, 15000);
+    const onVisible = () => { if (!unavailable && document.visibilityState === "visible") refresh(); };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => { alive = false; window.clearInterval(poll); document.removeEventListener("visibilitychange", onVisible); void client.deactivate(); };
+  }, [userId]);
+
+  const shown = rows.filter(row => row.nickname.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()));
+  return <div className="social-inbox scroll-content">
+    <h1>채팅</h1>
+    <label className="social-inbox-search"><span className="sr-only">대화 상대 검색</span><input value={query} onChange={event => setQuery(event.target.value)} placeholder="대화 상대 검색" /></label>
+    <h2>메시지</h2>
+    {error && <p role="alert" className="social-error">{error}</p>}
+    {loading ? <p className="social-empty">대화를 불러오는 중...</p>
+      : shown.length ? <div className="social-inbox-list">{shown.map(row => <button key={row.userId} className="social-inbox-row" onClick={() => onChat(row)}>
+        <Avatar src={row.profileImageUrl} />
+        <span className="social-inbox-person"><strong>{row.nickname}</strong><small>{row.latest ? `${row.latest.outgoing ? "나: " : ""}${row.latest.lastMessage}` : "맞팔로우 · 첫 메시지를 보내보세요"}</small></span>
+        {row.latest && <time dateTime={row.latest.lastMessageAt}>{chatTime(row.latest.lastMessageAt)}</time>}
+      </button>)}</div>
+      : <p className="social-empty">{query ? "검색 결과가 없습니다." : "아직 대화하거나 맞팔로우한 사용자가 없습니다."}</p>}
   </div>;
 }
 

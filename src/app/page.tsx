@@ -8,7 +8,7 @@ import { JoinedCommunitiesScreen } from "@/features/screens/community-directory"
 import { CommunityMembershipProvider, createServerMembershipApi } from "@/features/screens/community-membership";
 import type { CommunityTab } from "@/features/screens/mobile-screens";
 import { ChartsScreen, CommunityScreen, HomeScreen, PostsScreen, SearchScreen, type SongChartKind } from "@/features/screens/mobile-screens";
-import { ChatConversationScreen, PeopleListScreen } from "@/features/social/social-screens";
+import { ChatConversationScreen, ChatInboxScreen, PeopleListScreen } from "@/features/social/social-screens";
 import { getFollowRequests, type Person } from "@/lib/api/social";
 import { EditProfileScreen, InitialProfileSetupScreen, ProfileScreen } from "@/features/profile/profile-screens";
 import { SavedContentScreen } from "@/features/profile/saved-content";
@@ -49,7 +49,7 @@ export default function Page() {
     && pendingProfileSetup === null
     && (view === "profile" || view === "bookmarks" || view === "edit"
       || view === "mutual" || view === "recommendations" || view === "followers"
-      || view === "following" || view === "chat" || view === "savedPosts"
+      || view === "following" || view === "chatInbox" || view === "chat" || view === "savedPosts"
       || view === "likedPosts" || view === "notifications")
     ? "login"
     : view;
@@ -59,6 +59,7 @@ export default function Page() {
   const [communityTab, setCommunityTab] = useState<CommunityTab>("posts");
   const [chatFriend, setChatFriend] = useState<Person | null>(null);
   const [chatReturnView, setChatReturnView] = useState<View>("mutual");
+  const [chatInboxReturnView, setChatInboxReturnView] = useState<View>("home");
   const [profileTargetId, setProfileTargetId] = useState<number | null>(null);
   const [notificationCount, setNotificationCount] = useState(0);
   const [commentPostId, setCommentPostId] = useState<number | null>(null);
@@ -105,6 +106,10 @@ export default function Page() {
   }, []);
 
   const openChat = useCallback((person: Person) => { setChatReturnView(activeView); setChatFriend(person); setView("chat"); }, [activeView]);
+  const openChatInbox = useCallback(() => {
+    setChatInboxReturnView(activeView);
+    setView(isAuthenticated ? "chatInbox" : "login");
+  }, [activeView, isAuthenticated]);
   const openPersonProfile = useCallback((person: Person) => { setProfileTargetId(person.userId); setView("profile"); }, []);
 
   useEffect(() => {
@@ -252,6 +257,7 @@ export default function Page() {
     if (activeView === "charts") return <ChartsScreen go={go} kind={songChartKind} onOpenShort={openHomeShort} />;
     if (activeView === "posts") return <PostsScreen go={go} onOpenPost={setCommentPostId} />;
     if (activeView === "mutual" || activeView === "recommendations" || activeView === "followers" || activeView === "following") return <PeopleListScreen kind={activeView} onChat={openChat} onProfile={openPersonProfile} />;
+    if (activeView === "chatInbox") return <ChatInboxScreen onChat={openChat} />;
     if (activeView === "chat" && chatFriend) return <ChatConversationScreen friend={chatFriend} onBack={() => go(chatReturnView)} onNotifications={() => go("notifications")} onSearch={() => go("search")} />;
     if (activeView === "search") return <SearchScreen go={go} />;
     if (activeView === "social" || activeView === "community") return <CommunityScreen go={go} tab={communityTab} onTabChange={setCommunityTab} onComments={setCommentPostId} onOpenCommunity={setSelectedCommunity} onChat={openChat} onProfile={openPersonProfile} />;
@@ -300,6 +306,7 @@ export default function Page() {
     : selectedCommunity ? () => setSelectedCommunity(null)
     : activeView === "charts" || activeView === "posts" ? () => go("home")
     : activeView === "mutual" || activeView === "recommendations" ? () => go("friends")
+    : activeView === "chatInbox" ? () => go(chatInboxReturnView)
     : activeView === "followers" || activeView === "following" ? () => go("profile")
     : activeView === "savedPosts" || activeView === "likedPosts" ? () => go("profile")
     : activeView === "profile" && profileTargetId !== null ? () => { setProfileTargetId(null); go("friends"); }
@@ -310,5 +317,5 @@ export default function Page() {
     go(isAuthenticated ? "profile" : "login");
   } : undefined);
   const ownProfileView = activeView === "profile" && isAuthenticated && (profileTargetId === null || profileTargetId === currentUserId);
-  return <CommunityMembershipProvider api={membershipApi}><main className="page-background"><div className="phone-frame">{!noHeader && <Header notificationCount={isAuthenticated ? notificationCount : 0} hideProfileAction={ownProfileView} hideSearchAction={ownProfileView} abyss={activeView === "abyss"} muted={abyssMuted} onToggleMute={() => setAbyssMuted(current => !current)} onHome={() => go("home")} profileImageUrl={headerProfileImageUrl} onBack={headerBack} onSearch={() => go("search")} onProfile={() => { setProfileTargetId(null); go(isAuthenticated ? "profile" : "login"); }} onNotifications={() => go("notifications")} />}<div className="screen-body">{content}</div>{!authView && !onboardingView && activeView !== "chat" && <Footer view={footerView} go={go} />}</div></main></CommunityMembershipProvider>;
+  return <CommunityMembershipProvider api={membershipApi}><main className="page-background"><div className="phone-frame">{!noHeader && <Header notificationCount={isAuthenticated ? notificationCount : 0} hideProfileAction={ownProfileView} hideSearchAction={ownProfileView} hideChatAction={activeView === "chatInbox"} abyss={activeView === "abyss"} muted={abyssMuted} onToggleMute={() => setAbyssMuted(current => !current)} onHome={() => go("home")} profileImageUrl={headerProfileImageUrl} onBack={headerBack} onSearch={() => go("search")} onChat={openChatInbox} onProfile={() => { setProfileTargetId(null); go(isAuthenticated ? "profile" : "login"); }} onNotifications={() => go("notifications")} />}<div className="screen-body">{content}</div>{!authView && !onboardingView && activeView !== "chat" && <Footer view={footerView} go={go} />}</div></main></CommunityMembershipProvider>;
 }
