@@ -929,3 +929,16 @@
   color: var(--muted);
   cursor: default;
 }
+
+.app-header { min-width: 0; gap: 8px; }
+.app-header > .header-logo,
+.app-header > .header-back,
+.app-header > .header-sound { flex: none; }
+.header-actions { flex: none; align-items: center; gap: 10px; overflow: visible; }
+.header-actions > button,
+.header-actions > .header-action-placeholder { flex: 0 0 44px; }
+.header-actions > button > svg { display: block; width: 24px; height: 24px; }
+@media (max-width: 320px) {
+  .app-header { gap: 2px; }
+  .header-actions { gap: 2px; }
+}
