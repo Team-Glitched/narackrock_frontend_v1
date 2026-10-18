@@ -257,7 +257,7 @@ export default function Page() {
     if (activeView === "posts") return <PostsScreen go={go} onOpenPost={setCommentPostId} />;
     if (activeView === "mutual" || activeView === "recommendations" || activeView === "followers" || activeView === "following") return <PeopleListScreen kind={activeView} onChat={openChat} onProfile={openPersonProfile} />;
     if (activeView === "chatInbox") return <ChatInboxScreen onChat={openChat} />;
-    if (activeView === "chat" && chatFriend) return <ChatConversationScreen friend={chatFriend} onBack={() => go(chatReturnView)} onNotifications={() => go("notifications")} onSearch={() => go("search")} />;
+    if (activeView === "chat" && chatFriend) return <ChatConversationScreen key={chatFriend.userId} friend={chatFriend} onBack={() => go(chatReturnView)} onNotifications={() => go("notifications")} onSearch={() => go("search")} />;
     if (activeView === "search") return <SearchScreen go={go} />;
     if (activeView === "social" || activeView === "community") return <CommunityScreen go={go} tab={communityTab} onTabChange={setCommunityTab} onComments={setCommentPostId} onOpenCommunity={setSelectedCommunity} onChat={openChat} onProfile={openPersonProfile} />;
     if (activeView === "opensource") return <OpensourceScreen go={go} />;

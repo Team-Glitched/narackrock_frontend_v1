@@ -11,6 +11,7 @@ import { getProfile, updateProfile, updateProfileImage, updateProfilePrivacy } f
 import type { ShortItemDto, UserProfile } from "@/lib/api/contracts";
 import { followPerson, getOutgoingFollowRequests, unfollowPerson, type Person } from "@/lib/api/social";
 import { getMyShorts } from "@/lib/api/shorts";
+import { canSendChatTo } from "@/features/social/chat-access";
 import type { PlaybackMode } from "@/features/abyss/playback-mode";
 import "./profile.css";
 
@@ -159,7 +160,7 @@ export function ProfileScreen({ go, targetUserId = null, playbackMode, onPlaybac
       .filter(Boolean) ?? [];
   const owner = profile.userId === ownUserId;
   const mutual = profile.relations.isFollowing && profile.relations.isFollowedBy;
-  const canChat = !owner && (!profile.isPrivate || mutual);
+  const canChat = !owner && canSendChatTo(profile);
   const ownSongsState = owner && ownShorts?.userId === profile.userId ? ownShorts : null;
   const workStatus = owner ? ownSongsState === null ? "loading" : ownSongsState.error ? "error" : "ready" : "ready";
   const authoredSongs: ProfileSong[] = owner
@@ -232,8 +233,8 @@ export function ProfileScreen({ go, targetUserId = null, playbackMode, onPlaybac
 
       {!owner && <div className="profile-actions">
         <button className="profile-follow-action" disabled={followBusy} onClick={() => void toggleFollow()}>{pendingFollow ? "요청 취소" : mutual ? "맞팔로우" : profile.relations.isFollowing ? "팔로잉" : "팔로우"}</button>
-        <button className="profile-chat-action" disabled={!canChat} title={!canChat ? "비공개 계정은 맞팔로우한 경우에만 대화할 수 있습니다." : undefined}
-          onClick={() => onChat({ userId: profile.userId, nickname: profile.nickname, profileImageUrl: profile.profileImageUrl, primaryInstrument: profile.primaryInstrument })}>채팅하기</button>
+        {canChat && <button className="profile-chat-action"
+          onClick={() => onChat({ userId: profile.userId, nickname: profile.nickname, profileImageUrl: profile.profileImageUrl, primaryInstrument: profile.primaryInstrument })}>채팅하기</button>}
       </div>}
 
       {instruments.length > 0 && (

@@ -6,6 +6,8 @@ import { Asset, Avatar } from "@/components/app/shared";
 import { useCurrentUserId } from "@/hooks/use-current-user";
 import { chatWebSocketUrl, followPerson, getChatMessages, getChatThreads, getFollowers, getFollowing, getMutualFollowers, getOutgoingFollowRequests, getRecommendations, sendChatMessage, unfollowPerson, type ChatMessage, type OutgoingRequest, type Person, type RecommendedPerson } from "@/lib/api/social";
 import { ApiError, getAccessToken } from "@/lib/api/client";
+import { getProfile } from "@/lib/api/profile";
+import { canSendChatTo } from "./chat-access";
 import { buildChatInbox, type ChatInboxRow } from "./chat-inbox";
 import "./social.css";
 
@@ -173,6 +175,14 @@ export function ChatConversationScreen({ friend, onBack, onNotifications, onSear
   const [draft, setDraft] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
+  const [canSend, setCanSend] = useState<boolean | null>(null);
+  useEffect(() => {
+    let alive = true;
+    void getProfile(friend.userId)
+      .then(profile => { if (alive) setCanSend(canSendChatTo(profile)); })
+      .catch(() => { if (alive) setCanSend(current => current === false ? false : true); });
+    return () => { alive = false; };
+  }, [friend.userId]);
   useEffect(() => {
     let alive = true;
     let connected = false;
@@ -189,7 +199,10 @@ export function ChatConversationScreen({ friend, onBack, onNotifications, onSear
         if (alive) { merge(items); setError(null); }
         return true;
       } catch (cause) {
-        if (cause instanceof ApiError && cause.status === 403) forbidden = true;
+        if (cause instanceof ApiError && cause.status === 403) {
+          forbidden = true;
+          if (alive) setCanSend(false);
+        }
         if (alive) setError(forbidden ? "비공개 계정은 맞팔로우한 경우에만 대화할 수 있습니다." : "대화를 불러오지 못했습니다.");
         return false;
       }
@@ -227,15 +240,19 @@ export function ChatConversationScreen({ friend, onBack, onNotifications, onSear
   async function send(event: React.FormEvent) {
     event.preventDefault();
     const content = draft.trim();
-    if (!content || sending) return;
+    if (!content || sending || canSend !== true) return;
     setSending(true); setError(null);
     try { const message = await sendChatMessage(friend.userId, content); setMessages(current => [...current.filter(item => item.id !== message.id), message].sort((a, b) => a.id - b.id)); setDraft(""); }
-    catch (cause) { setError(cause instanceof Error ? cause.message : "메시지를 보내지 못했습니다."); }
+    catch (cause) {
+      if (cause instanceof ApiError && cause.status === 403) setCanSend(false);
+      setError(cause instanceof Error ? cause.message : "메시지를 보내지 못했습니다.");
+    }
     finally { setSending(false); }
   }
   return <div className="social-chat scroll-content"><div className="social-chat-heading"><button onClick={onBack} aria-label="뒤로"><Asset name="return.svg" /></button><Avatar src={friend.profileImageUrl} /><span><strong>{friend.nickname}</strong><small>{friend.primaryInstrument}</small></span><div className="social-chat-header-actions"><button aria-label="알림" onClick={onNotifications}><Asset name="bell.svg" /></button><button aria-label="검색" onClick={onSearch}><Asset name="search.svg" /></button></div></div>
     <div className="social-chat-messages" aria-live="polite">{messages.length ? messages.map(message => <div key={message.id} className={message.senderId === userId ? "social-message own" : "social-message"}>{message.senderId !== userId && <Avatar src={friend.profileImageUrl} />}<span>{message.content}</span></div>) : <p className="social-empty">첫 메시지를 보내보세요.</p>}</div>
     {error && <p role="alert" className="social-error">{error}</p>}
-    <form className="social-chat-compose" onSubmit={event => void send(event)}><input value={draft} maxLength={2000} onChange={event => setDraft(event.target.value)} placeholder="메시지를 입력해 주세요" aria-label="메시지" /><button disabled={!draft.trim() || sending} aria-label="메시지 보내기">➤</button></form>
+    {canSend === false ? <p className="social-chat-readonly">비공개 계정에는 맞팔로우한 경우에만 메시지를 보낼 수 있습니다.</p>
+      : <form className="social-chat-compose" onSubmit={event => void send(event)}><input value={draft} maxLength={2000} disabled={canSend !== true} onChange={event => setDraft(event.target.value)} placeholder="메시지를 입력해 주세요" aria-label="메시지" /><button disabled={canSend !== true || !draft.trim() || sending} aria-label="메시지 보내기">➤</button></form>}
   </div>;
 }
