@@ -119,15 +119,6 @@ export function ProfileScreen({ go, targetUserId = null, playbackMode, onPlaybac
   const [savingPrivacy, setSavingPrivacy] = useState(false);
   const [pendingFollow, setPendingFollow] = useState(false);
   const [followBusy, setFollowBusy] = useState(false);
-  const [ownPrivacy, setOwnPrivacy] = useState<boolean | null>(null);
-
-  useEffect(() => {
-    if (ownUserId == null || targetUserId == null || targetUserId === ownUserId) return;
-    let active = true;
-    getProfile(ownUserId).then(own => { if (active) setOwnPrivacy(own.isPrivate); })
-      .catch(() => { if (active) setOwnPrivacy(null); });
-    return () => { active = false; };
-  }, [ownUserId, targetUserId]);
 
   useEffect(() => {
     if (ownUserId == null || (targetUserId != null && targetUserId !== ownUserId)) return;
@@ -168,7 +159,7 @@ export function ProfileScreen({ go, targetUserId = null, playbackMode, onPlaybac
       .filter(Boolean) ?? [];
   const owner = profile.userId === ownUserId;
   const mutual = profile.relations.isFollowing && profile.relations.isFollowedBy;
-  const canChat = !owner && (mutual || (!profile.isPrivate && ownPrivacy === false));
+  const canChat = !owner && (!profile.isPrivate || mutual);
   const ownSongsState = owner && ownShorts?.userId === profile.userId ? ownShorts : null;
   const workStatus = owner ? ownSongsState === null ? "loading" : ownSongsState.error ? "error" : "ready" : "ready";
   const authoredSongs: ProfileSong[] = owner
