@@ -1,5 +1,9 @@
 import { apiRequest } from "@/lib/api/client";
-import type { ApiEnvelope, ShortCommentList, ShortsPageDto } from "@/lib/api/contracts";
+import type { ApiEnvelope, ShortCommentList, ShortItemDto, ShortsPageDto } from "@/lib/api/contracts";
+
+export function getShort(shortId: number, signal?: AbortSignal): Promise<ShortItemDto> {
+  return apiRequest<ApiEnvelope<ShortItemDto>>(`/api/v1/shorts/${shortId}`, { signal }).then(response => response.data);
+}
 
 type ShortReaction = { shortId: number; isLiked?: boolean; isDisliked?: boolean; likeCount?: number; dislikeCount?: number };
 

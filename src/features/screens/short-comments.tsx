@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { formatDistanceToNow } from "date-fns";
 import { ko } from "date-fns/locale";
@@ -20,6 +20,8 @@ export function ShortCommentsSheet({ shortId, onClose, onCountChange }: { shortI
   const [draft, setDraft] = useState("");
   const [reply, setReply] = useState<ReplyTarget | null>(null);
   const [busy, setBusy] = useState(false);
+  const [reactionBusyIds, setReactionBusyIds] = useState<Set<number>>(new Set());
+  const reactionInFlight = useRef(new Set<number>());
 
   useEffect(() => {
     let alive = true;
@@ -63,6 +65,9 @@ export function ShortCommentsSheet({ shortId, onClose, onCountChange }: { shortI
   }
 
   async function react(commentId: number, type: "like" | "dislike") {
+    if (reactionInFlight.current.has(commentId)) return;
+    reactionInFlight.current.add(commentId);
+    setReactionBusyIds(new Set(reactionInFlight.current));
     try {
       const result = await toggleShortCommentReaction(shortId, commentId, type);
       setComments(items => items.map(item => item.commentId !== commentId ? item : {
@@ -73,6 +78,10 @@ export function ShortCommentsSheet({ shortId, onClose, onCountChange }: { shortI
         dislikeCount: type === "dislike" ? result.dislikeCount ?? item.dislikeCount : Math.max(0, item.dislikeCount - (item.isDisliked ? 1 : 0)),
       }));
     } catch (cause) { setError(cause instanceof Error ? cause.message : "댓글 반응을 저장하지 못했습니다."); }
+    finally {
+      reactionInFlight.current.delete(commentId);
+      setReactionBusyIds(new Set(reactionInFlight.current));
+    }
   }
 
   async function edit(commentId: number, content: string) {
@@ -94,11 +103,11 @@ export function ShortCommentsSheet({ shortId, onClose, onCountChange }: { shortI
       <button className="short-comments-handle" aria-label="댓글 닫기" onClick={onClose}><span /></button>
       <div className="short-comments-list">
         {loading && <p className="short-comments-state" role="status">댓글을 불러오는 중...</p>}
-        {!loading && roots.length === 0 && <p className="short-comments-state">첫 댓글을 남겨보세요.</p>}
+        {!loading && !error && roots.length === 0 && <p className="short-comments-state">첫 댓글을 남겨보세요.</p>}
         {!loading && roots.map(root => <div className="short-comment-group" key={root.commentId}>
-          <ShortCommentRow comment={root} rootId={root.commentId} onReply={setReply} onReact={react} onEdit={edit} onDelete={remove} />
+          <ShortCommentRow comment={root} rootId={root.commentId} reactionBusy={reactionBusyIds.has(root.commentId)} onReply={setReply} onReact={react} onEdit={edit} onDelete={remove} />
           {(repliesByParent.get(root.commentId) ?? []).map(child => <div className="short-comment-reply" key={child.commentId}>
-            <ShortCommentRow comment={child} rootId={root.commentId} onReply={setReply} onReact={react} onEdit={edit} onDelete={remove} />
+            <ShortCommentRow comment={child} rootId={root.commentId} reactionBusy={reactionBusyIds.has(child.commentId)} onReply={setReply} onReact={react} onEdit={edit} onDelete={remove} />
           </div>)}
         </div>)}
       </div>
@@ -111,9 +120,10 @@ export function ShortCommentsSheet({ shortId, onClose, onCountChange }: { shortI
   </div>, container);
 }
 
-function ShortCommentRow({ comment, rootId, onReply, onReact, onEdit, onDelete }: {
+function ShortCommentRow({ comment, rootId, reactionBusy, onReply, onReact, onEdit, onDelete }: {
   comment: ShortComment;
   rootId: number;
+  reactionBusy: boolean;
   onReply: (target: ReplyTarget) => void;
   onReact: (commentId: number, type: "like" | "dislike") => void;
   onEdit: (commentId: number, content: string) => Promise<void>;
@@ -150,8 +160,8 @@ function ShortCommentRow({ comment, rootId, onReply, onReact, onEdit, onDelete }
     {editing ? <div className="short-comment-edit"><textarea aria-label="댓글 수정" value={draft} onChange={event => setDraft(event.target.value)} /><button onClick={() => setEditing(false)}>취소</button><button onClick={save} disabled={busy}>저장</button></div> : <p>{comment.content}</p>}
     {error && <p role="alert" className="short-comment-error">{error}</p>}
     <div className="short-comment-actions">
-      <button aria-label="댓글 좋아요" aria-pressed={comment.isLiked} onClick={() => onReact(comment.commentId, "like")}><Asset name={comment.isLiked ? "like-filled.svg" : "like.svg"} />{comment.likeCount}</button>
-      <button aria-label="댓글 싫어요" aria-pressed={comment.isDisliked} onClick={() => onReact(comment.commentId, "dislike")}><Asset name={comment.isDisliked ? "like-filled.svg" : "like.svg"} className="thumb-down" /></button>
+      <button aria-label="댓글 좋아요" aria-pressed={comment.isLiked} disabled={reactionBusy} onClick={() => onReact(comment.commentId, "like")}><Asset name={comment.isLiked ? "like-filled.svg" : "like.svg"} />{comment.likeCount}</button>
+      <button aria-label="댓글 싫어요" aria-pressed={comment.isDisliked} disabled={reactionBusy} onClick={() => onReact(comment.commentId, "dislike")}><Asset name={comment.isDisliked ? "like-filled.svg" : "like.svg"} className="thumb-down" /></button>
       <button aria-label="답글 작성" onClick={() => onReply({ parentId: rootId, nickname: comment.writer.nickname })}><Asset name="comment.svg" /></button>
     </div>
   </article>;
