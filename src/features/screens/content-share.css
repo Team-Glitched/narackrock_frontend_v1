@@ -1,0 +1,12 @@
+.phone-frame { position: relative; }
+.content-share-layer { position: absolute; inset: 0; z-index: 40; display: grid; place-items: center; padding: 20px; }
+.content-share-backdrop { position: absolute; inset: 0; background: #0009; }
+.content-share-dialog { position: relative; width: 100%; padding: 20px; border: 1px solid #4b5661; border-radius: 16px; background: #25282c; box-shadow: 0 20px 50px #0008; }
+.content-share-heading { display: flex; align-items: center; justify-content: space-between; }
+.content-share-heading h2 { margin: 0; font-size: 18px; }
+.content-share-heading button { width: 28px; height: 28px; font-size: 24px; line-height: 1; }
+.content-share-dialog > p { margin: 10px 0 15px; color: #aab6c2; font-size: 13px; }
+.content-share-url { display: flex; gap: 8px; }
+.content-share-url input { min-width: 0; flex: 1; padding: 9px; border: 1px solid #697887; border-radius: 8px; background: #1d1d1d; font-size: 12px; }
+.content-share-url button { flex-shrink: 0; padding: 0 12px; border-radius: 8px; background: #4c00e5; font-size: 12px; }
+.content-share-dialog > .content-share-message { margin-bottom: 0; color: #d9caff; }

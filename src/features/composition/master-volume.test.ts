@@ -20,8 +20,8 @@ test("uses the toolbar slider as the composition master volume", () => {
 });
 
 test("applies the master volume to MIDI and audio layers", () => {
-  assert.match(playback, /gain\.connect\(masterGain\)/);
-  assert.match(playback, /sustain\.connect\(sustainGain\)\.connect\(masterGain\)/);
-  assert.match(playback, /audio\.volume = volume \* volumeRef\.current \/ 100/);
+  assert.match(playback, /new Tone\.Gain\(volumeRef\.current \/ 100\)\.toDestination\(\)/);
+  assert.match(playback, /masterGainRef\.current\.gain\.value = value \/ 100/);
+  assert.match(playback, /audio\.volume = trackVolume \* volumeRef\.current \/ 100/);
   assert.match(playback, /audioRef\.current\.forEach/);
 });

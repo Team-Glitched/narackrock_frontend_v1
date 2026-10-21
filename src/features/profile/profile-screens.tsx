@@ -7,8 +7,36 @@ import type { Navigate } from "@/features/navigation/types";
 import { useCurrentUserId } from "@/hooks/use-current-user";
 import { logout } from "@/lib/api/auth";
 import { ApiError } from "@/lib/api/client";
-import { getProfile, updateProfile, updateProfileImage } from "@/lib/api/profile";
-import type { UserProfile } from "@/lib/api/contracts";
+import { getProfile, updateProfile, updateProfileImage, updateProfilePrivacy } from "@/lib/api/profile";
+import type { ShortItemDto, UserProfile } from "@/lib/api/contracts";
+import { followPerson, getOutgoingFollowRequests, unfollowPerson, type Person } from "@/lib/api/social";
+import { getMyShorts } from "@/lib/api/shorts";
+import { canSendChatTo } from "@/features/social/chat-access";
+import type { PlaybackMode } from "@/features/abyss/playback-mode";
+import "./profile.css";
+
+type ProfileSong = { shortId: number; title: string; albumImageUrl: string | null; subtitle: string };
+
+function ProfileMusicSection({ title, songs, status, onOpen, onAll }: {
+  title: string;
+  songs: ProfileSong[];
+  status: "loading" | "ready" | "error";
+  onOpen: (shortId: number) => void;
+  onAll?: () => void;
+}) {
+  return <section className="profile-work">
+    <SectionTitle onAll={onAll}>{title}</SectionTitle>
+    {status !== "ready" || songs.length === 0
+      ? <p className="profile-work-state" role={status === "error" ? "alert" : "status"}>{status === "loading" ? "음악을 불러오는 중..." : status === "error" ? "음악을 불러오지 못했습니다." : "아직 공개된 음악이 없습니다."}</p>
+      : <div className="song-rail profile-work-rail">{songs.map(song => <button type="button" className="song-card" key={song.shortId} onClick={() => onOpen(song.shortId)} aria-label={`${song.title} 열기`}>
+        <span className="song-art">{song.albumImageUrl ?
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={song.albumImageUrl} alt={`${song.title} 앨범 커버`} draggable={false} />
+          : <Asset name="abyss-album.png" alt={`${song.title} 기본 앨범 커버`} />}</span>
+        <strong>{song.title}</strong><small>{song.subtitle}</small>
+      </button>)}</div>}
+  </section>;
+}
 
 function profileErrorMessage(error: unknown): string {
   return error instanceof Error
@@ -16,8 +44,9 @@ function profileErrorMessage(error: unknown): string {
     : "프로필을 불러오지 못했습니다.";
 }
 
-function useOwnProfile() {
-  const userId = useCurrentUserId();
+function useOwnProfile(targetUserId?: number | null) {
+  const ownUserId = useCurrentUserId();
+  const userId = targetUserId ?? ownUserId;
   const [result, setResult] = useState<{
     userId: number;
     profile: UserProfile | null;
@@ -82,8 +111,31 @@ function useOwnProfile() {
   };
 }
 
-export function ProfileScreen({ go }: { go: Navigate }) {
-  const { profile, loading, error } = useOwnProfile();
+export function ProfileScreen({ go, targetUserId = null, playbackMode, onPlaybackModeChange, onOpenShort, onShowSongs, onChat }: { go: Navigate; targetUserId?: number | null; playbackMode: PlaybackMode; onPlaybackModeChange: (mode: PlaybackMode) => void; onOpenShort: (shortId: number) => void; onShowSongs: (kind: "authored" | "participated") => void; onChat: (person: Person) => void }) {
+  const ownUserId = useCurrentUserId();
+  const { profile, loading, error, setProfile } = useOwnProfile(targetUserId);
+  const [ownShorts, setOwnShorts] = useState<{ userId: number; items: ShortItemDto[]; error: boolean } | null>(null);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [privacyError, setPrivacyError] = useState<string | null>(null);
+  const [savingPrivacy, setSavingPrivacy] = useState(false);
+  const [pendingFollow, setPendingFollow] = useState(false);
+  const [followBusy, setFollowBusy] = useState(false);
+
+  useEffect(() => {
+    if (ownUserId == null || (targetUserId != null && targetUserId !== ownUserId)) return;
+    const controller = new AbortController();
+    getMyShorts(100, controller.signal)
+      .then(page => setOwnShorts({ userId: ownUserId, items: page.items, error: false }))
+      .catch(() => { if (!controller.signal.aborted) setOwnShorts({ userId: ownUserId, items: [], error: true }); });
+    return () => controller.abort();
+  }, [ownUserId, targetUserId]);
+
+  useEffect(() => {
+    if (targetUserId == null) return;
+    let alive = true;
+    getOutgoingFollowRequests().then(requests => { if (alive) setPendingFollow(requests.some(request => request.targetId === targetUserId)); }).catch(() => {});
+    return () => { alive = false; };
+  }, [targetUserId]);
 
   if (loading) {
     return (
@@ -106,33 +158,84 @@ export function ProfileScreen({ go }: { go: Navigate }) {
       ?.split(",")
       .map((item) => item.trim())
       .filter(Boolean) ?? [];
+  const owner = profile.userId === ownUserId;
+  const mutual = profile.relations.isFollowing && profile.relations.isFollowedBy;
+  const canChat = !owner && canSendChatTo(profile);
+  const ownSongsState = owner && ownShorts?.userId === profile.userId ? ownShorts : null;
+  const workStatus = owner ? ownSongsState === null ? "loading" : ownSongsState.error ? "error" : "ready" : "ready";
+  const authoredSongs: ProfileSong[] = owner
+    ? (ownSongsState?.items ?? []).filter(song => song.author.userId === profile.userId).map(song => ({ shortId: song.shortId, title: song.title, albumImageUrl: song.albumImageUrl, subtitle: song.author.nickname }))
+    : profile.activities.pinnedShorts.map(song => ({ shortId: song.shortId, title: song.title, albumImageUrl: song.albumImageUrl, subtitle: profile.nickname }));
+  const participatedSongs: ProfileSong[] = owner
+    ? (ownSongsState?.items ?? []).filter(song => song.author.userId !== profile.userId).map(song => ({ shortId: song.shortId, title: song.title, albumImageUrl: song.albumImageUrl, subtitle: song.author.nickname }))
+    : profile.activities.participatedShorts.map(song => ({ shortId: song.shortId, title: song.title, albumImageUrl: song.albumImageUrl, subtitle: profile.nickname }));
+
+  async function changePrivacy() {
+    if (!profile || savingPrivacy) return;
+    setSavingPrivacy(true); setPrivacyError(null);
+    try { const isPrivate = await updateProfilePrivacy(!profile.isPrivate); setProfile({ ...profile, isPrivate }); setMenuOpen(false); }
+    catch (cause) { setPrivacyError(profileErrorMessage(cause)); }
+    finally { setSavingPrivacy(false); }
+  }
+
+  async function toggleFollow() {
+    if (!profile || followBusy) return;
+    setFollowBusy(true); setPrivacyError(null);
+    try {
+      if (profile.relations.isFollowing || pendingFollow) {
+        await unfollowPerson(profile.userId);
+        setPendingFollow(false);
+      } else {
+        const result = await followPerson(profile.userId);
+        setPendingFollow(result.status === "PENDING");
+      }
+      setProfile(await getProfile(profile.userId));
+    } catch (cause) { setPrivacyError(profileErrorMessage(cause)); }
+    finally { setFollowBusy(false); }
+  }
 
   return (
     <div className="profile-view scroll-content">
-      <button
+      {owner && <div className="profile-settings"><button aria-label="프로필 설정" aria-expanded={menuOpen} onClick={() => setMenuOpen(current => !current)}><Asset name="settings.svg" /></button>
+        {menuOpen && <div className="profile-settings-menu" role="menu">
+          <button onClick={() => setMenuOpen(false)}>프로필 보기</button>
+          <button onClick={() => { setMenuOpen(false); go("edit"); }}>프로필 편집</button>
+          <button onClick={() => void changePrivacy()} disabled={savingPrivacy}>{profile.isPrivate ? "공개로 전환" : "비공개로 전환"}</button>
+          <button onClick={() => go("savedPosts")}>북마크한 게시물 보기</button>
+          <button onClick={() => go("likedPosts")}>좋아요한 게시물 보기</button>
+          <button className="profile-playback-setting" role="menuitemcheckbox" aria-checked={playbackMode === "next"} onClick={() => onPlaybackModeChange(playbackMode === "next" ? "repeat" : "next")}>숏폼 자동 넘기기 <span>{playbackMode === "next" ? "켬" : "끔"}</span></button>
+          <button onClick={logout}>로그아웃</button>
+        </div>}
+      </div>}
+      {privacyError && <p className="profile-form-error" role="alert">{privacyError}</p>}
+      <div
         className="profile-edit-trigger"
-        onClick={() => go("edit")}
-        aria-label="프로필 편집"
       >
         <Avatar large src={profile.profileImageUrl} />
-      </button>
+      </div>
 
       <h1>{profile.nickname}</h1>
 
       <div className="stats">
-        <span>
+        <button onClick={() => owner && go("followers")} disabled={!owner}>
           <strong>Follower</strong>
           <small>{profile.relations.followerCount}</small>
-        </span>
-        <span>
+        </button>
+        <button onClick={() => owner && go("following")} disabled={!owner}>
           <strong>Following</strong>
           <small>{profile.relations.followingCount}</small>
-        </span>
+        </button>
         <span>
           <strong>Articles</strong>
           <small>{profile.activities.postCount}</small>
         </span>
       </div>
+
+      {!owner && <div className="profile-actions">
+        <button className="profile-follow-action" disabled={followBusy} onClick={() => void toggleFollow()}>{pendingFollow ? "요청 취소" : mutual ? "맞팔로우" : profile.relations.isFollowing ? "팔로잉" : "팔로우"}</button>
+        {canChat && <button className="profile-chat-action"
+          onClick={() => onChat({ userId: profile.userId, nickname: profile.nickname, profileImageUrl: profile.profileImageUrl, primaryInstrument: profile.primaryInstrument })}>채팅하기</button>}
+      </div>}
 
       {instruments.length > 0 && (
         <div className="tags">
@@ -142,22 +245,17 @@ export function ProfileScreen({ go }: { go: Navigate }) {
         </div>
       )}
 
-      <section className="description">
+      {!owner && profile.isPrivate ? <p className="profile-private-notice">이 계정은 비공개 계정입니다.</p> : <><section className="description">
         <h2>Description</h2>
         <p>{profile.explanation || "아직 소개가 없습니다."}</p>
       </section>
 
-      <section>
-        <SectionTitle>내 작업물</SectionTitle>
-        <p className="profile-empty-work">
-          게시글 {profile.activities.posts.length}개 · 참여한 숏폼{" "}
-          {profile.activities.participatedShorts.length}개
-        </p>
-      </section>
-
-      <button type="button" className="profile-logout" onClick={logout}>
-        로그아웃
-      </button>
+      <ProfileMusicSection title="내 작업물" songs={authoredSongs} status={workStatus} onOpen={onOpenShort} onAll={owner ? () => onShowSongs("authored") : undefined} />
+      <ProfileMusicSection title="내 참가작" songs={participatedSongs} status={workStatus} onOpen={onOpenShort} onAll={owner ? () => onShowSongs("participated") : undefined} /></>}
+      {owner && <section className="profile-bookmarks">
+        <SectionTitle onAll={() => go("bookmarks")}>북마크</SectionTitle>
+        <button type="button" onClick={() => go("bookmarks")}><Asset name="bookmark.svg" />저장한 게시물과 음악 보기</button>
+      </section>}
     </div>
   );
 }

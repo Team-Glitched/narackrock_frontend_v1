@@ -5,7 +5,8 @@ import Image from "next/image";
 import { formatDistanceToNow } from "date-fns";
 import { ko } from "date-fns/locale";
 import { Asset, Avatar } from "@/components/app/shared";
-import { createPostComment, deletePostComment, fetchPost, fetchPostComments, recordPostView, updatePostComment } from "@/lib/api/community";
+import { ContentShareDialog } from "@/features/screens/content-share";
+import { createPostComment, deletePostComment, fetchPost, fetchPostComments, recordPostView, togglePostBookmark, togglePostCommentReaction, togglePostReaction, updatePostComment } from "@/lib/api/community";
 import { ApiError, getCurrentUserId } from "@/lib/api/client";
 import type { PostComment, PostCommentPage, PostDetailResponse } from "@/lib/api/contracts";
 import "./community.css";
@@ -25,11 +26,9 @@ function errorMessage(error: unknown, forbidden = "현재 계정은 댓글을 �
 // client.ts가 errorCode를 파싱하지 않아 상태 코드만으로는 구분할 수 없다.
 const FORBIDDEN_OWN_COMMENT = "본인이 작성한 댓글만 수정·삭제할 수 있어요. 계정 정지 상태도 확인해주세요.";
 
-// 로그인 사용자 id를 모르면(아직 로그인 화면이 없다) 일단 노출하고 서버 403으로 거른다.
-// 로그인이 붙으면 자동으로 본인 댓글에만 보이게 좁혀진다.
 function canManage(writerId: number): boolean {
   const me = getCurrentUserId();
-  return me === null || me === writerId;
+  return me !== null && me === writerId;
 }
 function time(value: string) {
   const date = new Date(value);
@@ -69,7 +68,7 @@ function CommentThread({ postId, parentId, revision, onReply, onChanged, depth =
     {!result && !error && <p role="status">댓글을 불러오는 중...</p>}
     {error && <div role="alert"><p>{error}</p><button onClick={() => setRetry(v => v + 1)}>다시 시도</button></div>}
     {result?.comments.length === 0 && <p className="comments-empty">{parentId === null ? "첫 댓글을 남겨보세요." : "아직 답글이 없어요."}</p>}
-    {result?.comments.map(comment => <CommentRow key={comment.commentId} comment={comment} postId={postId} revision={revision} onReply={onReply} onChanged={onChanged} depth={depth} />)}
+    {result?.comments.map(comment => <CommentRow key={`${comment.commentId}:${comment.likeCount}:${comment.dislikeCount}:${comment.isLiked}:${comment.isDisliked}`} comment={comment} postId={postId} revision={revision} onReply={onReply} onChanged={onChanged} depth={depth} />)}
     {result && result.comments.length < result.totalCount && <button className="comments-more" disabled={busy} onClick={more}>{busy ? "불러오는 중..." : "댓글 더보기"}</button>}
   </div>;
 }
@@ -82,9 +81,18 @@ function CommentRow({ comment, postId, revision, onReply, onChanged, depth }: { 
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [reaction, setReaction] = useState({ likeCount: comment.likeCount, dislikeCount: comment.dislikeCount, isLiked: comment.isLiked, isDisliked: comment.isDisliked });
+  const [reactionBusy, setReactionBusy] = useState(false);
   const nickname = comment.writer.nickname || "알 수 없는 사용자";
   const manageable = canManage(comment.writer.userId);
 
+  async function react(type: "like" | "dislike") {
+    if (reactionBusy) return;
+    setReactionBusy(true); setError(null);
+    try { setReaction(await togglePostCommentReaction(comment.commentId, type)); }
+    catch (cause) { setError(errorMessage(cause)); }
+    finally { setReactionBusy(false); }
+  }
   function startEdit() {
     setMenuOpen(false);
     setConfirmDelete(false);
@@ -151,12 +159,12 @@ function CommentRow({ comment, postId, revision, onReply, onChanged, depth }: { 
     {error && <p className="comment-error" role="alert">{error}</p>}
 
     {!editing && <div className="comment-actions">
-      {comment.replyCount > 0 && <button className="reply-toggle" aria-expanded={open} onClick={() => setOpen(v => !v)}>{open ? "답글 접기" : `답글 ${comment.replyCount}개`}</button>}
-      <button aria-label={`${nickname}에게 답글 작성`} onClick={() => { setOpen(true); onReply({ commentId: comment.commentId, nickname }); }}><Asset name="comment.svg" /></button>
-      <button disabled aria-label="댓글 좋아요 준비 중"><Asset name="like.svg" /></button>
-      <button disabled aria-label="댓글 싫어요 준비 중"><Asset name="like.svg" className="thumb-down" /></button>
+      {depth === 0 && comment.replyCount > 0 && <button className="reply-toggle" aria-expanded={open} onClick={() => setOpen(v => !v)}>{open ? "답글 접기" : `답글 ${comment.replyCount}개`}</button>}
+      <button disabled={reactionBusy} aria-label="댓글 좋아요" aria-pressed={reaction.isLiked} onClick={() => react("like")}><Asset name={reaction.isLiked ? "like-filled.svg" : "like.svg"} />{reaction.likeCount}</button>
+      <button disabled={reactionBusy} aria-label="댓글 싫어요" aria-pressed={reaction.isDisliked} onClick={() => react("dislike")}><Asset name={reaction.isDisliked ? "like-filled.svg" : "like.svg"} className="thumb-down" /></button>
+      {depth === 0 && <button aria-label={`${nickname}에게 답글 작성`} onClick={() => { setOpen(true); onReply({ commentId: comment.commentId, nickname }); }}><Asset name="comment.svg" /></button>}
     </div>}
-    {open && <div className={depth < 2 ? "comment-replies" : "comment-replies shallow"}><CommentThread postId={postId} parentId={comment.commentId} revision={revision} onReply={onReply} onChanged={onChanged} depth={depth + 1} /></div>}
+    {depth === 0 && open && <div className="comment-replies"><CommentThread postId={postId} parentId={comment.commentId} revision={revision} onReply={onReply} onChanged={onChanged} depth={1} /></div>}
   </article>;
 }
 
@@ -169,6 +177,9 @@ export function PostCommentsScreen({ postId }: { postId: number }) {
   const [submitting, setSubmitting] = useState(false);
   const [writeError, setWriteError] = useState<string | null>(null);
   const [notice, setNotice] = useState("");
+  const [reactionBusy, setReactionBusy] = useState(false);
+  const [bookmarkBusy, setBookmarkBusy] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
   const input = useRef<HTMLTextAreaElement>(null);
   const comments = useRef<HTMLElement>(null);
   useEffect(() => {
@@ -204,6 +215,24 @@ export function PostCommentsScreen({ postId }: { postId: number }) {
     } catch (error) { setWriteError(errorMessage(error)); }
     finally { setSubmitting(false); }
   }
+  async function react(type: "like" | "dislike") {
+    if (!post || reactionBusy) return;
+    setReactionBusy(true); setError(null);
+    try {
+      const result = await togglePostReaction(postId, type);
+      setPost(current => current && ({ ...current, ...result }));
+    } catch (cause) { setError(errorMessage(cause)); }
+    finally { setReactionBusy(false); }
+  }
+  async function bookmark() {
+    if (!post || bookmarkBusy) return;
+    setBookmarkBusy(true); setError(null);
+    try {
+      const result = await togglePostBookmark(postId);
+      setPost(current => current && ({ ...current, isBookmarked: result.isBookmarked }));
+    } catch (cause) { setError(errorMessage(cause)); }
+    finally { setBookmarkBusy(false); }
+  }
   return <div className="comments-screen community-view">
     <div className="comments-scroll scroll-content">
       {error && <div className="comments-error" role="alert"><p>{error}</p><button onClick={() => setRevision(v => v + 1)}>다시 시도</button></div>}
@@ -214,9 +243,9 @@ export function PostCommentsScreen({ postId }: { postId: number }) {
           <h2>{post.title}</h2><p className="comments-post-content">{post.content}</p>
           {post.imageUrl && <Image className="community-image" src={post.imageUrl} alt="게시글 첨부 이미지" width={350} height={262} unoptimized />}
           <div className="community-actions">
-            <div className="community-vote"><button disabled aria-label="게시글 좋아요 준비 중"><Asset name="like.svg" />{post.likeCount}</button><span /><button disabled aria-label="게시글 싫어요 준비 중"><Asset name="like.svg" className="thumb-down" /></button></div>
+            <div className="community-vote"><button disabled={reactionBusy} onClick={() => react("like")} aria-label={`게시글 좋아요 ${post.likeCount}개`} aria-pressed={post.isLiked}><Asset name={post.isLiked ? "like-filled.svg" : "like.svg"} />{post.likeCount}</button><span /><button disabled={reactionBusy} onClick={() => react("dislike")} aria-label={`게시글 싫어요 ${post.dislikeCount}개`} aria-pressed={post.isDisliked}><Asset name={post.isDisliked ? "like-filled.svg" : "like.svg"} className="thumb-down" />{post.dislikeCount}</button></div>
             <button aria-label={`댓글 ${post.commentCount}개로 이동`} onClick={() => comments.current?.scrollIntoView({ block: "start" })}><Asset name="comment.svg" />{post.commentCount}</button><i />
-            <button disabled aria-label="공유 준비 중"><Asset name="share.svg" /></button><button disabled aria-label="북마크 준비 중"><Asset name="bookmark.svg" /></button>
+            <button aria-label="게시글 공유" onClick={() => setShareOpen(true)}><Asset name="share.svg" /></button><button disabled={bookmarkBusy} aria-label="게시글 북마크" aria-pressed={post.isBookmarked} onClick={bookmark}><Asset name={post.isBookmarked ? "bookmark-filled.svg" : "bookmark.svg"} /></button>
           </div>
         </article>
         <section ref={comments} className="post-comment-list" aria-label="댓글 목록"><CommentThread postId={postId} parentId={null} revision={revision} onReply={target => { setReply(target); input.current?.focus(); }} onChanged={() => { setNotice(""); setRevision(v => v + 1); }} /></section>
@@ -227,5 +256,6 @@ export function PostCommentsScreen({ postId }: { postId: number }) {
       {writeError && <p role="alert">{writeError}</p>}{notice && <p role="status">{notice}</p>}
       <div className="comment-input-row"><textarea ref={input} aria-label="댓글 내용" placeholder="댓글을 남겨보세요" value={content} onChange={event => setContent(event.target.value)} disabled={submitting || !post} rows={1} /><button type="submit" disabled={submitting || !post}>{submitting ? "등록 중" : "등록"}</button></div>
     </form>
+    {shareOpen && <ContentShareDialog content={{ kind: "post", id: postId }} onClose={() => setShareOpen(false)} />}
   </div>;
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import "./community.css";
+import "./popular-charts.css";
 import { CommunityDirectory } from "./community-directory";
 import type { Community } from "./community-card";
 
@@ -11,12 +12,18 @@ import { useEffect, useState } from "react";
 import { Asset, Avatar, SectionTitle, SongRail } from "@/components/app/shared";
 import type { Navigate } from "@/features/navigation/types";
 import { useGalleryPosts } from "@/hooks/use-gallery-posts";
-import { createPost, DEFAULT_GALLERY_ID, deletePost, fetchPost, updatePost } from "@/lib/api/community";
+import { createPost, DEFAULT_GALLERY_ID, deletePost, fetchPost, togglePostBookmark, togglePostReaction, updatePost } from "@/lib/api/community";
 import type { PostListItem } from "@/lib/api/contracts";
 import { ApiError, getAccessToken } from "@/lib/api/client";
 import { uploadMedia } from "@/lib/api/media";
 import { useHomeSongs } from "@/hooks/use-home-songs";
+import { useCurrentUserId } from "@/hooks/use-current-user";
+import { usePopularPosts } from "@/hooks/use-popular-posts";
 import { validatePostImage } from "@/features/community/post-image";
+import { PopularActions } from "./popular-actions";
+import { FriendsHome } from "@/features/social/social-screens";
+import type { Person } from "@/lib/api/social";
+import { ContentShareDialog } from "@/features/screens/content-share";
 
 function postError(error: unknown): string {
   if (error instanceof ApiError) {
@@ -62,8 +69,6 @@ function MiniPost({ tall = false, post, onOpen }: { tall?: boolean; post: PostLi
     </button>
   );
 }
-function BackTitle({ title, go }: { title: string; go: Navigate }) { return <div className="back-title"><button aria-label="뒤로" onClick={() => go("home")}><Asset name="return.svg" /></button><h1>{title}</h1></div>; }
-
 function SongRailStatus({ state }: { state: "loading" | "error" | "empty" | "signed-out" }) {
   const message = state === "loading" ? "곡을 불러오는 중..."
     : state === "error" ? "곡을 불러오지 못했습니다."
@@ -72,91 +77,41 @@ function SongRailStatus({ state }: { state: "loading" | "error" | "empty" | "sig
   return <p className="song-rail-status">{message}</p>;
 }
 
-export type SongChartKind = "popular" | "mine";
+export type SongChartKind = "popular" | "mine" | "authored" | "participated";
 
 export function HomeScreen({ go, onOpenPost, onOpenShort, onShowSongs }: { go: Navigate; onOpenPost: (postId: number) => void; onOpenShort: (shortId: number) => void; onShowSongs: (kind: SongChartKind) => void }) {
-  const posts = useGalleryPosts(DEFAULT_GALLERY_ID);
+  const posts = usePopularPosts(3);
   const songs = useHomeSongs();
-  return <div className="home-content scroll-content"><section><SectionTitle onAll={() => onShowSongs("popular")}>인기 곡</SectionTitle>{songs.popular.status !== "ready" ? <SongRailStatus state={songs.popular.status} /> : songs.popular.items.length === 0 ? <SongRailStatus state="empty" /> : <SongRail songs={songs.popular.items} onOpen={onOpenShort} />}</section><section><SectionTitle onAll={() => go("posts")}>인기 글</SectionTitle><div className="mini-post-list">{posts.status !== "ready" ? <PostListStatus state={posts.status} /> : posts.posts.length === 0 ? <PostListStatus state="empty" /> : posts.posts.slice(0, 3).map(post => <MiniPost key={post.postId} post={post} onOpen={onOpenPost} />)}</div></section><section><SectionTitle onAll={() => onShowSongs("mine")}>내 곡</SectionTitle>{songs.mine.status !== "ready" ? <SongRailStatus state={songs.mine.status} /> : songs.mine.items.length === 0 ? <SongRailStatus state="empty" /> : <SongRail songs={songs.mine.items} onOpen={onOpenShort} />}</section></div>;
+  return <div className="home-content scroll-content"><section><SectionTitle onAll={() => onShowSongs("popular")}>인기 차트</SectionTitle>{songs.popular.status !== "ready" ? <SongRailStatus state={songs.popular.status} /> : songs.popular.items.length === 0 ? <SongRailStatus state="empty" /> : <SongRail songs={songs.popular.items} onOpen={onOpenShort} />}</section><section><SectionTitle onAll={() => go("posts")}>인기 글</SectionTitle><div className="mini-post-list">{posts.status !== "ready" ? <PostListStatus state={posts.status} /> : posts.posts.length === 0 ? <PostListStatus state="empty" /> : posts.posts.map(post => <MiniPost key={post.postId} post={post} onOpen={onOpenPost} />)}</div></section><section><SectionTitle onAll={() => onShowSongs("mine")}>내 곡</SectionTitle>{songs.mine.status !== "ready" ? <SongRailStatus state={songs.mine.status} /> : songs.mine.items.length === 0 ? <SongRailStatus state="empty" /> : <SongRail songs={songs.mine.items} onOpen={onOpenShort} />}</section></div>;
 }
-export function ChartsScreen({ go, kind, onOpenShort }: { go: Navigate; kind: SongChartKind; onOpenShort: (shortId: number) => void }) {
+export function ChartsScreen({ kind, onOpenShort }: { go: Navigate; kind: SongChartKind; onOpenShort: (shortId: number) => void }) {
   const songs = useHomeSongs(100);
+  const currentUserId = useCurrentUserId();
   const selected = kind === "popular" ? songs.popular : songs.mine;
-  return <div className="list-view scroll-content"><BackTitle title={kind === "popular" ? "인기차트" : "내 곡"} go={go} /><div className="chart-list">{selected.status !== "ready" ? <SongRailStatus state={selected.status} /> : selected.items.length === 0 ? <SongRailStatus state="empty" /> : selected.items.map(song => <button type="button" className="chart-row" key={song.shortId} onClick={() => onOpenShort(song.shortId)}><span className="chart-art">{song.albumImageUrl
-    // eslint-disable-next-line @next/next/no-img-element
-    ? <img src={song.albumImageUrl} alt={`${song.title} 앨범 커버`} draggable={false} />
-    : <Asset name="abyss-album.png" alt={`${song.title} 기본 앨범 커버`} />}</span><span><strong>{song.title}</strong><small>{song.author.nickname}</small></span><Asset name="option.svg" /></button>)}</div></div>;
+  const items = selected.items.filter(song => kind === "authored" ? song.author.userId === currentUserId : kind === "participated" ? song.author.userId !== currentUserId : true);
+  const title = kind === "popular" ? "인기 차트" : kind === "authored" ? "내 작업물" : kind === "participated" ? "내 참가작" : "내 곡";
+  return <div className="list-view scroll-content popular-page"><h1 className="popular-page-title">{title}</h1><div className="popular-list popular-song-list">{selected.status !== "ready" ? <SongRailStatus state={selected.status} /> : items.length === 0 ? <SongRailStatus state="empty" /> : items.map((song, index) => {
+    const composers = [...new Set([song.author.nickname, ...song.participants.map(person => person.nickname)].filter(Boolean))].join(", ");
+    return <div className="popular-row popular-song-row" key={song.shortId}>
+      <button type="button" className="popular-row-main" onClick={() => onOpenShort(song.shortId)} aria-label={`${kind === "popular" ? `${index + 1}위 ` : ""}${song.title} 열기`}>
+        <span className="popular-art">{song.albumImageUrl
+          // eslint-disable-next-line @next/next/no-img-element
+          ? <img src={song.albumImageUrl} alt={`${song.title} 앨범 커버`} draggable={false} /> : null}{kind === "popular" && <b className="popular-rank">{index + 1}위</b>}</span>
+        <span className="popular-song-copy"><strong>{song.title}</strong><small>{composers}</small></span>
+      </button>
+      {kind === "popular" && <PopularActions content={{ kind: "short", id: song.shortId }} />}
+    </div>;
+  })}</div></div>;
 }
-export function PostsScreen({ go, onOpenPost }: { go: Navigate; onOpenPost: (postId: number) => void }) {
-  const posts = useGalleryPosts(DEFAULT_GALLERY_ID);
-  return <div className="list-view scroll-content"><BackTitle title="인기글" go={go} /><div className="posts-list">{posts.status !== "ready" ? <PostListStatus state={posts.status} /> : posts.posts.length === 0 ? <PostListStatus state="empty" /> : posts.posts.map(post => <MiniPost tall key={post.postId} post={post} onOpen={onOpenPost} />)}</div></div>;
-}
-export function FriendsScreen({ go }: { go: Navigate }) {
-  const [following, setFollowing] = useState([false, true, true, false]);
-  const [requests, setRequests] = useState([true, true]);
-  return (
-    <div className="friends-view">
-      <section>
-        <SectionTitle>팔로우 추천</SectionTitle>
-        <div className="people-list">
-          {following.map((on, i) => (
-            <div className="person" key={i}>
-              <button className="person-link" onClick={() => go("profile")}>
-                <Avatar />
-                <span>
-                  <strong>Muhehehe</strong>
-                  <small>피아노</small>
-                </span>
-              </button>
-              <button
-                className="purple-pill"
-                onClick={() =>
-                  setFollowing((s) => s.map((v, x) => (x === i ? !v : v)))
-                }
-              >
-                {on ? "맞팔로우" : "팔로우"}
-              </button>
-            </div>
-          ))}
-        </div>
-      </section>
-      <section>
-        <SectionTitle>팔로우 요청</SectionTitle>
-        <div className="people-list">
-          {requests.map(
-            (show, i) =>
-              show && (
-                <div className="person" key={i}>
-                  <button className="person-link" onClick={() => go("profile")}>
-                    <Avatar />
-                    <span>
-                      <strong>Muhehehe</strong>
-                      <small>피아노</small>
-                    </span>
-                  </button>
-                  <button
-                    className="purple-pill compact"
-                    onClick={() =>
-                      setRequests((s) => s.map((v, x) => (x === i ? false : v)))
-                    }
-                  >
-                    확인
-                  </button>
-                  <button
-                    className="gray-pill"
-                    onClick={() =>
-                      setRequests((s) => s.map((v, x) => (x === i ? false : v)))
-                    }
-                  >
-                    취소
-                  </button>
-                </div>
-              ),
-          )}
-        </div>
-      </section>
-    </div>
-  );
+export function PostsScreen({ onOpenPost }: { go: Navigate; onOpenPost: (postId: number) => void }) {
+  const posts = usePopularPosts(100);
+  return <div className="list-view scroll-content popular-page"><h1 className="popular-page-title">인기 글</h1><div className="popular-list popular-post-list">{posts.status !== "ready" ? <PostListStatus state={posts.status} /> : posts.posts.length === 0 ? <PostListStatus state="empty" /> : posts.posts.map((post, index) => <div className="popular-row popular-post-row" key={post.postId}>
+    <button type="button" className="popular-row-main" onClick={() => onOpenPost(post.postId)} aria-label={`${index + 1}위 ${post.title} 게시글 열기`}>
+      <span className="popular-art">{post.imageUrl && <Image src={post.imageUrl} alt="게시글 첨부 이미지" width={90} height={90} unoptimized />}<b className="popular-rank">{index + 1}위</b></span>
+      <span className="popular-post-copy"><strong>{post.title}</strong><span className="popular-post-meta"><span>{relativeTime(post.createdAt)}</span><span><Asset name="like.svg" />{post.likeCount}</span><span><Asset name="like.svg" className="thumb-down" />{post.dislikeCount}</span></span><span className="popular-post-author"><Avatar src={post.writer.profileImageUrl} />{post.writer.nickname}</span></span>
+    </button>
+    <PopularActions content={{ kind: "post", id: post.postId }} />
+  </div>)}</div></div>;
 }
 export function SearchScreen({ go }: { go: Navigate }) { const [query, setQuery] = useState(""); return <div className="search-view"><div className="search-line"><button onClick={() => go("home")} aria-label="뒤로"><Asset name="return.svg" /></button><label><Asset name="search.svg" /><input autoFocus value={query} onChange={e => setQuery(e.target.value)} placeholder="검색" />{query && <button onClick={() => setQuery("")} aria-label="검색어 지우기">×</button>}</label></div>{query && <p className="search-result">‘{query}’ 검색 결과가 없습니다.</p>}</div>; }
 export function PostComposer({ galleryId, onCreated, onCancel }: { galleryId: number; onCreated: () => void; onCancel: () => void }) {
@@ -238,7 +193,12 @@ export function PostComposer({ galleryId, onCreated, onCancel }: { galleryId: nu
 export function CommunityPost({ post, onChanged, onCompose, onComments }: { post: PostListItem; onChanged: () => void; onCompose: () => void; onComments: (postId: number) => void }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [vote, setVote] = useState<"like" | "dislike" | null>(null);
+  const [likeCount, setLikeCount] = useState(post.likeCount);
+  const [dislikeCount, setDislikeCount] = useState(post.dislikeCount);
+  const [reactionBusy, setReactionBusy] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [bookmarkBusy, setBookmarkBusy] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState(post.title);
   const [content, setContent] = useState("");
@@ -256,6 +216,10 @@ export function CommunityPost({ post, onChanged, onCompose, onComments }: { post
       if (!cancelled) {
         setPreview(detail.content);
         setImageUrl(detail.imageUrl);
+        setVote(detail.isLiked ? "like" : detail.isDisliked ? "dislike" : null);
+        setLikeCount(detail.likeCount);
+        setDislikeCount(detail.dislikeCount);
+        setSaved(detail.isBookmarked);
       }
     }).catch(error => {
       if (!cancelled) setError(postError(error));
@@ -274,6 +238,27 @@ export function CommunityPost({ post, onChanged, onCompose, onComments }: { post
       setExpanded(true);
     } catch (error) { setError(postError(error)); }
     finally { setSubmitting(false); }
+  }
+
+  async function react(type: "like" | "dislike") {
+    if (reactionBusy) return;
+    setReactionBusy(true);
+    setError(null);
+    try {
+      const result = await togglePostReaction(post.postId, type);
+      setVote(result.isLiked ? "like" : result.isDisliked ? "dislike" : null);
+      setLikeCount(result.likeCount);
+      setDislikeCount(result.dislikeCount);
+    } catch (cause) { setError(postError(cause)); }
+    finally { setReactionBusy(false); }
+  }
+
+  async function bookmark() {
+    if (bookmarkBusy) return;
+    setBookmarkBusy(true); setError(null);
+    try { setSaved((await togglePostBookmark(post.postId)).isBookmarked); }
+    catch (cause) { setError(postError(cause)); }
+    finally { setBookmarkBusy(false); }
   }
 
   async function startEdit() {
@@ -360,12 +345,13 @@ export function CommunityPost({ post, onChanged, onCompose, onComments }: { post
       {confirmDelete && <div className="post-delete-confirm" role="group" aria-label="게시글 삭제 확인"><p>이 게시글을 삭제할까요?</p><button className="gray-pill" disabled={submitting} onClick={() => setConfirmDelete(false)}>취소</button><button className="purple-pill" disabled={submitting} onClick={remove}>{submitting ? "삭제 중..." : "삭제 확인"}</button></div>}
       {imageUrl && <Image className="community-image" src={imageUrl} alt="게시글 첨부 이미지" width={350} height={262} unoptimized />}
       <div className="community-actions">
-        <div className={`community-vote${vote ? " active" : ""}`} role="group" aria-label="게시글 반응"><button className={vote === "like" ? "liked" : ""} onClick={() => setVote(current => current === "like" ? null : "like")} aria-label="좋아요" aria-pressed={vote === "like"}><Asset name={vote === "like" ? "like-filled.svg" : "like.svg"} />{post.likeCount}</button><span className="community-vote-divider" aria-hidden="true" /><button aria-label="싫어요" aria-pressed={vote === "dislike"} onClick={() => setVote(current => current === "dislike" ? null : "dislike")}><Asset name={vote === "dislike" ? "like-filled.svg" : "like.svg"} className="thumb-down" /></button></div>
+        <div className={`community-vote${vote ? " active" : ""}`} role="group" aria-label="게시글 반응"><button className={vote === "like" ? "liked" : ""} onClick={() => react("like")} disabled={reactionBusy} aria-label={`좋아요 ${likeCount}개`} aria-pressed={vote === "like"}><Asset name={vote === "like" ? "like-filled.svg" : "like.svg"} />{likeCount}</button><span className="community-vote-divider" aria-hidden="true" /><button aria-label={`싫어요 ${dislikeCount}개`} aria-pressed={vote === "dislike"} disabled={reactionBusy} onClick={() => react("dislike")}><Asset name={vote === "dislike" ? "like-filled.svg" : "like.svg"} className="thumb-down" />{dislikeCount}</button></div>
         <button onClick={() => onComments(post.postId)} aria-label={`댓글 ${post.commentCount}개 보기`}><Asset name="comment.svg" />{post.commentCount}</button>
         <i />
-        <button disabled aria-label="공유 기능 준비 중" title="공유 기능 준비 중"><Asset name="share.svg" /></button>
-        <button className={saved ? "active" : ""} aria-label="저장" aria-pressed={saved} onClick={() => setSaved(current => !current)}><Asset name={saved ? "bookmark-filled.svg" : "bookmark.svg"} /></button>
+        <button aria-label="게시글 공유" onClick={() => setShareOpen(true)}><Asset name="share.svg" /></button>
+        <button className={saved ? "active" : ""} aria-label="게시글 북마크" aria-pressed={saved} disabled={bookmarkBusy} onClick={bookmark}><Asset name={saved ? "bookmark-filled.svg" : "bookmark.svg"} /></button>
       </div>
+      {shareOpen && <ContentShareDialog content={{ kind: "post", id: post.postId }} onClose={() => setShareOpen(false)} />}
     </article>
   );
 }
@@ -373,7 +359,7 @@ export function CommunityPost({ post, onChanged, onCompose, onComments }: { post
 export type CommunityTab = "posts" | "community" | "friends";
 
 // tab은 page.tsx가 들고 있다 — "모두보기"로 전체 목록에 다녀와도 커뮤니티 탭이 유지되도록.
-export function CommunityScreen({ go, tab, onTabChange, onComments, onOpenCommunity }: { go: Navigate; tab: CommunityTab; onTabChange: (tab: CommunityTab) => void; onComments: (postId: number) => void; onOpenCommunity: (community: Community) => void }) {
+export function CommunityScreen({ go, tab, onTabChange, onComments, onOpenCommunity, onChat, onProfile }: { go: Navigate; tab: CommunityTab; onTabChange: (tab: CommunityTab) => void; onComments: (postId: number) => void; onOpenCommunity: (community: Community) => void; onChat: (person: Person) => void; onProfile: (person: Person) => void }) {
   const [composerOpen, setComposerOpen] = useState(false);
   const posts = useGalleryPosts(DEFAULT_GALLERY_ID);
 
@@ -406,7 +392,7 @@ export function CommunityScreen({ go, tab, onTabChange, onComments, onOpenCommun
           {!composerOpen && <button className="community-compose purple-pill" onClick={() => setComposerOpen(true)}>글쓰기</button>}
         </>
       ) : tab === "friends" ? (
-        <FriendsScreen go={go} />
+        <FriendsHome onAllMutual={() => go("mutual")} onAllRecommendations={() => go("recommendations")} onChat={onChat} onProfile={onProfile} onLogin={() => go("login")} />
       ) : (
         <CommunityDirectory go={go} onOpen={onOpenCommunity} />
       )}

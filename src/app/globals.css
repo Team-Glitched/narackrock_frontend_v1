@@ -1,4 +1,30 @@
 @import "tailwindcss";
+.header-notification{position:relative}
+.header-notification-badge{position:absolute;right:0;bottom:-5px;min-width:17px;height:17px;padding:0 3px;border-radius:9px;background:#f44355;color:#fff;font-size:10px;font-weight:700;line-height:17px;text-align:center}
+.profile-settings{height:44px;display:flex;justify-content:flex-end;position:absolute;top:20px;right:4px;z-index:12}
+.header-action-placeholder{display:block;width:44px;height:44px;flex:none}
+.phone-frame{position:relative}
+.profile-settings>button{width:44px;height:44px;display:grid;place-items:center}
+.profile-settings>button img{width:24px;height:24px}
+.profile-settings-menu{position:absolute;right:20px;top:42px;z-index:10;width:210px;background:#2c3238;border:1px solid #4a5059;border-radius:12px;box-shadow:0 8px 24px #0008;padding:6px;display:flex;flex-direction:column}
+.profile-settings-menu button{text-align:left;color:#f2f4f6;padding:10px 12px;border-radius:7px;font-size:14px}
+.profile-settings-menu button:hover,.profile-settings-menu button:focus-visible{background:#4c00e5}
+.profile-settings-menu .profile-playback-setting{display:flex;align-items:center;justify-content:space-between;gap:8px;border-top:1px solid #4a5059;border-radius:0}
+.profile-playback-setting span{color:#baa3ff;font-size:12px;font-weight:600}
+.stats button{display:flex;flex-direction:column;align-items:center}
+.stats button:disabled{cursor:default}
+.profile-private-notice{text-align:center;margin:60px 20px;color:#aab6c2;font-size:14px}
+.profile-follow-action{display:block;margin:18px auto 0;padding:9px 20px;background:#4c00e5;color:#f2f4f6;border-radius:20px;font-size:14px}
+.profile-posts{padding:30px 20px;display:flex;flex-direction:column;gap:16px}
+.profile-posts h1{font-size:20px;font-weight:700;margin:0 0 8px}
+.profile-posts>p{color:#aab6c2;font-size:13px}
+.profile-post-item{display:flex;align-items:center;gap:12px;text-align:left;padding:10px;border-radius:10px;background:#2c3238}
+.profile-post-item>img{width:60px;height:60px;object-fit:cover;border-radius:8px}
+.profile-post-item>span{display:flex;flex-direction:column;gap:4px;min-width:0}
+.profile-post-item strong{font-size:15px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.profile-post-item small{font-size:12px;color:#aab6c2}
+.notification-card>.notification-person{display:flex;align-items:center;gap:10px;margin-top:0}
+.notification-person .avatar{width:36px;height:36px;flex:none}
 
 .person > .avatar { margin-right: 0; }
 
@@ -902,4 +928,17 @@
 }.os-detail-composer-row > button:disabled {
   color: var(--muted);
   cursor: default;
+}
+
+.app-header { min-width: 0; gap: 8px; }
+.app-header > .header-logo,
+.app-header > .header-back,
+.app-header > .header-sound { flex: none; }
+.header-actions { flex: none; align-items: center; gap: 10px; overflow: visible; }
+.header-actions > button,
+.header-actions > .header-action-placeholder { flex: 0 0 44px; }
+.header-actions > button > svg { display: block; width: 24px; height: 24px; }
+@media (max-width: 320px) {
+  .app-header { gap: 2px; }
+  .header-actions { gap: 2px; }
 }

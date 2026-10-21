@@ -38,6 +38,8 @@ function loadStoredSession(): StoredAuthSession | null {
 const storedSession = loadStoredSession();
 let accessToken: string | null = storedSession?.accessToken ?? null;
 let refreshToken: string | null = storedSession?.refreshToken ?? null;
+let sessionVersion = 0;
+let refreshInFlight: { version: number; promise: Promise<boolean> } | null = null;
 
 export function setAccessToken(token: string | null): void { accessToken = token; }
 export function getAccessToken(): string | null { return accessToken; }
@@ -56,6 +58,7 @@ export function setCurrentUserId(userId: number | null): void {
 export function getCurrentUserId(): number | null { return currentUserId; }
 
 export function setAuthSession(session: StoredAuthSession): void {
+  sessionVersion++;
   accessToken = session.accessToken;
   refreshToken = session.refreshToken;
   setCurrentUserId(session.userId);
@@ -66,6 +69,7 @@ export function setAuthSession(session: StoredAuthSession): void {
 }
 
 export function clearAuthSession(): void {
+  sessionVersion++;
   accessToken = null;
   refreshToken = null;
   setCurrentUserId(null);
@@ -82,10 +86,76 @@ export function subscribeCurrentUserId(listener: (userId: number | null) => void
   return () => { currentUserListeners.delete(listener); };
 }
 
+async function responseError(response: Response): Promise<ApiError> {
+  const body = await response.text();
+  const fallbackMessage = response.status === 401
+    ? "로그인이 만료되었습니다. 다시 로그인해 주세요."
+    : "요청을 처리하지 못했습니다.";
+  let message = body.trim() || fallbackMessage;
+  let errorCode: string | undefined;
+
+  try {
+    const parsed = JSON.parse(body) as { message?: string; errorCode?: string };
+    message = parsed.message?.trim() || fallbackMessage;
+    errorCode = parsed.errorCode;
+  } catch { /* plain text response */ }
+
+  return new ApiError(response.status, message, errorCode);
+}
+
+async function renewSession(version: number): Promise<boolean> {
+  if (sessionVersion !== version || refreshToken == null) return false;
+  if (refreshInFlight?.version === version) return refreshInFlight.promise;
+
+  const tokenToRotate = refreshToken;
+  const promise = (async () => {
+    const response = await fetch(`${apiBaseUrl}/api/v1/auth/refresh`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ refreshToken: tokenToRotate }),
+      credentials: "omit",
+    });
+    if (!response.ok) {
+      if (response.status === 400 || response.status === 401) {
+        if (sessionVersion === version && refreshToken === tokenToRotate) clearAuthSession();
+        return false;
+      }
+      throw await responseError(response);
+    }
+
+    const result = await response.json() as {
+      data?: { accessToken?: string; refreshToken?: string };
+    };
+    if (!result.data?.accessToken || !result.data.refreshToken) {
+      throw new Error("토큰 갱신 응답이 올바르지 않습니다.");
+    }
+    if (sessionVersion !== version || refreshToken !== tokenToRotate) return false;
+
+    accessToken = result.data.accessToken;
+    refreshToken = result.data.refreshToken;
+    if (typeof window !== "undefined" && currentUserId != null) {
+      try {
+        window.localStorage.setItem(authSessionStorageKey, JSON.stringify({
+          accessToken, refreshToken, userId: currentUserId,
+        }));
+      } catch { /* 메모리 세션은 계속 사용할 수 있다. */ }
+    }
+    return true;
+  })();
+
+  refreshInFlight = { version, promise };
+  try { return await promise; }
+  finally {
+    if (refreshInFlight?.promise === promise) refreshInFlight = null;
+  }
+}
+
 export async function apiRequest<T>(path: string, init?: RequestInit): Promise<T> {
   const headers = new Headers(init?.headers);
   const requestAccessToken = accessToken;
-  const usesStoredSession = requestAccessToken != null && !headers.has("Authorization");
+  const requestSessionVersion = sessionVersion;
+  const isAuthRequest = /^\/api\/v1\/auth\//.test(path);
+  const usesStoredSession = !isAuthRequest && requestAccessToken != null && !headers.has("Authorization");
 
   if (init?.body != null && !(init.body instanceof FormData) && !headers.has("Content-Type")) {
     headers.set("Content-Type", "application/json");
@@ -93,30 +163,25 @@ export async function apiRequest<T>(path: string, init?: RequestInit): Promise<T
   if (usesStoredSession) headers.set("Authorization", `Bearer ${requestAccessToken}`);
 
   const url = /^https?:\/\//.test(path) ? path : `${apiBaseUrl}${path}`;
-  const response = await fetch(url, {
+  const send = (requestHeaders: Headers) => fetch(url, {
     ...init,
-    headers,
+    headers: requestHeaders,
     credentials: init?.credentials ?? "omit",
   });
+  let response = await send(headers);
+
+  if (response.status === 401 && usesStoredSession && sessionVersion === requestSessionVersion) {
+    // 다른 요청이 이미 갱신했다면 회전된 refresh token을 다시 사용하지 않는다.
+    if (accessToken === requestAccessToken) await renewSession(requestSessionVersion);
+    if (sessionVersion === requestSessionVersion && accessToken && accessToken !== requestAccessToken) {
+      const retryHeaders = new Headers(headers);
+      retryHeaders.set("Authorization", `Bearer ${accessToken}`);
+      response = await send(retryHeaders);
+    }
+  }
 
   if (!response.ok) {
-    const body = await response.text();
-    const fallbackMessage = response.status === 401
-      ? "로그인이 만료되었습니다. 다시 로그인해 주세요."
-      : "요청을 처리하지 못했습니다.";
-    let message = body.trim() || fallbackMessage;
-    let errorCode: string | undefined;
-
-    try {
-      const parsed = JSON.parse(body) as { message?: string; errorCode?: string };
-      message = parsed.message?.trim() || fallbackMessage;
-      errorCode = parsed.errorCode;
-    } catch { /* plain text response */ }
-
-    if (response.status === 401 && usesStoredSession && accessToken === requestAccessToken) {
-      clearAuthSession();
-    }
-    throw new ApiError(response.status, message, errorCode);
+    throw await responseError(response);
   }
 
   if (response.status === 204) return undefined as T;
