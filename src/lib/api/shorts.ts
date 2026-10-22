@@ -73,3 +73,25 @@ export async function getMyShorts(size = 10, signal?: AbortSignal): Promise<Shor
   if (!response.success) throw new Error(response.message);
   return response.data;
 }
+
+export type ShortComposer = {
+  userId: number;
+  nickname: string;
+  profileImageUrl: string | null;
+  role: string;
+  description: string | null;
+};
+
+export type ParticipantTracks = {
+  shortId: number;
+  project: { bpm: number; ppq: number; maxDurationMs: number };
+  tracks: (import("./composition").TrackDto & { pan: number })[];
+};
+
+export function getShortComposers(shortId: number, signal?: AbortSignal): Promise<ShortComposer[]> {
+  return apiRequest<ApiEnvelope<ShortComposer[]>>(`/api/v1/shorts/${shortId}/composers`, { signal }).then(response => response.data);
+}
+
+export function getParticipantTracks(shortId: number, signal?: AbortSignal): Promise<ParticipantTracks> {
+  return apiRequest<ApiEnvelope<ParticipantTracks>>(`/api/v1/shorts/${shortId}/participant-tracks`, { signal }).then(response => response.data);
+}

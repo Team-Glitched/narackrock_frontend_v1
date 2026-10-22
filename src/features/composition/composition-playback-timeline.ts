@@ -3,7 +3,7 @@ import { instrumentFor } from "./instrument-catalog.ts";
 
 export const drumTailMs = 1_500;
 
-export function compositionEndMs(composition: CompositionDto, tracks: CompositionDto["tracks"]): number {
+export function compositionEndMs(composition: { project: Pick<CompositionDto["project"], "bpm" | "ppq" | "maxDurationMs"> }, tracks: CompositionDto["tracks"]): number {
   const tickMs = 60_000 / (composition.project.bpm * composition.project.ppq);
   return Math.min(composition.project.maxDurationMs, Math.max(0,
     ...tracks.flatMap((track) => track.clips.map((clip) => clip.clipType === "MIDI"
