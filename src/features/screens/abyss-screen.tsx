@@ -3,12 +3,14 @@
 import { useEffect, useRef, useState } from "react";
 import { Asset } from "@/components/app/shared";
 import { initialShortIndex } from "@/features/abyss/initial-short";
+import { ShortParticipantsSheet } from "@/features/screens/short-participants";
+import { useParticipantPlayback } from "@/features/abyss/use-participant-playback";
 import { ShortCommentsSheet } from "@/features/screens/short-comments";
 import type { PlaybackMode } from "@/features/abyss/playback-mode";
 import { ContentShareDialog } from "@/features/screens/content-share";
 import { canJoinShort } from "@/features/abyss/short-participation";
 import { useCurrentUserId } from "@/hooks/use-current-user";
-import { getShort, getShorts, toggleShortBookmark, toggleShortReaction } from "@/lib/api/shorts";
+import { getParticipantTracks, getShort, getShorts, toggleShortBookmark, toggleShortReaction, type ParticipantTracks } from "@/lib/api/shorts";
 import type { ShortItemDto, ShortsPageDto } from "@/lib/api/contracts";
 
 type FeedState = "loading" | "ready" | "error";
@@ -31,6 +33,12 @@ export function AbyssScreen({ onJoin, initialShortId, muted = false, playbackMod
   const [actionError, setActionError] = useState<string | null>(null);
   const [commentsOpen, setCommentsOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
+  const [participantsOpen, setParticipantsOpen] = useState(false);
+  const [selection, setSelection] = useState<{ shortId: number; ids: number[]; total: number } | null>(null);
+  const [selectionLoading, setSelectionLoading] = useState(false);
+  const selectionRequest = useRef(0);
+  const selectionController = useRef<AbortController | null>(null);
+  const trackCache = useRef<ParticipantTracks | null>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
   const loadingMoreRef = useRef(false);
 
@@ -61,7 +69,20 @@ export function AbyssScreen({ onJoin, initialShortId, muted = false, playbackMod
   const current = shorts[index];
   const mediaUrl = current?.mediaUrl?.trim() || null;
   const hasNext = index < shorts.length - 1 || Boolean(page?.hasMore && page.nextCursor != null);
-  const progress = duration > 0 ? Math.min(100, (currentTime / duration) * 100) : 0;
+  const selective = selection !== null && selection.shortId === current?.shortId && selection.ids.length < selection.total;
+  const participantPlayback = useParticipantPlayback(current?.shortId, muted, playbackMode === "repeat", () => {
+    if (playbackMode === "next" && hasNext) void selectNext();
+  });
+  const preparingSelection = selective && selectionLoading;
+  const shownPlaying = selective ? participantPlayback.playing : playing;
+  const shownTime = selective ? participantPlayback.positionMs / 1000 : currentTime;
+  const shownDuration = selective && participantPlayback.durationMs > 0 ? participantPlayback.durationMs / 1000 : duration;
+  const progress = shownDuration > 0 ? Math.min(100, (shownTime / shownDuration) * 100) : 0;
+
+  useEffect(() => () => {
+    selectionRequest.current++;
+    selectionController.current?.abort();
+  }, [current?.shortId]);
 
   useEffect(() => {
     if (!mediaUrl || !audioRef.current) return;
@@ -73,6 +94,13 @@ export function AbyssScreen({ onJoin, initialShortId, muted = false, playbackMod
   function selectShort(nextIndex: number) {
     setCommentsOpen(false);
     setShareOpen(false);
+    setParticipantsOpen(false);
+    setSelection(null);
+    setSelectionLoading(false);
+    selectionRequest.current++;
+    selectionController.current?.abort();
+    trackCache.current = null;
+    participantPlayback.getPlayer()?.pause();
     audioRef.current?.pause();
     setPlaying(false);
     setCurrentTime(0);
@@ -106,6 +134,15 @@ export function AbyssScreen({ onJoin, initialShortId, muted = false, playbackMod
   }
 
   async function togglePlayback() {
+    if (selective) {
+      if (playbackError || (!trackCache.current && !participantPlayback.playing)) {
+        await applyParticipants(selection.ids, selection.total, true);
+        return;
+      }
+      if (participantPlayback.playing) participantPlayback.getPlayer()?.pause();
+      else await participantPlayback.getPlayer()?.resume();
+      return;
+    }
     const audio = audioRef.current;
     if (!audio || !mediaUrl) return;
     if (!audio.paused) {
@@ -117,6 +154,53 @@ export function AbyssScreen({ onJoin, initialShortId, muted = false, playbackMod
       await audio.play();
     } catch {
       setPlaybackError("음원을 재생하지 못했습니다.");
+    }
+  }
+
+  function restoreMix() {
+    const position = selective ? participantPlayback.positionMs / 1000 : (audioRef.current?.currentTime ?? currentTime);
+    selectionRequest.current++;
+    selectionController.current?.abort();
+    participantPlayback.getPlayer()?.pause();
+    setSelection(null);
+    setSelectionLoading(false);
+    setPlaybackError(null);
+    if (audioRef.current && mediaUrl) {
+      audioRef.current.currentTime = position;
+      void audioRef.current.play().catch(() => setPlaybackError("음원을 재생하지 못했습니다."));
+    }
+  }
+
+  async function applyParticipants(ids: number[] | null, total: number, force = false) {
+    setParticipantsOpen(false);
+    if (ids === null || !current) return;
+    if (ids.length === total) { if (selective) restoreMix(); return; }
+    if (!force && selective && ids.length === selection.ids.length && ids.every(id => selection.ids.includes(id))) return;
+    const positionMs = selective ? participantPlayback.positionMs : (audioRef.current?.currentTime ?? currentTime) * 1000;
+    const request = ++selectionRequest.current;
+    selectionController.current?.abort();
+    const controller = new AbortController();
+    selectionController.current = controller;
+    const player = participantPlayback.getPlayer();
+    audioRef.current?.pause();
+    player?.pause();
+    player?.seek(positionMs);
+    setSelection({ shortId: current.shortId, ids, total });
+    setPlaybackError(null);
+    if (!ids.length) { setSelectionLoading(false); return; }
+    setSelectionLoading(true);
+    try {
+      await player?.prepare();
+      let tracks = trackCache.current;
+      if (tracks?.shortId !== current.shortId) tracks = await getParticipantTracks(current.shortId, controller.signal);
+      if (request !== selectionRequest.current || controller.signal.aborted) return;
+      trackCache.current = tracks;
+      await player?.play(tracks, ids, positionMs, duration * 1000);
+    } catch (cause) {
+      if (request === selectionRequest.current && !controller.signal.aborted)
+        setPlaybackError(cause instanceof Error ? cause.message : "참여자 트랙을 불러오지 못했습니다.");
+    } finally {
+      if (request === selectionRequest.current) setSelectionLoading(false);
     }
   }
 
@@ -167,7 +251,7 @@ export function AbyssScreen({ onJoin, initialShortId, muted = false, playbackMod
         </> : <div className="abyss-cover abyss-cover-empty" role="img" aria-label={`${current.title} 앨범 이미지 없음`}><span>♪</span></div>}
         <div className="abyss-title">
           <h1>{current.title}</h1>
-          <p>{current.author.nickname} <i /> <button disabled>작곡 참여자 보기</button></p>
+          <p>{current.author.nickname} <i /> <button onClick={() => setParticipantsOpen(true)}>작곡 참여자 보기</button></p>
         </div>
       </div>
       <div className="abyss-actions">
@@ -182,6 +266,8 @@ export function AbyssScreen({ onJoin, initialShortId, muted = false, playbackMod
       </div>
       {actionError && <p className="abyss-action-error" role="alert">{actionError}</p>}
       <div className="abyss-player">
+        {selective && <div className="abyss-participant-mode"><span>{selection.ids.length ? `${selection.ids.length}명 선택 재생` : "선택한 참여자가 없어요"}</span><button onClick={restoreMix}>전체 듣기</button></div>}
+        {(preparingSelection || participantPlayback.loading) && <p className="abyss-playback-message" role="status">참여자 음원을 준비하는 중...</p>}
         <audio
           key={current.shortId}
           ref={audioRef}
@@ -204,25 +290,29 @@ export function AbyssScreen({ onJoin, initialShortId, muted = false, playbackMod
           className="abyss-progress"
           type="range"
           min={0}
-          max={duration || 1}
+          max={shownDuration || 1}
           step="0.1"
-          value={Math.min(currentTime, duration || 1)}
+          value={Math.min(shownTime, shownDuration || 1)}
           style={{ background: `linear-gradient(to right, #f2f4f6 ${progress}%, #303030 ${progress}%)` }}
           onChange={(event) => {
             const time = Number(event.target.value);
-            if (audioRef.current) audioRef.current.currentTime = time;
-            setCurrentTime(time);
+            if (selective) participantPlayback.getPlayer()?.seek(time * 1000);
+            else {
+              if (audioRef.current) audioRef.current.currentTime = time;
+              setCurrentTime(time);
+            }
           }}
           aria-label="재생 위치"
-          disabled={!mediaUrl || duration === 0}
+          disabled={shownDuration === 0 || preparingSelection || participantPlayback.loading || (selective ? !selection.ids.length : !mediaUrl)}
         />
         <div className="abyss-player-controls">
           <Asset name="abyss-player.svg" />
           <button className="abyss-previous" onClick={() => selectShort(index - 1)} disabled={index === 0} aria-label="이전 숏폼" />
-          <button className={`abyss-toggle ${playing ? "is-playing" : ""}`} onClick={togglePlayback} disabled={!mediaUrl} aria-label={playing ? "일시정지" : "재생"} />
+          <button className={`abyss-toggle ${shownPlaying ? "is-playing" : ""}`} onClick={togglePlayback} disabled={preparingSelection || participantPlayback.loading || (selective ? !selection.ids.length : !mediaUrl)} aria-label={shownPlaying ? "일시정지" : "재생"} />
           <button className="abyss-next" onClick={selectNext} disabled={!hasNext || loadingMore} aria-label="다음 숏폼" />
         </div>
         {!mediaUrl && <p className="abyss-playback-message">재생 가능한 음원 파일이 없습니다.</p>}
+        {selective && participantPlayback.error && <p className="abyss-playback-message" role="alert">{participantPlayback.error}</p>}
         {playbackError && <p className="abyss-playback-message" role="alert">{playbackError}</p>}
       </div>
       {current.completionStatus === "IN_PROGRESS" && current.projectId != null && (
@@ -230,6 +320,8 @@ export function AbyssScreen({ onJoin, initialShortId, muted = false, playbackMod
           {canJoinShort(current, currentUserId) && <button className="abyss-join" onClick={() => onJoin(current.shortId)}>작곡 참여하기</button>}
         </div>
       )}
+      {participantsOpen && <ShortParticipantsSheet key={current.shortId} shortId={current.shortId}
+        selectedIds={selection?.shortId === current.shortId ? selection.ids : null} onClose={applyParticipants} />}
       {commentsOpen && <ShortCommentsSheet key={current.shortId} shortId={current.shortId} onClose={() => setCommentsOpen(false)} onCountChange={delta => setShorts(items => items.map(item => item.shortId === current.shortId ? { ...item, commentCount: Math.max(0, item.commentCount + delta) } : item))} />}
       {shareOpen && <ContentShareDialog content={{ kind: "short", id: current.shortId }} onClose={() => setShareOpen(false)} />}
     </div>
