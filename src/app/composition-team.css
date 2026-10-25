@@ -62,6 +62,22 @@
 .team-note-workspace .note-playhead-handle{position:absolute;top:0;left:-10px;width:22px;height:26px;border:0;border-radius:0 0 8px 8px;background:#fff;touch-action:none;cursor:ew-resize;z-index:8}
 .studio-toolbar.team-original-toolbar .studio-volume{flex:1;min-width:80px;max-width:220px}
 .studio-toolbar.team-original-toolbar .studio-volume input{min-width:0;width:100%;accent-color:#aab6c2}
+.chord-picker{flex:0 0 auto;padding:10px 12px;background:#252c33;border-bottom:1px solid #59636f;color:#fff}
+.chord-picker-controls{display:flex;align-items:center;flex-wrap:wrap;gap:8px 16px;margin-bottom:8px;font-size:12px}
+.chord-picker-controls strong{font-size:13px}
+.chord-picker-controls label{display:flex;align-items:center;gap:6px;color:#cbd2da}
+.chord-picker select{max-width:100%;padding:5px;border:1px solid #758394;border-radius:5px;background:#343b42;color:#fff;font-size:12px}
+.chord-picker-buttons{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:6px}
+.chord-picker-buttons button{min-height:44px;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:5px 2px;border:1px solid #758394;border-radius:7px;background:#343b42;color:#fff;font-size:13px;cursor:pointer}
+.chord-picker-buttons button small{font-size:10px;color:#c2b2df}
+.chord-picker-buttons button:hover:enabled{background:#5b00f5;border-color:#b797ff}
+.chord-picker button:disabled,.chord-picker select:disabled{opacity:.45;cursor:default}
+.chord-picker button:focus-visible,.chord-picker select:focus-visible{outline:2px solid #c8b2ff;outline-offset:2px}
+.chord-picker-hint,.chord-picker-status{margin:6px 0 0;font-size:11px;line-height:1.4;color:#bac4cd}
+.chord-picker-status{color:#d8c5ff}
+.chord-picker-status:empty{display:none}
+.note-editor>.studio-error{position:static;flex:0 0 auto}
+@media(max-width:767px){.chord-picker-buttons{grid-template-columns:repeat(6,minmax(0,1fr))}}
 @media(max-width:767px){.studio-shell{padding:0}.studio{border-radius:0}}
 .notifications-screen{padding:0 18px 28px;color:#f4f1fa}
 .notifications-screen .back-title{margin:0 -8px 12px}
