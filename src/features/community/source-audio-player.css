@@ -1,0 +1,8 @@
+.design-canvas .os-audio-player--connected audio{display:none}
+.design-canvas .os-audio-player--connected .os-audio-play-toggle{flex:0 0 24px;width:24px;justify-content:center}
+.design-canvas .os-audio-player--connected .os-audio-seek{flex:1;min-width:0;width:0;height:4px;margin:0;padding:0;border:0;border-radius:4px;appearance:none;cursor:pointer}
+.os-audio-seek::-webkit-slider-thumb{appearance:none;width:10px;height:10px;border-radius:50%;background:var(--white);border:0}
+.os-audio-seek::-moz-range-thumb{width:10px;height:10px;border-radius:50%;background:var(--white);border:0}
+.os-audio-seek:disabled{cursor:default}
+.design-canvas .os-audio-error,.design-canvas .post-target-notice{font:400 var(--text-caption)/18px var(--font-body);color:var(--muted);margin:12px 0}
+.design-canvas .os-detail-article .os-audio-error+.post-actions{margin-top:16px}

@@ -1,0 +1,107 @@
+/* Typography trial approved by the user. Remove its layout import to restore V3 sizing. */
+.design-canvas {
+  --readable-body: var(--text-body);
+  --readable-body-line: 21px;
+  --readable-meta: var(--text-caption);
+  --readable-meta-line: 16px;
+  --supporting-copy-gap: 8px;
+  --supporting-note-gap: 24px;
+}
+
+.design-canvas .nr-comments .nr-comment-text {
+  font-size: var(--readable-body);
+  line-height: var(--readable-body-line);
+  font-weight: 400;
+}
+.design-canvas .nr-comments .nr-comment-author strong { font-weight: 500; color: var(--white); }
+.design-canvas .nr-comments .nr-comment-author > span { line-height: var(--readable-meta-line); }
+.design-canvas .nr-comments .nr-comment-actions button,
+.design-canvas .nr-comments .nr-replies-toggle,
+.design-canvas .nr-comments .nr-comments-more,
+.design-canvas .nr-comments .nr-comments-empty { font-size: var(--readable-meta); line-height: 18px; }
+
+.design-canvas .os-card .os-body,
+.design-canvas .os-detail-copy {
+  font-size: var(--readable-body);
+  line-height: var(--readable-body-line);
+  font-weight: 400;
+  color: var(--white);
+}
+.design-canvas .os-foot-author,
+.design-canvas .os-detail-byline,
+.design-canvas .os-author small,
+.design-canvas .post-readonly-stats {
+  font-size: var(--readable-meta);
+  line-height: var(--readable-meta-line);
+}
+.design-canvas .os-card { height: auto; }
+
+.design-canvas .community-view .post-preview {
+  font-size: var(--readable-body);
+  line-height: 20px;
+}
+.design-canvas .mini-post-copy > strong { font-size: var(--readable-body); line-height: 20px; }
+.design-canvas .mini-meta,
+.design-canvas .mini-meta > span,
+.design-canvas .mini-author {
+  font-size: var(--readable-meta);
+  line-height: var(--readable-meta-line);
+}
+.design-canvas .mini-meta { height: 16px; }
+.design-canvas .mini-author { margin-top: 12px; }
+.design-canvas .home-content .mini-post,
+.design-canvas .posts-list .mini-post,
+.design-canvas .mini-post { height: auto; min-height: 96px; }
+.design-canvas .mini-post .post-thumb {
+  width: 96px;
+  height: 96px;
+  flex: 0 0 96px;
+}
+.design-canvas .mini-post .mini-post-copy {
+  width: auto;
+  flex: 1;
+  min-width: 0;
+}
+
+.design-canvas .app-footer button { gap: 4px; }
+.design-canvas .app-footer button > span:not(.figma-icon-slot) {
+  font-size:var(--text-navigation);
+  line-height: 12px;
+  font-weight: 500;
+}
+
+/* Keep supporting copy separate from names/titles, and footnotes from lists. */
+.design-canvas .profile-people-list span,
+.design-canvas .participant-list li > span,
+.design-canvas .settings-view .settings-row-copy,
+.design-canvas .chart-row > span:nth-child(2),
+.design-canvas .friends-view .person > span,
+.design-canvas .friends-view .person-link > span,
+.design-canvas .review-name,
+.design-canvas .owner-heading > div,
+.design-canvas .chat-recipient span {
+  gap: var(--supporting-copy-gap);
+}
+.design-canvas .profile-people-list { gap: 24px; }
+.design-canvas .profile-people-list button { min-height: 48px; }
+.design-canvas .profile-people-list strong { line-height: 22px; }
+.design-canvas .profile-people-list small { line-height: 18px; }
+.design-canvas .profile-list-panel > .profile-list-empty {
+  margin: var(--supporting-note-gap) 0 0;
+  line-height: 18px;
+}
+.design-canvas .home-content .song-card small,
+.design-canvas .mutual-friend-identity small,
+.design-canvas .os-author small,
+.design-canvas .os-detail-title small,
+.design-canvas .community-card p:not(.community-card-description),
+.design-canvas .community-rail-card p,
+.design-canvas .notification-event-copy small,
+.design-canvas .owner-members small {
+  margin-top: var(--supporting-copy-gap);
+}
+.design-canvas .home-content .song-rail { height: auto; min-height: 214px; }
+.design-canvas .saved-item--song .saved-copy { gap: var(--supporting-copy-gap); }
+.design-canvas .friends-view .person { height: auto; min-height: 48px; }
+.design-canvas .mutual-friend-card { height: auto; min-height: 224px; }
+.design-canvas .workspace-card-link small { display: block; margin-top: 12px; }

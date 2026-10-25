@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { useCurrentUserId } from "@/hooks/use-current-user";
-import { getMyShorts, getPopularShorts } from "@/lib/api/shorts";
+import { getMyShorts, getPopularShorts, getShorts } from "@/lib/api/shorts";
+import { recommendByAuthor } from "@/features/community/discovery";
 import type { ShortItemDto } from "@/lib/api/contracts";
 
 type SongListState = {
@@ -15,6 +16,7 @@ type UserSongListState = SongListState & { userId: number };
 export function useHomeSongs(size = 10) {
   const currentUserId = useCurrentUserId();
   const [popular, setPopular] = useState<SongListState>({ status: "loading", items: [] });
+  const [feed,setFeed]=useState<SongListState>({status:"loading",items:[]});
   const [mineResult, setMineResult] = useState<UserSongListState | null>(null);
 
   useEffect(() => {
@@ -26,6 +28,12 @@ export function useHomeSongs(size = 10) {
       });
     return () => controller.abort();
   }, [size]);
+
+  useEffect(()=>{
+    const controller=new AbortController();
+    getShorts(undefined,controller.signal).then(page=>setFeed({status:"ready",items:page.items})).catch(()=>{if(!controller.signal.aborted)setFeed({status:"error",items:[]});});
+    return ()=>controller.abort();
+  },[]);
 
   useEffect(() => {
     if (currentUserId === null) return;
@@ -44,5 +52,6 @@ export function useHomeSongs(size = 10) {
       ? mineResult
       : { status: "loading", items: [] };
 
-  return { popular, mine };
+  const recommended={...feed,items:recommendByAuthor(feed.items,item=>item.author.userId,currentUserId).slice(0,size)};
+  return { popular, mine, recommended };
 }

@@ -1,0 +1,13 @@
+.design-canvas .social-create-fields{max-width:100%;min-width:0}
+.design-canvas .social-create-fields input:not([type=file]),.design-canvas .social-create-fields textarea,.design-canvas .social-image-picker{max-width:100%}
+.design-canvas .creation-remove-image{align-self:flex-end;font:500 var(--text-body)/20px var(--font-body);color:var(--muted);padding:4px 0;min-height:32px}
+.design-canvas .creation-discard{font:500 var(--text-body)/20px var(--font-body);color:var(--muted);min-height:40px;flex-shrink:0;margin-bottom:20px;padding:8px 20px}
+.design-canvas .social-create-view .social-create-submit{margin-bottom:0}
+.creation-restore-status{padding:30px 20px;font:400 var(--text-body)/22px var(--font-body);color:var(--muted)}
+.creation-discard-dialog{width:350px;padding:24px 20px;background:var(--black);border-radius:20px;color:var(--white)}
+.creation-discard-dialog h2{margin:0;font:700 var(--text-label)/22px var(--font-body)}
+.creation-discard-dialog p{font:400 var(--text-body)/20px var(--font-body);color:var(--muted);margin:12px 0 24px}
+.creation-discard-dialog>div{display:flex;justify-content:flex-end;gap:10px;flex-wrap:wrap}
+.creation-discard-dialog button{min-height:40px;padding:10px 14px;font:500 var(--text-body)/20px var(--font-body)}
+
+.creation-save-status{margin:0;font:400 var(--text-caption)/18px var(--font-body);color:var(--muted);text-align:center;flex-shrink:0}

@@ -1,0 +1,7 @@
+.design-canvas .workspace-card h2,.design-canvas .workspace-card p{overflow-wrap:anywhere;min-width:0}
+.design-canvas .canvas-dialog-overlay>[role=dialog]{max-width:calc(100% - 32px);max-height:calc(100% - 32px);overflow:auto;overscroll-behavior:contain}
+.design-canvas .figma-sheet-panel{max-height:100%;width:100%;min-height:0}
+.design-canvas .figma-sheet-content{width:100%;min-width:0;overscroll-behavior:contain}
+.design-viewport[data-keyboard-visible=true] .design-canvas{height:var(--visible-canvas-height);top:0;transform:translateX(-50%) scale(var(--canvas-scale));transform-origin:top center}
+.design-viewport[data-keyboard-visible=true] .design-canvas>.phone-frame{height:100%}
+@media(pointer:coarse){.design-canvas input:not([type=range]):not([type=file]):focus,.design-canvas textarea:focus{font-size:var(--text-label)}}

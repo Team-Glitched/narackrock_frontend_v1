@@ -1,3 +1,5 @@
+import { isPreviewMode } from "../../features/preview/preview-mode.ts";
+
 const apiBaseUrl = (process.env.NEXT_PUBLIC_API_BASE_URL ?? "").replace(/\/$/, "");
 
 export class ApiError extends Error {
@@ -40,7 +42,7 @@ let accessToken: string | null = storedSession?.accessToken ?? null;
 let refreshToken: string | null = storedSession?.refreshToken ?? null;
 
 export function setAccessToken(token: string | null): void { accessToken = token; }
-export function getAccessToken(): string | null { return accessToken; }
+export function getAccessToken(): string | null { return isPreviewMode() ? "local-preview" : accessToken; }
 export function getRefreshToken(): string | null { return refreshToken; }
 
 // 내 글/댓글인지 판별하려면 응답의 writer.userId와 비교할 로그인 사용자 id가 필요하다.
@@ -53,7 +55,7 @@ export function setCurrentUserId(userId: number | null): void {
   currentUserListeners.forEach(listener => listener(userId));
 }
 
-export function getCurrentUserId(): number | null { return currentUserId; }
+export function getCurrentUserId(): number | null { return isPreviewMode() ? 1 : currentUserId; }
 
 export function setAuthSession(session: StoredAuthSession): void {
   accessToken = session.accessToken;
@@ -83,6 +85,10 @@ export function subscribeCurrentUserId(listener: (userId: number | null) => void
 }
 
 export async function apiRequest<T>(path: string, init?: RequestInit): Promise<T> {
+  if (isPreviewMode()) {
+    const { previewRequest } = await import("../../features/preview/demo-api");
+    return previewRequest(path, init) as Promise<T>;
+  }
   const headers = new Headers(init?.headers);
   const requestAccessToken = accessToken;
   const usesStoredSession = requestAccessToken != null && !headers.has("Authorization");

@@ -1,6 +1,13 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import "./composition-team.css";
+import "./design-system.css";
+import "./v3.css";
+import "./readability.css";
+import "./usability.css";
+import "./button-typography.css";
+import "./reference-palette.css";
+import "./typography.css";
 
 export const metadata: Metadata = {
   title: "Narackrock — Make it heard",

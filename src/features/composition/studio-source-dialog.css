@@ -1,0 +1,20 @@
+.studio-source-dialog{width:540px;padding:20px;background:var(--black);color:var(--white);border-radius:20px;display:flex;flex-direction:column;gap:16px}
+.studio-source-dialog header{display:flex;align-items:center;justify-content:space-between;gap:16px}
+.studio-source-dialog h2{font:700 var(--text-label)/22px var(--font-body);margin:0}
+.studio-source-dialog header>button{width:32px;height:32px;display:grid;place-items:center}
+.studio-source-dialog header img{width:14px;height:14px}
+.studio-source-dialog>label{display:flex;align-items:center;gap:10px;background:var(--surface);border-radius:10px;padding:10px 12px;flex-shrink:0}
+.studio-source-dialog>label img{width:18px;height:18px}
+.studio-source-dialog input{min-width:0;flex:1;border:0;background:transparent;color:var(--white);font:400 var(--text-body)/20px var(--font-body)}
+.studio-source-results{min-height:0;max-height:180px;overflow:auto;overscroll-behavior:contain;display:flex;flex-direction:column;gap:16px}
+.studio-source-row{display:flex;align-items:center;justify-content:space-between;gap:16px}
+.studio-source-row>span{min-width:0;display:flex;flex-direction:column;gap:8px}
+.studio-source-row strong{font:600 var(--text-label)/20px var(--font-body);overflow-wrap:anywhere}
+.studio-source-row small,.studio-source-dialog p{font:400 var(--text-caption)/18px var(--font-body);color:var(--muted);overflow-wrap:anywhere;margin:0}
+.studio-source-row>button{flex-shrink:0;font:500 var(--text-label)/20px var(--font-body);height:40px;padding:0 16px}
+.design-canvas .studio-readouts .midi-import-trigger{height:30px;width:28px;min-width:28px;display:grid;place-items:center;flex-shrink:0;margin-left:0;padding:0;background:var(--surface);border-radius:8px;font:400 22px/26px var(--font-body)}
+
+.design-canvas .studio-readouts .midi-import-trigger{display:flex;align-items:center;justify-content:center;gap:5px;width:auto;min-width:80px;padding:0 9px;font:500 var(--text-caption)/16px var(--font-body);white-space:nowrap}
+.design-canvas .studio-readouts .midi-import-trigger>span:first-child{font:400 var(--text-title)/20px var(--font-body)}
+.design-canvas .studio-volume{flex:1 1 100px;min-width:80px;max-width:190px;margin-left:auto;margin-right:16px}
+.design-canvas .studio-readouts{gap:10px;margin-left:16px;flex-shrink:0}

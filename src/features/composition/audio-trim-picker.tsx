@@ -1,4 +1,5 @@
 "use client";
+import { pointerAxes, logicalBounds } from "./pointer-coordinates";
 
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import type { AudioSelection } from "@/features/composition/prepare-audio-file";
@@ -65,7 +66,7 @@ export function AudioTrimPicker({ url, onSave, onCancel, saveLabel }: {
     if (audioRef.current) audioRef.current.currentTime = next.startMs / 1000;
   }
   function pointerRatio(clientX: number) {
-    const rect = waveformRef.current?.getBoundingClientRect();
+    const rect = waveformRef.current ? logicalBounds(waveformRef.current) : null;
     if (!rect || rect.width === 0) return 0;
     return Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
   }
@@ -73,13 +74,13 @@ export function AudioTrimPicker({ url, onSave, onCancel, saveLabel }: {
     if (!selection) return;
     event.stopPropagation();
     event.currentTarget.setPointerCapture(event.pointerId);
-    dragRef.current = { mode, clientX: event.clientX, selection };
+    dragRef.current = { mode, clientX: pointerAxes(event.currentTarget, event).x, selection };
   }
   function drag(event: ReactPointerEvent) {
     const state = dragRef.current;
-    const rect = waveformRef.current?.getBoundingClientRect();
+    const rect = waveformRef.current ? logicalBounds(waveformRef.current) : null;
     if (!state || !durationMs || !rect) return;
-    const deltaMs = (event.clientX - state.clientX) / rect.width * durationMs;
+    const deltaMs = (pointerAxes(event.currentTarget, event).x - state.clientX) / rect.width * durationMs;
     const next = state.mode === "move" ? moveAudioSelection(state.selection, deltaMs, durationMs)
       : state.mode === "start" ? resizeAudioSelectionStart(state.selection, state.selection.startMs + deltaMs)
         : resizeAudioSelectionEnd(state.selection, state.selection.endMs + deltaMs, durationMs);
@@ -150,7 +151,7 @@ export function AudioTrimPicker({ url, onSave, onCancel, saveLabel }: {
       </div>
       <p className="audio-trim-guide">파형의 선택 영역을 움직이거나 양쪽 손잡이로 길이를 조절하세요. 최대 1분까지 저장할 수 있습니다.</p>
       <div ref={waveformRef} className="audio-waveform" aria-label="오디오 구간 선택 파형"
-        onPointerDown={(event) => applySelection(centerAudioSelection(selection, pointerRatio(event.clientX) * durationMs, durationMs))}>
+        onPointerDown={(event) => applySelection(centerAudioSelection(selection, pointerRatio(pointerAxes(event.currentTarget, event).x) * durationMs, durationMs))}>
         <div className="audio-waveform-bars">{peaks.map((peak, index) => <i key={index} style={{ height: `${Math.round(peak * 82)}%` }} />)}</div>
         <div className="audio-waveform-shade left" style={{ width: `${startPercent}%` }} />
         <div className="audio-waveform-shade right" style={{ left: `${endPercent}%` }} />

@@ -1,0 +1,24 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import {previewRequest,movePreviewClip} from "../../features/preview/demo-api.ts";
+const read=async path=>(await previewRequest(path)).data;
+const write=async(path,body)=>(await previewRequest(path,{method:"POST",body:JSON.stringify(body)})).data;
+test("preview MIDI and audio moves update timing and reject invalid positions",async()=>{
+  const {projectId}=await write("/api/v1/projects/drafts",{});
+  const {trackId}=await write(`/api/v1/projects/${projectId}/tracks`,{name:"test",instrument:"piano"});
+  const path=`/api/v1/projects/${projectId}/tracks/${trackId}/clips`;
+  const {clipId}=await write(`${path}/midi`,{startTick:0,durationTick:480,midiNotes:[]});
+  const moved=movePreviewClip(projectId,clipId,960);
+  assert.equal(moved.tracks[0].clips[0].startTick,960);
+  assert.equal(moved.tracks[0].clips[0].startTimeMs,1000);
+  assert.equal((await read(`/api/v1/projects/${projectId}/tracks`)).tracks[0].clips[0].startTick,960);
+  const audio=await write(`${path}/audio`,{startTick:1920,durationTick:480,mediaFileId:99});
+  assert.throws(()=>movePreviewClip(projectId,audio.clipId,1200),/클립 위치/);
+  assert.throws(()=>movePreviewClip(projectId,audio.clipId,-240),/클립 위치/);
+  assert.throws(()=>movePreviewClip(projectId,audio.clipId,NaN),/클립 위치/);
+  assert.throws(()=>movePreviewClip(projectId,audio.clipId,moved.project.maxTick),/클립 위치/);
+  const updated=movePreviewClip(projectId,audio.clipId,1440).tracks[0].clips[1];
+  assert.equal(updated.startTimeMs,1500);
+  const original=await read("/api/v1/projects/1/tracks");
+  assert.throws(()=>movePreviewClip(1,original.tracks[0].clips[0].clipId,240),/권한/);
+});

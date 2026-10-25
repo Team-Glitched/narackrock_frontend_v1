@@ -1,0 +1,13 @@
+.notification-kind-row{display:flex;flex-wrap:wrap;gap:6px}
+.notification-kind{display:inline-flex;align-items:center;min-height:24px;padding:3px 9px;margin-bottom:10px;border:1px solid var(--border);border-radius:12px;font:500 var(--text-caption)/16px var(--font-body);color:var(--white);background:var(--surface)}
+.notification-kind--request{color:var(--primary-soft);background:var(--primary-deep);border-color:#57358a}
+.notification-kind--approved{color:#c1e4d3;background:#24342e;border-color:#3c5a4d}
+.notification-kind--rejected{color:#f1c1cb;background:#38292e;border-color:#61414a}
+.notification-kind--resource{color:var(--primary-soft);border-color:#57358a}
+/* Category chips stay on one scrollable row; selection is also exposed to AT. */
+.notification-filter-options{display:flex;gap:6px;width:100%;overflow-x:auto;scrollbar-width:none;padding:3px 2px 5px;margin:0 0 8px}
+.notification-filter-options::-webkit-scrollbar{display:none}
+.notification-filter-options>button{flex:0 0 auto;min-height:28px;padding:4px 10px;border:1px solid var(--border);border-radius:14px;background:var(--surface);color:var(--muted);font:500 var(--text-caption)/18px var(--font-body);white-space:nowrap}
+.notification-filter-options>button[aria-pressed=true]{background:var(--purple);border-color:var(--purple);color:var(--white)}
+.notification-filter-options>button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.notification-result-count{margin:0 0 24px;text-align:right;font:400 var(--text-caption)/18px var(--font-body);color:var(--muted)}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useHiddenPosts } from "@/features/community/hidden-posts";
 import { fetchPosts } from "@/lib/api/community";
 import type { PostListItem, PostSort } from "@/lib/api/contracts";
 
@@ -44,6 +45,7 @@ export function useGalleryPosts(
   galleryId: number,
   { sort = "LATEST", keyword = null }: GalleryPostsOptions = {},
 ): GalleryPosts {
+  const { ids: hiddenPosts } = useHiddenPosts();
   const [reloadToken, setReloadToken] = useState(0);
   const [loaded, setLoaded] = useState<Loaded | null>(null);
   // 진행 중/실패를 조건 키와 함께 들고 있어야, 조건이 바뀐 뒤 도착한 결과에 반응하지 않는다.
@@ -117,5 +119,6 @@ export function useGalleryPosts(
 
   const refetch = useCallback(() => setReloadToken((token) => token + 1), []);
 
-  return { ...state, refetch, hasMore, appending, appendFailed, loadMore };
+  const visibleState = state.status === "ready" ? { ...state, posts: state.posts.filter(post => !hiddenPosts.has(post.postId)) } : state;
+  return { ...visibleState, refetch, hasMore, appending, appendFailed, loadMore };
 }

@@ -1,14 +1,28 @@
 "use client";
 
-import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
-import { Asset } from "@/components/app/shared";
+import Image from "next/image";
+import { useEffect, useMemo, useState, useSyncExternalStore, type CSSProperties } from "react";
+import { PublishConfirmation, VolumeDialog, NoteSettingsDialog, InstrumentDialog, TimingDialog } from "@/components/app/dialog";
+import { Asset, Avatar } from "@/components/app/shared";
 import type { Navigate } from "@/features/navigation/types";
+import { rememberWork, rememberSubmission } from "@/features/workspace/workspace-store";
 import { useCompositionPlayback } from "@/features/composition/use-composition-playback";
 import { prepareAudioFile } from "@/features/composition/prepare-audio-file";
 import type { AudioSelection } from "@/features/composition/prepare-audio-file";
 import { AudioTrimPicker } from "@/features/composition/audio-trim-picker";
-import { canCreateLayer, hasOwnDraftClip, shouldShowContributionSubmit } from "@/features/composition/contribution-session";
+import { canCreateLayer, shouldShowContributionSubmit, shouldOfferSongPublish } from "@/features/composition/contribution-session";
 import { completedExportShortId } from "@/features/composition/publish-navigation";
+import { pointerAxes, logicalBounds } from "@/features/composition/pointer-coordinates";
+import { StudioSourceDialog } from "@/features/composition/studio-source-dialog";
+import type { Resource } from "@/features/workspace/workspace-store";
+import type { SavedSource } from "@/features/community/saved-sources";
+import { defaultSignature, signatureGrid, musicalGridBackground, type TimeSignature } from "@/features/composition/time-signature";
+import { MusicalRuler } from "@/features/composition/musical-ruler";
+import { TimelineClip } from "@/features/composition/timeline-clip";
+import { canMoveClip, overlapsClip } from "@/features/composition/timeline-move";
+import { setPreviewTempo, movePreviewClip } from "@/features/preview/demo-api";
+import { isPreviewMode } from "@/features/preview/preview-mode";
+import "@/features/composition/studio-timeline.css";
 import { TeamPianoRoll } from "@/features/composition/team-piano-roll";
 import { createAudioClip, createDraftProject, createMidiClip, enterComposition, getComposition, getExport, getPendingContributions, publishComposition, reviewContribution, saveMidiClip, submitContribution, updateProjectMetadata, uploadMedia, type CompositionDto, type MidiNoteDto } from "@/lib/api/composition";
 
@@ -16,71 +30,104 @@ const errorText = (cause: unknown) => cause instanceof Error ? cause.message : "
 const clockTime = (ms: number) => `${String(Math.floor(ms / 60000)).padStart(2, "0")}:${String(Math.floor(ms / 1000) % 60).padStart(2, "0")}`;
 const subscribeToDraft = () => () => {};
 const storedDraftId = () => {
-  const value = Number(window.localStorage.getItem("glitched-composition-draft-id"));
+  const value = Number(window.localStorage.getItem(isPreviewMode() ? "narackrock.preview.draft" : "glitched-composition-draft-id"));
   return Number.isSafeInteger(value) && value > 0 ? value : null;
 };
 
-function StudioToolbar({ title, bpm, playing, positionMs, onPlay, onPause, onBack, children, piano, volume, onVolume, onAdd }: {
+export function StudioToolbar({ title, bpm, playing, positionMs, onPlay, onPause, onBack, children, piano, volume, onVolume, onAdd, metronome, onMetronome, onBpm, onImportSource, signature=defaultSignature, onSignature, addLabel = "타임라인 검토" }: {
+  signature?:TimeSignature; onSignature?:(value:TimeSignature)=>void;
+  addLabel?: string;
+  onBpm?: (value: number) => void;
+  onImportSource?:()=>void;
   title: string; bpm: number; playing: boolean; positionMs: number;
   onPlay: () => void; onPause: () => void; onBack: () => void; children?: React.ReactNode;
+  metronome?: boolean; onMetronome?: () => void;
   piano?: boolean; volume?: number; onVolume?: (value: number) => void; onAdd?: () => void;
 }) {
+  const [volumeOpen, setVolumeOpen] = useState(false);
+  const [instrumentOpen, setInstrumentOpen] = useState(false);
+  const [timing, setTiming] = useState<"bpm" | "beat" | null>(null);
   const masterVolume = <input className="studio-master-volume" type="range" min={0} max={100} value={volume ?? 20}
     onChange={(event) => onVolume?.(Number(event.target.value))} disabled={!onVolume}
     aria-label="마스터 볼륨" aria-valuetext={`${volume ?? 20}%`} />;
   return <div className={`studio-toolbar ${piano ? "team-original-toolbar" : ""}`}>
-    <button onClick={onBack} aria-label="뒤로"><Asset name="return.svg" /></button>
-    <button onClick={playing ? onPause : onPlay} aria-label={playing ? "일시정지" : "재생"} className={playing ? "is-playing" : ""}><Asset name="play.svg" /></button>
-    {piano && <Asset name="metronome.svg" />}
-    {!piano && <strong className="studio-title">{title}</strong>}
-    <span><small>bpm</small>{bpm}</span>
-    {piano && <span><small>beat</small>4/4</span>}
-    <span><small>time</small>{clockTime(positionMs)}</span>
-    {piano ? <div className="studio-volume"><Asset name="sound.svg" />{masterVolume}</div> : masterVolume}
-    {children}
-    {piano && onAdd && <button className="studio-add" aria-label="레이어 추가" onClick={onAdd}><i /></button>}
+    <div className="studio-transport">
+      <button onClick={onBack} aria-label="뒤로"><Asset name="return.svg" /></button>
+      <button onClick={playing ? onPause : onPlay} aria-label={playing ? "일시정지" : "재생"}>{playing ? <span className="pause-symbol" /> : <Asset name="play.svg" />}</button>
+      <button className="studio-metronome" aria-label="메트로놈" aria-pressed={metronome ?? false} onClick={onMetronome}><Asset name="metronome.svg" /></button>
+    </div>
+    <strong className="sr-only">{title}</strong>
+    <div className="studio-readouts">
+      <button className="studio-timing" onClick={() => setTiming("bpm")} aria-label="bpm 설정"><small>bpm</small>{bpm}</button>
+      <button className="studio-timing" onClick={() => setTiming("beat")} aria-label="박자 설정"><small>beat</small>{signature.numerator}/{signature.denominator}</button>
+      <span><small>time</small>{`00:${clockTime(positionMs)}`}</span>
+      {onImportSource&&<button className="midi-import-trigger" aria-label="오픈소스 추가" onClick={onImportSource}><span aria-hidden="true">+</span><span>오픈소스</span></button>}
+      {piano && <button className="studio-view-switch" aria-label="악기 선택" onClick={() => setInstrumentOpen(true)}><Asset name="studio-switch-down.svg" /><Asset name="studio-switch-up.svg" /></button>}
+    </div>
+    <div className="studio-volume"><button className="studio-volume-trigger" aria-label="음량 설정" onClick={() => setVolumeOpen(true)}><Asset name="sound.svg" /></button>{masterVolume}</div>
+    {volumeOpen && <VolumeDialog value={volume ?? 20} onChange={value => onVolume?.(value)} onClose={() => setVolumeOpen(false)} />}
+    {instrumentOpen && <InstrumentDialog onClose={() => setInstrumentOpen(false)} />}
+    {timing && <TimingDialog signature={signature} onSignature={onSignature} bpm={bpm} beat={timing === "beat"} onChange={onBpm} onClose={() => setTiming(null)} />}
+    {!piano && children}
+    {piano && <><button className="studio-add" aria-label={addLabel} disabled={!onAdd} onClick={onAdd}><i /></button></>}
   </div>;
 }
 
-function NewProject({ onCreated, onResume, onBack }: { onCreated: (id: number) => void; onResume: (id: number) => void; onBack: () => void }) {
+function NewProject({ onCreated, onResume }: { onCreated: (id: number) => void; onResume: (id: number) => void; onBack: () => void }) {
   const savedDraftId = useSyncExternalStore(subscribeToDraft, storedDraftId, () => null);
+  const [title, setTitle] = useState("");
+  const [image, setImage] = useState<File | null>(null);
+  const [imageUrl, setImageUrl] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  async function start() {
-    if (busy) return;
+  useEffect(() => () => { if (imageUrl) URL.revokeObjectURL(imageUrl); }, [imageUrl]);
+  async function start(event: React.FormEvent) {
+    event.preventDefault();
+    if (busy || !title.trim()) return;
     setBusy(true); setError(null);
     try {
       const { projectId } = await createDraftProject();
-      window.localStorage.setItem("glitched-composition-draft-id", String(projectId));
+      window.localStorage.setItem(isPreviewMode() ? "narackrock.preview.draft" : "glitched-composition-draft-id", String(projectId));
+      const imageId = image ? await uploadMedia(image, "IMAGE") : null;
+      await updateProjectMetadata(projectId, title.trim(), imageId);
       onCreated(projectId);
-    }
-    catch (cause) { setError(errorText(cause)); }
+    } catch (cause) { setError(errorText(cause)); }
     finally { setBusy(false); }
   }
-  return <div className="studio studio-empty">
-    <StudioToolbar title="새 곡" bpm={120} playing={false} positionMs={0} onPlay={() => {}} onPause={() => {}} onBack={onBack} />
-    <div className="studio-form"><h2>새 곡 만들기</h2>
-      <p>레이어를 만들고 작곡해 보세요. 제목은 곡을 올릴 때 등록하고 앨범 이미지는 선택할 수 있습니다.</p>
-      {savedDraftId && <button type="button" onClick={() => onResume(savedDraftId)}>이전 작업 이어하기</button>}
-      <button type="button" disabled={busy} onClick={() => { void start(); }}>{busy ? "만드는 중..." : "빈 곡에서 시작"}</button>
-      {error && <p role="alert">{error}</p>}
-    </div>
-  </div>;
+  return <form className="project-create" onSubmit={start}>
+    <label className="project-title-field">음악명<input aria-label="음악명" value={title} onChange={event => setTitle(event.target.value)} maxLength={100} required /></label>
+    <label className="project-artwork-field">앨범<span className="project-artwork-picker">
+      {imageUrl ? <Image src={imageUrl} alt="선택한 앨범" width={350} height={280} unoptimized /> : <><strong>앨범 추가</strong><small>JPG, PNG, WEBP 최대 100MB</small></>}
+      <input type="file" accept="image/jpeg,image/png,image/webp" aria-label="앨범 추가" onChange={event => {
+        const file = event.target.files?.[0]; if (!file) return;
+        if (file.size > 100 * 1024 * 1024) { setError("100MB 이하의 이미지를 선택해 주세요."); return; }
+        setImage(file); setImageUrl(URL.createObjectURL(file)); setError(null);
+      }} />
+    </span></label>
+    {error && <p className="project-error" role="alert">{error}</p>}
+    <div className="project-create-actions"><button className="purple-pill" type="submit" disabled={busy || !title.trim()}>{busy ? "만드는 중…" : "입력 완료"}</button>
+    {savedDraftId && <button className="resume-draft" type="button" onClick={() => onResume(savedDraftId)}>이전 작업 이어하기</button>}</div>
+  </form>;
 }
 
-export function StudioScreen({ go, shortId, projectId, returnToNotifications, onReturnToShort, onProjectSelected, onDraftCreated, onAddLayer, onEditTrack }: {
+export function StudioScreen({ go, shortId, projectId, returnToNotifications, onReturnToShort, onProjectSelected, onDraftCreated, onAddLayer, onEditTrack, onImportResource, onImportAudio, onExit }: {
   go: Navigate; shortId: number | null; projectId: number | null;
   returnToNotifications?: boolean;
+  onExit?:()=>void;
   onReturnToShort: (shortId: number) => void;
   onProjectSelected: (id: number) => void; onDraftCreated: (id: number) => void;
+  onImportResource:(resource:Resource)=>Promise<void>;onImportAudio:(source:SavedSource)=>Promise<void>;
   onAddLayer: () => void; onEditTrack: (trackId: number, clipId: number | null) => void;
 }) {
+  const [showSources,setShowSources]=useState(false);
+  const [trackSettingsId, setTrackSettingsId] = useState<number | null>(null);
   const [composition, setComposition] = useState<CompositionDto | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
   const [showSubmitForm, setShowSubmitForm] = useState(false);
   const [submitComment, setSubmitComment] = useState("");
+  const [showPublishConfirmation, setShowPublishConfirmation] = useState(false);
   const [showPublishForm, setShowPublishForm] = useState(false);
   const [publishTitle, setPublishTitle] = useState("");
   const [publishImage, setPublishImage] = useState<File | null>(null);
@@ -95,7 +142,7 @@ export function StudioScreen({ go, shortId, projectId, returnToNotifications, on
     (async () => {
       const id = shortId == null ? projectId! : (await enterComposition(shortId)).projectId;
       const result = await getComposition(id);
-      if (!cancelled) { setComposition(result); if (id !== projectId) onProjectSelected(id); }
+      if (!cancelled) { setComposition(result); try{rememberWork(result,shortId);}catch{/* The server project remains available if browser storage is full. */} if (id !== projectId) onProjectSelected(id); }
     })().catch((cause) => { if (!cancelled) setError(errorText(cause)); });
     return () => { cancelled = true; };
   }, [shortId, projectId, onProjectSelected]);
@@ -130,8 +177,9 @@ export function StudioScreen({ go, shortId, projectId, returnToNotifications, on
     setBusy(true); setError(null); setStatus(null);
     try {
       await submitContribution(composition.project.projectId, composition.project.version, items, submitComment.trim());
+      try{rememberSubmission(composition,shortId,submitComment.trim());}catch{/* Submission has already succeeded on the server. */}
       setShowSubmitForm(false);
-      onReturnToShort(shortId!);
+      go("submissions");
     } catch (cause) { setError(errorText(cause)); }
     finally { setBusy(false); }
   }
@@ -167,7 +215,7 @@ export function StudioScreen({ go, shortId, projectId, returnToNotifications, on
         const result = await getExport(id, exportId);
         const publishedShortId = completedExportShortId(result);
         if (publishedShortId !== null) {
-          if (shortId == null) window.localStorage.removeItem("glitched-composition-draft-id");
+          if (shortId == null) window.localStorage.removeItem(isPreviewMode() ? "narackrock.preview.draft" : "glitched-composition-draft-id");
           onReturnToShort(publishedShortId);
           return;
         }
@@ -186,7 +234,7 @@ export function StudioScreen({ go, shortId, projectId, returnToNotifications, on
     if (composition.project.title === "제목 없는 곡") {
       setPublishTitle("");
       setShowPublishForm(true);
-    } else void publish();
+    } else setShowPublishConfirmation(true);
   }
 
   async function finishMetadata(event: React.FormEvent) {
@@ -198,28 +246,30 @@ export function StudioScreen({ go, shortId, projectId, returnToNotifications, on
       await updateProjectMetadata(composition.project.projectId, publishTitle.trim(), imageId);
       await refresh();
       setShowPublishForm(false);
-      await publish(true);
+      setShowPublishConfirmation(true);
     } catch (cause) { setError(errorText(cause)); }
     finally { setBusy(false); }
   }
 
   if (shortId == null && projectId == null) return <NewProject onCreated={onDraftCreated} onResume={onProjectSelected} onBack={() => go("home")} />;
-  if (!composition) return <div className="studio studio-state" role={error ? "alert" : "status"}><p>{error ?? "작곡 데이터를 불러오는 중입니다."}</p>{error && <button onClick={() => shortId == null ? go("home") : onReturnToShort(shortId)}>돌아가기</button>}</div>;
+  if (!composition) return <div className="studio studio-state" role={error ? "alert" : "status"}><p>{error ?? "작곡 데이터를 불러오는 중입니다."}</p>{error && <button onClick={onExit??(()=>shortId == null ? go("home") : onReturnToShort(shortId))}>돌아가기</button>}</div>;
   const { project, tracks, viewerPermission } = composition;
-  const hasDraftClip = hasOwnDraftClip(tracks, viewerPermission.userId);
+  const timelineWidth = project.maxTick / Math.max(1, project.ppq / 2) * 20;
   const canSubmit = shouldShowContributionSubmit(shortId, viewerPermission, tracks);
-  const layerCreationAllowed = canCreateLayer(viewerPermission, tracks);
+  const canPublish = shouldOfferSongPublish(shortId, viewerPermission, tracks);
+  const layerCreationAllowed = canCreateLayer(viewerPermission, tracks,shortId===null);
   return <div className="studio">
-    <StudioToolbar title={project.title} bpm={project.bpm} playing={playback.playing} positionMs={playback.positionMs}
-      onPlay={() => { void playback.play(); }} onPause={playback.pause} volume={playback.volume} onVolume={playback.setVolume}
-      onBack={() => returnToNotifications ? go("notifications") : shortId == null ? go("home") : onReturnToShort(shortId)}>
+    <StudioToolbar signature={playback.signature} onSignature={viewerPermission.canEdit?value=>{playback.pause();playback.setSignature(value);}:undefined} title={project.title} bpm={project.bpm} playing={playback.playing} positionMs={playback.positionMs}
+      onPlay={() => { void playback.play(); }} onPause={playback.pause} volume={playback.volume} onVolume={playback.setVolume} metronome={playback.metronome} onMetronome={() => playback.setMetronome(value => !value)} onBpm={isPreviewMode() && shortId == null ? bpm => { playback.pause(); setComposition(setPreviewTempo(composition.project.projectId, bpm)); } : undefined}
+      onImportSource={layerCreationAllowed?()=>{playback.pause();setShowSources(true);}:undefined}
+      onBack={onExit??(() => returnToNotifications ? go("notifications") : shortId == null ? go("home") : onReturnToShort(shortId))}>
       {canSubmit ? <button className="studio-submit" onClick={() => { setError(null); setShowSubmitForm(true); }} disabled={busy}>제출하기</button>
-        : <button className="studio-add" onClick={onAddLayer} disabled={!layerCreationAllowed} aria-label="레이어 추가"
+        : <button className="studio-add" onClick={canPublish ? requestPublish : onAddLayer} disabled={busy || (!(shortId == null && viewerPermission.canExport) && !layerCreationAllowed)} aria-label={canPublish ? "곡 올리기" : "레이어 추가"}
           title={!layerCreationAllowed && viewerPermission.canContribute ? "한 곡에는 하나의 레이어만 만들 수 있습니다." : undefined}><i /></button>}
     </StudioToolbar>
     {error && !showSubmitForm && <p className="studio-error" role="alert">{error}</p>}
-    {((shortId == null && viewerPermission.canExport && (project.status === "DRAFT" || hasDraftClip)) || status) && <div className="studio-workflow">
-      {shortId == null && viewerPermission.canExport && (project.status === "DRAFT" || hasDraftClip) && <button onClick={requestPublish} disabled={busy}>{project.status === "DRAFT" ? "곡 올리기" : "내 변경 반영"}</button>}
+    {status && <div className="studio-workflow">
+
       {status && <span role="status">{status}</span>}
     </div>}
     {showSubmitForm && <form className="studio-publish-form studio-submit-form" onSubmit={(event) => { void submitDrafts(event); }} role="dialog" aria-modal="true" aria-labelledby="submit-heading">
@@ -229,6 +279,7 @@ export function StudioScreen({ go, shortId, projectId, returnToNotifications, on
       {error && <p role="alert">{error}</p>}
       <div><button type="button" onClick={() => { setShowSubmitForm(false); setError(null); }} disabled={busy}>취소</button><button type="submit" disabled={busy || !submitComment.trim()}>{busy ? "제출 중..." : "제출하기"}</button></div>
     </form>}
+    {showPublishConfirmation && <PublishConfirmation onClose={() => setShowPublishConfirmation(false)} onConfirm={() => { setShowPublishConfirmation(false); void publish(); }} />}
     {showPublishForm && <form className="studio-publish-form" onSubmit={finishMetadata}>
       <h2>곡 올리기</h2><p>곡 제목을 등록하세요. 앨범 이미지는 선택사항입니다.</p>
       <label>곡 제목<input value={publishTitle} onChange={(event) => setPublishTitle(event.target.value)} required maxLength={100} /></label>
@@ -247,41 +298,47 @@ export function StudioScreen({ go, shortId, projectId, returnToNotifications, on
           }} />
       </div>
     </div>}
-    <div className="timeline"><div className="timeline-content">
-      <div className="ruler">{Array.from({ length: 45 }, (_, index) => <i key={index} />)}</div>
-      <div className="studio-playhead" style={{ left: `${120 + playback.positionMs / project.maxDurationMs * 756}px` }} />
-      {tracks.length === 0 && <p className="studio-hint">레이어를 추가해 작곡을 시작하세요.</p>}
+    {trackSettingsId !== null && (() => { const selected = tracks.find(track => track.trackId === trackSettingsId); return selected ? <VolumeDialog track={selected} value={playback.trackVolumes[selected.trackId] ?? selected.volume} onChange={value => playback.setTrackVolume(selected.trackId, value)} onClose={() => setTrackSettingsId(null)} /> : null; })()}
+    {showSources&&<StudioSourceDialog onClose={()=>setShowSources(false)} onResource={async resource=>{await onImportResource(resource);setComposition(await getComposition(project.projectId));setShowSources(false);}} onAudio={async source=>{await onImportAudio(source);setComposition(await getComposition(project.projectId));setShowSources(false);}}/>}
+    <div className="timeline" style={{ "--timeline-lanes": tracks.length } as CSSProperties}><div className="timeline-content" style={{ minWidth: 98 + timelineWidth }}>
+      <div className="ruler" style={{ width: timelineWidth }} role="slider" tabIndex={0} aria-label="타임라인 재생 위치" aria-valuemin={0} aria-valuemax={project.maxDurationMs} aria-valuenow={Math.round(playback.positionMs)}
+        onPointerDown={event => { const bounds = logicalBounds(event.currentTarget); playback.seek(Math.max(0, Math.min(project.maxDurationMs, (pointerAxes(event.currentTarget, event).x - bounds.left) / bounds.width * project.maxDurationMs))); }}
+        onKeyDown={event => { if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return; event.preventDefault(); playback.seek(event.key === "Home" ? 0 : event.key === "End" ? project.maxDurationMs : Math.max(0, Math.min(project.maxDurationMs, playback.positionMs + (event.key === "ArrowRight" ? 1 : -1) * 30000 / project.bpm))); }}>
+        <MusicalRuler signature={playback.signature} width={timelineWidth}/></div>
+      <div className="timeline-sidebar-fill" aria-hidden="true" />
+      <div className="studio-playhead" hidden={!playback.playing && playback.positionMs === 0} style={{ left: `${98 + playback.positionMs / project.maxDurationMs * timelineWidth}px` }} />
+      <div className="timeline-grid-fill" aria-hidden="true" style={{width: timelineWidth,backgroundImage:`repeating-linear-gradient(to bottom,transparent 0 42px,var(--black) 42px 46px),${musicalGridBackground(playback.signature)},repeating-linear-gradient(to bottom,var(--grid-cell) 0 1px,var(--grid-row) 1px 41px,var(--grid-cell) 41px 42px,var(--black) 42px 46px,var(--grid-cell) 46px 47px,var(--grid-row-alt) 47px 87px,var(--grid-cell) 87px 88px,var(--black) 88px 92px)`}} />
       {tracks.map((track) => <div className="track studio-track" key={track.trackId}>
-        <div className="track-person"><strong title={track.name}>{track.name}</strong><small>{track.instrument ? "MIDI" : "오디오"}</small></div>
-        <div className="studio-track-clips">{track.clips.map((clip) => <button key={clip.clipId} className={`studio-clip ${clip.clipType === "MIDI" ? "midi" : "audio"}`}
-          style={{ left: `${clip.startTick / project.maxTick * 100}%`, width: `${Math.max(4, clip.durationTick / project.maxTick * 100)}%` }}
-          onClick={() => { if (clip.clipType === "MIDI") onEditTrack(track.trackId, clip.clipId); }}
-          aria-label={`${track.name} ${clip.clipType === "MIDI" ? "MIDI 편집" : "오디오 클립"}`}>
-          {clip.clipType === "MIDI" ? `${clip.midiNotes?.length ?? 0} notes` : "Audio"}
-        </button>)}</div>
-        <div className="studio-track-actions">
+        <div className="track-person" title={track.name}><button className="track-settings-trigger" aria-label={`${track.name} 트랙 설정`} onClick={() => setTrackSettingsId(track.trackId)}><Avatar /></button><button aria-label={`${track.name} ${playback.mutedTrackIds.has(track.trackId) ? "소리 켜기" : "음소거"}`} aria-pressed={playback.mutedTrackIds.has(track.trackId)} onClick={() => playback.toggleTrackMute(track.trackId)}><Asset name={playback.mutedTrackIds.has(track.trackId) ? "sound-muted.svg" : "sound.svg"} /></button></div>
+        <div className="studio-track-clips" style={{ width: timelineWidth, flexBasis: timelineWidth }}>{track.clips.map((clip) => <TimelineClip key={clip.clipId} clip={clip} name={track.name} color="var(--purple)" maxTick={project.maxTick} stepTick={project.ppq*2/playback.signature.denominator} cellPx={signatureGrid(playback.signature).cellPx} movable={!busy&&canMoveClip(viewerPermission,clip)&&(isPreviewMode()||clip.clipType==="MIDI")}
+          onError={setError} onSelect={()=>setTrackSettingsId(track.trackId)} onEdit={clip.clipType==="MIDI"&&clip.ownerId===viewerPermission.userId?()=>onEditTrack(track.trackId,clip.clipId):undefined}
+          onMove={async startTick=>{if(overlapsClip(clip,startTick,track.clips))throw new Error("같은 레이어의 다른 클립과 겹칠 수 없습니다.");playback.pause();setBusy(true);setError(null);try{let updated;if(isPreviewMode())updated=movePreviewClip(project.projectId,clip.clipId,startTick);else{await saveMidiClip(clip.clipId,startTick,clip.durationTick,clip.midiNotes);updated=await getComposition(project.projectId);}setComposition(updated);rememberWork(updated,shortId);}finally{setBusy(false);}}}/>)}</div>
+        {track.ownerId === viewerPermission.userId && <div className="studio-track-actions">
           {track.instrument && <button onClick={() => onEditTrack(track.trackId, null)}>+ 노트</button>}
           <label className="studio-upload">+ 파일<input type="file" accept="audio/wav,audio/x-wav,audio/wave,audio/mpeg,audio/mp4,audio/flac" disabled={busy || !viewerPermission.canContribute}
             onChange={(event) => { const file = event.target.files?.[0]; if (file) setPendingAudio({ trackId: track.trackId, file, url: URL.createObjectURL(file) }); event.target.value = ""; }} /></label>
-        </div>
+        </div>}
       </div>)}
     </div></div>
   </div>;
 }
-export function NoteEditorScreen({ projectId, trackId, clipId, onBack, onAddLayer }: {
+export function NoteEditorScreen({ projectId, trackId, clipId, onBack, onImportResource }: {
+  onImportResource:(resource:Resource)=>Promise<void>;
   projectId: number | null; trackId: number | null; clipId: number | null; onBack: () => void; onAddLayer: () => void;
 }) {
+  const [showSources,setShowSources]=useState(false);
   const [composition, setComposition] = useState<CompositionDto | null>(null);
+  const [noteSettingsIndex, setNoteSettingsIndex] = useState<number | null>(null);
   const [notes, setNotes] = useState<MidiNoteDto[]>([]);
-  const [lengthCells, setLengthCells] = useState(1);
+  const lengthCells = 1;
   const [initialPitch, setInitialPitch] = useState(60);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const track = composition?.tracks.find((item) => item.trackId === trackId);
-  const clip = track?.clips.find((item) => item.clipId === clipId && item.clipType === "MIDI");
-  const editable = Boolean(composition && track && (clip ? clip.ownerId === composition.viewerPermission.userId : composition.viewerPermission.canContribute));
-  const layerCreationAllowed = composition ? canCreateLayer(composition.viewerPermission, composition.tracks) : false;
-  const stepTick = composition ? Math.max(1, Math.round(composition.project.ppq / 2)) : 240;
+  const clip = track?.clips.find((item) => item.clipId === clipId && item.clipType === "MIDI")
+    ?? (clipId === null ? track?.clips.find((item) => item.clipType === "MIDI") : undefined);
+  const editable = Boolean(composition && track && (clip ? clip.ownerId === composition.viewerPermission.userId : track.ownerId === composition.viewerPermission.userId && composition.viewerPermission.canContribute));
+
   const maxTick = composition?.project.maxTick ?? 57_600;
   const clipStartTick = clip?.startTick ?? 0;
   const preview = useMemo(() => {
@@ -294,6 +351,7 @@ export function NoteEditorScreen({ projectId, trackId, clipId, onBack, onAddLaye
     return { ...composition, tracks: [{ ...track, isMuted: false, isSolo: false, clips: [previewClip] }] };
   }, [composition, track, clip, notes, maxTick]);
   const playback = useCompositionPlayback(preview);
+  const stepTick = (composition?.project.ppq??480)*2/playback.signature.denominator;
 
   useEffect(() => {
     if (projectId == null || trackId == null) return;
@@ -314,23 +372,26 @@ export function NoteEditorScreen({ projectId, trackId, clipId, onBack, onAddLaye
       const durationTick = Math.max(clip?.durationTick ?? 0, stepTick, ...notes.map((note) => note.startTick + note.durationTick));
       if (clip) await saveMidiClip(clip.clipId, clipStartTick, durationTick, notes);
       else await createMidiClip(composition.project.projectId, track.trackId, 0, durationTick, notes);
+      setComposition(await getComposition(composition.project.projectId));
       afterSave();
     } catch (cause) { setError(errorText(cause)); }
     finally { setBusy(false); }
   }
 
-  if (!composition || !track) return <div className="studio studio-state" role={error ? "alert" : "status"}>{error ?? "피아노롤을 불러오는 중입니다."}<button onClick={onBack}>돌아가기</button></div>;
+  if (!composition || !track) return <div className="studio studio-state" role={error ? "alert" : "status"}>{error ?? (projectId == null || trackId == null ? "편집할 MIDI를 작곡 화면에서 먼저 선택해주세요." : composition ? "선택한 MIDI 레이어를 찾을 수 없습니다." : "피아노롤을 불러오는 중입니다.")}<button onClick={onBack}>돌아가기</button></div>;
   return <div className="studio note-editor">
-    <StudioToolbar title={`${track.name} · 피아노롤`} bpm={composition.project.bpm} playing={playback.playing} positionMs={playback.positionMs}
-      onPlay={() => { void playback.play(); }} onPause={playback.pause} onBack={onBack}
-      piano volume={playback.volume} onVolume={playback.setVolume}
-      onAdd={layerCreationAllowed ? () => { if (editable) void save(onAddLayer); else onAddLayer(); } : undefined}>
-      <label className="studio-note-length">길이<select value={lengthCells} onChange={(event) => setLengthCells(Number(event.target.value))}><option value={1}>1/8</option><option value={2}>1/4</option><option value={4}>1/2</option><option value={8}>한 마디</option></select></label>
-      <button className="studio-save" onClick={() => { void save(); }} disabled={!editable || busy}>{busy ? "저장 중" : "저장"}</button>
+    <StudioToolbar signature={playback.signature} onSignature={composition.viewerPermission.canEdit?value=>{playback.pause();playback.setSignature(value);}:undefined} title={`${track.name} · 피아노롤`} bpm={composition.project.bpm} playing={playback.playing} positionMs={playback.positionMs}
+      onPlay={() => { void playback.play(); }} onPause={playback.pause} onBack={() => { if (editable) void save(); else onBack(); }}
+      piano volume={playback.volume} onVolume={playback.setVolume} metronome={playback.metronome} onMetronome={() => playback.setMetronome(value => !value)} onBpm={isPreviewMode() ? bpm => { playback.pause(); setComposition(setPreviewTempo(composition.project.projectId, bpm)); } : undefined}
+      onImportSource={editable?()=>void save(()=>setShowSources(true)):undefined}
+      onAdd={() => { if (editable) void save(); else onBack(); }}>
+
     </StudioToolbar>
     {error && <p className="studio-error" role="alert">{error}</p>}
     {!editable && <p className="studio-error">다른 참여자의 MIDI는 수정할 수 없습니다. 새 클립을 만들어 주세요.</p>}
-    <TeamPianoRoll notes={notes} setNotes={setNotes} stepTick={stepTick}
+    {showSources&&<StudioSourceDialog midiOnly onClose={()=>setShowSources(false)} onAudio={async()=>{throw new Error("피아노롤에는 MIDI 노트만 추가할 수 있습니다.");}} onResource={async resource=>{await onImportResource(resource);const latest=await getComposition(composition.project.projectId);const updatedTrack=latest.tracks.find(item=>item.trackId===track.trackId);const updatedClip=updatedTrack?.clips.find(item=>item.clipId===clipId&&item.clipType==="MIDI")??updatedTrack?.clips.find(item=>item.clipType==="MIDI");setComposition(latest);setNotes(updatedClip?.midiNotes??[]);setShowSources(false);}}/>}
+    {noteSettingsIndex !== null && notes[noteSettingsIndex] && <NoteSettingsDialog note={notes[noteSettingsIndex]} instrument={track.instrument} stepTick={stepTick} maxTick={maxTick - clipStartTick} onClose={() => setNoteSettingsIndex(null)} onChange={updated => setNotes(current => { if (current.some((note,index) => index !== noteSettingsIndex && note.pitch === updated.pitch && updated.startTick < note.startTick + note.durationTick && updated.startTick + updated.durationTick > note.startTick)) return current; return current.map((note,index) => index === noteSettingsIndex ? updated : note); })} />}
+    <TeamPianoRoll signature={playback.signature} onSettings={setNoteSettingsIndex} notes={notes} setNotes={setNotes} stepTick={stepTick}
       maxTick={maxTick - clipStartTick} lengthCells={lengthCells} editable={editable}
       positionMs={playback.positionMs} maxDurationMs={composition.project.maxDurationMs}
       onSeek={playback.seek} initialPitch={initialPitch} />

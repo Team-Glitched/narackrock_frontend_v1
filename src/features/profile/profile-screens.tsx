@@ -1,11 +1,12 @@
 "use client";
 
+import { uiLabels } from "@/lib/ui-labels";
 import { useEffect, useState } from "react";
+import { ProfileListSheet, type ProfileListKind } from "./profile-lists";
 import Link from "next/link";
 import { Asset, Avatar, SectionTitle } from "@/components/app/shared";
 import type { Navigate } from "@/features/navigation/types";
 import { useCurrentUserId } from "@/hooks/use-current-user";
-import { logout } from "@/lib/api/auth";
 import { ApiError } from "@/lib/api/client";
 import { getProfile, updateProfile, updateProfileImage } from "@/lib/api/profile";
 import type { UserProfile } from "@/lib/api/contracts";
@@ -16,8 +17,9 @@ function profileErrorMessage(error: unknown): string {
     : "프로필을 불러오지 못했습니다.";
 }
 
-function useOwnProfile() {
-  const userId = useCurrentUserId();
+function useOwnProfile(targetUserId?: number) {
+  const currentUserId = useCurrentUserId();
+  const userId = targetUserId ?? currentUserId;
   const [result, setResult] = useState<{
     userId: number;
     profile: UserProfile | null;
@@ -82,8 +84,29 @@ function useOwnProfile() {
   };
 }
 
-export function ProfileScreen({ go }: { go: Navigate }) {
-  const { profile, loading, error } = useOwnProfile();
+function compactCount(count: number) {
+  return count >= 1000 ? `${Number((count / 1000).toFixed(1))}k` : String(count);
+}
+function ProfileWorks({ title, songs, onOpen }: { title: string; songs: UserProfile["activities"]["participatedShorts"]; onOpen: (id: number) => void }) {
+  const [expanded, setExpanded] = useState(false);
+  return <section className="profile-works">
+    <SectionTitle allLabel={expanded ? "접기" : "모두보기"} onAll={songs.length ? () => setExpanded(current => !current) : undefined}>{title}</SectionTitle>
+    {songs.length ? <div className={`song-rail${expanded ? " profile-works-expanded" : ""}`}>
+      {songs.map(song => <button className="song-card" key={song.shortId} onClick={() => onOpen(song.shortId)} aria-label={`${song.title} 열기`}>
+        <span className="song-art">{song.albumImageUrl ?
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={song.albumImageUrl} alt={`${song.title} 앨범 커버`} /> : <span className="empty-artwork" />}</span>
+        <strong>{song.title}</strong>
+      </button>)}
+    </div> : <p className="profile-empty-work">아직 등록한 곡이 없습니다.</p>}
+  </section>;
+}
+
+export function ProfileScreen({ go, onOpenShort, userId, onOpenPost }: { userId?: number; go: Navigate; onOpenShort: (id: number) => void; onOpenPost:(id:number)=>void }) {
+  const currentUserId = useCurrentUserId();
+  const [list,setList]=useState<ProfileListKind|null>(null);
+  const own = userId === undefined || userId === currentUserId;
+  const { profile, loading, error } = useOwnProfile(userId);
 
   if (loading) {
     return (
@@ -111,8 +134,9 @@ export function ProfileScreen({ go }: { go: Navigate }) {
     <div className="profile-view scroll-content">
       <button
         className="profile-edit-trigger"
-        onClick={() => go("edit")}
-        aria-label="프로필 편집"
+        onClick={own ? () => go("edit") : undefined}
+        disabled={!own}
+        aria-label={own ? "프로필 편집" : "사용자 프로필 사진"}
       >
         <Avatar large src={profile.profileImageUrl} />
       </button>
@@ -120,18 +144,18 @@ export function ProfileScreen({ go }: { go: Navigate }) {
       <h1>{profile.nickname}</h1>
 
       <div className="stats">
-        <span>
-          <strong>Follower</strong>
-          <small>{profile.relations.followerCount}</small>
-        </span>
-        <span>
-          <strong>Following</strong>
-          <small>{profile.relations.followingCount}</small>
-        </span>
-        <span>
-          <strong>Articles</strong>
-          <small>{profile.activities.postCount}</small>
-        </span>
+        <button aria-label="팔로워 목록" onClick={()=>setList("followers")}>
+          <strong>팔로워</strong>
+          <small>{compactCount(profile.relations.followerCount)}</small>
+        </button>
+        <button aria-label="팔로잉 목록" onClick={()=>setList("following")}>
+          <strong>팔로잉</strong>
+          <small>{compactCount(profile.relations.followingCount)}</small>
+        </button>
+        <button aria-label="작성한 게시글 목록" onClick={()=>setList("articles")}>
+          <strong>게시글</strong>
+          <small>{compactCount(profile.activities.postCount)}</small>
+        </button>
       </div>
 
       {instruments.length > 0 && (
@@ -143,21 +167,13 @@ export function ProfileScreen({ go }: { go: Navigate }) {
       )}
 
       <section className="description">
-        <h2>Description</h2>
+        <h2>소개</h2>
         <p>{profile.explanation || "아직 소개가 없습니다."}</p>
       </section>
 
-      <section>
-        <SectionTitle>내 작업물</SectionTitle>
-        <p className="profile-empty-work">
-          게시글 {profile.activities.posts.length}개 · 참여한 숏폼{" "}
-          {profile.activities.participatedShorts.length}개
-        </p>
-      </section>
-
-      <button type="button" className="profile-logout" onClick={logout}>
-        로그아웃
-      </button>
+      <ProfileWorks title={uiLabels.featuredMusic} songs={[...profile.activities.pinnedShorts].sort((a, b) => a.displayOrder - b.displayOrder)} onOpen={onOpenShort} />
+      <ProfileWorks title={uiLabels.participatedMusic} songs={profile.activities.participatedShorts} onOpen={onOpenShort} />
+      {list&&<ProfileListSheet kind={list} profile={profile} onClose={()=>setList(null)} onProfile={id=>go("profile",id)} onPost={onOpenPost}/>}
     </div>
   );
 }
@@ -394,7 +410,7 @@ function validateProfileImage(file: File): void {
   }
 }
 
-function ProfileForm({
+export function ProfileForm({
   initial,
   submitLabel,
   onSubmit,
@@ -460,21 +476,8 @@ function ProfileForm({
           />
 
           <span className="edit-avatar-overlay" aria-hidden>
-            <svg viewBox="0 0 48 48" fill="none">
-              <path
-                d="M9 16.5h7l3-4h10l3 4h7a3 3 0 0 1 3 3v18a3 3 0 0 1-3 3H9a3 3 0 0 1-3-3v-18a3 3 0 0 1 3-3Z"
-                stroke="currentColor"
-                strokeWidth="3"
-                strokeLinejoin="round"
-              />
-              <path
-                d="m12 36 8-8 6 6 5-5 11 10M31 9h10M36 4v10"
-                stroke="currentColor"
-                strokeWidth="3"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
+            <Asset name="profile-photo-shade.svg" className="profile-photo-shade" />
+            <Asset name="profile-photo-add.svg" className="profile-photo-add" />
           </span>
         </span>
 

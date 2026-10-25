@@ -1,0 +1,132 @@
+/* Figma Studio / Timeline: 98px sidebar, 25px ruler, 20px steps.
+   Every lane is 42px (1px border + 40px content + 1px border), then 4px gap.
+   The same top-anchored grid backs populated and empty lanes. */
+.design-canvas .studio .timeline {
+  --lane-height: 46px;
+  --layer-height: 40px;
+  --timeline-sidebar: 98px;
+  --timeline-ruler: 25px;
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+  background: var(--black);
+}
+.design-canvas .studio .timeline::-webkit-scrollbar { display: none; }
+.design-canvas .studio .timeline-content {
+  position: relative;
+  min-height: 100%;
+  isolation: isolate;
+}
+.design-canvas .studio .timeline-content::before {
+  content: "";
+  display: block;
+  position: sticky;
+  top: 0;
+  left: 0;
+  z-index: 6;
+  width: var(--timeline-sidebar);
+  height: var(--timeline-ruler);
+  margin-bottom: calc(-1 * var(--timeline-ruler));
+  background: var(--black);
+}
+.design-canvas .studio .timeline-grid-fill {
+  position: absolute;
+  z-index: 0;
+  left: var(--timeline-sidebar);
+  top: var(--timeline-ruler);
+  bottom: 0;
+  pointer-events: none;
+  background:
+    repeating-linear-gradient(to bottom, transparent 0 42px, var(--black) 42px 46px),
+    repeating-linear-gradient(to right, var(--line-strong) 0 1px, transparent 1px 20px),
+    repeating-linear-gradient(to bottom,
+      var(--line-strong) 0 1px, var(--panel-raised) 1px 41px, var(--line-strong) 41px 42px, var(--black) 42px 46px,
+      var(--line-strong) 46px 47px, var(--surface) 47px 87px, var(--line-strong) 87px 88px, var(--black) 88px 92px);
+}
+.design-canvas .studio .timeline-sidebar-fill {
+  --sidebar-height: max(321px, calc(var(--timeline-lanes) * var(--lane-height)));
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  width: var(--timeline-sidebar);
+  height: var(--sidebar-height);
+  margin-bottom: calc(-1 * var(--sidebar-height));
+  background: var(--black);
+  pointer-events: none;
+}
+.design-canvas .studio .ruler {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  align-items: flex-end;
+  height: var(--timeline-ruler);
+  margin-left: var(--timeline-sidebar);
+  padding: 0;
+  border: 0;
+  border-bottom: 2px solid var(--white);
+  background: var(--line-strong);
+}
+.design-canvas .studio .ruler i {
+  width: 20px;
+  flex: 0 0 20px;
+  height: 12px;
+  padding: 0;
+  border-left: 2px solid var(--white);
+}
+.design-canvas .studio .ruler i.bar-tick { height: 23px; }
+.design-canvas .studio .studio-track {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  height: var(--lane-height);
+  min-height: var(--lane-height);
+  gap: 0;
+}
+.design-canvas .studio .studio-track .track-person {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  justify-content: flex-start;
+  flex: 0 0 var(--timeline-sidebar);
+  width: var(--timeline-sidebar);
+  height: var(--lane-height);
+  padding: 1px 0 5px 10px;
+  background: var(--black);
+}
+.design-canvas .studio .track-person > button {
+  display: grid;
+  place-items: center;
+  flex: 0 0 44px;
+  width: 44px;
+  height: var(--layer-height);
+  padding: 0;
+}
+.design-canvas .studio .track-person .avatar { width: 30px; height: 30px; border: 0; }
+.design-canvas .studio .track-person button > img { width: auto; height: auto; max-width: none; }
+.design-canvas .studio .studio-track-clips {
+  position: relative;
+  height: var(--lane-height);
+  border: 0;
+  background: none;
+}
+.design-canvas .studio .studio-clip {
+  position: absolute;
+  top: 1px;
+  height: var(--layer-height);
+  border: 0;
+  border-radius: 8px;
+  padding: 0;
+  overflow: hidden;
+}
+.design-canvas .studio .studio-track-actions { display: none; }
+.design-canvas .studio .studio-playhead { top: var(--timeline-ruler); box-shadow: none; }
+
+.design-canvas .studio .studio-clip--movable{touch-action:none;cursor:grab}
+.design-canvas .studio .studio-clip--movable:active{cursor:grabbing}
+.design-canvas .studio .studio-clip:focus-visible{outline:2px solid var(--white);outline-offset:-3px}

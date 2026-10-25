@@ -1,34 +1,51 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { Asset, Avatar } from "@/components/app/shared";
+import { useMemo, useState, useSyncExternalStore } from "react";
+import { useSourceSave } from "@/features/community/source-save-button";
+import { SourceAudioPlayer } from "@/features/community/source-audio-player";
+import { PostActions } from "@/components/app/post-actions";
+import { Avatar, SectionTitle } from "@/components/app/shared";
+import { sourceSnapshot, subscribeSources, type PreviewSource } from "@/features/preview/source-store";
+import { CommonComments } from "@/features/comments/common-comments";
+import { localCommentAdapter, sampleComments } from "@/features/comments/comment-model";
+import { isPreviewMode } from "@/features/preview/preview-mode";
+import { useCurrentUserId } from "@/hooks/use-current-user";
+import { popularSources, recommendByAuthor } from "@/features/community/discovery";
+import "./opensource-discovery.css";
+import { getCurrentUserId } from "@/lib/api/client";
 import type { Navigate } from "@/features/navigation/types";
 
 // UI sample screens from PR #21; interactions remain local until an API is connected.
-export function OpensourceScreen({ go }: { go: Navigate }) {
-  return (
-    <div className="opensource-view scroll-content">
-      {[0, 1, 2, 3, 4].map((i) => (
-        <OpensourcePart
-          key={i}
-          onOpen={() => go("opensourceDetail")}
-          onProfile={() => go("profile")}
-          onComments={() => go("opensourceComments")}
-        />
-      ))}
-    </div>
-  );
+export function OpensourceScreen({ go, onOpen }: { go: Navigate; onOpen?:(id:number,comments?:boolean)=>void }) {
+  const sources=useSyncExternalStore(subscribeSources,sourceSnapshot,sourceSnapshot);
+  const userId=useCurrentUserId();
+  const recommended=recommendByAuthor(sources,source=>source.userId,userId);
+  const popular=popularSources(sources);
+  function card(source:PreviewSource){return <OpensourcePart key={source.id} source={source}
+    onOpen={()=>onOpen?onOpen(source.id):go("opensourceDetail")}
+    onProfile={()=>go("profile",source.userId)} onComments={()=>onOpen?onOpen(source.id,true):go("opensourceComments")}/>;}
+  return <div className="opensource-view scroll-content os-discovery-sections">
+    <section aria-label="오픈소스 인기 차트"><SectionTitle>인기 차트</SectionTitle>
+      {popular.length===0?<p className="os-discovery-empty">아직 표시할 오픈소스가 없습니다.</p>:<div className="os-discovery-list">{popular.map(source=>card(source))}</div>}
+    </section>
+    <section aria-label="추천 오픈소스"><SectionTitle>추천 오픈소스</SectionTitle>
+      {recommended.length===0?<p className="os-discovery-empty">아직 추천할 오픈소스가 없습니다.</p>:<div className="os-recommend-rail">{recommended.map(source=>card(source))}</div>}
+    </section>
+  </div>;
 }
+
 function OpensourcePart({
-  onOpen,
+  source, onOpen,
   onProfile,
   onComments,
 }: {
+  source: PreviewSource;
   onOpen?: () => void;
   onProfile?: () => void;
   onComments?: () => void;
 }) {
-  const [saved, setSaved] = useState(false);
+  const saving=useSourceSave(source);
+  const saved=saving.saved;
   const [vote, setVote] = useState<"like" | "dislike" | null>(null);
   return (
     <article className="os-card">
@@ -36,346 +53,60 @@ function OpensourcePart({
         <button className="os-author" onClick={onOpen} aria-label="오픈소스 글 보기">
           <Avatar />
           <span>
-            <strong>개쩌는 파트</strong>
-            <small>사용 수 123123</small>
+            <strong>{source.title}</strong>
+            <small>사용 수 {(source.usageCount??0).toLocaleString("ko-KR")}</small>
           </span>
         </button>
         <button
           className="purple-pill os-save-button"
           aria-pressed={saved}
-          onClick={() => setSaved((v) => !v)}
+          disabled={saving.busy} onClick={()=>void saving.toggle()}
         >
           {saved ? "저장됨" : "저장"}
         </button>
       </div>
+      {saving.error&&<p role="alert">{saving.error}</p>}
       <button className="os-body" onClick={onOpen}>
-        제가 만들다 보니까 쫌 개쩔게 나와서 한번 올려봅니당
+        {source.description}
       </button>
       <div className="os-foot">
         <button className="os-foot-author" onClick={onProfile}>
           <Avatar />
-          <span>min chong</span>
+          <span>{source.author}</span>
         </button>
-        <div className="os-reactions">
-          <button
-            className={vote === "like" ? "voted" : ""}
-            aria-label="좋아요"
-            aria-pressed={vote === "like"}
-            onClick={() => setVote((c) => (c === "like" ? null : "like"))}
-          >
-            <Asset name={vote === "like" ? "like-filled.svg" : "like.svg"} />5
-          </button>
-          <button
-            className={`os-dislike${vote === "dislike" ? " voted" : ""}`}
-            aria-label="싫어요"
-            aria-pressed={vote === "dislike"}
-            onClick={() => setVote((c) => (c === "dislike" ? null : "dislike"))}
-          >
-            <Asset name={vote === "dislike" ? "like-filled.svg" : "like.svg"} />
-          </button>
-          <button aria-label="댓글" onClick={onComments}>
-            <Asset name="comment.svg" />5
-          </button>
-        </div>
+        <PostActions compact readOnly dislikeCount={source.dislikeCount??0} likeCount={source.likeCount??0} commentCount={source.commentCount??0} vote={vote} onVote={next=>setVote(current=>current===next?null:next)} onComments={()=>onComments?.()}/>
+
       </div>
     </article>
   );
 }
 
-type OsDetailCommentData = {
-  id: number;
-  parentId?: number;
-  author: string;
-  time: string;
-  text: string;
-  likes: number;
-  vote: "like" | "dislike" | null;
-};
-
-const initialOsComments: OsDetailCommentData[] = [
-  { id: 1, author: "min chong", time: "1초 전", text: "이거 아무튼 댓글이긴한데 댓글이 아닌거 같기도 하고", likes: 116, vote: null },
-  { id: 2, parentId: 1, author: "min chong", time: "1초 전", text: "이거 아무튼 댓글이긴한데 댓글이 아닌거 같기도 하고", likes: 116, vote: null },
-  { id: 3, author: "min chong", time: "1초 전", text: "이거 아무튼 댓글이긴한데 댓글이 아닌거 같기도 하고", likes: 116, vote: null },
-  { id: 4, author: "min chong", time: "1초 전", text: "이거 아무튼 댓글이긴한데 댓글이 아닌거 같기도 하고", likes: 116, vote: null },
-];
-
-const OS_REPLIES_PAGE = 10;
-
-function OpensourceComment({
-  comment,
-  reply = false,
-  canReply = true,
-  menuOpen,
-  onMenu,
-  onReply,
-  onVote,
-  onReport,
-}: {
-  comment: OsDetailCommentData;
-  reply?: boolean;
-  canReply?: boolean;
-  menuOpen: boolean;
-  onMenu: () => void;
-  onReply: () => void;
-  onVote: (vote: "like" | "dislike") => void;
-  onReport: () => void;
-}) {
-  return (
-    <article className={reply ? "os-detail-comment reply" : "os-detail-comment"}>
-      <div className="os-detail-comment-head">
-        <Avatar />
-        <span className="os-detail-comment-meta"><strong>{comment.author}</strong><small>• {comment.time}</small></span>
-        <button aria-label="댓글 옵션" onClick={onMenu}><Asset name="option.svg" /></button>
-        {menuOpen && <button className="os-detail-report" onClick={onReport}>신고</button>}
-      </div>
-      {canReply ? (
-        <button className="os-detail-comment-text" onClick={onReply}>{comment.text}</button>
-      ) : (
-        <p className="os-detail-comment-text">{comment.text}</p>
-      )}
-      <div className="os-detail-comment-actions">
-        {canReply && <button aria-label="답글" onClick={onReply}><Asset name="comment.svg" /></button>}
-        <button
-          className={comment.vote === "like" ? "active" : ""}
-          aria-label="댓글 좋아요"
-          aria-pressed={comment.vote === "like"}
-          onClick={() => onVote("like")}
-        ><Asset name={comment.vote === "like" ? "like-filled.svg" : "like.svg"} />{comment.likes}</button>
-        <button
-          className={comment.vote === "dislike" ? "active dislike" : "dislike"}
-          aria-label="댓글 싫어요"
-          aria-pressed={comment.vote === "dislike"}
-          onClick={() => onVote("dislike")}
-        ><Asset name={comment.vote === "dislike" ? "like-filled.svg" : "like.svg"} /></button>
-      </div>
-    </article>
-  );
-}
-
-function OpensourceCommentThread({
-  comment,
-  replies,
-  menuId,
-  onMenu,
-  onReply,
-  onVote,
-  onReport,
-}: {
-  comment: OsDetailCommentData;
-  replies: OsDetailCommentData[];
-  menuId: number | null;
-  onMenu: (id: number) => void;
-  onReply: (comment: OsDetailCommentData) => void;
-  onVote: (id: number, vote: "like" | "dislike") => void;
-  onReport: (id: number) => void;
-}) {
-  const [collapsed, setCollapsed] = useState(true);
-  const [visible, setVisible] = useState(OS_REPLIES_PAGE);
-  const shownReplies = replies.slice(0, visible);
-
-  return (
-    <div className="os-detail-comment-thread">
-      <OpensourceComment
-        comment={comment}
-        menuOpen={menuId === comment.id}
-        onMenu={() => onMenu(comment.id)}
-        onReply={() => onReply(comment)}
-        onVote={(next) => onVote(comment.id, next)}
-        onReport={() => onReport(comment.id)}
-      />
-      {replies.length > 0 && collapsed && (
-        <button
-          className="abyss-replies-toggle"
-          onClick={() => setCollapsed(false)}
-        >
-          답글 {replies.length}개
-        </button>
-      )}
-      {replies.length > 0 && !collapsed && (
-        <div className="abyss-comment-replies">
-          <button
-            className="abyss-replies-bar"
-            aria-label="답글 접기"
-            onClick={() => setCollapsed(true)}
-          />
-          <div className="abyss-replies-body">
-            {shownReplies.map((reply) => (
-              <OpensourceComment
-                key={reply.id}
-                comment={reply}
-                reply
-                canReply={false}
-                menuOpen={menuId === reply.id}
-                onMenu={() => onMenu(reply.id)}
-                onReply={() => undefined}
-                onVote={(next) => onVote(reply.id, next)}
-                onReport={() => onReport(reply.id)}
-              />
-            ))}
-            {replies.length > visible && (
-              <button
-                className="abyss-replies-more"
-                onClick={() => setVisible((current) => current + OS_REPLIES_PAGE)}
-              >
-                더보기 ({replies.length - visible})
-              </button>
-            )}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-export function OpensourceDetailScreen({
-  focusComments = false,
-}: {
-  focusComments?: boolean;
-}) {
-  const [saved, setSaved] = useState(false);
-  const [playing, setPlaying] = useState(false);
-  const [muted, setMuted] = useState(false);
-  const [vote, setVote] = useState<"like" | "dislike" | null>(null);
-  const [comments, setComments] = useState(initialOsComments);
-  const [replyTo, setReplyTo] = useState<OsDetailCommentData | null>(null);
-  const [menuId, setMenuId] = useState<number | null>(null);
-  const [draft, setDraft] = useState("");
-  const commentsRef = useRef<HTMLElement>(null);
-  const composerInputRef = useRef<HTMLInputElement>(null);
-
-  const focusCommentComposer = (behavior: ScrollBehavior = "smooth") => {
-    setReplyTo(null);
-    commentsRef.current?.scrollIntoView({ behavior, block: "start" });
-    requestAnimationFrame(() => composerInputRef.current?.focus());
-  };
-  useEffect(() => {
-    if (!focusComments) return;
-    const frame = requestAnimationFrame(() => focusCommentComposer("auto"));
-    return () => cancelAnimationFrame(frame);
-  }, [focusComments]);
-
-  const toggleCommentVote = (id: number, next: "like" | "dislike") => {
-    setComments((items) => items.map((comment) => {
-      if (comment.id !== id) return comment;
-      const vote = comment.vote === next ? null : next;
-      const likes = comment.likes + (vote === "like" ? 1 : 0) - (comment.vote === "like" ? 1 : 0);
-      return { ...comment, vote, likes };
-    }));
-  };
-  const submitComment = () => {
-    const text = draft.trim();
-    if (!text) return;
-    setComments((items) => [...items, {
-      id: Date.now(),
-      parentId: replyTo?.parentId ?? replyTo?.id,
-      author: "나",
-      time: "방금",
-      text,
-      likes: 0,
-      vote: null,
-    }]);
-    setDraft("");
-    setReplyTo(null);
-  };
-  return (
-    <div className="opensource-detail-shell">
-      <div className="opensource-detail scroll-content">
+export function OpensourceDetailScreen({sourceId=1,focusComments=false,onProfile}:{sourceId?:number;focusComments?:boolean;onProfile?:(id:number)=>void}) {
+  const sources=useSyncExternalStore(subscribeSources,sourceSnapshot,sourceSnapshot);
+  const source=sources.find(item=>item.id===sourceId);
+  const saving=useSourceSave(source);const saved=saving.saved;const [vote,setVote]=useState<"like"|"dislike"|null>(null);
+  const [focus,setFocus]=useState(focusComments?1:0);
+  const preview=isPreviewMode();const me=getCurrentUserId();
+  const adapter=useMemo(()=>localCommentAdapter(`opensource:${sourceId}`,preview&&sourceId===1?sampleComments([1,0,0]):[],{id:me??1,name:"나",avatar:"/figma/profile.png"}),[preview,me,sourceId]);
+  if(!source)return <div className="profile-state" role="alert">오픈소스를 찾을 수 없습니다. 목록에서 다시 선택해주세요.</div>;
+  return <div className="opensource-detail-shell"><CommonComments adapter={adapter} currentUserId={me} canWrite={preview} onProfile={onProfile} focus={focus} header={<div className="opensource-detail">
         <section className="os-detail-article">
         <div className="os-detail-title-row">
           <div className="os-detail-title">
             <Avatar />
-            <span><strong>개쩌는 파트</strong><small>사용 수 123123</small></span>
+            <span><strong>{source.title}</strong><small>사용 수 {(source.usageCount??0).toLocaleString("ko-KR")}</small></span>
           </div>
           <button
             className="purple-pill os-save-button"
             aria-pressed={saved}
-            onClick={() => setSaved((current) => !current)}
+            disabled={saving.busy} onClick={()=>void saving.toggle()}
           >{saved ? "저장됨" : "저장"}</button>
         </div>
-        <div className="os-detail-byline"><Avatar /><span>min chong · 2026.03.18</span></div>
-        <p className="os-detail-copy">제가 만들다 보니까 쫌 개쩔게 나와서 한번 올려봅니당</p>
-        <div className="os-audio-player">
-          <button
-            className="os-audio-play-toggle"
-            aria-label={playing ? "일시정지" : "재생"}
-            aria-pressed={playing}
-            onClick={() => setPlaying((current) => !current)}
-          >
-            <Asset name="play.svg" />
-            <span>{playing ? "0:01" : "0:00"} / 0:02</span>
-            <i><b style={{ width: playing ? "58%" : "28%" }} /></i>
-          </button>
-          <button
-            className="os-audio-mute"
-            aria-label={muted ? "소리 켜기" : "무음"}
-            aria-pressed={muted}
-            title={muted ? "소리 켜기" : "소리 끄기"}
-            onClick={() => setMuted((current) => !current)}
-          >
-            <Asset name={muted ? "sound-muted.svg" : "sound.svg"} />
-          </button>
-        </div>
-        <div className="os-detail-reactions">
-          <div className={`os-detail-vote${vote ? " active" : ""}`}>
-            <button
-              aria-label="좋아요"
-              aria-pressed={vote === "like"}
-              onClick={() => setVote((current) => current === "like" ? null : "like")}
-            ><Asset name={vote === "like" ? "like-filled.svg" : "like.svg"} />116</button>
-            <i />
-            <button
-              className="dislike"
-              aria-label="싫어요"
-              aria-pressed={vote === "dislike"}
-              onClick={() => setVote((current) => current === "dislike" ? null : "dislike")}
-            ><Asset name={vote === "dislike" ? "like-filled.svg" : "like.svg"} /></button>
-          </div>
-          <button className="os-detail-comment-count" onClick={() => focusCommentComposer()}><Asset name="comment.svg" />116</button>
-          <span />
-          <button className="os-detail-share" aria-label="공유"><Asset name="share.svg" /></button>
-        </div>
-        </section>
-        <section ref={commentsRef} className="os-detail-comments" aria-label="댓글">
-          {comments.filter((comment) => !comment.parentId).map((comment) => (
-            <OpensourceCommentThread
-              key={comment.id}
-              comment={comment}
-              replies={comments.filter((reply) => reply.parentId === comment.id)}
-              menuId={menuId}
-              onMenu={(id) => setMenuId((current) => current === id ? null : id)}
-              onReply={(target) => {
-                setReplyTo(target);
-                requestAnimationFrame(() => composerInputRef.current?.focus());
-              }}
-              onVote={toggleCommentVote}
-              onReport={(id) => {
-                setComments((items) => items.filter((item) => item.id !== id && item.parentId !== id));
-                setMenuId(null);
-              }}
-            />
-          ))}
-        </section>
-      </div>
-      <div className="os-detail-composer">
-        {replyTo && (
-          <div className="os-detail-replying">
-            <span>{replyTo.author}에게 답글</span>
-            <button aria-label="답글 취소" onClick={() => setReplyTo(null)}>×</button>
-          </div>
-        )}
-        <div className="os-detail-composer-row">
-          <Avatar />
-          <input
-            ref={composerInputRef}
-            value={draft}
-            onChange={(event) => setDraft(event.target.value)}
-            onKeyDown={(event) => event.key === "Enter" && submitComment()}
-            placeholder={replyTo ? `${replyTo.author}에게 답글 남기기` : "댓글 달기"}
-          />
-          <button disabled={!draft.trim()} onClick={submitComment}>게시</button>
-        </div>
-      </div>
-    </div>
-  );
+        {saving.error&&<p role="alert">{saving.error}</p>}
+        <div className="os-detail-byline"><Avatar /><span>{source.author}</span></div>
+        <p className="os-detail-copy">{source.description}</p>
+        <SourceAudioPlayer key={source.id} src={source.mediaUrl}/>
+        <PostActions likeCount={source.likeCount??0} commentCount={source.commentCount??0} vote={vote} onVote={next=>setVote(current=>current===next?null:next)} onComments={()=>setFocus(value=>value+1)} saved={saved} onSave={()=>{if(!saving.busy)void saving.toggle();}}/>
+
+        </section><div className="nr-post-comment-divider" /></div>} /></div>;
 }
-// 인기글 상세: Figma 10637:17534의 Article 영역. 댓글 목록은 요청에 따라 제외한다.

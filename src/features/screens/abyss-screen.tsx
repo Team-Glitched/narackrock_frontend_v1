@@ -1,7 +1,13 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Asset } from "@/components/app/shared";
+import { AlbumCarousel } from "@/features/abyss/album-carousel";
+import { useSavedItems } from "@/features/saved/saved-store";
+import { AbyssComments } from "./abyss-comments";
+import type { Navigate } from "@/features/navigation/types";
+import { FigmaSheet } from "@/components/app/figma-sheet";
+import { ReportReasons } from "@/components/app/report-reasons";
+import { Asset, Avatar, IconSlot } from "@/components/app/shared";
 import { initialShortIndex } from "@/features/abyss/initial-short";
 import { canJoinShort } from "@/features/abyss/short-participation";
 import { useCurrentUserId } from "@/hooks/use-current-user";
@@ -11,12 +17,15 @@ import type { ShortItemDto, ShortsPageDto } from "@/lib/api/contracts";
 type FeedState = "loading" | "ready" | "error";
 type PageInfo = ShortsPageDto["page"];
 
-export function AbyssScreen({ onJoin, initialShortId, muted = false }: { onJoin: (shortId: number) => void; initialShortId?: number | null; muted?: boolean }) {
+export function AbyssScreen({ go, onJoin, initialShortId, muted = false, previewItems, onRememberShort }: { onRememberShort?:(id:number)=>void; go: Navigate; onJoin: (shortId: number) => void; initialShortId?: number | null; muted?: boolean; previewItems?: ShortItemDto[] }) {
   const currentUserId = useCurrentUserId();
-  const [shorts, setShorts] = useState<ShortItemDto[]>([]);
+  const savedItems = useSavedItems();
+  const [sheet, setSheet] = useState<"participants" | "comments" | "report" | null>(null);
+  const [feedback, setFeedback] = useState<string | null>(null);
+  const [shorts, setShorts] = useState<ShortItemDto[]>(previewItems ?? []);
   const [page, setPage] = useState<PageInfo | null>(null);
   const [index, setIndex] = useState(0);
-  const [feedState, setFeedState] = useState<FeedState>("loading");
+  const [feedState, setFeedState] = useState<FeedState>(previewItems ? "ready" : "loading");
   const [reloadKey, setReloadKey] = useState(0);
   const [loadingMore, setLoadingMore] = useState(false);
   const [playing, setPlaying] = useState(false);
@@ -27,6 +36,7 @@ export function AbyssScreen({ onJoin, initialShortId, muted = false }: { onJoin:
   const loadingMoreRef = useRef(false);
 
   useEffect(() => {
+    if (previewItems) return;
     const controller = new AbortController();
     (async () => {
       let result = await getShorts(undefined, controller.signal);
@@ -47,9 +57,10 @@ export function AbyssScreen({ onJoin, initialShortId, muted = false }: { onJoin:
         if (!controller.signal.aborted) setFeedState("error");
       });
     return () => controller.abort();
-  }, [reloadKey, initialShortId]);
+  }, [reloadKey, initialShortId, previewItems]);
 
   const current = shorts[index];
+  const navigate:Navigate=(view,id)=>{if(view==="profile"&&current)onRememberShort?.(current.shortId);go(view,id);};
   const mediaUrl = current?.mediaUrl?.trim() || null;
   const hasNext = index < shorts.length - 1 || Boolean(page?.hasMore && page.nextCursor != null);
   const progress = duration > 0 ? Math.min(100, (currentTime / duration) * 100) : 0;
@@ -62,11 +73,14 @@ export function AbyssScreen({ onJoin, initialShortId, muted = false }: { onJoin:
   }, [mediaUrl]);
 
   function selectShort(nextIndex: number) {
+    if (nextIndex < 0 || nextIndex >= shorts.length) return;
     audioRef.current?.pause();
     setPlaying(false);
     setCurrentTime(0);
     setDuration(0);
     setPlaybackError(null);
+    setFeedback(null);
+    setSheet(null);
     setIndex(nextIndex);
   }
 
@@ -83,7 +97,9 @@ export function AbyssScreen({ onJoin, initialShortId, muted = false }: { onJoin:
       const next = await getShorts(page.nextCursor);
       setPage(next.items.length ? next.page : { ...next.page, hasMore: false });
       if (next.items.length) {
-        selectShort(shorts.length);
+        audioRef.current?.pause();
+        setPlaying(false); setCurrentTime(0); setDuration(0); setPlaybackError(null); setFeedback(null);
+        setIndex(shorts.length);
         setShorts((previous) => [...previous, ...next.items]);
       }
     } catch {
@@ -109,6 +125,26 @@ export function AbyssScreen({ onJoin, initialShortId, muted = false }: { onJoin:
     }
   }
 
+  function vote(kind: "like" | "dislike") {
+    setShorts(items => items.map((item, position) => {
+      if (position !== index) return item;
+      const liked = kind === "like" ? !item.isLiked : false;
+      const disliked = kind === "dislike" ? !item.isDisliked : false;
+      return { ...item, isLiked: liked, isDisliked: disliked,
+        likeCount: Math.max(0, item.likeCount + Number(liked) - Number(item.isLiked)),
+        dislikeCount: Math.max(0, item.dislikeCount + Number(disliked) - Number(item.isDisliked)) };
+    }));
+    setFeedback(null);
+  }
+  async function share() {
+    const url = new URL(window.location.href);
+    url.searchParams.set("short", String(current.shortId));
+    try {
+      if (navigator.share) await navigator.share({ title: current.title, url: url.toString() });
+      else { await navigator.clipboard.writeText(url.toString()); setFeedback("링크를 복사했습니다."); }
+    } catch (cause) { if (!(cause instanceof DOMException && cause.name === "AbortError")) setFeedback("링크를 공유하지 못했습니다."); }
+  }
+
   if (feedState === "loading") {
     return <div className="abyss-view abyss-state" role="status">숏폼을 불러오는 중입니다.</div>;
   }
@@ -122,25 +158,24 @@ export function AbyssScreen({ onJoin, initialShortId, muted = false }: { onJoin:
   return (
     <div className="abyss-view">
       <div className="abyss-song">
-        {current.albumImageUrl ? <>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={current.albumImageUrl} alt={`${current.title} 앨범 커버`} className="abyss-cover" />
-        </> : <div className="abyss-cover abyss-cover-empty" role="img" aria-label={`${current.title} 앨범 이미지 없음`}><span>♪</span></div>}
+        <AlbumCarousel items={shorts} index={index} onPrevious={() => selectShort(index - 1)} onNext={() => { void selectNext(); }} />
         <div className="abyss-title">
           <h1>{current.title}</h1>
-          <p>{current.author.nickname} <i /> <button disabled>작곡 참여자 보기</button></p>
+          <p><button onClick={() => navigate("profile", current.author.userId)}>{current.author.nickname}</button> <i /> <button onClick={() => setSheet("participants")}>작곡 참여자 보기</button></p>
         </div>
       </div>
       <div className="abyss-actions">
         <div className="abyss-vote">
-          <button className={current.isLiked ? "active" : ""} aria-label={`좋아요 ${current.likeCount}개`} disabled><Asset name="like.svg" />{current.likeCount}</button>
+          <button className={current.isLiked ? "active" : ""} aria-label={`좋아요 ${current.likeCount}개`} aria-pressed={current.isLiked} onClick={() => vote("like")}><IconSlot name={current.isLiked ? "v3-short-like-on.svg" : "v3-short-like-off.svg"} kind="short" /><span className="abyss-like-count">{current.likeCount}</span></button>
           <i />
-          <button className="abyss-dislike" aria-label={`싫어요 ${current.dislikeCount}개`} disabled><Asset name="like.svg" /></button>
+          <button className="abyss-dislike" aria-label={`싫어요 ${current.dislikeCount}개`} aria-pressed={current.isDisliked} onClick={() => vote("dislike")}><IconSlot name={current.isDisliked ? "v3-short-dislike-on.svg" : "v3-short-dislike-off.svg"} kind="short" /></button>
         </div>
-        <button disabled aria-label={`댓글 ${current.commentCount}개`}><Asset name="comment.svg" />{current.commentCount}</button>
-        <button disabled aria-label="공유"><Asset name="share.svg" /></button>
-        <button disabled aria-label="저장"><Asset name="bookmark.svg" /></button>
+        <button onClick={() => setSheet("comments")} aria-label={`댓글 ${current.commentCount}개`}><IconSlot name="abyss-comment.svg" kind="short" />{current.commentCount}</button>
+        <button className="abyss-share" onClick={() => { void share(); }} aria-label="공유"><IconSlot name="abyss-share.svg" kind="short-share" /></button>
+        <button className="save-control" aria-label="저장" aria-pressed={savedItems.has("song", current.shortId)} onClick={() => { try { savedItems.toggle({id: current.shortId, kind: "song", title: current.title, author: current.author.nickname, imageUrl: current.albumImageUrl}); setFeedback(null); } catch (cause) { setFeedback(cause instanceof Error ? cause.message : "저장하지 못했습니다."); } }}><IconSlot name={savedItems.has("song", current.shortId) ? "save-on.svg" : "save-off.svg"} kind="short-save" /></button>
+        <button className="abyss-report" aria-label="신고" onClick={()=>setSheet("report")}><Asset name="short-report.svg" /></button>
       </div>
+      <div className="abyss-bottom-stack">
       <div className="abyss-player">
         <audio
           key={current.shortId}
@@ -181,11 +216,16 @@ export function AbyssScreen({ onJoin, initialShortId, muted = false }: { onJoin:
         {!mediaUrl && <p className="abyss-playback-message">재생 가능한 음원 파일이 없습니다.</p>}
         {playbackError && <p className="abyss-playback-message" role="alert">{playbackError}</p>}
       </div>
+      {sheet === "report" && <FigmaSheet title="신고" onClose={()=>setSheet(null)}><ReportReasons /></FigmaSheet>}
+      {feedback && <p className="abyss-feedback" role="status">{feedback}</p>}
+      {sheet === "participants" && <FigmaSheet title="작곡 참여자" onClose={() => setSheet(null)}><ul className="participant-list">{current.participants.length ? current.participants.map(person => <li key={person.userId}><Avatar /><span><strong>{person.nickname}</strong><small>{person.role === "CREATOR" ? "원곡자" : "작곡 참여자"}</small></span></li>) : <li>아직 참여자가 없습니다.</li>}</ul></FigmaSheet>}
+      <AbyssComments key={current.shortId} shortId={current.shortId} onCreated={() => setShorts(items => items.map(item => item.shortId === current.shortId ? {...item,commentCount:item.commentCount+1} : item))} commentCount={current.commentCount} open={sheet === "comments"} onClose={() => setSheet(null)} go={navigate} />
       {current.completionStatus === "IN_PROGRESS" && current.projectId != null && (
         <div className="abyss-join-slot">
           {canJoinShort(current, currentUserId) && <button className="abyss-join" onClick={() => onJoin(current.shortId)}>작곡 참여하기</button>}
         </div>
       )}
+      </div>
     </div>
   );
 }

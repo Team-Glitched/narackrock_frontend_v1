@@ -1,0 +1,12 @@
+/* Action text uses Pretendard Medium; compact chips remain a separate size. */
+.design-canvas :is(.purple-pill,.gray-pill,.primary-action,.social-create-submit,.studio-submit,.workspace-primary){font-family:var(--font-body);font-size:var(--text-label);font-weight:500;line-height:20px}
+.design-canvas :is(.workspace-actions,.workspace-heading,.review-actions)>button,.design-canvas .workspace-wide{font-family:var(--font-body);font-size:var(--text-label);font-weight:500;line-height:20px}
+.design-canvas :is(.filter-chips,.workspace-tabs)>button{font-family:var(--font-body);font-size:var(--text-caption);font-weight:500;line-height:18px}
+.design-canvas :is(.os-head,.os-detail-title-row)>.os-save-button{width:max-content;min-width:60px;flex:0 0 auto;padding:0 16px;height:40px;font:500 var(--text-label)/20px var(--font-body)}
+.design-canvas .review-report .report-copy{min-width:0;height:60px;display:flex;flex-direction:column;justify-content:space-between}
+.design-canvas .report-copy>span{font:400 var(--text-body)/18px var(--font-body)}
+.design-canvas .report-copy small{margin:0;font:400 var(--text-caption)/14px var(--font-body)}
+.design-canvas .review-actions{width:130px;justify-content:space-between;gap:0}
+.design-canvas .review-name strong{font:700 var(--text-label)/19px var(--font-body)}
+.design-canvas .review-community>p{font:400 var(--text-caption)/14px var(--font-body)}
+.design-canvas .workspace-page .os-audio-player{margin:20px 0}

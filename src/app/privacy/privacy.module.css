@@ -4,7 +4,7 @@
   background:
     radial-gradient(circle at 50% -10%, rgba(76, 0, 229, 0.28), transparent 36rem),
     #111;
-  color: #f2f4f6;
+  color: var(--white);
 }
 
 .document {
@@ -26,7 +26,7 @@
   display: inline-block;
   margin-bottom: 48px;
   color: #8d5aff;
-  font-size: 20px;
+  font-size: var(--text-title);
   font-weight: 800;
   text-decoration: none;
 }
@@ -34,7 +34,7 @@
 .eyebrow {
   margin: 0 0 8px;
   color: #9b76ff;
-  font-size: 12px;
+  font-size: var(--text-caption);
   font-weight: 700;
   letter-spacing: 0.16em;
 }
@@ -50,14 +50,14 @@
   max-width: 600px;
   margin: 20px 0 0;
   color: #c8d0d8;
-  font-size: 17px;
+  font-size: var(--text-label);
   line-height: 1.75;
 }
 
 .date {
   margin: 16px 0 0;
   color: #8e99a4;
-  font-size: 13px;
+  font-size: var(--text-body);
 }
 
 .sections {
@@ -72,15 +72,15 @@
 
 .sections h2 {
   margin: 0 0 12px;
-  color: #f2f4f6;
-  font-size: 20px;
+  color: var(--white);
+  font-size: var(--text-title);
   line-height: 1.5;
 }
 
 .sections p,
 .sections li {
-  color: #aab6c2;
-  font-size: 15px;
+  color: var(--muted);
+  font-size: var(--text-label);
   line-height: 1.8;
   word-break: keep-all;
 }
@@ -112,7 +112,7 @@
   padding-top: 24px;
   border-top: 1px solid rgba(170, 182, 194, 0.2);
   color: #8e99a4;
-  font-size: 13px;
+  font-size: var(--text-body);
 }
 
 .footer p {
@@ -126,7 +126,7 @@
 @media (max-width: 600px) {
   .page {
     padding: 0;
-    background: #1d1d1d;
+    background: var(--black);
   }
 
   .document {

@@ -1,0 +1,14 @@
+.home-work-list{display:flex;gap:12px;padding:0 20px 4px;overflow-x:auto;scroll-snap-type:x mandatory;scroll-padding-inline:20px;scrollbar-width:none}
+.home-work-list::-webkit-scrollbar{display:none}
+.home-work-card{display:flex;flex-direction:column;gap:16px;flex:0 0 244px;min-width:0;padding:16px;border-radius:14px;background:var(--surface);text-align:left;scroll-snap-align:start;border:1px solid transparent;transition:border-color .15s ease,background .15s ease}
+.home-work-card:hover{border-color:var(--accent);background:var(--panel-raised)}
+.home-work-card:focus-visible{outline:2px solid var(--accent);outline-offset:-3px}
+.home-draft-top{display:flex;align-items:center;justify-content:space-between;gap:8px;color:var(--muted);font:400 var(--text-caption)/18px var(--font-body)}
+.home-draft-arrangement{display:block;width:100%;height:78px;border-radius:6px;background:var(--panel);overflow:hidden;fill:var(--purple)}
+.home-draft-grid{stroke:var(--border);stroke-width:.6;fill:none}
+.home-work-copy{display:flex;flex-direction:column;gap:8px;min-width:0;width:100%}
+.home-work-copy strong{font:600 var(--text-label)/22px var(--font-body);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.home-work-copy small{font:400 var(--text-caption)/18px var(--font-body);color:var(--muted)}
+.home-work-empty{margin:0 20px;padding:20px;border:1px solid var(--border);border-radius:14px;background:var(--panel)}
+.home-work-empty p{margin:0 0 16px;font:400 var(--text-body)/20px var(--font-body);color:var(--muted)}
+@media(prefers-reduced-motion:reduce){.home-work-card{transition:none}}

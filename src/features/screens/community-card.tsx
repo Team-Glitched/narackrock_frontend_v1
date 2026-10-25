@@ -1,5 +1,7 @@
 "use client";
 
+import { isCommunityOwner } from "@/features/admin/permissions";
+import { useCurrentUserId } from "@/hooks/use-current-user";
 import { Avatar } from "@/components/app/shared";
 import type { GalleryListItem } from "@/lib/api/contracts";
 import { useCommunityMembership } from "./community-membership";
@@ -8,6 +10,7 @@ import { useCommunityMembership } from "./community-membership";
 export type Community = {
   /** 목록 안에서의 고유 식별자. React key와 가입 상태 관리에 쓴다. */
   id: number;
+  ownerId?: number;
   /** 게시글을 읽어올 백엔드 갤러리 id. 서버 연동 뒤로는 `id`와 같은 값이다. */
   galleryId: number;
   name: string;
@@ -33,7 +36,8 @@ export function galleryToCommunity(gallery: GalleryListItem): Community {
     name: gallery.name,
     memberCount: gallery.subscriberCount,
     description: gallery.description ?? "",
-    imageUrl: null,
+    imageUrl: gallery.imageUrl ?? null,
+    ownerId: gallery.ownerId,
   };
 }
 
@@ -47,9 +51,11 @@ export function CommunityJoinButton({ community, block = false }: {
   community: Community;
   block?: boolean;
 }) {
+  const userId=useCurrentUserId();
   const membership = useCommunityMembership();
   const joined = membership.isJoined(community.id);
   const pending = membership.isPending(community.id);
+  if(isCommunityOwner(community,userId))return <span className={`community-join is-joined community-owner-badge ${block?"community-join--block":""}`}>가입됨</span>;
   return (
     <button
       className={`community-join ${joined ? "is-joined" : ""} ${block ? "community-join--block" : ""}`}

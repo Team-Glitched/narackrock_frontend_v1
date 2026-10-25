@@ -1,0 +1,13 @@
+.design-canvas .home-content,.design-canvas .os-discovery-sections{padding-block:30px;row-gap:40px}
+.design-canvas .os-discovery-sections{padding-inline:20px}
+.os-discovery-sections>section{flex:none;min-width:0}
+.design-canvas .home-content>section>.section-title,.design-canvas .os-discovery-sections>section>.section-title{height:auto;min-height:24px;margin-bottom:20px}
+.design-canvas .os-discovery-sections>section>.section-title{padding:0}
+.design-canvas .home-content>section>.section-title h2,.design-canvas .os-discovery-sections>section>.section-title h2{line-height:24px}
+.design-canvas .os-discovery-sections .os-card{padding:16px;gap:16px}
+.os-recommend-rail{display:flex;align-items:stretch;gap:20px;overflow-x:auto;scroll-snap-type:x proximity;scrollbar-width:none;padding-bottom:1px}
+.os-recommend-rail::-webkit-scrollbar{display:none}
+.os-recommend-rail>.os-card{flex:0 0 calc(100% - 20px);min-width:0;scroll-snap-align:start}
+.os-recommend-rail>.os-card:only-child{flex-basis:100%}
+.os-discovery-list{display:flex;flex-direction:column;gap:20px}
+.os-discovery-empty{margin:24px 0;color:var(--muted);font:400 var(--text-body)/20px var(--font-body)}

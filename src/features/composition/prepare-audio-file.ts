@@ -33,6 +33,12 @@ export async function prepareAudioFile(file: File, selection?: AudioSelection): 
   source.connect(offline.destination);
   source.start(0, startMs / 1000, selectedDurationMs / 1000);
   const rendered = await offline.startRendering();
+  return { wav: audioBufferToWav(rendered, `${file.name.replace(/\.[^.]+$/, "")}.wav`), durationMs: Math.ceil(frames * 1000 / sampleRate) };
+}
+
+export function audioBufferToWav(rendered: AudioBuffer, name: string): File {
+  const frames = rendered.length;
+  const sampleRate = rendered.sampleRate;
   const bytes = new ArrayBuffer(44 + frames * 4);
   const view = new DataView(bytes);
   const writeText = (offset: number, value: string) => {
@@ -44,13 +50,12 @@ export async function prepareAudioFile(file: File, selection?: AudioSelection): 
   view.setUint32(28, sampleRate * 4, true); view.setUint16(32, 4, true); view.setUint16(34, 16, true);
   writeText(36, "data"); view.setUint32(40, frames * 4, true);
   const left = rendered.getChannelData(0);
-  const right = rendered.getChannelData(1);
+  const right = rendered.getChannelData(Math.min(1, rendered.numberOfChannels - 1));
   for (let frame = 0; frame < frames; frame++) {
     const l = Math.max(-1, Math.min(1, left[frame]));
     const r = Math.max(-1, Math.min(1, right[frame]));
     view.setInt16(44 + frame * 4, Math.round(l * 32767), true);
     view.setInt16(46 + frame * 4, Math.round(r * 32767), true);
   }
-  const name = `${file.name.replace(/\.[^.]+$/, "")}.wav`;
-  return { wav: new File([bytes], name, { type: "audio/wav" }), durationMs: Math.ceil(frames * 1000 / sampleRate) };
+  return new File([bytes], name, { type: "audio/wav" });
 }
