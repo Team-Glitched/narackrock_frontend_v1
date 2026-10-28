@@ -10,6 +10,8 @@ import { AudioTrimPicker } from "@/features/composition/audio-trim-picker";
 import { canCreateLayer, hasOwnDraftClip, shouldShowContributionSubmit } from "@/features/composition/contribution-session";
 import { completedExportShortId } from "@/features/composition/publish-navigation";
 import { TeamPianoRoll } from "@/features/composition/team-piano-roll";
+import { ChordPicker } from "@/features/composition/chord-picker";
+import { chordStartTick, insertChord, type ChordQuality } from "@/features/composition/chord-input";
 import { instrumentFor } from "@/features/composition/instrument-catalog";
 import { createAudioClip, createDraftProject, createMidiClip, enterComposition, getComposition, getExport, getPendingContributions, publishComposition, reviewContribution, saveMidiClip, submitContribution, updateProjectMetadata, uploadMedia, type CompositionDto, type MidiNoteDto } from "@/lib/api/composition";
 
@@ -277,6 +279,7 @@ export function NoteEditorScreen({ projectId, trackId, clipId, onBack, onAddLaye
   const [notes, setNotes] = useState<MidiNoteDto[]>([]);
   const [lengthCells, setLengthCells] = useState(1);
   const [initialPitch, setInitialPitch] = useState(60);
+  const [chordFocus, setChordFocus] = useState<{ pitch: number; startTick: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const track = composition?.tracks.find((item) => item.trackId === trackId);
@@ -287,6 +290,7 @@ export function NoteEditorScreen({ projectId, trackId, clipId, onBack, onAddLaye
   const stepTick = composition ? Math.max(1, Math.round(composition.project.ppq / 2)) : 240;
   const maxTick = composition?.project.maxTick ?? 57_600;
   const clipStartTick = clip?.startTick ?? 0;
+  const clipStartMs = composition ? clipStartTick * 60_000 / (composition.project.bpm * composition.project.ppq) : 0;
   const preview = useMemo(() => {
     if (!composition || !track) return null;
     const previewClip = clip ? { ...clip, midiNotes: notes }
@@ -322,6 +326,22 @@ export function NoteEditorScreen({ projectId, trackId, clipId, onBack, onAddLaye
     finally { setBusy(false); }
   }
 
+  function addChord(rootPitch: number, quality: ChordQuality, name: string) {
+    if (!composition || !editable || busy || instrument.kind === "drum") return { added: false, message: "지금은 코드를 추가할 수 없습니다." };
+    const startTick = chordStartTick(playback.positionMs, { ...composition.project, stepTick, clipStartTick });
+    const result = insertChord(notes, { rootPitch, quality, startTick,
+      durationTick: lengthCells * stepTick, maxTick: maxTick - clipStartTick });
+    if (result.reason === "overlap") return { added: false, message: "같은 위치에 겹치는 음이 있습니다. 재생 위치를 옮기거나 기존 음을 수정해 주세요." };
+    if (result.reason === "outside-timeline") return { added: false, message: "곡의 끝에는 추가할 수 없습니다. 재생 위치를 앞으로 옮겨 주세요." };
+    if (result.reason === "outside-pitch-range") return { added: false, message: "음역을 벗어납니다. 옥타브를 낮춰 주세요." };
+    playback.pause();
+    setNotes(result.notes);
+    const added = result.notes.slice(notes.length);
+    setChordFocus({ pitch: Math.round((added[0].pitch + added[added.length - 1].pitch) / 2), startTick });
+    setError(null);
+    return { added: true, message: `${name} 코드의 ${result.notes.length - notes.length}개 음을 추가했습니다.` };
+  }
+
   if (!composition || !track) return <div className="studio studio-state" role={error ? "alert" : "status"}>{error ?? "피아노롤을 불러오는 중입니다."}<button onClick={onBack}>돌아가기</button></div>;
   return <div className="studio note-editor">
     <StudioToolbar title={`${track.name} · ${instrument.label}`} bpm={composition.project.bpm} playing={playback.playing} positionMs={playback.positionMs}
@@ -329,14 +349,17 @@ export function NoteEditorScreen({ projectId, trackId, clipId, onBack, onAddLaye
       piano volume={playback.volume} onVolume={playback.setVolume}
       onAdd={layerCreationAllowed ? () => { if (editable) void save(onAddLayer); else onAddLayer(); } : undefined}>
       <label className="studio-note-length">길이<select value={lengthCells} onChange={(event) => setLengthCells(Number(event.target.value))}><option value={1}>1/8</option><option value={2}>1/4</option><option value={4}>1/2</option><option value={8}>한 마디</option></select></label>
+      {instrument.kind !== "drum" && <ChordPicker disabled={!editable || busy} lengthCells={lengthCells}
+        onLengthChange={setLengthCells} onOpen={playback.pause} onAdd={addChord} />}
       <button className="studio-save" onClick={() => { void save(); }} disabled={!editable || busy}>{busy ? "저장 중" : "저장"}</button>
     </StudioToolbar>
     {error && <p className="studio-error" role="alert">{error}</p>}
     {playback.error && !error && <p className="studio-error" role="alert">{playback.error}</p>}
     {!editable && <p className="studio-error">다른 참여자의 MIDI는 수정할 수 없습니다. 새 클립을 만들어 주세요.</p>}
     <TeamPianoRoll notes={notes} setNotes={setNotes} stepTick={stepTick}
-      maxTick={maxTick - clipStartTick} lengthCells={lengthCells} editable={editable}
-      positionMs={playback.positionMs} maxDurationMs={composition.project.maxDurationMs}
-      onSeek={playback.seek} initialPitch={initialPitch} percussion={instrument.kind === "drum"} />
+      maxTick={maxTick - clipStartTick} lengthCells={lengthCells} editable={editable && !busy}
+      positionMs={Math.max(0, playback.positionMs - clipStartMs)} maxDurationMs={composition.project.maxDurationMs - clipStartMs}
+      onSeek={(ms) => playback.seek(ms + clipStartMs)} initialPitch={initialPitch} percussion={instrument.kind === "drum"}
+      revealNote={chordFocus} />
   </div>;
 }
