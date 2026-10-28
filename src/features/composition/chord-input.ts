@@ -38,7 +38,12 @@ export function chordStartTick(positionMs: number, timeline: {
   bpm: number; ppq: number; stepTick: number; clipStartTick: number;
 }): number {
   const projectTick = positionMs * timeline.bpm * timeline.ppq / 60_000;
-  return Math.max(0, Math.floor((projectTick - timeline.clipStartTick) / timeline.stepTick) * timeline.stepTick);
+  const gridPosition = (projectTick - timeline.clipStartTick) / timeline.stepTick;
+  const nearestGrid = Math.round(gridPosition);
+  // Only correct clock conversion noise within one billionth of a grid cell.
+  // Actual off-grid positions must keep rounding down rather than moving ahead.
+  const grid = Math.abs(gridPosition - nearestGrid) <= 1e-9 ? nearestGrid : Math.floor(gridPosition);
+  return Math.max(0, grid * timeline.stepTick);
 }
 
 export function insertChord(notes: MidiNoteDto[], placement: {

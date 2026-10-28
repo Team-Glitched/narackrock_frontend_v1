@@ -43,6 +43,93 @@ test("chord placement snaps the project playhead to the clip's local grid", () =
   assert.equal(chordStartTick(1000, { bpm: 90, ppq: 960, stepTick: 480, clipStartTick: 0 }), 1440);
 });
 
+test("six keyboard seeks at BPM 90 keep chords on the sixth grid boundary", () => {
+  let positionMs = 0;
+  for (let index = 0; index < 6; index++) positionMs += 60_000 / 180;
+  assert.equal(chordStartTick(positionMs, { bpm: 90, ppq: 480, stepTick: 240, clipStartTick: 0 }), 1440);
+});
+
+test("dragging to a grid boundary at BPM 120 does not move chords one cell earlier", () => {
+  for (const column of [65, 123, 130, 131]) {
+    const positionMs = column * 21 / (240 * 21) * 60_000;
+    assert.equal(chordStartTick(positionMs, { bpm: 120, ppq: 480, stepTick: 240, clipStartTick: 0 }), column * 240);
+  }
+});
+
+test("keyboard and pointer grid positions remain aligned across tempos, resolutions and clip offsets", () => {
+  for (const bpm of [40, 60, 90, 110, 120, 128, 140, 180, 240]) {
+    for (const ppq of [96, 480, 960]) {
+      const stepTick = ppq / 2;
+      for (const clipStartTick of [0, 960]) {
+        const timeline = { bpm, ppq, stepTick, clipStartTick };
+        const clipStartMs = clipStartTick * 60_000 / (bpm * ppq);
+        const durationMs = 60_000 - clipStartMs;
+        const columns = (bpm * ppq - clipStartTick) / stepTick;
+        let keyboardMs = clipStartMs;
+        for (let column = 0; column <= columns; column++) {
+          const expected = column * stepTick;
+          const context = `bpm=${bpm}, ppq=${ppq}, clip=${clipStartTick}, column=${column}`;
+          assert.equal(chordStartTick(keyboardMs, timeline), expected, `keyboard: ${context}`);
+          assert.equal(chordStartTick(column / columns * durationMs + clipStartMs, timeline), expected, `pointer: ${context}`);
+          keyboardMs = keyboardMs - clipStartMs + durationMs / columns + clipStartMs;
+        }
+      }
+    }
+  }
+});
+
+test("fractional clip start times preserve clip-relative grid boundaries", () => {
+  for (const bpm of [90, 110, 120, 140]) {
+    for (const ppq of [96, 480, 960]) {
+      const timeline = { bpm, ppq, stepTick: ppq / 2, clipStartTick: 1000 };
+      for (const column of [0, 1, 6, 65]) {
+        const positionMs = (timeline.clipStartTick + column * timeline.stepTick) * 60_000 / (bpm * ppq);
+        assert.equal(chordStartTick(positionMs, timeline), column * timeline.stepTick);
+      }
+    }
+  }
+});
+
+test("off-grid positions still round down without jumping across nearby boundaries", () => {
+  for (const bpm of [90, 120, 140]) {
+    for (const ppq of [96, 480, 960]) {
+      for (const clipStartTick of [0, 960, 1000]) {
+        const timeline = { bpm, ppq, stepTick: ppq / 2, clipStartTick };
+        for (const cell of [1, 6, 65]) {
+          for (const fraction of [-0.25, -1e-8, 1e-8, 0.25, 0.999]) {
+            const positionMs = (clipStartTick + (cell + fraction) * timeline.stepTick) * 60_000 / (bpm * ppq);
+            assert.equal(chordStartTick(positionMs, timeline), (cell + (fraction < 0 ? -1 : 0)) * timeline.stepTick);
+          }
+        }
+        assert.equal(chordStartTick(0, timeline), 0);
+      }
+    }
+  }
+});
+
+test("clock rounding cannot falsely overlap an adjacent note when adding a chord", () => {
+  let positionMs = 0;
+  for (let index = 0; index < 6; index++) positionMs += 60_000 / 180;
+  const original: MidiNoteDto[] = [{ pitch: 60, startTick: 1200, durationTick: 240,
+    velocity: 80, effectType: "REVERB", effectParams: { mix: 0.2 } }];
+  const startTick = chordStartTick(positionMs, { bpm: 90, ppq: 480, stepTick: 240, clipStartTick: 0 });
+  const result = insertChord(original, { ...placement, startTick });
+  assert.equal(result.reason, null);
+  assert.equal(result.notes.length, 4);
+  assert.equal(result.notes[0], original[0]);
+  assert.ok(result.notes.slice(1).every((note) => note.startTick === 1440));
+});
+
+test("clock rounding at the song end never inserts a chord into the preceding cell", () => {
+  for (const bpm of [90, 110, 120, 140]) {
+    let positionMs = 0;
+    const columns = 2 * bpm;
+    for (let index = 0; index < columns; index++) positionMs += 60_000 / columns;
+    const startTick = chordStartTick(positionMs, { bpm, ppq: 480, stepTick: 240, clipStartTick: 0 });
+    assert.equal(insertChord([], { ...placement, startTick, maxTick: bpm * 480 }).reason, "outside-timeline");
+  }
+});
+
 test("notes stop at the project boundary and no chord is added beyond it", () => {
   const result = insertChord([], { ...placement, startTick: 3600 });
   assert.ok(result.notes.every((note) => note.durationTick === 240));
