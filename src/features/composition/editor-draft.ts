@@ -11,7 +11,7 @@ export type ServerDraft = {
   content: DraftContent; baseClip: DraftContent | null; revision: number; mutationId: string;
   updatedAt: string; status: "ACTIVE" | "COMMITTED" | "DISCARDED"; committedClipId: number | null;
 };
-export type DraftStorage = Pick<Storage, "getItem" | "setItem" | "removeItem">;
+export type DraftStorage = Pick<Storage, "getItem" | "setItem" | "removeItem"> & Partial<Pick<Storage, "length" | "key">>;
 export type LocalDraft = DraftContext & {
   schemaVersion: 1; draftId: string; content: DraftContent; baseClip: DraftContent | null;
   serverRevision: number; dirty: boolean; pending: DraftSaveRequest | null; writerId: string; updatedAt: string;
@@ -19,7 +19,7 @@ export type LocalDraft = DraftContext & {
 export type DraftStatus = "idle" | "dirty" | "saving" | "saved" | "local" | "error" | "conflict";
 export type DraftState = {
   content: DraftContent; status: DraftStatus; localProtected: boolean; error: string | null;
-  serverRevision: number; draftId: string; hasUnsavedChanges: boolean;
+  serverRevision: number; draftId: string; hasUnsavedChanges: boolean; retryable: boolean;
 };
 
 const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
@@ -43,17 +43,19 @@ function validContent(value: unknown): value is DraftContent {
       && n.effectParams !== null && typeof n.effectParams === "object" && !Array.isArray(n.effectParams));
 }
 
-export function readLocalDraft(storage: DraftStorage | null, context: DraftContext): LocalDraft | null {
+function parseLocalDraft(raw: string | null, context: DraftContext): LocalDraft | null {
   try {
-    const raw = storage?.getItem(draftStorageKey(context));
     if (!raw) return null;
     const value = JSON.parse(raw) as LocalDraft;
     if (value.schemaVersion !== 1 || value.userId !== context.userId || value.projectId !== context.projectId
       || value.trackId !== context.trackId || value.targetClipId !== context.targetClipId
+      || ![value.userId, value.projectId, value.trackId].every(id => Number.isSafeInteger(id) && id > 0)
+      || (value.targetClipId !== null && (!Number.isSafeInteger(value.targetClipId) || value.targetClipId <= 0))
+      || !uuid.test(value.writerId) || typeof value.updatedAt !== "string" || !Number.isFinite(Date.parse(value.updatedAt))
       || !uuid.test(value.draftId) || !Number.isSafeInteger(value.serverRevision) || value.serverRevision < 0
       || typeof value.dirty !== "boolean" || !validContent(value.content)
       || (value.baseClip !== null && !validContent(value.baseClip))) return null;
-    if (value.pending && (!uuid.test(value.pending.mutationId) || !validContent(value.pending.content)
+    if (value.pending !== null && (!value.pending || !uuid.test(value.pending.mutationId) || !validContent(value.pending.content)
       || value.pending.targetClipId !== context.targetClipId
       || !same(value.pending.baseClip, value.baseClip)
       || !Number.isSafeInteger(value.pending.expectedRevision) || value.pending.expectedRevision < 0)) return null;
@@ -61,10 +63,46 @@ export function readLocalDraft(storage: DraftStorage | null, context: DraftConte
   } catch { return null; }
 }
 
-export function removeLocalDraft(storage: DraftStorage | null, context: DraftContext, draftId: string) {
+function storageKeys(storage: DraftStorage | null) {
+  try { return Array.from({ length: storage?.length ?? 0 }, (_, i) => storage?.key?.(i)).filter((key): key is string => Boolean(key)); }
+  catch { return []; }
+}
+
+export function readLocalDraft(storage: DraftStorage | null, context: DraftContext): LocalDraft | null {
   try {
-    if (readLocalDraft(storage, context)?.draftId === draftId) storage?.removeItem(draftStorageKey(context));
-  } catch { /* Retain a harmless recovery copy when storage is unavailable. */ }
+    const key = draftStorageKey(context);
+    const keys = [key, ...storageKeys(storage).filter(k => k.startsWith(`${key}:recovery:`))];
+    return keys.map(k => parseLocalDraft(storage?.getItem(k) ?? null, context))
+      .filter((d): d is LocalDraft => Boolean(d))
+      .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0] ?? null;
+  } catch { return null; }
+}
+
+export function listLocalDrafts(storage: DraftStorage | null, userId: number, projectId: number): LocalDraft[] {
+  const prefix = `glitched.editor-draft.v1:${userId}:${projectId}:`;
+  const records = new Map<string, LocalDraft>();
+  for (const key of storageKeys(storage).filter(k => k.startsWith(prefix))) {
+    try {
+      const parsed = JSON.parse(storage!.getItem(key)!);
+      const context = { userId, projectId, trackId: parsed.trackId, targetClipId: parsed.targetClipId };
+      const local = readLocalDraft(storage, context);
+      if (local && (local.dirty || local.pending || local.serverRevision > 0)) records.set(draftStorageKey(context), local);
+    } catch { /* Ignore malformed records without hiding the other recoverable edits. */ }
+  }
+  return [...records.values()];
+}
+
+export function removeLocalDraft(storage: DraftStorage | null, context: DraftContext, draftId: string, committedContent?: DraftContent) {
+  try {
+    const key = draftStorageKey(context);
+    const keys = [key, ...storageKeys(storage).filter(k => k.startsWith(`${key}:recovery:`))];
+    for (const candidate of keys) {
+      const local = parseLocalDraft(storage?.getItem(candidate) ?? null, context);
+      if (local?.draftId === draftId && (!committedContent || same(local.content, committedContent) || (!local.dirty && !local.pending))) {
+        storage?.removeItem(candidate);
+      }
+    }
+  } catch { /* Retain a recovery copy when storage is unavailable. */ }
 }
 
 type SessionOptions = {
@@ -111,7 +149,7 @@ export class DraftSession {
       : this.record.serverRevision ? "saved" : "idle", localProtected: false,
       error: conflict ? "다른 탭이나 기기에서 작업이 변경되었습니다. 복구본을 확인해 주세요." : null,
       serverRevision: this.record.serverRevision, draftId: this.record.draftId,
-      hasUnsavedChanges: this.record.dirty || this.record.pending !== null };
+      hasUnsavedChanges: this.record.dirty || this.record.pending !== null, retryable: true };
     // Claim the local record. An unmounted editor's late response cannot overwrite this session.
     this.persist(true);
   }
@@ -134,10 +172,13 @@ export class DraftSession {
     let protectedLocally = false;
     try {
       if (this.storage) {
-        const existing = readLocalDraft(this.storage, this.record);
+        // Each tab keeps its own copy even if another tab owns the primary record.
+        this.storage.setItem(`${draftStorageKey(this.record)}:recovery:${this.writerId}`, JSON.stringify(this.record));
+        protectedLocally = true;
+        const existing = parseLocalDraft(this.storage.getItem(draftStorageKey(this.record)), this.record);
         if (!claim && existing && existing.writerId !== this.writerId) {
-          this.suspend("다른 탭에서 작업을 열었습니다. 복구본을 확인해 주세요.");
-          return false;
+          this.emit({ status: "conflict", localProtected: true, error: "다른 탭에서 작업을 열었습니다. 복구본을 확인해 주세요." });
+          return true;
         }
         this.storage.setItem(draftStorageKey(this.record), JSON.stringify(this.record));
         protectedLocally = true;
@@ -154,14 +195,21 @@ export class DraftSession {
     this.emit({ status: this.state.status === "conflict" ? "conflict" : "dirty", error: this.state.status === "conflict" ? this.state.error : null });
   }
 
-  suspend(message: string) { this.emit({ status: "conflict", error: message }); }
+  suspend(message: string) {
+    let protectedLocally = false;
+    try {
+      this.storage?.setItem(`${draftStorageKey(this.record)}:recovery:${this.writerId}`, JSON.stringify(this.record));
+      protectedLocally = this.storage !== null;
+    } catch { /* Leave the unload warning enabled if recovery cannot be persisted. */ }
+    this.emit({ status: "conflict", localProtected: protectedLocally, error: message });
+  }
 
   flush(): Promise<ServerDraft | null> {
     if (this.state.status === "conflict") return Promise.reject(new Error(this.state.error ?? "작업 충돌"));
     if (this.inFlight) return this.inFlight;
     const run = async () => {
       while (this.record.dirty || this.record.pending) {
-        if (this.state.status === "conflict") throw new Error(this.state.error ?? "작업 충돌");
+        if (this.getSnapshot().status === "conflict") throw new Error(this.state.error ?? "작업 충돌");
         const request = this.record.pending ?? {
           expectedRevision: this.record.serverRevision, mutationId: crypto.randomUUID(),
           targetClipId: this.record.targetClipId, baseClip: this.record.baseClip,
@@ -169,7 +217,7 @@ export class DraftSession {
         };
         this.record.pending = request;
         this.persist();
-        if (this.state.status === "conflict") throw new Error(this.state.error ?? "작업 충돌");
+        if (this.getSnapshot().status === "conflict") throw new Error(this.state.error ?? "작업 충돌");
         this.emit({ status: "saving", error: null });
         try {
           const result = await this.saveRequest(request, this.record.draftId);
@@ -177,10 +225,12 @@ export class DraftSession {
           this.record = { ...this.record, serverRevision: result.revision, pending: null,
             dirty: !same(this.record.content, request.content) };
           this.persist();
-          if (this.state.status === "conflict") throw new Error(this.state.error ?? "작업 충돌");
+          if (this.getSnapshot().status === "conflict") throw new Error(this.state.error ?? "작업 충돌");
         } catch (error) {
-          const conflict = this.state.status === "conflict" || (error as { status?: number }).status === 409;
+          const httpStatus = (error as { status?: number }).status;
+          const conflict = this.getSnapshot().status === "conflict" || httpStatus === 409;
           this.emit({ status: conflict ? "conflict" : this.state.localProtected ? "local" : "error",
+            retryable: !httpStatus || httpStatus >= 500 || httpStatus === 408 || httpStatus === 429,
             error: error instanceof Error ? error.message : "임시 저장에 실패했습니다." });
           throw error;
         }
@@ -200,6 +250,6 @@ export class DraftSession {
       serverRevision: server?.revision ?? 0, baseClip: server?.baseClip ?? this.record.baseClip,
       pending: null, dirty: true, writerId: this.writerId };
     this.persist(true);
-    this.emit({ status: "dirty", error: null });
+    this.emit({ status: "dirty", error: null, retryable: true });
   }
 }

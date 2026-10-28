@@ -10,6 +10,7 @@ const context = { userId: 1, projectId: 2, trackId: 3, targetClipId: null };
 function setup(save?: (request: DraftSaveRequest) => Promise<ServerDraft>) {
   const values = new Map<string, string>();
   const storage = { getItem: (key: string) => values.get(key) ?? null,
+    get length() { return values.size; }, key: (index: number) => [...values.keys()][index] ?? null,
     setItem: (key: string, value: string) => { values.set(key, value); }, removeItem: (key: string) => { values.delete(key); } };
   const requests: DraftSaveRequest[] = [];
   const session = new DraftSession({ context, content, baseClip: null, storage,
@@ -75,7 +76,8 @@ test("does not report protected edits when browser storage fails", () => {
 });
 
 test("rejects corrupted recovery data and reports server conflicts without losing notes", async () => {
-  const { session, storage } = setup(async () => { throw Object.assign(new Error("conflict"), { status: 409 }); });
+  const { session, storage, values } = setup(async () => { throw Object.assign(new Error("conflict"), { status: 409 }); });
+  values.clear();
   storage.setItem(draftStorageKey(context), "{broken");
   assert.equal(readLocalDraft(storage, context), null);
   session.edit(empty);
@@ -91,4 +93,17 @@ test("restores an unsynced local edit without letting the server baseline erase 
     local: readLocalDraft(storage, context)!, save: async () => { throw new Error("unused"); } });
   assert.deepEqual(recovered.getSnapshot().content, empty);
   assert.equal(recovered.getSnapshot().status, "dirty");
+});
+
+test("a competing tab cannot overwrite the current tab and preserves its own recovery copy", () => {
+  const { session, storage, values } = setup();
+  session.edit(empty);
+  const second = new DraftSession({ context, content, baseClip: null, storage,
+    local: readLocalDraft(storage, context), save: async () => { throw new Error("unused"); } });
+  second.edit(content);
+  session.edit({ ...empty, durationTick: 960 });
+  assert.equal(session.getSnapshot().status, "conflict");
+  assert.equal(session.getSnapshot().localProtected, true);
+  assert.ok([...values.values()].some(raw => JSON.parse(raw).content.durationTick === 960));
+  assert.ok([...values.values()].some(raw => JSON.parse(raw).content.midiNotes.length === 1));
 });
