@@ -158,6 +158,7 @@ export class DraftSession {
   subscribe = (listener: () => void) => { this.listeners.add(listener); return () => { this.listeners.delete(listener); }; };
   getLocalRecord = () => structuredClone(this.record);
   getServerDraft = () => this.server;
+  waitForPending = () => this.inFlight ?? Promise.resolve(this.server);
   freeze = (value: boolean) => { this.frozen = value; };
   dispose = () => { this.disposed = true; this.listeners.clear(); };
 
