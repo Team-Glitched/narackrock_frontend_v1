@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { DraftSession, draftStorageKey, readLocalDraft, type DraftContent, type ServerDraft, type DraftSaveRequest } from "./editor-draft.ts";
+import { DraftSession, draftStorageKey, readLocalDraft, removeLocalDraft, type DraftContent, type ServerDraft, type DraftSaveRequest } from "./editor-draft.ts";
 
 const content: DraftContent = { startTick: 0, durationTick: 480, midiNotes: [
   { pitch: 60, startTick: 0, durationTick: 480, velocity: 100, effectType: null, effectParams: {} },
@@ -106,4 +106,41 @@ test("a competing tab cannot overwrite the current tab and preserves its own rec
   assert.equal(session.getSnapshot().localProtected, true);
   assert.ok([...values.values()].some(raw => JSON.parse(raw).content.durationTick === 960));
   assert.ok([...values.values()].some(raw => JSON.parse(raw).content.midiNotes.length === 1));
+});
+
+test("reload reconciles a save whose response was lost without uploading it twice", async () => {
+  const { session, storage, requests } = setup(async () => { throw new Error("response lost"); });
+  session.edit(empty);
+  await assert.rejects(session.flush());
+  const local = readLocalDraft(storage, context)!;
+  const server: ServerDraft = { ...context, ownerId: 1, draftId: local.draftId,
+    content: empty, baseClip: null, revision: 1, mutationId: requests[0].mutationId,
+    updatedAt: new Date().toISOString(), status: "ACTIVE", committedClipId: null };
+  let extraSaves = 0;
+  const restored = new DraftSession({ context, content, baseClip: null, local, server, storage,
+    save: async () => { extraSaves++; return server; } });
+  await restored.flush();
+  assert.equal(restored.getSnapshot().status, "saved");
+  assert.equal(extraSaves, 0);
+});
+
+test("commit cleanup leaves another tab's newer unsynced notes available for recovery", () => {
+  const { session, storage, values } = setup();
+  session.edit(empty);
+  const id = session.getLocalRecord().draftId;
+  removeLocalDraft(storage, context, id, content);
+  assert.ok([...values.values()].some(raw => JSON.parse(raw).content.midiNotes.length === 0));
+});
+
+test("a committed receipt suspends a stale tab instead of creating another new clip", async () => {
+  const { session, storage } = setup(); session.edit(empty);
+  const local = readLocalDraft(storage, context)!;
+  let saves = 0;
+  const restored = new DraftSession({ context, content, baseClip: null, local, storage,
+    server: { ...context, ownerId: 1, draftId: local.draftId, content: empty, baseClip: null,
+      revision: 2, mutationId: crypto.randomUUID(), status: "COMMITTED", committedClipId: 9, updatedAt: new Date().toISOString() },
+    save: async () => { saves++; throw new Error("must not upload"); } });
+  await assert.rejects(restored.flush());
+  assert.equal(restored.getSnapshot().status, "conflict");
+  assert.equal(saves, 0);
 });
