@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useMemo, useState, useSyncExternalStore, type Dispatch, type SetStateAction } from "react";
 import { Asset } from "@/components/app/shared";
 import type { Navigate } from "@/features/navigation/types";
 import { useCompositionPlayback } from "@/features/composition/use-composition-playback";
@@ -11,7 +11,12 @@ import { canCreateLayer, hasOwnDraftClip, shouldShowContributionSubmit } from "@
 import { completedExportShortId } from "@/features/composition/publish-navigation";
 import { TeamPianoRoll } from "@/features/composition/team-piano-roll";
 import { instrumentFor } from "@/features/composition/instrument-catalog";
-import { createAudioClip, createDraftProject, createMidiClip, enterComposition, getComposition, getExport, getPendingContributions, publishComposition, reviewContribution, saveMidiClip, submitContribution, updateProjectMetadata, uploadMedia, type CompositionDto, type MidiNoteDto } from "@/lib/api/composition";
+import { createAudioClip, createDraftProject, enterComposition, getComposition, getExport, getPendingContributions, publishComposition, reviewContribution, submitContribution, updateProjectMetadata, uploadMedia, type CompositionDto, type MidiNoteDto, type TrackDto } from "@/lib/api/composition";
+
+import { useEditorDraft, browserDraftStorage } from "@/features/composition/use-editor-draft";
+import { listLocalDrafts, type DraftContent, type ServerDraft } from "@/features/composition/editor-draft";
+import { clearCommittedRecovery, syncProjectEditorDrafts } from "@/features/composition/project-editor-drafts";
+import { getEditorDrafts, commitEditorDrafts, submitEditorDrafts } from "@/lib/api/composition-drafts";
 
 const errorText = (cause: unknown) => cause instanceof Error ? cause.message : "요청을 처리하지 못했습니다.";
 const clockTime = (ms: number) => `${String(Math.floor(ms / 60000)).padStart(2, "0")}:${String(Math.floor(ms / 1000) % 60).padStart(2, "0")}`;
@@ -80,6 +85,8 @@ export function StudioScreen({ go, shortId, projectId, returnToNotifications, on
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
+  const [serverDrafts, setServerDrafts] = useState<ServerDraft[]>([]);
+  const [draftError, setDraftError] = useState<string | null>(null);
   const [showSubmitForm, setShowSubmitForm] = useState(false);
   const [submitComment, setSubmitComment] = useState("");
   const [showPublishForm, setShowPublishForm] = useState(false);
@@ -97,11 +104,21 @@ export function StudioScreen({ go, shortId, projectId, returnToNotifications, on
       const id = shortId == null ? projectId! : (await enterComposition(shortId)).projectId;
       const result = await getComposition(id);
       if (!cancelled) { setComposition(result); if (id !== projectId) onProjectSelected(id); }
+      if (result.viewerPermission.canContribute) {
+        try { const drafts = await getEditorDrafts(id); if (!cancelled) { setServerDrafts(drafts); setDraftError(null); } }
+        catch (cause) { if (!cancelled) setDraftError(errorText(cause)); }
+      }
     })().catch((cause) => { if (!cancelled) setError(errorText(cause)); });
     return () => { cancelled = true; };
   }, [shortId, projectId, onProjectSelected]);
 
-  async function refresh() { if (composition) setComposition(await getComposition(composition.project.projectId)); }
+  async function refresh() {
+    if (!composition) return;
+    const id = composition.project.projectId;
+    setComposition(await getComposition(id));
+    try { setServerDrafts(await getEditorDrafts(id)); setDraftError(null); }
+    catch (cause) { setDraftError(errorText(cause)); }
+  }
   async function addAudio(trackId: number, file: File, selection: AudioSelection) {
     if (!composition || busy) throw new Error("잠시 후 다시 시도해 주세요.");
     setBusy(true); setError(null);
@@ -118,19 +135,12 @@ export function StudioScreen({ go, shortId, projectId, returnToNotifications, on
   async function submitDrafts(event: React.FormEvent) {
     event.preventDefault();
     if (!composition || busy || !submitComment.trim()) return;
-    const userId = composition.viewerPermission.userId;
-    const draftClips = composition.tracks.flatMap((track) => track.clips)
-      .filter((clip) => clip.ownerId === userId && clip.approvalStatus === "DRAFT");
-    const items = [
-      ...composition.tracks.filter((track) => track.ownerId === userId && track.approvalStatus === "DRAFT"
-        && track.clips.some((clip) => draftClips.some((draft) => draft.clipId === clip.clipId)))
-        .map((track) => ({ changeType: "ADD" as const, targetType: "TRACK" as const, targetId: track.trackId })),
-      ...draftClips.map((clip) => ({ changeType: "ADD" as const, targetType: "CLIP" as const, targetId: clip.clipId })),
-    ];
-    if (!draftClips.length) { setError("먼저 레이어에 노트나 오디오를 저장해 주세요."); return; }
     setBusy(true); setError(null); setStatus(null);
     try {
-      await submitContribution(composition.project.projectId, composition.project.version, items, submitComment.trim());
+      const id = composition.project.projectId;
+      const drafts = await syncProjectEditorDrafts(id, composition.viewerPermission.userId, browserDraftStorage());
+      await submitEditorDrafts(id, drafts, composition.project.version, submitComment.trim());
+      clearCommittedRecovery(browserDraftStorage(), drafts);
       setShowSubmitForm(false);
       onReturnToShort(shortId!);
     } catch (cause) { setError(errorText(cause)); }
@@ -142,6 +152,8 @@ export function StudioScreen({ go, shortId, projectId, returnToNotifications, on
     setBusy(true); setError(null); setStatus("숏폼 음원을 생성하는 중입니다.");
     try {
       const id = composition.project.projectId;
+      const drafts = await syncProjectEditorDrafts(id, composition.viewerPermission.userId, browserDraftStorage());
+      if (drafts.length) clearCommittedRecovery(browserDraftStorage(), await commitEditorDrafts(id, drafts));
       if (composition.viewerPermission.canReviewContribution) {
         const latest = await getComposition(id);
         const userId = latest.viewerPermission.userId;
@@ -181,7 +193,7 @@ export function StudioScreen({ go, shortId, projectId, returnToNotifications, on
 
   function requestPublish() {
     if (!composition) return;
-    if (!composition.tracks.some((track) => track.clips.length)) {
+    if (!composition.tracks.some((track) => track.clips.length) && !workingDrafts.size) {
       setError("먼저 피아노롤 노트나 오디오 파일을 레이어에 저장해 주세요."); return;
     }
     if (composition.project.title === "제목 없는 곡") {
@@ -208,7 +220,14 @@ export function StudioScreen({ go, shortId, projectId, returnToNotifications, on
   if (!composition) return <div className="studio studio-state" role={error ? "alert" : "status"}><p>{error ?? "작곡 데이터를 불러오는 중입니다."}</p>{error && <button onClick={() => shortId == null ? go("home") : onReturnToShort(shortId)}>돌아가기</button>}</div>;
   const { project, tracks, viewerPermission } = composition;
   const hasDraftClip = hasOwnDraftClip(tracks, viewerPermission.userId);
-  const canSubmit = shouldShowContributionSubmit(shortId, viewerPermission, tracks);
+  const workingDrafts = new Map<string, { trackId: number; targetClipId: number | null }>();
+  for (const draft of [...serverDrafts, ...listLocalDrafts(browserDraftStorage(), viewerPermission.userId, project.projectId)]) {
+    if (tracks.some(t => t.trackId === draft.trackId && t.ownerId === viewerPermission.userId
+      && (t.approvalStatus === "DRAFT" || t.approvalStatus === "APPROVED"))) {
+      workingDrafts.set(`${draft.trackId}:${draft.targetClipId ?? "new"}`, draft);
+    }
+  }
+  const canSubmit = shouldShowContributionSubmit(shortId, viewerPermission, tracks, workingDrafts.size);
   const layerCreationAllowed = canCreateLayer(viewerPermission, tracks);
   return <div className="studio">
     <StudioToolbar title={project.title} bpm={project.bpm} playing={playback.playing} positionMs={playback.positionMs}
@@ -220,8 +239,15 @@ export function StudioScreen({ go, shortId, projectId, returnToNotifications, on
     </StudioToolbar>
     {error && !showSubmitForm && <p className="studio-error" role="alert">{error}</p>}
     {playback.error && !error && <p className="studio-error" role="alert">{playback.error}</p>}
-    {((shortId == null && viewerPermission.canExport && (project.status === "DRAFT" || hasDraftClip)) || status) && <div className="studio-workflow">
-      {shortId == null && viewerPermission.canExport && (project.status === "DRAFT" || hasDraftClip) && <button onClick={requestPublish} disabled={busy}>{project.status === "DRAFT" ? "곡 올리기" : "내 변경 반영"}</button>}
+    {(workingDrafts.size > 0 || draftError) && <div className="studio-draft-resume">
+      {workingDrafts.size > 0 && <><span>작업 중인 개인 초안이 있습니다.</span>{[...workingDrafts.values()].map(d =>
+        <button key={`${d.trackId}:${d.targetClipId ?? "new"}`} onClick={() => onEditTrack(d.trackId, d.targetClipId)} disabled={busy}>
+          {tracks.find(t => t.trackId === d.trackId)?.name} · 이어서 작곡하기
+        </button>)}</>}
+      {draftError && <><span role="alert">개인 초안을 불러오지 못했습니다. {draftError}</span><button onClick={() => { void refresh(); }}>다시 불러오기</button></>}
+    </div>}
+    {((shortId == null && viewerPermission.canExport && (project.status === "DRAFT" || hasDraftClip || workingDrafts.size > 0)) || status) && <div className="studio-workflow">
+      {shortId == null && viewerPermission.canExport && (project.status === "DRAFT" || hasDraftClip || workingDrafts.size > 0) && <button onClick={requestPublish} disabled={busy}>{project.status === "DRAFT" ? "곡 올리기" : "내 변경 반영"}</button>}
       {status && <span role="status">{status}</span>}
     </div>}
     {showSubmitForm && <form className="studio-publish-form studio-submit-form" onSubmit={(event) => { void submitDrafts(event); }} role="dialog" aria-modal="true" aria-labelledby="submit-heading">
@@ -262,7 +288,9 @@ export function StudioScreen({ go, shortId, projectId, returnToNotifications, on
           {clip.clipType === "MIDI" ? `${clip.midiNotes?.length ?? 0} notes` : "Audio"}
         </button>)}</div>
         <div className="studio-track-actions">
-          {track.instrument && <button onClick={() => onEditTrack(track.trackId, null)}>+ 노트</button>}
+          {track.instrument && track.ownerId === viewerPermission.userId && viewerPermission.canContribute
+            && (track.approvalStatus === "DRAFT" || track.approvalStatus === "APPROVED")
+            && <button onClick={() => onEditTrack(track.trackId, null)} disabled={busy}>{track.clips.length ? "+ 노트" : "작곡 이어하기"}</button>}
           <label className="studio-upload">+ 파일<input type="file" accept="audio/wav,audio/x-wav,audio/wave,audio/mpeg,audio/mp4,audio/flac" disabled={busy || !viewerPermission.canContribute}
             onChange={(event) => { const file = event.target.files?.[0]; if (file) setPendingAudio({ trackId: track.trackId, file, url: URL.createObjectURL(file) }); event.target.value = ""; }} /></label>
         </div>
@@ -270,25 +298,60 @@ export function StudioScreen({ go, shortId, projectId, returnToNotifications, on
     </div></div>
   </div>;
 }
-export function NoteEditorScreen({ projectId, trackId, clipId, onBack, onAddLayer }: {
+export function NoteEditorScreen({ projectId, trackId, clipId, onBack, onAddLayer, onClipSelected }: {
   projectId: number | null; trackId: number | null; clipId: number | null; onBack: () => void; onAddLayer: () => void;
+  onClipSelected: (trackId: number, clipId: number | null) => void;
 }) {
   const [composition, setComposition] = useState<CompositionDto | null>(null);
-  const [notes, setNotes] = useState<MidiNoteDto[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    if (projectId == null || trackId == null) return;
+    let cancelled = false;
+    getComposition(projectId).then(result => { if (!cancelled) setComposition(result); })
+      .catch(cause => { if (!cancelled) setError(errorText(cause)); });
+    return () => { cancelled = true; };
+  }, [projectId, trackId]);
+  const track = composition?.tracks.find(item => item.trackId === trackId);
+  if (!composition || !track) return <div className="studio studio-state" role={error ? "alert" : "status"}>
+    {error ?? "피아노롤을 불러오는 중입니다."}<button onClick={onBack}>돌아가기</button></div>;
+  return <LoadedNoteEditor composition={composition} track={track} clipId={clipId}
+    onBack={onBack} onAddLayer={onAddLayer} onClipSelected={onClipSelected} />;
+}
+
+function LoadedNoteEditor({ composition, track, clipId, onBack, onAddLayer, onClipSelected }: {
+  composition: CompositionDto; track: TrackDto; clipId: number | null; onBack: () => void; onAddLayer: () => void;
+  onClipSelected: (trackId: number, clipId: number | null) => void;
+}) {
   const [lengthCells, setLengthCells] = useState(1);
-  const [initialPitch, setInitialPitch] = useState(60);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const track = composition?.tracks.find((item) => item.trackId === trackId);
-  const instrument = instrumentFor(track?.instrument);
-  const clip = track?.clips.find((item) => item.clipId === clipId && item.clipType === "MIDI");
-  const editable = Boolean(composition && track && (clip ? clip.ownerId === composition.viewerPermission.userId : composition.viewerPermission.canContribute));
-  const layerCreationAllowed = composition ? canCreateLayer(composition.viewerPermission, composition.tracks) : false;
-  const stepTick = composition ? Math.max(1, Math.round(composition.project.ppq / 2)) : 240;
-  const maxTick = composition?.project.maxTick ?? 57_600;
-  const clipStartTick = clip?.startTick ?? 0;
+  const [confirmDiscard, setConfirmDiscard] = useState(false);
+  const instrument = instrumentFor(track.instrument);
+  const clip = track.clips.find(item => item.clipId === clipId && item.clipType === "MIDI");
+  const editable = composition.project.status !== "COMPLETED" && composition.viewerPermission.canContribute && track.ownerId === composition.viewerPermission.userId
+    && (track.approvalStatus === "DRAFT" || track.approvalStatus === "APPROVED")
+    && (clipId === null || Boolean(clip && clip.ownerId === composition.viewerPermission.userId
+      && (clip.approvalStatus === "DRAFT" || clip.approvalStatus === "APPROVED")));
+  const layerCreationAllowed = canCreateLayer(composition.viewerPermission, composition.tracks);
+  const stepTick = Math.max(1, Math.round(composition.project.ppq / 2));
+  const maxTick = composition.project.maxTick;
+  const baseClip = useMemo<DraftContent | null>(() => clip ? {
+    startTick: clip.startTick, durationTick: clip.durationTick, midiNotes: clip.midiNotes,
+  } : null, [clip]);
+  const initialContent = useMemo<DraftContent>(() => baseClip ?? { startTick: 0, durationTick: stepTick, midiNotes: [] }, [baseClip, stepTick]);
+  const context = useMemo(() => ({ userId: composition.viewerPermission.userId, projectId: composition.project.projectId,
+    trackId: track.trackId, targetClipId: clipId }), [composition, track.trackId, clipId]);
+  const onCommittedRecovery = useCallback((id: number) => onClipSelected(track.trackId, id), [onClipSelected, track.trackId]);
+  const draft = useEditorDraft({ context, content: initialContent, baseClip, enabled: editable, onCommittedRecovery });
+  const notes = draft.state?.content.midiNotes ?? initialContent.midiNotes;
+  const setNotes = useCallback<Dispatch<SetStateAction<MidiNoteDto[]>>>((action) => {
+    if (!draft.session) return;
+    const current = draft.session.getSnapshot().content;
+    const next = typeof action === "function" ? action(current.midiNotes) : action;
+    draft.session.edit({ startTick: current.startTick,
+      durationTick: Math.max(baseClip?.durationTick ?? 0, stepTick, ...next.map(n => n.startTick + n.durationTick)), midiNotes: next });
+  }, [draft.session, baseClip, stepTick]);
   const preview = useMemo(() => {
-    if (!composition || !track) return null;
     const previewClip = clip ? { ...clip, midiNotes: notes }
       : { clipId: -1, ownerId: composition.viewerPermission.userId, clipType: "MIDI" as const,
         sourceType: "MIDI_INPUT", mediaFileId: null, mediaUrl: null, startTick: 0,
@@ -298,44 +361,69 @@ export function NoteEditorScreen({ projectId, trackId, clipId, onBack, onAddLaye
   }, [composition, track, clip, notes, maxTick]);
   const playback = useCompositionPlayback(preview);
 
-  useEffect(() => {
-    if (projectId == null || trackId == null) return;
-    let cancelled = false;
-    getComposition(projectId).then((result) => {
-      if (cancelled) return;
-      const found = result.tracks.find((item) => item.trackId === trackId)?.clips.find((item) => item.clipId === clipId);
-      setComposition(result); setNotes(found?.midiNotes ?? []);
-      setInitialPitch(found?.midiNotes?.[0]?.pitch ?? (instrumentFor(result.tracks.find((item) => item.trackId === trackId)?.instrument).kind === "drum" ? 36 : 60));
-    }).catch((cause) => { if (!cancelled) setError(errorText(cause)); });
-    return () => { cancelled = true; };
-  }, [projectId, trackId, clipId]);
-
-  async function save(afterSave = onBack) {
-    if (!composition || !track || !editable || busy) return;
-    setBusy(true); setError(null);
+  async function leave(afterSave = onBack, commit = false) {
+    if (busy) return;
+    if (!editable) { afterSave(); return; }
+    if (!draft.session) return;
+    setBusy(true); setError(null); draft.session.freeze(true);
     try {
-      const durationTick = Math.max(clip?.durationTick ?? 0, stepTick, ...notes.map((note) => note.startTick + note.durationTick));
-      if (clip) await saveMidiClip(clip.clipId, clipStartTick, durationTick, notes);
-      else await createMidiClip(composition.project.projectId, track.trackId, 0, durationTick, notes);
+      if (commit) await draft.commit();
+      else await draft.session.flush();
       afterSave();
-    } catch (cause) { setError(errorText(cause)); }
-    finally { setBusy(false); }
+    } catch (cause) {
+      if (!commit && draft.session.getSnapshot().localProtected) afterSave();
+      else setError(errorText(cause));
+    } finally { draft.session.freeze(false); setBusy(false); }
   }
 
-  if (!composition || !track) return <div className="studio studio-state" role={error ? "alert" : "status"}>{error ?? "피아노롤을 불러오는 중입니다."}<button onClick={onBack}>돌아가기</button></div>;
+  function downloadRecovery() {
+    if (!draft.session) return;
+    const url = URL.createObjectURL(new Blob([JSON.stringify(draft.session.getLocalRecord(), null, 2)], { type: "application/json" }));
+    const anchor = document.createElement("a"); anchor.href = url; anchor.download = `작곡-복구본-${track.trackId}.json`; anchor.click();
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+  const statusText = draft.state?.status === "saving" ? "저장 중…"
+    : draft.state?.status === "saved" ? "임시 저장됨"
+    : draft.state?.status === "local" ? "이 기기에 저장됨 · 서버 저장 재시도"
+    : draft.state?.status === "error" ? "임시 저장 실패"
+    : draft.state?.status === "conflict" ? "작업 충돌 · 복구본 확인 필요"
+    : draft.state?.status === "dirty" ? "변경사항 저장 대기 중" : draft.session ? "자동 저장 사용 중" : "초안 불러오는 중…";
+  const initialPitch = notes[0]?.pitch ?? (instrument.kind === "drum" ? 36 : 60);
   return <div className="studio note-editor">
     <StudioToolbar title={`${track.name} · ${instrument.label}`} bpm={composition.project.bpm} playing={playback.playing} positionMs={playback.positionMs}
-      onPlay={() => { void playback.play(); }} onPause={playback.pause} onBack={onBack}
+      onPlay={() => { void playback.play(); }} onPause={playback.pause} onBack={() => { void leave(); }}
       piano volume={playback.volume} onVolume={playback.setVolume}
-      onAdd={layerCreationAllowed ? () => { if (editable) void save(onAddLayer); else onAddLayer(); } : undefined}>
-      <label className="studio-note-length">길이<select value={lengthCells} onChange={(event) => setLengthCells(Number(event.target.value))}><option value={1}>1/8</option><option value={2}>1/4</option><option value={4}>1/2</option><option value={8}>한 마디</option></select></label>
-      <button className="studio-save" onClick={() => { void save(); }} disabled={!editable || busy}>{busy ? "저장 중" : "저장"}</button>
+      onAdd={layerCreationAllowed ? () => { void leave(onAddLayer); } : undefined}>
+      <label className="studio-note-length">길이<select value={lengthCells} onChange={event => setLengthCells(Number(event.target.value))}><option value={1}>1/8</option><option value={2}>1/4</option><option value={4}>1/2</option><option value={8}>한 마디</option></select></label>
+      <button className="studio-save" onClick={() => { void leave(onBack, true); }} disabled={!editable || !draft.session || busy || draft.state?.status === "conflict"}>{busy ? "저장 중" : "저장"}</button>
     </StudioToolbar>
+    {editable && <div className="editor-draft-status" role="status" aria-live="polite">
+      <span>{statusText}{draft.restored && draft.state?.status !== "conflict" ? " · 이전 작업 복원됨" : ""}</span>
+      {draft.session && draft.state?.status !== "idle" && <button disabled={busy} onClick={() => setConfirmDiscard(true)}>초안 버리기</button>}
+      {(draft.state?.status === "local" || draft.state?.status === "error") && <button onClick={() => { void draft.session?.flush().catch(cause => setError(errorText(cause))); }}>다시 저장</button>}
+      {draft.loadError && <span>{draft.loadError}</span>}
+      {!draft.session && draft.loadError && <><button onClick={draft.retryLoad}>다시 불러오기</button><button onClick={onBack}>돌아가기</button></>}
+    </div>}
+    {confirmDiscard && <div className="editor-draft-conflict" role="dialog" aria-modal="true" aria-labelledby="discard-draft-heading">
+      <p id="discard-draft-heading">이 개인 초안의 변경사항을 버릴까요? 이미 레이어에 반영된 노트는 유지됩니다.</p>
+      <button disabled={busy} onClick={() => setConfirmDiscard(false)}>취소</button>
+      <button disabled={busy} onClick={() => {
+        setBusy(true);
+        void draft.discard().then(onBack).catch(cause => setError(errorText(cause))).finally(() => setBusy(false));
+      }}>초안 버리기</button>
+    </div>}
+    {draft.state?.status === "conflict" && <div className="editor-draft-conflict" role="alert">
+      <p>{draft.state.error}</p>
+      <button onClick={downloadRecovery}>내 복구본 다운로드</button>
+      <button onClick={() => { void draft.keepLocal().catch(cause => setError(errorText(cause))); }}>내 작업으로 저장</button>
+      <button onClick={() => { void draft.useServer().catch(cause => setError(errorText(cause))); }}>서버 작업 불러오기</button>
+    </div>}
     {error && <p className="studio-error" role="alert">{error}</p>}
     {playback.error && !error && <p className="studio-error" role="alert">{playback.error}</p>}
-    {!editable && <p className="studio-error">다른 참여자의 MIDI는 수정할 수 없습니다. 새 클립을 만들어 주세요.</p>}
+    {!editable && <p className="studio-error">본인의 편집 가능한 MIDI만 수정할 수 있습니다.</p>}
     <TeamPianoRoll notes={notes} setNotes={setNotes} stepTick={stepTick}
-      maxTick={maxTick - clipStartTick} lengthCells={lengthCells} editable={editable}
+      maxTick={maxTick - (clip?.startTick ?? 0)} lengthCells={lengthCells}
+      editable={editable && Boolean(draft.session) && !busy && draft.state?.status !== "conflict"}
       positionMs={playback.positionMs} maxDurationMs={composition.project.maxDurationMs}
       onSeek={playback.seek} initialPitch={initialPitch} percussion={instrument.kind === "drum"} />
   </div>;
