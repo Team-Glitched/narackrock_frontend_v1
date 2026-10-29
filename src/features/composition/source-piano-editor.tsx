@@ -1,3 +1,5 @@
+import { studioStyles } from "@/styles/studio.styles";
+import { cn } from "@/lib/utils";
 import { useMemo, useState, type Dispatch, type SetStateAction } from "react";
 import type { CompositionDto, MidiNoteDto } from "@/lib/api/composition";
 import { StudioToolbar } from "@/features/screens/studio-screens";
@@ -28,7 +30,7 @@ export function SourcePianoEditor({ notes, setNotes, bpm, onBpm, onBack, onSave 
     catch (cause) { setError(cause instanceof Error ? cause.message : "오디오를 만들지 못했습니다."); }
     finally { setPending(false); }
   }
-  return <div className="studio note-editor">
+  return <div className={cn(studioStyles.studio, "note-editor")}>
     <StudioToolbar signature={player.signature} onSignature={value=>{player.pause();player.setSignature(value);}} piano title="오픈소스 피아노롤" bpm={bpm} playing={player.playing} positionMs={player.positionMs}
       onPlay={() => { void player.play().catch(() => setError("재생하지 못했습니다.")); }} onPause={player.pause}
       onBack={() => { if (!pending) onBack(); }} volume={player.volume} onVolume={player.setVolume}
@@ -37,8 +39,8 @@ export function SourcePianoEditor({ notes, setNotes, bpm, onBpm, onBack, onSave 
         if (notes.some(note => note.startTick + note.durationTick > value * 480)) { setError("현재 노트가 1분을 초과하는 BPM입니다."); return; }
         player.pause(); onBpm(value); setError(null);
       }} addLabel="오디오 선택 완료" onAdd={pending ? undefined : () => void save()} />
-    {error && <p className="studio-error" role="alert">{error}</p>}
-    {pending && <p className="studio-error" role="status">오디오를 만드는 중...</p>}
+    {error && <p className={studioStyles.studioError} role="alert">{error}</p>}
+    {pending && <p className={studioStyles.studioError} role="status">오디오를 만드는 중...</p>}
     {settings !== null && notes[settings] && <NoteSettingsDialog note={notes[settings]} stepTick={960/player.signature.denominator} maxTick={maxTick} instrument="piano" onClose={() => setSettings(null)} onChange={note => setNotes(current => current.some((item, index) => index !== settings && item.pitch === note.pitch && note.startTick < item.startTick + item.durationTick && note.startTick + note.durationTick > item.startTick) ? current : current.map((item, index) => index === settings ? note : item))} />}
     <TeamPianoRoll signature={player.signature} notes={notes} setNotes={setNotes} stepTick={960/player.signature.denominator} maxTick={maxTick} lengthCells={1} editable={!pending}
       positionMs={player.positionMs} maxDurationMs={60000} onSeek={player.seek} initialPitch={60} onSettings={setSettings} />

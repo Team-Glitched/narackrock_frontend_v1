@@ -39,7 +39,8 @@ npm start
 
 ## 구조
 
-- `index.html` → `src/main.tsx`: HTML 및 React 진입점, 페이지 선택, 전역 스타일
+- `index.html` → `src/main.tsx`: HTML 및 React 진입점, BrowserRouter, 전역 스타일
+- `src/app/routes.tsx`: React Router 경로(`/`, `/preview`, `/privacy`, 404)와 페이지 메타데이터
 - `src/app/App.tsx`: 앱 화면 상태와 이동 흐름
 - `src/features/`: 화면과 기능별 로직
 - `src/components/`: 서비스 공통 UI와 기본 UI
@@ -49,3 +50,22 @@ npm start
 - `public/`: 폰트, 이미지, 피아노 샘플, 웹 앱 매니페스트
 
 Next.js/Vinext와 서버 전용 스타터 코드는 제거했습니다. 과거 작업 이력은 `CONTEXT.md`에 보관되어 있습니다.
+
+## 스타일 작성
+
+Tailwind CSS 4를 사용하며 공통 값과 스타일은 TypeScript에서 관리합니다.
+
+- `src/styles/tokens.ts`: 색상, 글꼴, 텍스트 크기, 모서리, 간격의 원본 값.
+- `tailwind.config.ts`: 토큰을 Tailwind 테마와 동적 오디오·레이아웃용 CSS 변수로 연결.
+- `src/styles/variants.ts`: 공통 버튼, 필터 칩, 상태 배지, 반응 컨트롤, 아이콘 슬롯의 타입 안전한 `cva` variant.
+- `src/styles/*.styles.ts`: 화면과 기능별 Tailwind 프리셋. 기존 상태·상위 화면 선택자는 arbitrary variant로 표현합니다.
+- `src/global.css`: 유일한 앱 CSS 진입점. Tailwind 연결, 폰트 로딩, 기본 요소, 스크롤바 유틸리티, 네이티브 키프레임만 둡니다.
+
+```tsx
+<button className={buttonVariants({ tone: "primary", size: "compact" })}>저장</button>
+<div className={cn(studioStyles.studio, studioStyles.noteEditor)}>...</div>
+```
+
+조건부 클래스는 `cn()`으로 합칩니다. 앱의 텍스트 크기도 병합 규칙에 등록되어 있습니다.
+프리셋의 marker 클래스는 포털, 드래그 좌표, 상태 선택자에서 사용하므로 유지하세요.
+오디오 진행률이나 타임라인 좌표처럼 값이 계속 바뀌는 부분은 기존의 인라인 스타일과 CSS 변수를 사용합니다.

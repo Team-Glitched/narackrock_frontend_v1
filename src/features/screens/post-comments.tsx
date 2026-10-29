@@ -1,3 +1,6 @@
+import { communityStyles } from "@/styles/community.styles";
+import { cn } from "@/lib/utils";
+import { buttonVariants } from "@/styles/variants";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {useGalleries} from "@/hooks/use-galleries";
 import {canManageCommunityMember} from "@/features/admin/permissions";
@@ -14,8 +17,6 @@ import { ApiError, getCurrentUserId } from "@/lib/api/client";
 import { CommonComments } from "@/features/comments/common-comments";
 import type { CommentAdapter } from "@/features/comments/comment-model";
 import type { PostDetailResponse } from "@/lib/api/contracts";
-import "./community.css";
-import "./post-comments.css";
 
 function errorMessage(error: unknown, forbidden = "현재 계정은 댓글을 작성할 수 없습니다.") {
   if (error instanceof ApiError) {
@@ -78,23 +79,30 @@ export function PostCommentsScreen({ postId, onProfile, onHidden, moderation }: 
     try {await moderation.remove(postId);onHidden();} catch(cause) {setError(cause instanceof Error?cause.message:"삭제하지 못했습니다.");setDeleting(false);setConfirmDelete(false);}
   }
   const [focus,setFocus] = useState(0);
-  return <div className="comments-screen community-view"><CommonComments canWrite={post!==null&&!deleting} adapter={adapter} currentUserId={getCurrentUserId()} onProfile={onProfile} onCreated={()=>setRevision(value=>value+1)} focus={focus} header={<>
-    {error && <div role="alert"><p>{error}</p>{!post&&<button className="gray-pill compact" onClick={()=>{setError(null);setRevision(value=>value+1);}}>다시 시도</button>}</div>}
+  return <div className={cn(communityStyles.commentsScreen, communityStyles.communityView)}><CommonComments canWrite={post!==null&&!deleting} adapter={adapter} currentUserId={getCurrentUserId()} onProfile={onProfile} onCreated={()=>setRevision(value=>value+1)} focus={focus} header={<>
+    {error && <div role="alert"><p>{error}</p>{!post&&<button className={buttonVariants({
+  tone: "secondary",
+  size: "compact"
+})} onClick={()=>{setError(null);setRevision(value=>value+1);}}>다시 시도</button>}</div>}
     {!post && !error && <p role="status">게시글을 불러오는 중...</p>}
     {post&&moderationCommunity&&memberAction&&<PostMemberModeration community={moderationCommunity} member={post.writer} action={memberAction} onClose={()=>setMemberAction(null)} onDone={message=>{setMemberAction(null);setModerationNotice(message);}}/>}
-    {moderationNotice&&<p className="post-moderation-notice" role="status">{moderationNotice}</p>}
+    {moderationNotice&&<p className={communityStyles.postModerationNotice} role="status">{moderationNotice}</p>}
     {post && <>
-        <article className="community-post comments-post">
-          <div className="community-author"><button className="post-author-link" aria-label={`${post.writer.nickname} 프로필`} onClick={() => onProfile?.(post.writer.userId)}><Avatar src={post.writer.profileImageUrl} /><strong>{post.writer.nickname || "알 수 없는 사용자"}</strong></button><span>• {time(post.createdAt)}</span><button ref={optionButton} aria-label="게시글 더보기" aria-expanded={menu} onClick={()=>setMenu(value=>!value)}><Asset name="post-more.svg"/></button></div>
+        <article className={cn(communityStyles.communityPost, communityStyles.commentsPost)}>
+          <div className={communityStyles.communityAuthor}><button className={communityStyles.postAuthorLink} aria-label={`${post.writer.nickname} 프로필`} onClick={() => onProfile?.(post.writer.userId)}><Avatar src={post.writer.profileImageUrl} /><strong>{post.writer.nickname || "알 수 없는 사용자"}</strong></button><span>• {time(post.createdAt)}</span><button ref={optionButton} aria-label="게시글 더보기" aria-expanded={menu} onClick={()=>setMenu(value=>!value)}><Asset name="post-more.svg"/></button></div>
           {menu&&<PostUserActionsMenu onSuspendMember={canModerateMember?()=>{setMenu(false);setMemberAction("suspend");}:undefined} onExpelMember={canModerateMember?()=>{setMenu(false);setMemberAction("expel");}:undefined} anchorRef={optionButton} onModerateDelete={canModerate?()=>{setMenu(false);setConfirmDelete(true);}:undefined} onClose={()=>setMenu(false)} onReport={()=>{setMenu(false);setReport(true);}} onHide={()=>{hiddenPosts.hide(postId);onHidden();}}/>}
-          {confirmDelete&&<div className="post-delete-confirm" role="group" aria-label="게시글 삭제 확인"><p>이 게시글을 삭제할까요?</p><button className="gray-pill" disabled={deleting} onClick={()=>setConfirmDelete(false)}>취소</button><button className="purple-pill" disabled={deleting} onClick={removePost}>{deleting?"삭제 중...":"삭제 확인"}</button></div>}
-          <h2>{post.title}</h2>{post.content && <p className="comments-post-content">{post.content}</p>}
-          {post.imageUrl && <img className="community-image" src={post.imageUrl} alt="게시글 첨부 이미지" width={350} height={262} />}
-          <div className="community-actions">
-            <div className="community-vote"><button disabled aria-label="게시글 좋아요 준비 중"><Asset name="post-like-off.svg" />{post.likeCount}</button><span className="community-vote-divider" /><button disabled aria-label="게시글 싫어요 준비 중"><Asset name="post-dislike-off.svg" /></button></div>
+          {confirmDelete&&<div className={communityStyles.postDeleteConfirm} role="group" aria-label="게시글 삭제 확인"><p>이 게시글을 삭제할까요?</p><button className={buttonVariants({
+  tone: "secondary"
+})} disabled={deleting} onClick={()=>setConfirmDelete(false)}>취소</button><button className={buttonVariants({
+  tone: "primary"
+})} disabled={deleting} onClick={removePost}>{deleting?"삭제 중...":"삭제 확인"}</button></div>}
+          <h2>{post.title}</h2>{post.content && <p className={communityStyles.commentsPostContent}>{post.content}</p>}
+          {post.imageUrl && <img className={communityStyles.communityImage} src={post.imageUrl} alt="게시글 첨부 이미지" width={350} height={262} />}
+          <div className={communityStyles.communityActions}>
+            <div className={communityStyles.communityVote}><button disabled aria-label="게시글 좋아요 준비 중"><Asset name="post-like-off.svg" />{post.likeCount}</button><span className={communityStyles.communityVoteDivider} /><button disabled aria-label="게시글 싫어요 준비 중"><Asset name="post-dislike-off.svg" /></button></div>
             <button aria-label={`댓글 ${post.commentCount}개로 이동`} onClick={() => setFocus(value=>value+1)}><Asset name="post-comment.svg" />{post.commentCount}</button><i />
             <button disabled aria-label="공유 준비 중"><Asset name="post-share.svg" /></button><button disabled aria-label="북마크 준비 중"><Asset name="post-save-off.svg" /></button>
           </div>
-        </article><div className="nr-post-comment-divider" /></>}
+        </article><div className={communityStyles.nrPostCommentDivider} /></>}
   </>} />{report&&<FigmaSheet title="신고" onClose={()=>setReport(false)}><ReportReasons/></FigmaSheet>}</div>;
 }

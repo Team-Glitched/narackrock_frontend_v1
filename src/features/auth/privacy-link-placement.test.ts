@@ -7,6 +7,6 @@ const profileSource = readFileSync("src/features/profile/profile-screens.tsx", "
 
 test("shows the privacy policy link only in the profile edit form", () => {
   assert.doesNotMatch(pageSource, /site-privacy-link/);
-  assert.match(profileSource, /className="profile-privacy-link" href="\/privacy"/);
+  assert.match(profileSource, /className=\{profileStyles\.profilePrivacyLink\} to="\/privacy"/);
   assert.match(profileSource, /개인정보처리방침/);
 });

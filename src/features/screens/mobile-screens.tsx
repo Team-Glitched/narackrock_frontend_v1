@@ -1,5 +1,9 @@
-import "./community.css";
-import "./opensource-discovery.css";
+import { sharedStyles } from "@/styles/shared.styles";
+import { communityStyles } from "@/styles/community.styles";
+import { cn } from "@/lib/utils";
+import { socialStyles } from "@/styles/social.styles";
+import { buttonVariants } from "@/styles/variants";
+import { profileStyles } from "@/styles/profile.styles";
 import { HomeWorkSection } from "@/features/workspace/home-work-section";
 import { uiLabels } from "@/lib/ui-labels";
 import { useHiddenPosts } from "@/features/community/hidden-posts";
@@ -44,7 +48,7 @@ function relativeTime(createdAt: string): string {
 
 function PostListStatus({ state }: { state: "loading" | "error" | "empty" }) {
   const message = state === "loading" ? "게시글을 불러오는 중..." : state === "error" ? "게시글을 불러오지 못했습니다." : "아직 게시글이 없어요.";
-  return <p className="empty-community" style={{ height: "auto", padding: "40px 20px" }}>{message}</p>;
+  return <p className={sharedStyles.emptyCommunity} style={{ height: "auto", padding: "40px 20px" }}>{message}</p>;
 }
 
 export function MiniPost({ tall = false, post, onOpen }: { tall?: boolean; post: PostListItem; onOpen: (postId: number) => void }) {
@@ -55,20 +59,20 @@ export function MiniPost({ tall = false, post, onOpen }: { tall?: boolean; post:
   return (
     <button
       type="button"
-      className={`mini-post ${tall ? "mini-post--tall" : ""}`}
+      className={cn(communityStyles.miniPost, tall ? communityStyles.miniPostTall : "")}
       data-post-id={post.postId}
       onClick={() => onOpen(post.postId)}
       aria-label={`${post.title} 게시글 열기`}
     >
-      <span className="post-thumb">{post.imageUrl && <img src={post.imageUrl} alt="게시글 첨부 이미지" width={90} height={90} />}</span>
-      <div className="mini-post-copy">
+      <span className={communityStyles.postThumb}>{post.imageUrl && <img src={post.imageUrl} alt="게시글 첨부 이미지" width={90} height={90} />}</span>
+      <div className={communityStyles.miniPostCopy}>
         <strong>{excerpt}</strong>
-        <div className="mini-meta" aria-label="게시글 통계">
+        <div className={communityStyles.miniMeta} aria-label="게시글 통계">
           <span>{relativeTime(post.createdAt)}</span>
           <span><IconSlot name="like.svg" kind="mini" />{post.likeCount}</span>
           <span><IconSlot name="mini-comment.svg" kind="mini" />{post.commentCount}</span>
         </div>
-        <div className="mini-author"><Avatar src={post.writer.profileImageUrl} /><span>{post.writer.nickname}</span></div>
+        <div className={communityStyles.miniAuthor}><Avatar src={post.writer.profileImageUrl} /><span>{post.writer.nickname}</span></div>
       </div>
     </button>
   );
@@ -80,7 +84,7 @@ function SongRailStatus({ state }: { state: "loading" | "error" | "empty" | "sig
     : state === "error" ? "곡을 불러오지 못했습니다."
       : state === "signed-out" ? "로그인하면 음악 목록을 확인할 수 있습니다."
         : "아직 표시할 곡이 없어요.";
-  return <p className="song-rail-status">{message}</p>;
+  return <p className={sharedStyles.songRailStatus}>{message}</p>;
 }
 
 export type SongChartKind = "popular" | "mine" | "recommended";
@@ -88,34 +92,36 @@ export type SongChartKind = "popular" | "mine" | "recommended";
 export function HomeScreen({ go, onOpenPost, onOpenShort, onShowSongs, onResume }: { onResume:(projectId:number,shortId:number|null)=>void;go: Navigate; onOpenPost: (postId: number) => void; onOpenShort: (shortId: number) => void; onShowSongs: (kind: SongChartKind) => void }) {
   const posts = useGalleryPosts(DEFAULT_GALLERY_ID, { sort: "POPULAR" });
   const songs = useHomeSongs();
-  return <div className="home-content scroll-content"><HomeWorkSection go={go} onResume={onResume}/><section><SectionTitle onAll={() => onShowSongs("popular")}>인기 차트</SectionTitle>{songs.popular.status !== "ready" ? <SongRailStatus state={songs.popular.status} /> : songs.popular.items.length === 0 ? <SongRailStatus state="empty" /> : <SongRail songs={songs.popular.items} onOpen={onOpenShort} />}</section><section><SectionTitle onAll={() => onShowSongs("recommended")}>추천 음악</SectionTitle>{songs.recommended.status !== "ready" ? <SongRailStatus state={songs.recommended.status} /> : songs.recommended.items.length === 0 ? <SongRailStatus state="empty" /> : <SongRail songs={songs.recommended.items} onOpen={onOpenShort} />}</section><section><SectionTitle onAll={() => go("posts")}>{uiLabels.popularPosts}</SectionTitle><div className="mini-post-list">{posts.status !== "ready" ? <PostListStatus state={posts.status} /> : posts.posts.length === 0 ? <PostListStatus state="empty" /> : posts.posts.slice(0, 3).map(post => <MiniPost key={post.postId} post={post} onOpen={onOpenPost} />)}</div></section><section><SectionTitle onAll={() => onShowSongs("mine")}>{uiLabels.myMusic}</SectionTitle>{songs.mine.status !== "ready" ? <SongRailStatus state={songs.mine.status} /> : songs.mine.items.length === 0 ? <SongRailStatus state="empty" /> : <SongRail songs={songs.mine.items} onOpen={onOpenShort} />}</section></div>;
+  return <div className={cn(sharedStyles.homeContent, sharedStyles.scrollContent)}><HomeWorkSection go={go} onResume={onResume}/><section><SectionTitle onAll={() => onShowSongs("popular")}>인기 차트</SectionTitle>{songs.popular.status !== "ready" ? <SongRailStatus state={songs.popular.status} /> : songs.popular.items.length === 0 ? <SongRailStatus state="empty" /> : <SongRail songs={songs.popular.items} onOpen={onOpenShort} />}</section><section><SectionTitle onAll={() => onShowSongs("recommended")}>추천 음악</SectionTitle>{songs.recommended.status !== "ready" ? <SongRailStatus state={songs.recommended.status} /> : songs.recommended.items.length === 0 ? <SongRailStatus state="empty" /> : <SongRail songs={songs.recommended.items} onOpen={onOpenShort} />}</section><section><SectionTitle onAll={() => go("posts")}>{uiLabels.popularPosts}</SectionTitle><div className={communityStyles.miniPostList}>{posts.status !== "ready" ? <PostListStatus state={posts.status} /> : posts.posts.length === 0 ? <PostListStatus state="empty" /> : posts.posts.slice(0, 3).map(post => <MiniPost key={post.postId} post={post} onOpen={onOpenPost} />)}</div></section><section><SectionTitle onAll={() => onShowSongs("mine")}>{uiLabels.myMusic}</SectionTitle>{songs.mine.status !== "ready" ? <SongRailStatus state={songs.mine.status} /> : songs.mine.items.length === 0 ? <SongRailStatus state="empty" /> : <SongRail songs={songs.mine.items} onOpen={onOpenShort} />}</section></div>;
 }
 export function ChartsScreen({ kind, onOpenShort }: { go: Navigate; kind: SongChartKind; onOpenShort: (shortId: number) => void }) {
   const songs = useHomeSongs(100);
   const selected = kind === "popular" ? songs.popular : kind === "recommended" ? songs.recommended : songs.mine;
-  return <div className="list-view scroll-content"><h1 className="posts-list-title">{kind === "popular" ? "인기 차트" : kind === "recommended" ? "추천 음악" : uiLabels.myMusic}</h1><div className="chart-list">{selected.status !== "ready" ? <SongRailStatus state={selected.status} /> : selected.items.length === 0 ? <SongRailStatus state="empty" /> : selected.items.map(song => <button type="button" className="chart-row" key={song.shortId} onClick={() => onOpenShort(song.shortId)}><span className="chart-art">{song.albumImageUrl
+  return <div className={cn(sharedStyles.listView, sharedStyles.scrollContent)}><h1 className={sharedStyles.postsListTitle}>{kind === "popular" ? "인기 차트" : kind === "recommended" ? "추천 음악" : uiLabels.myMusic}</h1><div className={sharedStyles.chartList}>{selected.status !== "ready" ? <SongRailStatus state={selected.status} /> : selected.items.length === 0 ? <SongRailStatus state="empty" /> : selected.items.map(song => <button type="button" className={sharedStyles.chartRow} key={song.shortId} onClick={() => onOpenShort(song.shortId)}><span className={sharedStyles.chartArt}>{song.albumImageUrl
 
     ? <img src={song.albumImageUrl} alt={`${song.title} 앨범 커버`} draggable={false} />
-    : <span className="empty-artwork" />}</span><span><strong>{song.title}</strong><small>{song.author.nickname}</small></span><Asset name="post-more.svg" /></button>)}</div></div>;
+    : <span className={sharedStyles.emptyArtwork} />}</span><span><strong>{song.title}</strong><small>{song.author.nickname}</small></span><Asset name="post-more.svg" /></button>)}</div></div>;
 }
 export function PostsScreen({ onOpenPost }: { go: Navigate; onOpenPost: (postId: number) => void }) {
   const posts = useGalleryPosts(DEFAULT_GALLERY_ID, { sort: "POPULAR" });
   const rootRef = useRef<HTMLDivElement>(null);
   const sentinel = useInfiniteScroll({ rootRef, enabled: posts.hasMore && !posts.appending && !posts.appendFailed, onLoadMore: posts.loadMore });
-  return <div ref={rootRef} className="list-view scroll-content"><h1 className="posts-list-title">{uiLabels.popularPosts}</h1><div className="posts-list">{posts.status !== "ready" ? <PostListStatus state={posts.status} /> : posts.posts.length === 0 ? <PostListStatus state="empty" /> : posts.posts.map(post => <MiniPost tall key={post.postId} post={post} onOpen={onOpenPost} />)}</div>{posts.hasMore && <div ref={sentinel} className="post-feed-sentinel" aria-hidden="true" />}{posts.appendFailed && <button onClick={posts.loadMore}>다시 시도</button>}</div>;
+  return <div ref={rootRef} className={cn(sharedStyles.listView, sharedStyles.scrollContent)}><h1 className={sharedStyles.postsListTitle}>{uiLabels.popularPosts}</h1><div className={sharedStyles.postsList}>{posts.status !== "ready" ? <PostListStatus state={posts.status} /> : posts.posts.length === 0 ? <PostListStatus state="empty" /> : posts.posts.map(post => <MiniPost tall key={post.postId} post={post} onOpen={onOpenPost} />)}</div>{posts.hasMore && <div ref={sentinel} className={communityStyles.postFeedSentinel} aria-hidden="true" />}{posts.appendFailed && <button onClick={posts.loadMore}>다시 시도</button>}</div>;
 }
 export function FriendsScreen({ go }: { go: Navigate }) {
   const [following, setFollowing] = useState([false, true, true, false]);
   const [requests, setRequests] = useState([true, true]);
   return (
-    <div className="friends-view scroll-content">
-      <section className="mutual-friends"><SectionTitle>맞팔로우</SectionTitle><div className="mutual-friend-rail">{[0,1,2,3].map(id => <article className="mutual-friend-card" key={id}><button className="mutual-friend-identity" aria-label="Muhehehe 프로필" onClick={() => go("profile", 3)}><Avatar /><strong>Muhehehe</strong><small>피아노</small></button><button className="purple-pill" onClick={() => go("chat")}>채팅</button></article>)}</div></section>
+    <div className={cn(socialStyles.friendsView, sharedStyles.scrollContent)}>
+      <section className={"mutual-friends"}><SectionTitle>맞팔로우</SectionTitle><div className={socialStyles.mutualFriendRail}>{[0,1,2,3].map(id => <article className={socialStyles.mutualFriendCard} key={id}><button className={socialStyles.mutualFriendIdentity} aria-label="Muhehehe 프로필" onClick={() => go("profile", 3)}><Avatar /><strong>Muhehehe</strong><small>피아노</small></button><button className={buttonVariants({
+  tone: "primary"
+})} onClick={() => go("chat")}>채팅</button></article>)}</div></section>
       <section>
         <SectionTitle>팔로우 추천</SectionTitle>
-        <div className="people-list">
+        <div className={profileStyles.peopleList}>
           {following.map((on, i) => (
-            <div className="person" key={i}>
-              <button className="person-link" onClick={() => go("profile", 3)}>
+            <div className={socialStyles.person} key={i}>
+              <button className={socialStyles.personLink} onClick={() => go("profile", 3)}>
                 <Avatar />
                 <span>
                   <strong>Muhehehe</strong>
@@ -123,7 +129,9 @@ export function FriendsScreen({ go }: { go: Navigate }) {
                 </span>
               </button>
               <button
-                className="purple-pill"
+                className={buttonVariants({
+  tone: "primary"
+})}
                 onClick={() =>
                   setFollowing((s) => s.map((v, x) => (x === i ? !v : v)))
                 }
@@ -136,12 +144,12 @@ export function FriendsScreen({ go }: { go: Navigate }) {
       </section>
       <section>
         <SectionTitle>팔로우 요청</SectionTitle>
-        <div className="people-list">
+        <div className={profileStyles.peopleList}>
           {requests.map(
             (show, i) =>
               show && (
-                <div className="person" key={i}>
-                  <button className="person-link" onClick={() => go("profile", 3)}>
+                <div className={socialStyles.person} key={i}>
+                  <button className={socialStyles.personLink} onClick={() => go("profile", 3)}>
                     <Avatar />
                     <span>
                       <strong>Muhehehe</strong>
@@ -149,7 +157,10 @@ export function FriendsScreen({ go }: { go: Navigate }) {
                     </span>
                   </button>
                   <button
-                    className="purple-pill compact"
+                    className={buttonVariants({
+  tone: "primary",
+  size: "compact"
+})}
                     onClick={() =>
                       setRequests((s) => s.map((v, x) => (x === i ? false : v)))
                     }
@@ -157,7 +168,9 @@ export function FriendsScreen({ go }: { go: Navigate }) {
                     확인
                   </button>
                   <button
-                    className="gray-pill"
+                    className={buttonVariants({
+  tone: "secondary"
+})}
                     onClick={() =>
                       setRequests((s) => s.map((v, x) => (x === i ? false : v)))
                     }
@@ -216,16 +229,16 @@ export function PostComposer({ galleryId, onCreated, onCancel }: { galleryId: nu
   }
 
   return (
-    <div className="post-form">
+    <div className={communityStyles.postForm}>
       <input aria-label="게시글 제목" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="제목" disabled={submitting} />
       <textarea aria-label="게시글 내용" value={content} onChange={(e) => setContent(e.target.value)} placeholder="내용을 입력하세요" disabled={submitting} />
       {image ? (
-        <div className="post-image-preview">
+        <div className={communityStyles.postImagePreview}>
           <img src={image.previewUrl} alt="첨부할 게시글 이미지 미리보기" width={350} height={262} />
           <button type="button" onClick={() => setImage(null)} disabled={submitting} aria-label="첨부 이미지 삭제">삭제</button>
         </div>
       ) : (
-        <label className="post-image-picker">
+        <label className={communityStyles.postImagePicker}>
           <input
             type="file"
             accept="image/jpeg,image/png,image/webp,image/gif"
@@ -239,10 +252,16 @@ export function PostComposer({ galleryId, onCreated, onCancel }: { galleryId: nu
           <span>JPG, PNG, WEBP, GIF · 최대 100MB</span>
         </label>
       )}
-      {error && <p className="post-form-error">{error}</p>}
-      <div className="post-form-actions">
-        <button className="gray-pill compact" onClick={onCancel} disabled={submitting}>취소</button>
-        <button className="purple-pill compact" onClick={submit} disabled={submitting}>{submitting ? "게시 중..." : "게시"}</button>
+      {error && <p className={communityStyles.postFormError}>{error}</p>}
+      <div className={communityStyles.postFormActions}>
+        <button className={buttonVariants({
+  tone: "secondary",
+  size: "compact"
+})} onClick={onCancel} disabled={submitting}>취소</button>
+        <button className={buttonVariants({
+  tone: "primary",
+  size: "compact"
+})} onClick={submit} disabled={submitting}>{submitting ? "게시 중..." : "게시"}</button>
       </div>
     </div>
   );
@@ -339,14 +358,20 @@ export function CommunityPost({ post, onChanged, onComments, onProfile, onModera
 
   if (editing) {
     return (
-      <article className="community-post" data-post-id={post.postId}>
-        <div className="post-form">
+      <article className={communityStyles.communityPost} data-post-id={post.postId}>
+        <div className={communityStyles.postForm}>
           <input aria-label="게시글 제목 수정" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="제목" disabled={submitting} />
           <textarea aria-label="게시글 내용 수정" value={content} onChange={(e) => setContent(e.target.value)} placeholder="내용을 입력하세요" disabled={submitting} />
-          {error && <p className="post-form-error">{error}</p>}
-          <div className="post-form-actions">
-            <button className="gray-pill compact" onClick={() => setEditing(false)} disabled={submitting}>취소</button>
-            <button className="purple-pill compact" onClick={saveEdit} disabled={submitting}>{submitting ? "저장 중..." : "저장"}</button>
+          {error && <p className={communityStyles.postFormError}>{error}</p>}
+          <div className={communityStyles.postFormActions}>
+            <button className={buttonVariants({
+  tone: "secondary",
+  size: "compact"
+})} onClick={() => setEditing(false)} disabled={submitting}>취소</button>
+            <button className={buttonVariants({
+  tone: "primary",
+  size: "compact"
+})} onClick={saveEdit} disabled={submitting}>{submitting ? "저장 중..." : "저장"}</button>
           </div>
         </div>
       </article>
@@ -354,22 +379,26 @@ export function CommunityPost({ post, onChanged, onComments, onProfile, onModera
   }
 
   return (
-    <article className="community-post" data-post-id={post.postId}>
-      <div className="community-author">
-        <button className="post-author-link" aria-label={`${post.writer.nickname} 프로필`} onClick={() => onProfile?.(post.writer.userId)}><Avatar src={post.writer.profileImageUrl} /><strong>{post.writer.nickname || "알 수 없는 사용자"}</strong></button>
+    <article className={communityStyles.communityPost} data-post-id={post.postId}>
+      <div className={communityStyles.communityAuthor}>
+        <button className={communityStyles.postAuthorLink} aria-label={`${post.writer.nickname} 프로필`} onClick={() => onProfile?.(post.writer.userId)}><Avatar src={post.writer.profileImageUrl} /><strong>{post.writer.nickname || "알 수 없는 사용자"}</strong></button>
         <span>• {relativeTime(post.createdAt)}</span>
         <button ref={optionButton} disabled={submitting} onClick={() => setMenuOpen((open) => !open)} aria-expanded={menuOpen} aria-label="게시글 더보기"><Asset name="post-more.svg" /></button>
       </div>
       {menuOpen && (!owner || onModerateDelete) && <PostUserActionsMenu onSuspendMember={canModerateMember?()=>{setMenuOpen(false);setMemberAction("suspend");}:undefined} onExpelMember={canModerateMember?()=>{setMenuOpen(false);setMemberAction("expel");}:undefined} onModerateDelete={onModerateDelete?()=>{setConfirmDelete(true);setMenuOpen(false);}:undefined} anchorRef={optionButton} onClose={()=>setMenuOpen(false)} onReport={()=>{setMenuOpen(false);setReportOpen(true);}} onHide={()=>{setMenuOpen(false);hiddenPosts.hide(post.postId);}}/>}
       {memberAction&&moderationCommunity&&<PostMemberModeration community={moderationCommunity} member={post.writer} action={memberAction} onClose={()=>setMemberAction(null)} onDone={message=>{setMemberAction(null);setModerationNotice(message);}}/>}
-      {moderationNotice&&<p className="post-moderation-notice" role="status">{moderationNotice}</p>}
+      {moderationNotice&&<p className={communityStyles.postModerationNotice} role="status">{moderationNotice}</p>}
       {reportOpen && <FigmaSheet title="신고" onClose={()=>setReportOpen(false)}><ReportReasons/></FigmaSheet>}
       {menuOpen && owner && !onModerateDelete && <PostUserActionsMenu anchorRef={optionButton} onClose={()=>setMenuOpen(false)} onReport={()=>{}} onHide={()=>{}} onEdit={startEdit} onDelete={()=>{setConfirmDelete(true);setMenuOpen(false);}}/>}
-      <h2><button className="post-read" disabled={submitting} onClick={() => onComments(post.postId)}>{post.title}</button></h2>
-      {preview !== "" && <button className="post-preview" onClick={() => onComments(post.postId)} disabled={submitting}>{preview ?? "로그인 후 게시글 내용을 확인할 수 있어요."}</button>}
-      {error && <p className="post-form-error" role="alert">{error}</p>}
-      {confirmDelete && <div className="post-delete-confirm" role="group" aria-label="게시글 삭제 확인"><p>이 게시글을 삭제할까요?</p><button className="gray-pill" disabled={submitting} onClick={() => setConfirmDelete(false)}>취소</button><button className="purple-pill" disabled={submitting} onClick={remove}>{submitting ? "삭제 중..." : "삭제 확인"}</button></div>}
-      {imageUrl && <button className="post-image-open" aria-label={`${post.title} 게시글 열기`} onClick={() => onComments(post.postId)}><img className="community-image" src={imageUrl} alt="게시글 첨부 이미지" width={350} height={262} /></button>}
+      <h2><button className={communityStyles.postRead} disabled={submitting} onClick={() => onComments(post.postId)}>{post.title}</button></h2>
+      {preview !== "" && <button className={communityStyles.postPreview} onClick={() => onComments(post.postId)} disabled={submitting}>{preview ?? "로그인 후 게시글 내용을 확인할 수 있어요."}</button>}
+      {error && <p className={communityStyles.postFormError} role="alert">{error}</p>}
+      {confirmDelete && <div className={communityStyles.postDeleteConfirm} role="group" aria-label="게시글 삭제 확인"><p>이 게시글을 삭제할까요?</p><button className={buttonVariants({
+  tone: "secondary"
+})} disabled={submitting} onClick={() => setConfirmDelete(false)}>취소</button><button className={buttonVariants({
+  tone: "primary"
+})} disabled={submitting} onClick={remove}>{submitting ? "삭제 중..." : "삭제 확인"}</button></div>}
+      {imageUrl && <button className={communityStyles.postImageOpen} aria-label={`${post.title} 게시글 열기`} onClick={() => onComments(post.postId)}><img className={communityStyles.communityImage} src={imageUrl} alt="게시글 첨부 이미지" width={350} height={262} /></button>}
       <PostActions likeCount={post.likeCount} commentCount={post.commentCount} vote={vote} onVote={next=>setVote(current=>current===next?null:next)} onComments={()=>onComments(post.postId)} saved={saved} onSave={()=>{try {savedItems.toggle({id:post.postId,kind:"post",title:preview??post.title,author:post.writer.nickname,imageUrl:post.imageUrl});}catch(cause){setError(cause instanceof Error?cause.message:"저장하지 못했습니다.");}}}/>
 
     </article>
@@ -384,16 +413,18 @@ export function CommunityScreen({ go, tab, onTabChange, onComments, onOpenCommun
   const galleries=useGalleries(0);
 
   return (
-    <div className="community-view social-screen">
-      <div className="community-tabs" aria-label="소셜 메뉴">
-        <button aria-pressed={tab === "posts"} className={tab === "posts" ? "active" : ""} onClick={() => onTabChange("posts")}>게시글</button>
-        <button aria-pressed={tab === "community"} className={tab === "community" ? "active" : ""} onClick={() => onTabChange("community")}>커뮤니티</button>
-        <button aria-pressed={tab === "friends"} className={tab === "friends" ? "active" : ""} onClick={() => onTabChange("friends")}>친구</button>
+    <div className={cn(communityStyles.communityView, sharedStyles.socialScreen)}>
+      <div className={communityStyles.communityTabs} aria-label="소셜 메뉴">
+        <button aria-pressed={tab === "posts"} className={tab === "posts" ? sharedStyles.active : ""} onClick={() => onTabChange("posts")}>게시글</button>
+        <button aria-pressed={tab === "community"} className={tab === "community" ? sharedStyles.active : ""} onClick={() => onTabChange("community")}>커뮤니티</button>
+        <button aria-pressed={tab === "friends"} className={tab === "friends" ? sharedStyles.active : ""} onClick={() => onTabChange("friends")}>친구</button>
       </div>
       {tab === "posts" ? (
-        <div className="social-post-feed scroll-content">
+        <div className={cn(sharedStyles.socialPostFeed, sharedStyles.scrollContent)}>
           {posts.status !== "ready" ? (
-            <div role="status"><PostListStatus state={posts.status} />{posts.status === "error" && <button className="community-retry gray-pill" onClick={posts.refetch}>다시 시도</button>}</div>
+            <div role="status"><PostListStatus state={posts.status} />{posts.status === "error" && <button className={cn(buttonVariants({
+  tone: "secondary"
+}), communityStyles.communityRetry)} onClick={posts.refetch}>다시 시도</button>}</div>
           ) : posts.posts.length === 0 ? (
             <PostListStatus state="empty" />
           ) : (

@@ -1,3 +1,6 @@
+import { communityStyles } from "@/styles/community.styles";
+import { sharedStyles } from "@/styles/shared.styles";
+import { cn } from "@/lib/utils";
 import { isCommunityOwner } from "@/features/admin/permissions";
 import { useCurrentUserId } from "@/hooks/use-current-user";
 import { Avatar } from "@/components/app/shared";
@@ -53,10 +56,10 @@ export function CommunityJoinButton({ community, block = false }: {
   const membership = useCommunityMembership();
   const joined = membership.isJoined(community.id);
   const pending = membership.isPending(community.id);
-  if(isCommunityOwner(community,userId))return <span className={`community-join is-joined community-owner-badge ${block?"community-join--block":""}`}>가입됨</span>;
+  if(isCommunityOwner(community,userId))return <span className={cn(cn(communityStyles.communityJoin, sharedStyles.isJoined, communityStyles.communityOwnerBadge), block ? communityStyles.communityJoinBlock : "")}>가입됨</span>;
   return (
     <button
-      className={`community-join ${joined ? "is-joined" : ""} ${block ? "community-join--block" : ""}`}
+      className={cn(communityStyles.communityJoin, joined ? sharedStyles.isJoined : "", block ? communityStyles.communityJoinBlock : "")}
       aria-pressed={joined}
       aria-busy={pending}
       disabled={pending || membership.loading || membership.loadFailed}
@@ -79,16 +82,16 @@ type CardProps = {
 export function CommunityCard({ community, onOpen, headingLevel = 3 }: CardProps) {
   const Heading = `h${headingLevel}` as "h2" | "h3";
   return (
-    <li className="community-card">
-      <div className="community-card-header">
+    <li className={communityStyles.communityCard}>
+      <div className={communityStyles.communityCardHeader}>
         <Avatar src={community.imageUrl} />
-        <div className="community-card-title">
-          <Heading>{onOpen ? <button className="community-open" aria-label={`${community.name} 커뮤니티 열기`} onClick={() => onOpen(community)}>{community.name}</button> : community.name}</Heading>
+        <div className={communityStyles.communityCardTitle}>
+          <Heading>{onOpen ? <button className={communityStyles.communityOpen} aria-label={`${community.name} 커뮤니티 열기`} onClick={() => onOpen(community)}>{community.name}</button> : community.name}</Heading>
           <p>{memberLabel(community.memberCount)}</p>
         </div>
         <CommunityJoinButton community={community} />
       </div>
-      {community.description && <p className="community-card-description">{community.description}</p>}
+      {community.description && <p className={communityStyles.communityCardDescription}>{community.description}</p>}
     </li>
   );
 }
@@ -97,9 +100,9 @@ export function CommunityCard({ community, onOpen, headingLevel = 3 }: CardProps
 export function CommunityRailCard({ community, onOpen, headingLevel = 3 }: CardProps) {
   const Heading = `h${headingLevel}` as "h2" | "h3";
   return (
-    <li className="community-rail-card">
+    <li className={communityStyles.communityRailCard}>
       <Avatar src={community.imageUrl} />
-      <Heading>{onOpen ? <button className="community-open" aria-label={`${community.name} 커뮤니티 열기`} onClick={() => onOpen(community)}>{community.name}</button> : community.name}</Heading>
+      <Heading>{onOpen ? <button className={communityStyles.communityOpen} aria-label={`${community.name} 커뮤니티 열기`} onClick={() => onOpen(community)}>{community.name}</button> : community.name}</Heading>
       <p>{memberLabel(community.memberCount)}</p>
       <CommunityJoinButton community={community} block />
     </li>

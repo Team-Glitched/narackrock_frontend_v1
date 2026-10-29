@@ -1,3 +1,6 @@
+import { profileStyles } from "@/styles/profile.styles";
+import { cn } from "@/lib/utils";
+import { sharedStyles } from "@/styles/shared.styles";
 import { useEffect, useRef, useState } from "react";
 import { Asset } from "@/components/app/shared";
 import { decodeGoogleCredential, loadGoogleAccounts, type GoogleCredentialResponse } from "@/features/auth/google-identity";
@@ -74,14 +77,14 @@ export function AuthScreen({ onAuthenticated, onFirstLogin }: AuthScreenProps) {
     return () => { cancelled = true; };
   }, [clientId, signup, onAuthenticated, onFirstLogin]);
 
-  return <section className="auth-screen auth-screen--login" aria-label="로그인">
-    <header className="auth-header"><Asset name="auth-logo.svg" alt="Narackrock" /></header>
-    <div className="auth-content">
-      <div className="auth-intro"><h1>{signup ? <>나만의 음악,<br />여기서 시작해요</> : "다시 만나 반가워요"}</h1><p>{signup ? <>Google 계정 하나로 간편하게 가입하고<br />나만의 곡을 만들고 나눠보세요.</> : <>나락락에 로그인하고<br />당신만의 음악을 이어가세요.</>}</p></div>
-      {!clientId && <button className="google-auth-button" disabled title="Google 인증 설정이 필요합니다."><Asset name="google-g.svg" />Google로 {signup ? "회원가입" : "로그인"}</button>}
-      {error && <p className="auth-error" role="alert">{error}</p>}
-      <div className={`google-identity-button ${busy ? "is-busy" : ""}`} ref={googleButtonRef} aria-label="Google로 계속하기" />
+  return <section className={cn(profileStyles.authScreen, "auth-screen--login")} aria-label="로그인">
+    <header className={profileStyles.authHeader}><Asset name="auth-logo.svg" alt="Narackrock" /></header>
+    <div className={profileStyles.authContent}>
+      <div className={profileStyles.authIntro}><h1>{signup ? <>나만의 음악,<br />여기서 시작해요</> : "다시 만나 반가워요"}</h1><p>{signup ? <>Google 계정 하나로 간편하게 가입하고<br />나만의 곡을 만들고 나눠보세요.</> : <>나락락에 로그인하고<br />당신만의 음악을 이어가세요.</>}</p></div>
+      {!clientId && <button className={profileStyles.googleAuthButton} disabled title="Google 인증 설정이 필요합니다."><Asset name="google-g.svg" />Google로 {signup ? "회원가입" : "로그인"}</button>}
+      {error && <p className={profileStyles.authError} role="alert">{error}</p>}
+      <div className={cn(profileStyles.googleIdentityButton, busy ? sharedStyles.isBusy : "")} ref={googleButtonRef} aria-label="Google로 계속하기" />
     </div>
-    <button className="auth-switch" onClick={() => setSignup(current => !current)}>{signup ? "이미 계정이 있나요? 로그인" : "처음 오셨나요? 회원가입"}</button>
+    <button className={profileStyles.authSwitch} onClick={() => setSignup(current => !current)}>{signup ? "이미 계정이 있나요? 로그인" : "처음 오셨나요? 회원가입"}</button>
   </section>;
 }

@@ -1,3 +1,5 @@
+import { sharedStyles } from "@/styles/shared.styles";
+import { cn } from "@/lib/utils";
 import { useEffect, useRef, type ReactNode } from "react";
 
 /** The Figma canvases are 390×844 and 844×390. Scale the whole canvas,
@@ -42,7 +44,7 @@ export function DesignViewport({ landscape = false, children }: { landscape?: bo
     fit();
     return () => { observer.disconnect(); touchPortrait.removeEventListener("change", fit);viewport?.removeEventListener("resize",fit);viewport?.removeEventListener("scroll",fit);document.removeEventListener("focusin",focusChanged);document.removeEventListener("focusout",focusChanged);cancelAnimationFrame(frame); };
   }, [landscape]);
-  return <main ref={ref} className={`design-viewport${landscape ? " design-viewport--landscape" : ""}`}>
-    <div className="design-canvas">{children}</div>
+  return <main ref={ref} className={cn(sharedStyles.designViewport, landscape ? sharedStyles.designViewportLandscape : "")}>
+    <div className={sharedStyles.designCanvas}>{children}</div>
   </main>;
 }

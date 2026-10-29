@@ -1,8 +1,8 @@
+import { Link } from "react-router";
 import { logout } from "@/lib/api/auth";
 import type { Navigate } from "@/features/navigation/types";
 import { ChevronRight } from "lucide-react";
 import { uiLabels } from "@/lib/ui-labels";
-import "./settings.css";
 
 const groups = [
   { title: "계정", items: [
@@ -19,19 +19,23 @@ const groups = [
   ] },
 ] as const;
 
+const rowClass = "flex min-h-16 w-full items-center justify-between gap-4 py-3 text-left text-app-fg no-underline active:rounded-lg active:bg-app-surface [&>svg]:shrink-0";
+const copyClass = "flex min-w-0 flex-col gap-2 [&>strong]:text-label [&>strong]:leading-6 [&>strong]:font-medium [&>strong]:[overflow-wrap:anywhere] [&>small]:text-caption [&>small]:leading-[18px] [&>small]:font-normal [&>small]:text-app-muted";
+const groupClass = "mb-6 [&>h2]:mb-2 [&>h2]:text-caption [&>h2]:leading-[18px] [&>h2]:font-semibold [&>h2]:text-app-muted [&>ul]:m-0 [&>ul]:list-none [&>ul]:p-0 [&_li+li]:border-t [&_li+li]:border-app-surface";
+
 export function SettingsScreen({ go }: { go: Navigate }) {
-  return <section className="settings-view scroll-content">
-    <h1>설정</h1>
-    {groups.map(group => <section className="settings-group" key={group.title} aria-label={group.title}>
+  return <section className="scrollbar-none h-full overflow-x-hidden overflow-y-auto px-5 pt-6 pb-8 text-app-fg">
+    <h1 className="m-0 mb-7 text-title leading-8 font-bold">설정</h1>
+    {groups.map(group => <section className={groupClass} key={group.title} aria-label={group.title}>
       <h2>{group.title}</h2>
-      <ul>{group.items.map(item => <li key={item.view}><button className="settings-row" onClick={() => go(item.view)}>
-        <span className="settings-row-copy"><strong>{item.label}</strong><small>{item.description}</small></span>
+      <ul>{group.items.map(item => <li key={item.view}><button className={rowClass} onClick={() => go(item.view)}>
+        <span className={copyClass}><strong>{item.label}</strong><small>{item.description}</small></span>
         <ChevronRight size={18} strokeWidth={1.75} aria-hidden="true" />
       </button></li>)}</ul>
     </section>)}
-    <section className="settings-group" aria-label="서비스 정보"><h2>서비스 정보</h2><ul>
-      <li><a className="settings-row" href="/privacy"><span className="settings-row-copy"><strong>개인정보처리방침</strong></span><ChevronRight size={18} strokeWidth={1.75} aria-hidden="true" /></a></li>
+    <section className={groupClass} aria-label="서비스 정보"><h2>서비스 정보</h2><ul>
+      <li><Link className={rowClass} to="/privacy"><span className={copyClass}><strong>개인정보처리방침</strong></span><ChevronRight size={18} strokeWidth={1.75} aria-hidden="true" /></Link></li>
     </ul></section>
-    <button className="profile-logout" onClick={logout}>로그아웃</button>
+    <button className="mt-2 block min-h-12 w-full rounded-none border-0 border-t border-solid border-app-surface bg-transparent py-3 text-left text-label leading-6 font-medium text-[#ff8d8d]" onClick={logout}>로그아웃</button>
   </section>;
 }

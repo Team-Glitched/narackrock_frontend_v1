@@ -1,3 +1,7 @@
+import { studioStyles } from "@/styles/studio.styles";
+import { cn } from "@/lib/utils";
+import { sharedStyles } from "@/styles/shared.styles";
+import { buttonVariants } from "@/styles/variants";
 import { useEffect, useMemo, useState, useSyncExternalStore, type CSSProperties } from "react";
 import { PublishConfirmation, VolumeDialog, NoteSettingsDialog, InstrumentDialog, TimingDialog } from "@/components/app/dialog";
 import { Asset, Avatar } from "@/components/app/shared";
@@ -19,7 +23,6 @@ import { TimelineClip } from "@/features/composition/timeline-clip";
 import { canMoveClip, overlapsClip } from "@/features/composition/timeline-move";
 import { setPreviewTempo, movePreviewClip } from "@/features/preview/demo-api";
 import { isPreviewMode } from "@/features/preview/preview-mode";
-import "@/features/composition/studio-timeline.css";
 import { TeamPianoRoll } from "@/features/composition/team-piano-roll";
 import { createAudioClip, createDraftProject, createMidiClip, enterComposition, getComposition, getExport, getPendingContributions, publishComposition, reviewContribution, saveMidiClip, submitContribution, updateProjectMetadata, uploadMedia, type CompositionDto, type MidiNoteDto } from "@/lib/api/composition";
 
@@ -44,29 +47,29 @@ export function StudioToolbar({ title, bpm, playing, positionMs, onPlay, onPause
   const [volumeOpen, setVolumeOpen] = useState(false);
   const [instrumentOpen, setInstrumentOpen] = useState(false);
   const [timing, setTiming] = useState<"bpm" | "beat" | null>(null);
-  const masterVolume = <input className="studio-master-volume" type="range" min={0} max={100} value={volume ?? 20}
+  const masterVolume = <input className={studioStyles.studioMasterVolume} type="range" min={0} max={100} value={volume ?? 20}
     onChange={(event) => onVolume?.(Number(event.target.value))} disabled={!onVolume}
     aria-label="마스터 볼륨" aria-valuetext={`${volume ?? 20}%`} />;
-  return <div className={`studio-toolbar ${piano ? "team-original-toolbar" : ""}`}>
-    <div className="studio-transport">
+  return <div className={cn(studioStyles.studioToolbar, piano ? "team-original-toolbar" : "")}>
+    <div className={studioStyles.studioTransport}>
       <button onClick={onBack} aria-label="뒤로"><Asset name="return.svg" /></button>
-      <button onClick={playing ? onPause : onPlay} aria-label={playing ? "일시정지" : "재생"}>{playing ? <span className="pause-symbol" /> : <Asset name="play.svg" />}</button>
-      <button className="studio-metronome" aria-label="메트로놈" aria-pressed={metronome ?? false} onClick={onMetronome}><Asset name="metronome.svg" /></button>
+      <button onClick={playing ? onPause : onPlay} aria-label={playing ? "일시정지" : "재생"}>{playing ? <span className={sharedStyles.pauseSymbol} /> : <Asset name="play.svg" />}</button>
+      <button className={studioStyles.studioMetronome} aria-label="메트로놈" aria-pressed={metronome ?? false} onClick={onMetronome}><Asset name="metronome.svg" /></button>
     </div>
-    <strong className="sr-only">{title}</strong>
-    <div className="studio-readouts">
-      <button className="studio-timing" onClick={() => setTiming("bpm")} aria-label="bpm 설정"><small>bpm</small>{bpm}</button>
-      <button className="studio-timing" onClick={() => setTiming("beat")} aria-label="박자 설정"><small>beat</small>{signature.numerator}/{signature.denominator}</button>
+    <strong className={"sr-only"}>{title}</strong>
+    <div className={studioStyles.studioReadouts}>
+      <button className={studioStyles.studioTiming} onClick={() => setTiming("bpm")} aria-label="bpm 설정"><small>bpm</small>{bpm}</button>
+      <button className={studioStyles.studioTiming} onClick={() => setTiming("beat")} aria-label="박자 설정"><small>beat</small>{signature.numerator}/{signature.denominator}</button>
       <span><small>time</small>{`00:${clockTime(positionMs)}`}</span>
-      {onImportSource&&<button className="midi-import-trigger" aria-label="오픈소스 추가" onClick={onImportSource}><span aria-hidden="true">+</span><span>오픈소스</span></button>}
-      {piano && <button className="studio-view-switch" aria-label="악기 선택" onClick={() => setInstrumentOpen(true)}><Asset name="studio-switch-down.svg" /><Asset name="studio-switch-up.svg" /></button>}
+      {onImportSource&&<button className={studioStyles.midiImportTrigger} aria-label="오픈소스 추가" onClick={onImportSource}><span aria-hidden="true">+</span><span>오픈소스</span></button>}
+      {piano && <button className={studioStyles.studioViewSwitch} aria-label="악기 선택" onClick={() => setInstrumentOpen(true)}><Asset name="studio-switch-down.svg" /><Asset name="studio-switch-up.svg" /></button>}
     </div>
-    <div className="studio-volume"><button className="studio-volume-trigger" aria-label="음량 설정" onClick={() => setVolumeOpen(true)}><Asset name="sound.svg" /></button>{masterVolume}</div>
+    <div className={studioStyles.studioVolume}><button className={studioStyles.studioVolumeTrigger} aria-label="음량 설정" onClick={() => setVolumeOpen(true)}><Asset name="sound.svg" /></button>{masterVolume}</div>
     {volumeOpen && <VolumeDialog value={volume ?? 20} onChange={value => onVolume?.(value)} onClose={() => setVolumeOpen(false)} />}
     {instrumentOpen && <InstrumentDialog onClose={() => setInstrumentOpen(false)} />}
     {timing && <TimingDialog signature={signature} onSignature={onSignature} bpm={bpm} beat={timing === "beat"} onChange={onBpm} onClose={() => setTiming(null)} />}
     {!piano && children}
-    {piano && <><button className="studio-add" aria-label={addLabel} disabled={!onAdd} onClick={onAdd}><i /></button></>}
+    {piano && <><button className={studioStyles.studioAdd} aria-label={addLabel} disabled={!onAdd} onClick={onAdd}><i /></button></>}
   </div>;
 }
 
@@ -91,9 +94,9 @@ function NewProject({ onCreated, onResume }: { onCreated: (id: number) => void; 
     } catch (cause) { setError(errorText(cause)); }
     finally { setBusy(false); }
   }
-  return <form className="project-create" onSubmit={start}>
-    <label className="project-title-field">음악명<input aria-label="음악명" value={title} onChange={event => setTitle(event.target.value)} maxLength={100} required /></label>
-    <label className="project-artwork-field">앨범<span className="project-artwork-picker">
+  return <form className={sharedStyles.projectCreate} onSubmit={start}>
+    <label className={sharedStyles.projectTitleField}>음악명<input aria-label="음악명" value={title} onChange={event => setTitle(event.target.value)} maxLength={100} required /></label>
+    <label className={"project-artwork-field"}>앨범<span className={sharedStyles.projectArtworkPicker}>
       {imageUrl ? <img src={imageUrl} alt="선택한 앨범" width={350} height={280} /> : <><strong>앨범 추가</strong><small>JPG, PNG, WEBP 최대 100MB</small></>}
       <input type="file" accept="image/jpeg,image/png,image/webp" aria-label="앨범 추가" onChange={event => {
         const file = event.target.files?.[0]; if (!file) return;
@@ -101,9 +104,11 @@ function NewProject({ onCreated, onResume }: { onCreated: (id: number) => void; 
         setImage(file); setImageUrl(URL.createObjectURL(file)); setError(null);
       }} />
     </span></label>
-    {error && <p className="project-error" role="alert">{error}</p>}
-    <div className="project-create-actions"><button className="purple-pill" type="submit" disabled={busy || !title.trim()}>{busy ? "만드는 중…" : "입력 완료"}</button>
-    {savedDraftId && <button className="resume-draft" type="button" onClick={() => onResume(savedDraftId)}>이전 작업 이어하기</button>}</div>
+    {error && <p className={sharedStyles.projectError} role="alert">{error}</p>}
+    <div className={sharedStyles.projectCreateActions}><button className={buttonVariants({
+  tone: "primary"
+})} type="submit" disabled={busy || !title.trim()}>{busy ? "만드는 중…" : "입력 완료"}</button>
+    {savedDraftId && <button className={sharedStyles.resumeDraft} type="button" onClick={() => onResume(savedDraftId)}>이전 작업 이어하기</button>}</div>
   </form>;
 }
 
@@ -249,27 +254,27 @@ export function StudioScreen({ go, shortId, projectId, returnToNotifications, on
   }
 
   if (shortId == null && projectId == null) return <NewProject onCreated={onDraftCreated} onResume={onProjectSelected} onBack={() => go("home")} />;
-  if (!composition) return <div className="studio studio-state" role={error ? "alert" : "status"}><p>{error ?? "작곡 데이터를 불러오는 중입니다."}</p>{error && <button onClick={onExit??(()=>shortId == null ? go("home") : onReturnToShort(shortId))}>돌아가기</button>}</div>;
+  if (!composition) return <div className={cn(studioStyles.studio, studioStyles.studioState)} role={error ? "alert" : "status"}><p>{error ?? "작곡 데이터를 불러오는 중입니다."}</p>{error && <button onClick={onExit??(()=>shortId == null ? go("home") : onReturnToShort(shortId))}>돌아가기</button>}</div>;
   const { project, tracks, viewerPermission } = composition;
   const timelineWidth = project.maxTick / Math.max(1, project.ppq / 2) * 20;
   const canSubmit = shouldShowContributionSubmit(shortId, viewerPermission, tracks);
   const canPublish = shouldOfferSongPublish(shortId, viewerPermission, tracks);
   const layerCreationAllowed = canCreateLayer(viewerPermission, tracks,shortId===null);
-  return <div className="studio">
+  return <div className={studioStyles.studio}>
     <StudioToolbar signature={playback.signature} onSignature={viewerPermission.canEdit?value=>{playback.pause();playback.setSignature(value);}:undefined} title={project.title} bpm={project.bpm} playing={playback.playing} positionMs={playback.positionMs}
       onPlay={() => { void playback.play(); }} onPause={playback.pause} volume={playback.volume} onVolume={playback.setVolume} metronome={playback.metronome} onMetronome={() => playback.setMetronome(value => !value)} onBpm={isPreviewMode() && shortId == null ? bpm => { playback.pause(); setComposition(setPreviewTempo(composition.project.projectId, bpm)); } : undefined}
       onImportSource={layerCreationAllowed?()=>{playback.pause();setShowSources(true);}:undefined}
       onBack={onExit??(() => returnToNotifications ? go("notifications") : shortId == null ? go("home") : onReturnToShort(shortId))}>
-      {canSubmit ? <button className="studio-submit" onClick={() => { setError(null); setShowSubmitForm(true); }} disabled={busy}>제출하기</button>
-        : <button className="studio-add" onClick={canPublish ? requestPublish : onAddLayer} disabled={busy || (!(shortId == null && viewerPermission.canExport) && !layerCreationAllowed)} aria-label={canPublish ? "곡 올리기" : "레이어 추가"}
+      {canSubmit ? <button className={studioStyles.studioSubmit} onClick={() => { setError(null); setShowSubmitForm(true); }} disabled={busy}>제출하기</button>
+        : <button className={studioStyles.studioAdd} onClick={canPublish ? requestPublish : onAddLayer} disabled={busy || (!(shortId == null && viewerPermission.canExport) && !layerCreationAllowed)} aria-label={canPublish ? "곡 올리기" : "레이어 추가"}
           title={!layerCreationAllowed && viewerPermission.canContribute ? "한 곡에는 하나의 레이어만 만들 수 있습니다." : undefined}><i /></button>}
     </StudioToolbar>
-    {error && !showSubmitForm && <p className="studio-error" role="alert">{error}</p>}
-    {status && <div className="studio-workflow">
+    {error && !showSubmitForm && <p className={studioStyles.studioError} role="alert">{error}</p>}
+    {status && <div className={studioStyles.studioWorkflow}>
 
       {status && <span role="status">{status}</span>}
     </div>}
-    {showSubmitForm && <form className="studio-publish-form studio-submit-form" onSubmit={(event) => { void submitDrafts(event); }} role="dialog" aria-modal="true" aria-labelledby="submit-heading">
+    {showSubmitForm && <form className={cn(studioStyles.studioPublishForm, "studio-submit-form")} onSubmit={(event) => { void submitDrafts(event); }} role="dialog" aria-modal="true" aria-labelledby="submit-heading">
       <h2 id="submit-heading">작업 제출</h2>
       <p>추가한 레이어를 원곡자에게 보냅니다. 승인되면 숏폼에 반영됩니다.</p>
       <label>한 줄 코멘트<input value={submitComment} onChange={(event) => setSubmitComment(event.target.value)} maxLength={120} required placeholder="어떤 작업을 추가했나요?" autoFocus /></label>
@@ -277,14 +282,14 @@ export function StudioScreen({ go, shortId, projectId, returnToNotifications, on
       <div><button type="button" onClick={() => { setShowSubmitForm(false); setError(null); }} disabled={busy}>취소</button><button type="submit" disabled={busy || !submitComment.trim()}>{busy ? "제출 중..." : "제출하기"}</button></div>
     </form>}
     {showPublishConfirmation && <PublishConfirmation onClose={() => setShowPublishConfirmation(false)} onConfirm={() => { setShowPublishConfirmation(false); void publish(); }} />}
-    {showPublishForm && <form className="studio-publish-form" onSubmit={finishMetadata}>
+    {showPublishForm && <form className={studioStyles.studioPublishForm} onSubmit={finishMetadata}>
       <h2>곡 올리기</h2><p>곡 제목을 등록하세요. 앨범 이미지는 선택사항입니다.</p>
       <label>곡 제목<input value={publishTitle} onChange={(event) => setPublishTitle(event.target.value)} required maxLength={100} /></label>
       <label>앨범 이미지 (선택)<input type="file" accept="image/png,image/jpeg,image/webp,image/gif" onChange={(event) => setPublishImage(event.target.files?.[0] ?? null)} /></label>
       <div><button type="button" onClick={() => setShowPublishForm(false)}>취소</button><button disabled={busy} type="submit">{busy ? "저장 중..." : "정보 저장"}</button></div>
     </form>}
-    {pendingAudio && <div className="studio-audio-dialog" role="dialog" aria-modal="true" aria-labelledby="audio-trim-heading">
-      <div className="studio-audio-dialog-content">
+    {pendingAudio && <div className={studioStyles.studioAudioDialog} role="dialog" aria-modal="true" aria-labelledby="audio-trim-heading">
+      <div className={studioStyles.studioAudioDialogContent}>
         <h2 id="audio-trim-heading">파일 구간 선택</h2>
         <p>{pendingAudio.file.name}</p>
         <AudioTrimPicker url={pendingAudio.url} saveLabel="선택 구간을 레이어에 저장"
@@ -297,22 +302,22 @@ export function StudioScreen({ go, shortId, projectId, returnToNotifications, on
     </div>}
     {trackSettingsId !== null && (() => { const selected = tracks.find(track => track.trackId === trackSettingsId); return selected ? <VolumeDialog track={selected} value={playback.trackVolumes[selected.trackId] ?? selected.volume} onChange={value => playback.setTrackVolume(selected.trackId, value)} onClose={() => setTrackSettingsId(null)} /> : null; })()}
     {showSources&&<StudioSourceDialog onClose={()=>setShowSources(false)} onResource={async resource=>{await onImportResource(resource);setComposition(await getComposition(project.projectId));setShowSources(false);}} onAudio={async source=>{await onImportAudio(source);setComposition(await getComposition(project.projectId));setShowSources(false);}}/>}
-    <div className="timeline" style={{ "--timeline-lanes": tracks.length } as CSSProperties}><div className="timeline-content" style={{ minWidth: 98 + timelineWidth }}>
-      <div className="ruler" style={{ width: timelineWidth }} role="slider" tabIndex={0} aria-label="타임라인 재생 위치" aria-valuemin={0} aria-valuemax={project.maxDurationMs} aria-valuenow={Math.round(playback.positionMs)}
+    <div className={studioStyles.timeline} style={{ "--timeline-lanes": tracks.length } as CSSProperties}><div className={studioStyles.timelineContent} style={{ minWidth: 98 + timelineWidth }}>
+      <div className={studioStyles.ruler} style={{ width: timelineWidth }} role="slider" tabIndex={0} aria-label="타임라인 재생 위치" aria-valuemin={0} aria-valuemax={project.maxDurationMs} aria-valuenow={Math.round(playback.positionMs)}
         onPointerDown={event => { const bounds = logicalBounds(event.currentTarget); playback.seek(Math.max(0, Math.min(project.maxDurationMs, (pointerAxes(event.currentTarget, event).x - bounds.left) / bounds.width * project.maxDurationMs))); }}
         onKeyDown={event => { if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return; event.preventDefault(); playback.seek(event.key === "Home" ? 0 : event.key === "End" ? project.maxDurationMs : Math.max(0, Math.min(project.maxDurationMs, playback.positionMs + (event.key === "ArrowRight" ? 1 : -1) * 30000 / project.bpm))); }}>
         <MusicalRuler signature={playback.signature} width={timelineWidth}/></div>
-      <div className="timeline-sidebar-fill" aria-hidden="true" />
-      <div className="studio-playhead" hidden={!playback.playing && playback.positionMs === 0} style={{ left: `${98 + playback.positionMs / project.maxDurationMs * timelineWidth}px` }} />
-      <div className="timeline-grid-fill" aria-hidden="true" style={{width: timelineWidth,backgroundImage:`repeating-linear-gradient(to bottom,transparent 0 42px,var(--black) 42px 46px),${musicalGridBackground(playback.signature)},repeating-linear-gradient(to bottom,var(--grid-cell) 0 1px,var(--grid-row) 1px 41px,var(--grid-cell) 41px 42px,var(--black) 42px 46px,var(--grid-cell) 46px 47px,var(--grid-row-alt) 47px 87px,var(--grid-cell) 87px 88px,var(--black) 88px 92px)`}} />
-      {tracks.map((track) => <div className="track studio-track" key={track.trackId}>
-        <div className="track-person" title={track.name}><button className="track-settings-trigger" aria-label={`${track.name} 트랙 설정`} onClick={() => setTrackSettingsId(track.trackId)}><Avatar /></button><button aria-label={`${track.name} ${playback.mutedTrackIds.has(track.trackId) ? "소리 켜기" : "음소거"}`} aria-pressed={playback.mutedTrackIds.has(track.trackId)} onClick={() => playback.toggleTrackMute(track.trackId)}><Asset name={playback.mutedTrackIds.has(track.trackId) ? "sound-muted.svg" : "sound.svg"} /></button></div>
-        <div className="studio-track-clips" style={{ width: timelineWidth, flexBasis: timelineWidth }}>{track.clips.map((clip) => <TimelineClip key={clip.clipId} clip={clip} name={track.name} color="var(--purple)" maxTick={project.maxTick} stepTick={project.ppq*2/playback.signature.denominator} cellPx={signatureGrid(playback.signature).cellPx} movable={!busy&&canMoveClip(viewerPermission,clip)&&(isPreviewMode()||clip.clipType==="MIDI")}
+      <div className={studioStyles.timelineSidebarFill} aria-hidden="true" />
+      <div className={studioStyles.studioPlayhead} hidden={!playback.playing && playback.positionMs === 0} style={{ left: `${98 + playback.positionMs / project.maxDurationMs * timelineWidth}px` }} />
+      <div className={studioStyles.timelineGridFill} aria-hidden="true" style={{width: timelineWidth,backgroundImage:`repeating-linear-gradient(to bottom,transparent 0 42px,var(--black) 42px 46px),${musicalGridBackground(playback.signature)},repeating-linear-gradient(to bottom,var(--grid-cell) 0 1px,var(--grid-row) 1px 41px,var(--grid-cell) 41px 42px,var(--black) 42px 46px,var(--grid-cell) 46px 47px,var(--grid-row-alt) 47px 87px,var(--grid-cell) 87px 88px,var(--black) 88px 92px)`}} />
+      {tracks.map((track) => <div className={cn(sharedStyles.track, studioStyles.studioTrack)} key={track.trackId}>
+        <div className={studioStyles.trackPerson} title={track.name}><button className={"track-settings-trigger"} aria-label={`${track.name} 트랙 설정`} onClick={() => setTrackSettingsId(track.trackId)}><Avatar /></button><button aria-label={`${track.name} ${playback.mutedTrackIds.has(track.trackId) ? "소리 켜기" : "음소거"}`} aria-pressed={playback.mutedTrackIds.has(track.trackId)} onClick={() => playback.toggleTrackMute(track.trackId)}><Asset name={playback.mutedTrackIds.has(track.trackId) ? "sound-muted.svg" : "sound.svg"} /></button></div>
+        <div className={studioStyles.studioTrackClips} style={{ width: timelineWidth, flexBasis: timelineWidth }}>{track.clips.map((clip) => <TimelineClip key={clip.clipId} clip={clip} name={track.name} color="var(--purple)" maxTick={project.maxTick} stepTick={project.ppq*2/playback.signature.denominator} cellPx={signatureGrid(playback.signature).cellPx} movable={!busy&&canMoveClip(viewerPermission,clip)&&(isPreviewMode()||clip.clipType==="MIDI")}
           onError={setError} onSelect={()=>setTrackSettingsId(track.trackId)} onEdit={clip.clipType==="MIDI"&&clip.ownerId===viewerPermission.userId?()=>onEditTrack(track.trackId,clip.clipId):undefined}
           onMove={async startTick=>{if(overlapsClip(clip,startTick,track.clips))throw new Error("같은 레이어의 다른 클립과 겹칠 수 없습니다.");playback.pause();setBusy(true);setError(null);try{let updated;if(isPreviewMode())updated=movePreviewClip(project.projectId,clip.clipId,startTick);else{await saveMidiClip(clip.clipId,startTick,clip.durationTick,clip.midiNotes);updated=await getComposition(project.projectId);}setComposition(updated);rememberWork(updated,shortId);}finally{setBusy(false);}}}/>)}</div>
-        {track.ownerId === viewerPermission.userId && <div className="studio-track-actions">
+        {track.ownerId === viewerPermission.userId && <div className={studioStyles.studioTrackActions}>
           {track.instrument && <button onClick={() => onEditTrack(track.trackId, null)}>+ 노트</button>}
-          <label className="studio-upload">+ 파일<input type="file" accept="audio/wav,audio/x-wav,audio/wave,audio/mpeg,audio/mp4,audio/flac" disabled={busy || !viewerPermission.canContribute}
+          <label className={studioStyles.studioUpload}>+ 파일<input type="file" accept="audio/wav,audio/x-wav,audio/wave,audio/mpeg,audio/mp4,audio/flac" disabled={busy || !viewerPermission.canContribute}
             onChange={(event) => { const file = event.target.files?.[0]; if (file) setPendingAudio({ trackId: track.trackId, file, url: URL.createObjectURL(file) }); event.target.value = ""; }} /></label>
         </div>}
       </div>)}
@@ -375,8 +380,8 @@ export function NoteEditorScreen({ projectId, trackId, clipId, onBack, onImportR
     finally { setBusy(false); }
   }
 
-  if (!composition || !track) return <div className="studio studio-state" role={error ? "alert" : "status"}>{error ?? (projectId == null || trackId == null ? "편집할 MIDI를 작곡 화면에서 먼저 선택해주세요." : composition ? "선택한 MIDI 레이어를 찾을 수 없습니다." : "피아노롤을 불러오는 중입니다.")}<button onClick={onBack}>돌아가기</button></div>;
-  return <div className="studio note-editor">
+  if (!composition || !track) return <div className={cn(studioStyles.studio, studioStyles.studioState)} role={error ? "alert" : "status"}>{error ?? (projectId == null || trackId == null ? "편집할 MIDI를 작곡 화면에서 먼저 선택해주세요." : composition ? "선택한 MIDI 레이어를 찾을 수 없습니다." : "피아노롤을 불러오는 중입니다.")}<button onClick={onBack}>돌아가기</button></div>;
+  return <div className={cn(studioStyles.studio, "note-editor")}>
     <StudioToolbar signature={playback.signature} onSignature={composition.viewerPermission.canEdit?value=>{playback.pause();playback.setSignature(value);}:undefined} title={`${track.name} · 피아노롤`} bpm={composition.project.bpm} playing={playback.playing} positionMs={playback.positionMs}
       onPlay={() => { void playback.play(); }} onPause={playback.pause} onBack={() => { if (editable) void save(); else onBack(); }}
       piano volume={playback.volume} onVolume={playback.setVolume} metronome={playback.metronome} onMetronome={() => playback.setMetronome(value => !value)} onBpm={isPreviewMode() ? bpm => { playback.pause(); setComposition(setPreviewTempo(composition.project.projectId, bpm)); } : undefined}
@@ -384,8 +389,8 @@ export function NoteEditorScreen({ projectId, trackId, clipId, onBack, onImportR
       onAdd={() => { if (editable) void save(); else onBack(); }}>
 
     </StudioToolbar>
-    {error && <p className="studio-error" role="alert">{error}</p>}
-    {!editable && <p className="studio-error">다른 참여자의 MIDI는 수정할 수 없습니다. 새 클립을 만들어 주세요.</p>}
+    {error && <p className={studioStyles.studioError} role="alert">{error}</p>}
+    {!editable && <p className={studioStyles.studioError}>다른 참여자의 MIDI는 수정할 수 없습니다. 새 클립을 만들어 주세요.</p>}
     {showSources&&<StudioSourceDialog midiOnly onClose={()=>setShowSources(false)} onAudio={async()=>{throw new Error("피아노롤에는 MIDI 노트만 추가할 수 있습니다.");}} onResource={async resource=>{await onImportResource(resource);const latest=await getComposition(composition.project.projectId);const updatedTrack=latest.tracks.find(item=>item.trackId===track.trackId);const updatedClip=updatedTrack?.clips.find(item=>item.clipId===clipId&&item.clipType==="MIDI")??updatedTrack?.clips.find(item=>item.clipType==="MIDI");setComposition(latest);setNotes(updatedClip?.midiNotes??[]);setShowSources(false);}}/>}
     {noteSettingsIndex !== null && notes[noteSettingsIndex] && <NoteSettingsDialog note={notes[noteSettingsIndex]} instrument={track.instrument} stepTick={stepTick} maxTick={maxTick - clipStartTick} onClose={() => setNoteSettingsIndex(null)} onChange={updated => setNotes(current => { if (current.some((note,index) => index !== noteSettingsIndex && note.pitch === updated.pitch && updated.startTick < note.startTick + note.durationTick && updated.startTick + updated.durationTick > note.startTick)) return current; return current.map((note,index) => index === noteSettingsIndex ? updated : note); })} />}
     <TeamPianoRoll signature={playback.signature} onSettings={setNoteSettingsIndex} notes={notes} setNotes={setNotes} stepTick={stepTick}

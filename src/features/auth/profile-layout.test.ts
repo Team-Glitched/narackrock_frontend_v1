@@ -1,19 +1,14 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
 import test from "node:test";
+import { profileStyles } from "../../styles/profile.styles.ts";
 
-const profileScreen = readFileSync(
-  new URL("../profile/profile-screens.tsx", import.meta.url),
-  "utf8",
-);
-const globalStyles = readFileSync(
-  new URL("../../app/globals.css", import.meta.url),
-  "utf8",
-);
+const tokens = (value: string) => new Set(value.split(/\s+/));
 
 test("keeps the profile image overlay centered inside the avatar", () => {
-  assert.match(profileScreen, /className="edit-avatar-visual"/);
-  assert.match(profileScreen, /className="edit-avatar-overlay"/);
-  assert.match(globalStyles, /\.edit-avatar-visual\{[^}]*position:relative[^}]*width:140px[^}]*height:140px/);
-  assert.match(globalStyles, /\.edit-avatar-overlay\{[^}]*position:absolute[^}]*inset:2px[^}]*display:grid[^}]*place-items:center/);
+  const visual = tokens(profileStyles.editAvatarVisual);
+  const overlay = tokens(profileStyles.editAvatarOverlay);
+  assert.ok(visual.has("edit-avatar-visual") && visual.has("relative"));
+  assert.ok(visual.has("h-35") && visual.has("w-35"));
+  assert.ok(overlay.has("absolute") && overlay.has("inset-[2px]"));
+  assert.ok(overlay.has("grid") && overlay.has("place-items-center"));
 });

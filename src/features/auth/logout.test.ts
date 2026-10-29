@@ -21,7 +21,6 @@ test("clears every local authentication value on logout", () => {
 });
 
 test("provides logout in account settings", () => {
-  assert.match(profileScreen, /className="profile-logout"/);
   assert.match(profileScreen, />로그아웃<\/button>/);
   assert.match(profileScreen, /onClick=\{logout\}/);
 });

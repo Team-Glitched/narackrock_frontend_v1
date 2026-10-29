@@ -1,3 +1,6 @@
+import { communityStyles } from "@/styles/community.styles";
+import { buttonVariants } from "@/styles/variants";
+import { sharedStyles } from "@/styles/shared.styles";
 import { useState } from "react";
 import type { PostSort } from "@/lib/api/contracts";
 
@@ -36,9 +39,9 @@ export function PostListControls({ sort, onSortChange, keyword, onKeywordChange 
   const submit = () => onKeywordChange(draft.trim() || null);
 
   return (
-    <div className="post-list-controls">
+    <div className={communityStyles.postListControls}>
       <form
-        className="post-search"
+        className={communityStyles.postSearch}
         role="search"
         onSubmit={event => { event.preventDefault(); submit(); }}
       >
@@ -49,16 +52,19 @@ export function PostListControls({ sort, onSortChange, keyword, onKeywordChange 
           value={draft}
           onChange={event => setDraft(event.target.value)}
         />
-        <button type="submit" className="gray-pill compact">검색</button>
+        <button type="submit" className={buttonVariants({
+  tone: "secondary",
+  size: "compact"
+})}>검색</button>
       </form>
 
-      <div className="post-sort" role="group" aria-label="게시글 정렬">
+      <div className={communityStyles.postSort} role="group" aria-label="게시글 정렬">
         {SORT_LABELS.map(option => (
           <button
             key={option.value}
             type="button"
             aria-pressed={sort === option.value}
-            className={sort === option.value ? "active" : ""}
+            className={sort === option.value ? sharedStyles.active : ""}
             onClick={() => onSortChange(option.value)}
           >
             {option.label}
@@ -67,9 +73,12 @@ export function PostListControls({ sort, onSortChange, keyword, onKeywordChange 
       </div>
 
       {keyword && (
-        <p className="post-search-active">
+        <p className={communityStyles.postSearchActive}>
           ‘{keyword}’ 검색 결과
-          <button type="button" className="gray-pill compact" onClick={() => onKeywordChange(null)}>검색 해제</button>
+          <button type="button" className={buttonVariants({
+  tone: "secondary",
+  size: "compact"
+})} onClick={() => onKeywordChange(null)}>검색 해제</button>
         </p>
       )}
     </div>

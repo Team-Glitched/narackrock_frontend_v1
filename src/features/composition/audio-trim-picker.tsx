@@ -1,3 +1,7 @@
+import { studioStyles } from "@/styles/studio.styles";
+import { sharedStyles } from "@/styles/shared.styles";
+import { cn } from "@/lib/utils";
+import { buttonVariants } from "@/styles/variants";
 import { pointerAxes, logicalBounds } from "./pointer-coordinates";
 
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
@@ -114,7 +118,7 @@ export function AudioTrimPicker({ url, onSave, onCancel, saveLabel }: {
 
   const startPercent = durationMs && selection ? selection.startMs / durationMs * 100 : 0;
   const endPercent = durationMs && selection ? selection.endMs / durationMs * 100 : 0;
-  return <div className="audio-trim-picker">
+  return <div className={studioStyles.audioTrimPicker}>
     <audio ref={audioRef} src={url} preload="metadata"
       onLoadedMetadata={(event) => {
         const seconds = event.currentTarget.duration;
@@ -133,12 +137,12 @@ export function AudioTrimPicker({ url, onSave, onCancel, saveLabel }: {
         }
       }} onEnded={() => setPreviewing(false)} onPause={() => setPreviewing(false)} />
     {durationMs != null && selection ? <>
-      <div className="audio-trim-summary">
+      <div className={studioStyles.audioTrimSummary}>
         <span><strong>{formatTime(selection.endMs - selection.startMs)}</strong> 선택</span>
         <span>{formatTime(selection.startMs)} – {formatTime(selection.endMs)}</span>
       </div>
-      <div className="audio-preview-row">
-        <button type="button" className="audio-preview-toggle" onClick={() => { void togglePreview(); }}
+      <div className={sharedStyles.audioPreviewRow}>
+        <button type="button" className={sharedStyles.audioPreviewToggle} onClick={() => { void togglePreview(); }}
           aria-label={previewing ? "미리 듣기 정지" : "선택 구간 미리 듣기"}>{previewing ? "■" : "▶"}</button>
         <span>{formatTime(Math.max(selection.startMs, Math.min(currentMs, selection.endMs)))}</span>
         <input type="range" min={selection.startMs} max={selection.endMs} step={100}
@@ -148,28 +152,30 @@ export function AudioTrimPicker({ url, onSave, onCancel, saveLabel }: {
             if (audioRef.current) audioRef.current.currentTime = value / 1000;
           }} />
       </div>
-      <p className="audio-trim-guide">파형의 선택 영역을 움직이거나 양쪽 손잡이로 길이를 조절하세요. 최대 1분까지 저장할 수 있습니다.</p>
-      <div ref={waveformRef} className="audio-waveform" aria-label="오디오 구간 선택 파형"
+      <p className={studioStyles.audioTrimGuide}>파형의 선택 영역을 움직이거나 양쪽 손잡이로 길이를 조절하세요. 최대 1분까지 저장할 수 있습니다.</p>
+      <div ref={waveformRef} className={sharedStyles.audioWaveform} aria-label="오디오 구간 선택 파형"
         onPointerDown={(event) => applySelection(centerAudioSelection(selection, pointerRatio(pointerAxes(event.currentTarget, event).x) * durationMs, durationMs))}>
-        <div className="audio-waveform-bars">{peaks.map((peak, index) => <i key={index} style={{ height: `${Math.round(peak * 82)}%` }} />)}</div>
-        <div className="audio-waveform-shade left" style={{ width: `${startPercent}%` }} />
-        <div className="audio-waveform-shade right" style={{ left: `${endPercent}%` }} />
-        <div className="audio-waveform-selection" style={{ left: `${startPercent}%`, width: `${endPercent - startPercent}%` }}
+        <div className={sharedStyles.audioWaveformBars}>{peaks.map((peak, index) => <i key={index} style={{ height: `${Math.round(peak * 82)}%` }} />)}</div>
+        <div className={cn(sharedStyles.audioWaveformShade, sharedStyles.left)} style={{ width: `${startPercent}%` }} />
+        <div className={cn(sharedStyles.audioWaveformShade, sharedStyles.right)} style={{ left: `${endPercent}%` }} />
+        <div className={sharedStyles.audioWaveformSelection} style={{ left: `${startPercent}%`, width: `${endPercent - startPercent}%` }}
           onPointerDown={(event) => startDrag(event, "move")} onPointerMove={drag} onPointerUp={finishDrag} onPointerCancel={finishDrag}>
-          <button type="button" className="audio-trim-handle start" aria-label="시작 위치 조절"
+          <button type="button" className={cn(studioStyles.audioTrimHandle, sharedStyles.start)} aria-label="시작 위치 조절"
             onPointerDown={(event) => startDrag(event, "start")} onPointerMove={drag} onPointerUp={finishDrag} onPointerCancel={finishDrag}
             onKeyDown={(event) => { if (event.key === "ArrowLeft" || event.key === "ArrowRight") { event.preventDefault(); nudgeHandle("start", event.key === "ArrowLeft" ? -1 : 1); } }} />
-          <button type="button" className="audio-trim-handle end" aria-label="종료 위치 조절"
+          <button type="button" className={cn(studioStyles.audioTrimHandle, sharedStyles.end)} aria-label="종료 위치 조절"
             onPointerDown={(event) => startDrag(event, "end")} onPointerMove={drag} onPointerUp={finishDrag} onPointerCancel={finishDrag}
             onKeyDown={(event) => { if (event.key === "ArrowLeft" || event.key === "ArrowRight") { event.preventDefault(); nudgeHandle("end", event.key === "ArrowLeft" ? -1 : 1); } }} />
         </div>
       </div>
-      <div className="audio-waveform-times"><span>00:00.0</span><span>{formatTime(durationMs)}</span></div>
+      <div className={sharedStyles.audioWaveformTimes}><span>00:00.0</span><span>{formatTime(durationMs)}</span></div>
     </> : <p role="status">오디오 길이를 읽는 중입니다.</p>}
-    {error && <p className="audio-trim-error" role="alert">{error}</p>}
-    <div className="audio-trim-actions">
+    {error && <p className={studioStyles.audioTrimError} role="alert">{error}</p>}
+    <div className={studioStyles.audioTrimActions}>
       {onCancel && <button type="button" onClick={onCancel} disabled={busy}>취소</button>}
-      <button type="button" className="purple-pill" onClick={() => { void save(); }} disabled={!selection || busy}>
+      <button type="button" className={buttonVariants({
+  tone: "primary"
+})} onClick={() => { void save(); }} disabled={!selection || busy}>
         {busy ? "올리는 중..." : saveLabel}
       </button>
     </div>

@@ -1,3 +1,9 @@
+import { socialStyles } from "@/styles/social.styles";
+import { sharedStyles } from "@/styles/shared.styles";
+import { cn } from "@/lib/utils";
+import { communityStyles } from "@/styles/community.styles";
+import { buttonVariants } from "@/styles/variants";
+import { sourceStyles } from "@/styles/source.styles";
 import { useEffect, useRef, useState } from "react";
 import { Asset, Avatar } from "@/components/app/shared";
 import { MiniPost } from "./mobile-screens";
@@ -39,18 +45,21 @@ export function ScopedSearch({scope:requestedScope,community,onScope,query,onQue
     return()=>{active=false;window.clearTimeout(timer);};
   },[scope,query,key,galleryId]);
   const results=loaded?.key===key?loaded.results:null;
-  return <div className="search-view scoped-search"><div className="search-line"><button onClick={onBack} aria-label="돌아가기" title="돌아가기"><Asset name="search-back.svg"/></button><label><Asset name="search-input.svg"/><input ref={inputRef} autoFocus aria-label={community?`${community.name} 내부 게시글 검색`:`${scopes.find(item=>item.id===scope)?.label} 검색`} value={query} onChange={event=>onQuery(event.target.value)} placeholder={community?"커뮤니티 내 게시글 검색":"검색"}/><button onClick={()=>{onQuery("");inputRef.current?.focus();}} aria-label="검색어 지우기"><Asset name="search-close.svg"/></button></label></div>
-    {community&&<p className="community-search-context">{community.name} 내 게시글</p>}
-    {!community&&query.trim() && <div className="search-scope-tabs" role="tablist" aria-label="검색 종류">{scopes.map(item=><button role="tab" key={item.id} aria-selected={scope===item.id} className={scope===item.id?"active":""} onClick={()=>onScope(item.id)}>{item.label}</button>)}</div>}
-    <div className="scoped-search-results scroll-content" role="tabpanel" aria-label={community?`${community.name} 내부 검색 결과`:`${scopes.find(item=>item.id===scope)?.label} 검색 결과`}>
+  return <div className={cn(socialStyles.searchView, sharedStyles.scopedSearch)}><div className={socialStyles.searchLine}><button onClick={onBack} aria-label="돌아가기" title="돌아가기"><Asset name="search-back.svg"/></button><label><Asset name="search-input.svg"/><input ref={inputRef} autoFocus aria-label={community?`${community.name} 내부 게시글 검색`:`${scopes.find(item=>item.id===scope)?.label} 검색`} value={query} onChange={event=>onQuery(event.target.value)} placeholder={community?"커뮤니티 내 게시글 검색":"검색"}/><button onClick={()=>{onQuery("");inputRef.current?.focus();}} aria-label="검색어 지우기"><Asset name="search-close.svg"/></button></label></div>
+    {community&&<p className={communityStyles.communitySearchContext}>{community.name} 내 게시글</p>}
+    {!community&&query.trim() && <div className={socialStyles.searchScopeTabs} role="tablist" aria-label="검색 종류">{scopes.map(item=><button role="tab" key={item.id} aria-selected={scope===item.id} className={scope === item.id ? sharedStyles.active : ""} onClick={()=>onScope(item.id)}>{item.label}</button>)}</div>}
+    <div className={cn(sharedStyles.scopedSearchResults, sharedStyles.scrollContent)} role="tabpanel" aria-label={community?`${community.name} 내부 검색 결과`:`${scopes.find(item=>item.id===scope)?.label} 검색 결과`}>
       {query.trim()&&!results&&<p role="status">검색 중...</p>}
-      {loaded?.key===key&&loaded.error&&<div role="alert"><p>{loaded.error}</p><button className="gray-pill compact" onClick={()=>setRetry(value=>value+1)}>다시 시도</button></div>}
-      {results&&Object.values(results).every(items=>items.length===0)&&!loaded?.error&&<p className="search-result">검색 결과가 없습니다.</p>}
+      {loaded?.key===key&&loaded.error&&<div role="alert"><p>{loaded.error}</p><button className={buttonVariants({
+  tone: "secondary",
+  size: "compact"
+})} onClick={()=>setRetry(value=>value+1)}>다시 시도</button></div>}
+      {results&&Object.values(results).every(items=>items.length===0)&&!loaded?.error&&<p className={socialStyles.searchResult}>검색 결과가 없습니다.</p>}
       {scope==="posts"&&results?.posts.map(post=><MiniPost key={post.postId} post={post} onOpen={onPost}/>)}
-      {scope==="communities"&&<ul className="community-card-list">{results?.communities.map(gallery=><CommunityCard key={gallery.galleryId} community={galleryToCommunity(gallery)} onOpen={onCommunity}/>)}</ul>}
-      {scope==="songs"&&results?.songs.map(song=><button className="chart-row" key={song.shortId} onClick={()=>onSong(song.shortId)}><span className="chart-art">{song.albumImageUrl?<AssetImage url={song.albumImageUrl}/>:<span className="empty-artwork"/>}</span><span><strong>{song.title}</strong><small>{song.author.nickname}</small></span></button>)}
-      {scope==="people"&&results?.people.map(person=><button className="person-link search-person" key={person.userId} onClick={()=>onProfile(person.userId)}><Avatar src={person.profileImageUrl}/><strong>{person.nickname}</strong></button>)}
-      {scope==="sources"&&results?.sources.map(source=><button className="os-card" key={source.id} onClick={()=>onSource(source.id)}><strong>{source.title}</strong><small>{source.author}</small></button>)}
+      {scope==="communities"&&<ul className={communityStyles.communityCardList}>{results?.communities.map(gallery=><CommunityCard key={gallery.galleryId} community={galleryToCommunity(gallery)} onOpen={onCommunity}/>)}</ul>}
+      {scope==="songs"&&results?.songs.map(song=><button className={sharedStyles.chartRow} key={song.shortId} onClick={()=>onSong(song.shortId)}><span className={sharedStyles.chartArt}>{song.albumImageUrl?<AssetImage url={song.albumImageUrl}/>:<span className={sharedStyles.emptyArtwork}/>}</span><span><strong>{song.title}</strong><small>{song.author.nickname}</small></span></button>)}
+      {scope==="people"&&results?.people.map(person=><button className={cn(socialStyles.personLink, socialStyles.searchPerson)} key={person.userId} onClick={()=>onProfile(person.userId)}><Avatar src={person.profileImageUrl}/><strong>{person.nickname}</strong></button>)}
+      {scope==="sources"&&results?.sources.map(source=><button className={sourceStyles.osCard} key={source.id} onClick={()=>onSource(source.id)}><strong>{source.title}</strong><small>{source.author}</small></button>)}
     </div>
   </div>;
 }

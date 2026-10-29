@@ -1,4 +1,4 @@
-> 현재 프론트엔드는 React + Vite로 전환되었습니다. 실행 방법과 진입점은 README.md를 확인하세요. 아래는 전환 이전의 작업 이력입니다.
+> 현재 프론트엔드는 React + Vite + React Router를 사용하며, 스타일은 Tailwind TS 토큰·variant·프리셋으로 관리합니다. 실행 방법과 진입점은 README.md를 확인하세요. 아래는 전환 이전의 작업 이력입니다.
 
 # Narackrock Frontend 작업 컨텍스트
 

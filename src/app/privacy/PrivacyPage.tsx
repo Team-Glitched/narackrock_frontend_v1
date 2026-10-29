@@ -1,4 +1,4 @@
-import styles from "./privacy.module.css";
+import { Link } from "react-router";
 
 const sections = [
   {
@@ -86,19 +86,19 @@ const sections = [
 
 export default function PrivacyPage() {
   return (
-    <main className={styles.page}>
-      <article className={styles.document}>
-        <header className={styles.header}>
-          <a className={styles.brand} href="/" aria-label="Narackrock 홈으로 이동">Narackrock</a>
-          <p className={styles.eyebrow}>PRIVACY POLICY</p>
-          <h1>개인정보처리방침</h1>
-          <p className={styles.intro}>
+    <main className="min-h-svh bg-[#111] bg-[radial-gradient(circle_at_50%_-10%,rgba(76,0,229,0.28),transparent_36rem)] px-5 py-16 text-app-fg max-[600px]:bg-app-bg max-[600px]:bg-none max-[600px]:p-0">
+      <article className="mx-auto w-full max-w-[760px] rounded-3xl border border-solid border-[#aab6c2]/20 bg-[#1d1d1d]/96 p-12 shadow-[0_24px_80px_#00000059] max-[600px]:rounded-none max-[600px]:border-0 max-[600px]:px-5 max-[600px]:py-8 max-[600px]:shadow-none">
+        <header className="border-b border-solid border-[#aab6c2]/20 pb-8">
+          <Link className="mb-12 inline-block text-title font-extrabold text-[#8d5aff] no-underline max-[600px]:mb-10" to="/" aria-label="Narackrock 홈으로 이동">Narackrock</Link>
+          <p className="m-0 mb-2 text-caption font-bold tracking-[0.16em] text-[#9b76ff]">PRIVACY POLICY</p>
+          <h1 className="m-0 text-[clamp(32px,6vw,48px)] leading-[1.2] tracking-[-0.04em]">개인정보처리방침</h1>
+          <p className="m-0 mt-5 max-w-[600px] text-label leading-[1.75] text-[#c8d0d8]">
             Narackrock은 이용자의 개인정보를 소중하게 다루며, 서비스 제공에 필요한 범위에서만 처리합니다.
           </p>
-          <p className={styles.date}>시행일: 2026년 9월 30일</p>
+          <p className="m-0 mt-4 text-body text-[#8e99a4]">시행일: 2026년 9월 30일</p>
         </header>
 
-        <div className={styles.sections}>
+        <div className="grid gap-9 py-10 [&>section]:scroll-mt-6 [&_h2]:m-0 [&_h2]:mb-3 [&_h2]:text-title [&_h2]:leading-[1.5] [&_h2]:text-app-fg [&_p]:m-0 [&_p]:text-label [&_p]:leading-[1.8] [&_p]:text-app-muted [&_p]:break-keep [&_ul]:m-0 [&_ul]:pl-[22px] [&_li]:text-label [&_li]:leading-[1.8] [&_li]:text-app-muted [&_li]:break-keep [&_li+li]:mt-[6px] [&_a]:text-[#a989ff] [&_a]:underline-offset-[3px]">
           {sections.map((section) => (
             <section key={section.title}>
               <h2>{section.title}</h2>
@@ -107,9 +107,9 @@ export default function PrivacyPage() {
           ))}
         </div>
 
-        <footer className={styles.footer}>
+        <footer className="flex items-center justify-between gap-5 border-t border-solid border-[#aab6c2]/20 pt-6 text-body text-[#8e99a4] [&>p]:m-0 [&>a]:flex-none [&>a]:text-[#a989ff] [&>a]:underline-offset-[3px] max-[600px]:flex-col max-[600px]:items-start">
           <p>본 방침의 내용이 변경되는 경우 이 페이지를 통해 안내합니다.</p>
-          <a href="/">Narackrock으로 돌아가기</a>
+          <Link to="/">Narackrock으로 돌아가기</Link>
         </footer>
       </article>
     </main>

@@ -1,3 +1,7 @@
+import { sharedStyles } from "@/styles/shared.styles";
+import { cn } from "@/lib/utils";
+import { studioStyles } from "@/styles/studio.styles";
+import { buttonVariants } from "@/styles/variants";
 import { useEffect, useRef, useState } from "react";
 import { Asset } from "@/components/app/shared";
 import { AudioTrimPicker } from "@/features/composition/audio-trim-picker";
@@ -12,17 +16,17 @@ export function CompositionChoiceScreen({ onChoose, busy, error }: {
   busy: boolean;
   error: string | null;
 }) {
-  return <div className="choose-view scroll-content">
+  return <div className={cn(sharedStyles.chooseView, sharedStyles.scrollContent)}>
 
     {error && <p role="alert">{error}</p>}
     {([
       { method: "upload", label: "업로드", description: "오디오 파일을 불러와 레이어로 추가합니다.", image: "choose-upload.png" },
       { method: "record", label: "녹음", description: "연주나 목소리를 직접 녹음합니다.", image: "choose-record.png" },
       { method: "note", label: "피아노롤", description: "노트를 배치해 멜로디를 만듭니다.", image: "choose-piano.png" },
-    ] as const).map((item) => <button className="creation-choice" key={item.method}
+    ] as const).map((item) => <button className={sharedStyles.creationChoice} key={item.method}
       disabled={busy} onClick={() => onChoose(item.method)}>
-      <span className="creation-choice-copy"><strong>{item.label}</strong><span>{item.description}</span></span>
-      {item.method==="note"?<div className="creation-piano-preview" aria-hidden="true"><span className="creation-piano-keys"/>{Array.from({length:6},(_,index)=><i key={index}/>)}</div>:<Asset name={item.image} />}
+      <span className={sharedStyles.creationChoiceCopy}><strong>{item.label}</strong><span>{item.description}</span></span>
+      {item.method==="note"?<div className={sharedStyles.creationPianoPreview} aria-hidden="true"><span className={sharedStyles.creationPianoKeys}/>{Array.from({length:6},(_,index)=><i key={index}/>)}</div>:<Asset name={item.image} />}
     </button>)}
   </div>;
 }
@@ -35,9 +39,9 @@ export function CompositionUploadScreen({ onSave,saveLabel="선택 구간을 레
 }) {
   const [selected, setSelected] = useState<{ file: File; url: string } | null>(null);
   useEffect(() => () => { if (selected) URL.revokeObjectURL(selected.url); }, [selected]);
-  return <div className={`upload-view scroll-content${selected ? " has-audio" : ""}`}>
+  return <div className={cn(cn(sharedStyles.uploadView, sharedStyles.scrollContent), selected ? " has-audio" : "")}>
 
-    <label className="upload-area"><Asset name="audio-upload-large.svg" /><span>{selected?.file.name || "업로드 파일 선택"}</span>
+    <label className={sharedStyles.uploadArea}><Asset name="audio-upload-large.svg" /><span>{selected?.file.name || "업로드 파일 선택"}</span>
       <input type="file" accept="audio/wav,audio/x-wav,audio/wave,audio/mpeg,audio/mp4,audio/flac"
         onChange={(event) => {
           const selected = event.target.files?.[0] ?? null;
@@ -109,19 +113,23 @@ export function CompositionRecordScreen({ onSave, onTransform,saveLabel="레이�
     catch (cause) { setError(cause instanceof Error ? cause.message : "녹음을 MIDI로 변환하지 못했습니다."); }
     finally { setPending(false); }
   }
-  return <div className="record-view scroll-content">
+  return <div className={cn(studioStyles.recordView, sharedStyles.scrollContent)}>
 
-    <Asset name="metronome-large.svg" className="record-symbol" />
-    <div className="record-output">
+    <Asset name="metronome-large.svg" className={studioStyles.recordSymbol} />
+    <div className={studioStyles.recordOutput}>
       {error && <p role="alert">{error}</p>}
       {url && <audio controls src={url} />}
       <p role="status">{recording ? "녹음 중" : pending ? pendingLabel : file ? "녹음 완료" : ""}</p>
-      {file && <div className="record-actions">
-        <button className="purple-pill" disabled={pending} onClick={() => { void save(); }}>{saveLabel}</button>
-        {onTransform&&<button className="gray-pill" disabled={pending} onClick={() => { void transform(); }}>HTI로 MIDI 변환</button>}
+      {file && <div className={studioStyles.recordActions}>
+        <button className={buttonVariants({
+  tone: "primary"
+})} disabled={pending} onClick={() => { void save(); }}>{saveLabel}</button>
+        {onTransform&&<button className={buttonVariants({
+  tone: "secondary"
+})} disabled={pending} onClick={() => { void transform(); }}>HTI로 MIDI 변환</button>}
       </div>}
     </div>
-    <button className="record-button" disabled={pending} aria-label={recording ? "녹음 종료" : "녹음 시작"}
+    <button className={studioStyles.recordButton} disabled={pending} aria-label={recording ? "녹음 종료" : "녹음 시작"}
       onClick={() => { void toggle(); }}>{recording ? "■" : <Asset name="record-start.svg" />}</button>
   </div>;
 }

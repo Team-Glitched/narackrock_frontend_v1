@@ -1,3 +1,6 @@
+import { sharedStyles } from "@/styles/shared.styles";
+import { iconSlotVariants } from "@/styles/variants";
+import { cn } from "@/lib/utils";
 import type { ReactNode } from "react";
 import type { Navigate, View } from "@/features/navigation/types";
 import type { ShortItemDto } from "@/lib/api/contracts";
@@ -24,7 +27,7 @@ export const postImages = ["abyss-album.png", "profile.png"];
 
 /** Figma layout slots exclude the SVG's painted stroke overflow. */
 export function IconSlot({name,kind}:{name:string;kind:"mini"|"post"|"short"|"post-save"|"short-save"|"short-share"|"nav"}) {
-  return <span className={`figma-icon-slot figma-icon-slot--${kind}`} aria-hidden="true"><Asset name={name}/></span>;
+  return <span className={iconSlotVariants({ kind })} aria-hidden="true"><Asset name={name}/></span>;
 }
 
 export function Asset({
@@ -36,7 +39,7 @@ export function Asset({
   alt?: string;
   className?: string;
 }) {
-  // Assets are local Figma exports with explicit CSS sizing; Next Image adds no benefit here.
+  // Local Figma exports keep their explicit layout dimensions.
   return (
 
     <img
@@ -48,16 +51,15 @@ export function Asset({
   );
 }
 
-export function Avatar({ large = false, src = null }: { large?: boolean; src?: string | null }) {
-  const className = large ? "avatar avatar--large" : "avatar";
-  if (src) {
-
-    return <span className={className}><img src={src} alt="프로필" draggable={false} /></span>;
-  }
-  return <span className={className}><Asset name="profile.png" alt="프로필" /></span>;
+export function Avatar({ large = false, src = null, className }: { large?: boolean; src?: string | null; className?: string }) {
+  return <span className={cn(cn(sharedStyles.avatar, "block size-[30px] flex-none overflow-hidden rounded-full border border-solid border-app-fg bg-[#555] [&>img]:size-full [&>img]:object-cover"), large && cn(sharedStyles.avatarLarge, "size-[140px] border-2"), className)}>
+    {src ? <img src={src} alt="프로필" draggable={false} /> : <Asset name="profile.png" alt="프로필" />}
+  </span>;
 }
 
-function Logo() { return <Asset name="auth-logo.svg" alt="Narackrock" className="nr-logo" />; }
+function Logo() { return <Asset name="auth-logo.svg" alt="Narackrock" className={"h-[43px] w-17 flex-[0_0_68px]"} />; }
+
+const headerControl = "grid size-11 place-items-center p-[10px] [&>img]:h-auto [&>img]:w-auto [&>img]:max-h-none [&>img]:max-w-none [&>img]:shrink-0";
 
 export function Header({
   onSearch,
@@ -88,16 +90,16 @@ export function Header({
   onSettings?: () => void;
   communitySelector?: React.ReactNode;
 }) {
-  if (blank) return <div className="header-spacer" />;
+  if (blank) return <div className={"h-11 flex-[0_0_44px]"} />;
   return (
-    <header className={`app-header${abyss ? " app-header--shorts" : ""}`}>
+    <header className={cn("flex h-11 flex-[0_0_44px] items-center justify-between pr-1 pl-[15px]", abyss && "px-2")}>
       {back || onBack ? (
-        <button className="header-back" aria-label="뒤로" onClick={onBack}>
+        <button className={headerControl} aria-label="뒤로" onClick={onBack}>
           <Asset name="return.svg" />
         </button>
       ) : abyss ? (
         <button
-          className="header-sound"
+          className={cn(headerControl, "p-3")}
           aria-label="무음"
           aria-pressed={muted}
           title={muted ? "소리 켜기" : "소리 끄기"}
@@ -106,20 +108,20 @@ export function Header({
           <Asset name={muted ? "sound-muted.svg" : "sound.svg"} />
         </button>
       ) : (
-        <button className="header-logo" aria-label="홈으로" onClick={onHome}>
+        <button className={"block h-[43px] w-17"} aria-label="홈으로" onClick={onHome}>
           <Logo />
         </button>
       )}
-      <div className="header-actions">
-        <button aria-label="알림" onClick={onNotifications}>
+      <div className={cn("flex h-11 items-start gap-[10px] overflow-hidden", abyss && "gap-2")}>
+        <button className={headerControl} aria-label="알림" onClick={onNotifications}>
           <Asset name="v3-bell.svg" />
         </button>
-        <button aria-label="검색" onClick={onSearch}>
+        <button className={headerControl} aria-label="검색" onClick={onSearch}>
           <Asset name="v3-search.svg" />
         </button>
         {communitySelector ?? <button
           aria-label={onSettings ? "설정" : "프로필"}
-          className={onSettings ? "header-settings" : "header-profile"}
+          className={cn(headerControl, !onSettings && "p-[7px] [&_.avatar]:border-0")}
           onClick={onSettings ?? onProfile}
         >
           {onSettings ? <Asset name="settings.svg" /> : <Avatar src={profileImageUrl} />}
@@ -139,11 +141,11 @@ const nav: { id: FooterTab; label: string }[] = [
 export function Footer({ view, go, onCreate, createLabel = "곡 만들기" }: { view: View; go: Navigate; onCreate?:()=>void; createLabel?:string }) {
   const active = activeFooterTab(view);
   return (
-    <footer className="app-footer">
+    <footer className={sharedStyles.appFooter}>
       {nav.map((item) => (
         <button
           key={item.id}
-          className={`${item.id === "studio" ? "make-button" : ""} ${item.id === active ? "active" : ""}`}
+          className={cn(item.id === "studio" ? sharedStyles.makeButton : "", item.id === active ? sharedStyles.active : "")}
           onClick={() => item.id === "studio" && onCreate ? onCreate() : go(item.id)}
           aria-label={item.id === "studio" ? createLabel : item.label}
           aria-current={item.id === active ? "page" : undefined}
@@ -172,15 +174,15 @@ export function SectionTitle({
   allLabel?: string;
 }) {
   return (
-    <div className="section-title">
-      <h2>{children}</h2>
-      {onAll && <button onClick={onAll}>{allLabel}</button>}
+    <div className={cn(sharedStyles.sectionTitle, "mb-[10px] flex h-[18px] items-center justify-between px-4")}>
+      <h2 className={"m-0 w-[247px] text-title leading-[18px] font-bold tracking-[-0.4px]"}>{children}</h2>
+      {onAll && <button className={"relative text-label leading-[18px] font-medium text-app-muted after:absolute after:inset-x-0 after:-inset-y-[9px] after:content-['']"} onClick={onAll}>{allLabel}</button>}
     </div>
   );
 }
 export function SongRail({ songs, onOpen }: { songs: ShortItemDto[]; onOpen: (shortId: number) => void }) {
-  return <div className="song-rail">{songs.map(song => <button type="button" className="song-card" key={song.shortId} onClick={() => onOpen(song.shortId)} aria-label={`${song.title} 열기`}><span className="song-art">{song.albumImageUrl
+  return <div className={sharedStyles.songRail}>{songs.map(song => <button type="button" className={sharedStyles.songCard} key={song.shortId} onClick={() => onOpen(song.shortId)} aria-label={`${song.title} 열기`}><span className={sharedStyles.songArt}>{song.albumImageUrl
 
     ? <img src={song.albumImageUrl} alt={`${song.title} 앨범 커버`} draggable={false} />
-    : <span className="empty-artwork" />}</span><strong>{song.title}</strong><small>{song.author.nickname}</small></button>)}</div>;
+    : <span className={sharedStyles.emptyArtwork} />}</span><strong>{song.title}</strong><small>{song.author.nickname}</small></button>)}</div>;
 }

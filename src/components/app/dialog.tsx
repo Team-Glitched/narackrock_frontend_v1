@@ -1,3 +1,8 @@
+import { sharedStyles } from "@/styles/shared.styles";
+import { abyssStyles } from "@/styles/abyss.styles";
+import { communityStyles } from "@/styles/community.styles";
+import { studioStyles } from "@/styles/studio.styles";
+import { cn } from "@/lib/utils";
 import { createPortal } from "react-dom";
 import { Asset, Avatar } from "@/components/app/shared";
 import { defaultSignature, type TimeSignature } from "@/features/composition/time-signature";
@@ -7,8 +12,8 @@ export function AppDialog({ title, onClose, children }: { title: string; onClose
   const titleId = useId();
   const ref = useRef<HTMLDialogElement>(null);
   useEffect(() => { const dialog = ref.current; dialog?.showModal(); return () => dialog?.close(); }, []);
-  return <dialog ref={ref} className="app-dialog" aria-labelledby={titleId} onCancel={onClose} onClick={event => { if (event.target === event.currentTarget) onClose(); }}>
-    <div className="shorts-sheet-panel"><header><h2 id={titleId}>{title}</h2><button autoFocus aria-label="닫기" onClick={onClose}>닫기</button></header>{children}</div>
+  return <dialog ref={ref} className={sharedStyles.appDialog} aria-labelledby={titleId} onCancel={onClose} onClick={event => { if (event.target === event.currentTarget) onClose(); }}>
+    <div className={abyssStyles.shortsSheetPanel}><header><h2 id={titleId}>{title}</h2><button autoFocus aria-label="닫기" onClick={onClose}>닫기</button></header>{children}</div>
   </dialog>;
 }
 
@@ -23,7 +28,7 @@ export function CanvasDialog({ className, titleId, onClose, children }: { classN
     return () => previous?.focus();
   }, [host]);
   if (!host) return null;
-  return createPortal(<div className="canvas-dialog-overlay"><button className="canvas-dialog-backdrop" aria-label="팝업 닫기" onClick={onClose} /><div ref={panel} className={className} role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1} onKeyDown={event => {
+  return createPortal(<div className={sharedStyles.canvasDialogOverlay}><button className={sharedStyles.canvasDialogBackdrop} aria-label="팝업 닫기" onClick={onClose} /><div ref={panel} className={className} role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1} onKeyDown={event => {
     if (event.key === "Escape") { event.stopPropagation(); onClose(); }
     if (event.key !== "Tab") return;
     const controls = [...event.currentTarget.querySelectorAll<HTMLElement>('button:not(:disabled), input:not(:disabled), [tabindex="0"]')];
@@ -35,7 +40,7 @@ export function CanvasDialog({ className, titleId, onClose, children }: { classN
 }
 export function InstrumentDialog({ onClose }: { onClose: () => void }) {
   const titleId = useId();
-  return <CanvasDialog className="instrument-dialog" titleId={titleId} onClose={onClose}><h2 id={titleId}>악기 선택</h2><button autoFocus onClick={onClose}>피아노</button></CanvasDialog>;
+  return <CanvasDialog className={sharedStyles.instrumentDialog} titleId={titleId} onClose={onClose}><h2 id={titleId}>악기 선택</h2><button autoFocus onClick={onClose}>피아노</button></CanvasDialog>;
 }
 /** Figma Menu / Post User Actions, 15236:41267. */
 export function AnchoredActionsMenu({anchorRef,onClose,label,height=99,children}:{anchorRef:RefObject<HTMLButtonElement|null>;onClose:()=>void;label:string;height?:number;children:ReactNode}) {
@@ -63,7 +68,7 @@ export function AnchoredActionsMenu({anchorRef,onClose,label,height=99,children}
     return ()=>{document.removeEventListener('pointerdown',outside);window.removeEventListener('resize',place);document.removeEventListener('scroll',scroll,true);};
   },[host,anchorRef,height]);
   if(!host)return null;
-  return createPortal(<div ref={panel} className="post-user-actions-menu" role="menu" aria-label={label} style={{height,position:'absolute',zIndex:60,...position}} onKeyDown={event=>{
+  return createPortal(<div ref={panel} className={communityStyles.postUserActionsMenu} role="menu" aria-label={label} style={{height,position:'absolute',zIndex:60,...position}} onKeyDown={event=>{
     if(event.key==='Escape'){event.stopPropagation();close.current();anchorRef.current?.focus();}
     if(event.key==='Tab')close.current();
     if(event.key==='ArrowDown'||event.key==='ArrowUp'){event.preventDefault();const buttons=Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>('button:not(:disabled)'));const index=buttons.indexOf(document.activeElement as HTMLButtonElement);buttons[(index+(event.key==='ArrowDown'?1:buttons.length-1))%buttons.length]?.focus();}
@@ -82,7 +87,7 @@ export function PostUserActionsMenu({onReport,onHide,onClose,onEdit,onDelete,onM
 /** Figma V3 Dialog / Publish Confirmation (13488:31624). */
 export function PublishConfirmation({ onConfirm, onClose }: { onConfirm: () => void; onClose: () => void }) {
   const titleId = useId();
-  return <CanvasDialog className="publish-confirmation" titleId={titleId} onClose={onClose}>
+  return <CanvasDialog className={sharedStyles.publishConfirmation} titleId={titleId} onClose={onClose}>
     <div><h2 id={titleId}>정말로 올리시겠습니까?</h2><button autoFocus onClick={onConfirm}>확인</button></div>
   </CanvasDialog>;
 }
@@ -94,16 +99,16 @@ function DialogNumberInput({value,min,max,label,onChange,disabled=false}:{value:
     if(draft!==null&&draft.trim()!==""&&Number.isFinite(Number(draft)))onChange(Math.min(max??Number.MAX_SAFE_INTEGER,Math.max(min,Math.round(Number(draft)))));
     setDraft(null);
   }
-  return <input className="dialog-number-input" type="number" inputMode="numeric" aria-label={label} min={min} max={max} step={1} disabled={disabled} value={draft??value} onChange={event=>setDraft(event.target.value)} onBlur={commit} onKeyDown={event=>{if(event.key==="Enter"){event.preventDefault();commit();}if(event.key==="Escape"&&draft!==null){event.stopPropagation();setDraft(null);}}}/>;
+  return <input className={sharedStyles.dialogNumberInput} type="number" inputMode="numeric" aria-label={label} min={min} max={max} step={1} disabled={disabled} value={draft??value} onChange={event=>setDraft(event.target.value)} onBlur={commit} onKeyDown={event=>{if(event.key==="Enter"){event.preventDefault();commit();}if(event.key==="Escape"&&draft!==null){event.stopPropagation();setDraft(null);}}}/>;
 }
 
 /** Figma V3 Dialog / Volume (13488:30828). */
 export function VolumeDialog({ value, onChange, onClose, track }: { value: number; onChange: (value: number) => void; onClose: () => void; track?: { name: string; instrument: string | null } }) {
   const titleId = useId();
-  return <CanvasDialog className={`volume-dialog${track ? " track-volume-dialog" : ""}`} titleId={titleId} onClose={onClose}>
-    {track && <div className="track-settings-identity"><span><strong>{track.name}</strong><small>{track.instrument === "piano" ? "피아노" : track.instrument ?? "오디오"}</small></span><Avatar /></div>}
+  return <CanvasDialog className={cn(sharedStyles.volumeDialog, track ? studioStyles.trackVolumeDialog : "")} titleId={titleId} onClose={onClose}>
+    {track && <div className={studioStyles.trackSettingsIdentity}><span><strong>{track.name}</strong><small>{track.instrument === "piano" ? "피아노" : track.instrument ?? "오디오"}</small></span><Avatar /></div>}
     <h2 id={titleId}>음량</h2>
-    <div className="volume-dialog-row"><span className="volume-dialog-icon"><Asset name="dialog-volume-sound.svg" /></span>
+    <div className={sharedStyles.volumeDialogRow}><span className={sharedStyles.volumeDialogIcon}><Asset name="dialog-volume-sound.svg" /></span>
       <input autoFocus type="range" min={0} max={100} value={value} onChange={event => onChange(Number(event.target.value))} aria-label="음량" aria-valuetext={`${value}%`} style={{ background: `linear-gradient(to right, var(--white) ${value}%, var(--line-strong) ${value}%)` }} />
       <DialogNumberInput value={value} min={0} max={100} label="음량 직접 입력" onChange={onChange}/>
     </div>
@@ -115,16 +120,16 @@ export function NoteSettingsDialog({ note, stepTick, maxTick, instrument, onChan
   const titleId = useId();
   const [instrumentOpen, setInstrumentOpen] = useState(false);
   const pitch = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"][note.pitch % 12];
-  return <CanvasDialog className="note-settings-dialog" titleId={titleId} onClose={onClose}>
-    <div className="note-settings-identity"><strong id={titleId}>Code : {pitch}</strong><button className="instrument-picker-trigger" onClick={() => setInstrumentOpen(true)}>{instrument === "piano" ? "피아노" : instrument ?? "MIDI"}</button></div>
+  return <CanvasDialog className={studioStyles.noteSettingsDialog} titleId={titleId} onClose={onClose}>
+    <div className={studioStyles.noteSettingsIdentity}><strong id={titleId}>Code : {pitch}</strong><button className={sharedStyles.instrumentPickerTrigger} onClick={() => setInstrumentOpen(true)}>{instrument === "piano" ? "피아노" : instrument ?? "MIDI"}</button></div>
     {instrumentOpen && <InstrumentDialog onClose={() => setInstrumentOpen(false)} />}
-    <label className="note-settings-length">길이 : <input aria-label="노트 길이" type="number" min={1} max={Math.floor((maxTick - note.startTick) / stepTick)} value={Math.round(note.durationTick / stepTick)} onChange={event => { const durationTick = Math.max(stepTick, Math.min(maxTick - note.startTick, Number(event.target.value) * stepTick)); onChange({ ...note, durationTick }); }} /></label>
-    {[{ label: "울림", disabled: true, value: 20 }, { label: "음량", disabled: false, value: Math.round(note.velocity / 127 * 100) }, { label: "일단 효과", disabled: true, value: 20 }].map(control => <div className="note-settings-control" key={control.label}><strong>{control.label}</strong><div><input autoFocus={!control.disabled} aria-label={control.disabled ? `${control.label} 기능 준비 중` : "노트 음량"} type="range" min={0} max={100} value={control.value} disabled={control.disabled} onChange={event => onChange({ ...note, velocity: Math.max(1, Math.round(Number(event.target.value) / 100 * 127)) })} style={{ background: `linear-gradient(to right, var(--white) ${control.value}%, var(--line-strong) ${control.value}%)` }} />{control.disabled?<output>{control.value}</output>:<DialogNumberInput value={control.value} min={1} max={100} label="노트 음량 직접 입력" onChange={value=>onChange({...note,velocity:Math.max(1,Math.round(value/100*127))})}/>}</div></div>)}
+    <label className={studioStyles.noteSettingsLength}>길이 : <input aria-label="노트 길이" type="number" min={1} max={Math.floor((maxTick - note.startTick) / stepTick)} value={Math.round(note.durationTick / stepTick)} onChange={event => { const durationTick = Math.max(stepTick, Math.min(maxTick - note.startTick, Number(event.target.value) * stepTick)); onChange({ ...note, durationTick }); }} /></label>
+    {[{ label: "울림", disabled: true, value: 20 }, { label: "음량", disabled: false, value: Math.round(note.velocity / 127 * 100) }, { label: "일단 효과", disabled: true, value: 20 }].map(control => <div className={studioStyles.noteSettingsControl} key={control.label}><strong>{control.label}</strong><div><input autoFocus={!control.disabled} aria-label={control.disabled ? `${control.label} 기능 준비 중` : "노트 음량"} type="range" min={0} max={100} value={control.value} disabled={control.disabled} onChange={event => onChange({ ...note, velocity: Math.max(1, Math.round(Number(event.target.value) / 100 * 127)) })} style={{ background: `linear-gradient(to right, var(--white) ${control.value}%, var(--line-strong) ${control.value}%)` }} />{control.disabled?<output>{control.value}</output>:<DialogNumberInput value={control.value} min={1} max={100} label="노트 음량 직접 입력" onChange={value=>onChange({...note,velocity:Math.max(1,Math.round(value/100*127))})}/>}</div></div>)}
   </CanvasDialog>;
 }
 
 /** V3 tempo (15098:39655) and time signature (15098:39669). */
 export function TimingDialog({ bpm, beat = false, onChange, onClose, signature=defaultSignature, onSignature }: { signature?:TimeSignature;onSignature?:(value:TimeSignature)=>void;bpm: number; beat?: boolean; onChange?: (value: number) => void; onClose: () => void }) {
   const titleId = useId();
-  return <CanvasDialog className="volume-dialog timing-dialog" titleId={titleId} onClose={onClose}><h2 id={titleId}>{beat ? "beat" : "bpm"}</h2><div className="volume-dialog-row">{beat ? <div className="time-signature-fields"><DialogNumberInput value={signature.numerator} min={1} label="마디당 박 수" disabled={!onSignature} onChange={numerator=>onSignature?.({...signature,numerator})}/><span>/</span><DialogNumberInput value={signature.denominator} min={1} label="기준 음표" disabled={!onSignature} onChange={denominator=>onSignature?.({...signature,denominator})}/></div> : <><input autoFocus aria-label="bpm" type="range" min={20} max={360} value={bpm} disabled={!onChange} onChange={event => onChange?.(Number(event.target.value))} style={{background: `linear-gradient(to right,var(--white) ${(bpm - 20) / 340 * 100}%,var(--line-strong) 0)`}} /><DialogNumberInput value={bpm} min={20} max={360} label="BPM 직접 입력" disabled={!onChange} onChange={value=>onChange?.(value)}/></>}</div></CanvasDialog>;
+  return <CanvasDialog className={cn(sharedStyles.volumeDialog, "timing-dialog")} titleId={titleId} onClose={onClose}><h2 id={titleId}>{beat ? "beat" : "bpm"}</h2><div className={sharedStyles.volumeDialogRow}>{beat ? <div className={sharedStyles.timeSignatureFields}><DialogNumberInput value={signature.numerator} min={1} label="마디당 박 수" disabled={!onSignature} onChange={numerator=>onSignature?.({...signature,numerator})}/><span>/</span><DialogNumberInput value={signature.denominator} min={1} label="기준 음표" disabled={!onSignature} onChange={denominator=>onSignature?.({...signature,denominator})}/></div> : <><input autoFocus aria-label="bpm" type="range" min={20} max={360} value={bpm} disabled={!onChange} onChange={event => onChange?.(Number(event.target.value))} style={{background: `linear-gradient(to right,var(--white) ${(bpm - 20) / 340 * 100}%,var(--line-strong) 0)`}} /><DialogNumberInput value={bpm} min={20} max={360} label="BPM 직접 입력" disabled={!onChange} onChange={value=>onChange?.(value)}/></>}</div></CanvasDialog>;
 }

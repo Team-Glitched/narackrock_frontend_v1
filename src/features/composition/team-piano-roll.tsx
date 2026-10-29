@@ -1,3 +1,6 @@
+import { studioStyles } from "@/styles/studio.styles";
+import { cn } from "@/lib/utils";
+import { sharedStyles } from "@/styles/shared.styles";
 import { useEffect, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import { MusicalRuler } from "./musical-ruler";
 import { defaultSignature, signatureGrid, musicalGridBackground, type TimeSignature } from "./time-signature";
@@ -75,7 +78,7 @@ export function TeamPianoRoll({ notes, setNotes, stepTick, maxTick, lengthCells,
     onSeek(Math.max(0, Math.min(maxDurationMs, (clientX - bounds.left) / bounds.width * maxDurationMs)));
   }
   const progress = maxDurationMs > 0 ? Math.min(1, positionMs / maxDurationMs) : 0;
-  return <div className="note-workspace team-note-workspace" ref={workspaceRef}
+  return <div className={cn(studioStyles.noteWorkspace, studioStyles.teamNoteWorkspace)} ref={workspaceRef}
     aria-label="피아노롤, 빈 영역을 위아래로 드래그하여 음역 이동"
     onPointerDown={(event) => {
       if (event.button !== 0 || (event.target as Element).closest(".piano-note")) return;
@@ -111,10 +114,10 @@ export function TeamPianoRoll({ notes, setNotes, stepTick, maxTick, lengthCells,
       }
     }}
     onPointerCancel={() => { pan.current = null; }}>
-    <div className="note-ruler-corner" />
-    <div className="note-ruler" aria-label="피아노롤 눈금자" style={{ gridTemplateColumns: `repeat(${columns}, ${cellWidth}px)`, width }}>
+    <div className={studioStyles.noteRulerCorner} />
+    <div className={studioStyles.noteRuler} aria-label="피아노롤 눈금자" style={{ gridTemplateColumns: `repeat(${columns}, ${cellWidth}px)`, width }}>
       <MusicalRuler signature={signature} width={width}/>
-      <button className="note-playhead-handle ruler-handle" style={{ left: progress * width - 10 }}
+      <button className={cn(studioStyles.notePlayheadHandle, "ruler-handle")} style={{ left: progress * width - 10 }}
         role="slider" aria-label="재생 위치 이동" aria-valuemin={0} aria-valuemax={maxDurationMs} aria-valuenow={Math.round(positionMs)}
         onPointerDown={(event) => { event.preventDefault(); event.currentTarget.setPointerCapture(event.pointerId); }}
         onPointerMove={(event) => { if (event.currentTarget.hasPointerCapture(event.pointerId)) seek(pointerAxes(event.currentTarget, event).x, event.currentTarget.parentElement!); }}
@@ -126,21 +129,21 @@ export function TeamPianoRoll({ notes, setNotes, stepTick, maxTick, lengthCells,
             : positionMs + (event.key === "ArrowRight" ? 1 : -1) * maxDurationMs / (maxTick / stepTick));
         }} />
     </div>
-    <div className="piano-keys" style={{ height: pitches.length * rowHeight, gridTemplateRows: `repeat(${pitches.length}, ${rowHeight}px)` }}>
-      {pitches.map((pitch) => <div className={`piano-key ${pitchNames[pitch % 12].includes("#") ? "black" : ""}`} key={pitch}>
+    <div className={studioStyles.pianoKeys} style={{ height: pitches.length * rowHeight, gridTemplateRows: `repeat(${pitches.length}, ${rowHeight}px)` }}>
+      {pitches.map((pitch) => <div className={cn(studioStyles.pianoKey, pitchNames[pitch % 12].includes("#") ? sharedStyles.black : "")} key={pitch}>
       <span>{pitchNames[pitch % 12]}{Math.floor(pitch / 12) - 1}</span>
     </div>)}</div>
-    <div className="piano-roll" style={{ width, height: pitches.length * rowHeight, gridTemplateRows: `repeat(${pitches.length}, ${rowHeight}px)` }}>
-      {pitches.map((pitch, row) => <div className={`piano-row ${pitchNames[pitch % 12].includes("#") ? "sharp-row" : "natural-row"}`}
+    <div className={studioStyles.pianoRoll} style={{ width, height: pitches.length * rowHeight, gridTemplateRows: `repeat(${pitches.length}, ${rowHeight}px)` }}>
+      {pitches.map((pitch, row) => <div className={cn(studioStyles.pianoRow, pitchNames[pitch % 12].includes("#") ? sharedStyles.sharpRow : "natural-row")}
         style={{ width }} data-row={row} key={pitch}>
-        <button className="team-note-cell" style={{backgroundImage:musicalGridBackground(signature)}}
+        <button className={studioStyles.teamNoteCell} style={{backgroundImage:musicalGridBackground(signature)}}
           aria-label={`${pitchNames[pitch % 12]}${Math.floor(pitch / 12) - 1} 노트 추가`}
           disabled={!editable} onKeyDown={(event) => {
             if (event.key !== "Enter" && event.key !== " ") return;
             event.preventDefault();
             add(row, Math.max(0, Math.min(columns - 1, Math.floor(progress * width / cellWidth))));
           }} />
-        {notes.map((note, index) => note.pitch !== pitch ? null : <button key={index} className="piano-note"
+        {notes.map((note, index) => note.pitch !== pitch ? null : <button key={index} className={studioStyles.pianoNote}
           style={{ left: note.startTick / stepTick * cellWidth,
             width: Math.max(1, note.durationTick / stepTick * cellWidth - 1),
             transform: preview?.index === index ? `translate(${(preview.col * stepTick - note.startTick) / stepTick * cellWidth}px, ${(preview.row - row) * rowHeight}px)` : undefined }}
@@ -188,6 +191,6 @@ export function TeamPianoRoll({ notes, setNotes, stepTick, maxTick, lengthCells,
           }}>{pitchNames[pitch % 12]}</button>)}
       </div>)}
     </div>
-    <div className="note-playhead" style={{ left: 87 + progress * width, minHeight: pitches.length * rowHeight }} />
+    <div className={studioStyles.notePlayhead} style={{ left: 87 + progress * width, minHeight: pitches.length * rowHeight }} />
   </div>;
 }

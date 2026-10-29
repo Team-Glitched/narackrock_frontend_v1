@@ -1,3 +1,7 @@
+import { profileStyles } from "@/styles/profile.styles";
+import { sharedStyles } from "@/styles/shared.styles";
+import { cn } from "@/lib/utils";
+import { Link } from "react-router";
 import { uiLabels } from "@/lib/ui-labels";
 import { useEffect, useState } from "react";
 import { ProfileListSheet, type ProfileListKind } from "./profile-lists";
@@ -86,16 +90,16 @@ function compactCount(count: number) {
 }
 function ProfileWorks({ title, songs, onOpen }: { title: string; songs: UserProfile["activities"]["participatedShorts"]; onOpen: (id: number) => void }) {
   const [expanded, setExpanded] = useState(false);
-  return <section className="profile-works">
+  return <section className={profileStyles.profileWorks}>
     <SectionTitle allLabel={expanded ? "접기" : "모두보기"} onAll={songs.length ? () => setExpanded(current => !current) : undefined}>{title}</SectionTitle>
-    {songs.length ? <div className={`song-rail${expanded ? " profile-works-expanded" : ""}`}>
-      {songs.map(song => <button className="song-card" key={song.shortId} onClick={() => onOpen(song.shortId)} aria-label={`${song.title} 열기`}>
-        <span className="song-art">{song.albumImageUrl ?
+    {songs.length ? <div className={cn(sharedStyles.songRail, expanded ? profileStyles.profileWorksExpanded : "")}>
+      {songs.map(song => <button className={sharedStyles.songCard} key={song.shortId} onClick={() => onOpen(song.shortId)} aria-label={`${song.title} 열기`}>
+        <span className={sharedStyles.songArt}>{song.albumImageUrl ?
 
-          <img src={song.albumImageUrl} alt={`${song.title} 앨범 커버`} /> : <span className="empty-artwork" />}</span>
+          <img src={song.albumImageUrl} alt={`${song.title} 앨범 커버`} /> : <span className={sharedStyles.emptyArtwork} />}</span>
         <strong>{song.title}</strong>
       </button>)}
-    </div> : <p className="profile-empty-work">아직 등록한 곡이 없습니다.</p>}
+    </div> : <p className={profileStyles.profileEmptyWork}>아직 등록한 곡이 없습니다.</p>}
   </section>;
 }
 
@@ -107,7 +111,7 @@ export function ProfileScreen({ go, onOpenShort, userId, onOpenPost }: { userId?
 
   if (loading) {
     return (
-      <div className="profile-state" role="status">
+      <div className={profileStyles.profileState} role="status">
         프로필을 불러오는 중...
       </div>
     );
@@ -115,7 +119,7 @@ export function ProfileScreen({ go, onOpenShort, userId, onOpenPost }: { userId?
 
   if (error || !profile) {
     return (
-      <div className="profile-state" role="alert">
+      <div className={profileStyles.profileState} role="alert">
         {error ?? "프로필이 없습니다."}
       </div>
     );
@@ -128,9 +132,9 @@ export function ProfileScreen({ go, onOpenShort, userId, onOpenPost }: { userId?
       .filter(Boolean) ?? [];
 
   return (
-    <div className="profile-view scroll-content">
+    <div className={cn(profileStyles.profileView, sharedStyles.scrollContent)}>
       <button
-        className="profile-edit-trigger"
+        className={profileStyles.profileEditTrigger}
         onClick={own ? () => go("edit") : undefined}
         disabled={!own}
         aria-label={own ? "프로필 편집" : "사용자 프로필 사진"}
@@ -140,7 +144,7 @@ export function ProfileScreen({ go, onOpenShort, userId, onOpenPost }: { userId?
 
       <h1>{profile.nickname}</h1>
 
-      <div className="stats">
+      <div className={sharedStyles.stats}>
         <button aria-label="팔로워 목록" onClick={()=>setList("followers")}>
           <strong>팔로워</strong>
           <small>{compactCount(profile.relations.followerCount)}</small>
@@ -156,14 +160,14 @@ export function ProfileScreen({ go, onOpenShort, userId, onOpenPost }: { userId?
       </div>
 
       {instruments.length > 0 && (
-        <div className="tags">
+        <div className={sharedStyles.tags}>
           {instruments.map((instrument) => (
             <span key={instrument}>{instrument}</span>
           ))}
         </div>
       )}
 
-      <section className="description">
+      <section className={sharedStyles.description}>
         <h2>소개</h2>
         <p>{profile.explanation || "아직 소개가 없습니다."}</p>
       </section>
@@ -185,7 +189,7 @@ export function EditProfileScreen({ onSaved }: { onSaved: () => void }) {
 
   if (loading) {
     return (
-      <div className="profile-state" role="status">
+      <div className={profileStyles.profileState} role="status">
         프로필을 불러오는 중...
       </div>
     );
@@ -193,7 +197,7 @@ export function EditProfileScreen({ onSaved }: { onSaved: () => void }) {
 
   if (loadError || !profile) {
     return (
-      <div className="profile-state" role="alert">
+      <div className={profileStyles.profileState} role="alert">
         {loadError ?? "프로필이 없습니다."}
       </div>
     );
@@ -305,16 +309,16 @@ export function InitialProfileSetupScreen({
 
   return (
     <form
-      className="profile-onboarding"
+      className={profileStyles.profileOnboarding}
       onSubmit={(event) => {
         void advance(event);
       }}
     >
-      <header className="auth-header">
+      <header className={profileStyles.authHeader}>
         <Asset name="auth-logo.svg" alt="Narackrock" />
       </header>
 
-      <div className="profile-onboarding-content" key={step}>
+      <div className={profileStyles.profileOnboardingContent} key={step}>
         {step === 0 && (
           <>
             <h1>당신의 이름은 무엇인가요?</h1>
@@ -366,14 +370,14 @@ export function InitialProfileSetupScreen({
         )}
 
         {error && (
-          <p className="profile-form-error" role="alert">
+          <p className={profileStyles.profileFormError} role="alert">
             {error}
           </p>
         )}
 
         <button
           type="submit"
-          className="profile-onboarding-next"
+          className={profileStyles.profileOnboardingNext}
           disabled={saving}
         >
           {saving ? "저장 중..." : step === 2 ? "시작하기" : "다음"}
@@ -464,17 +468,17 @@ export function ProfileForm({
   }
 
   return (
-    <div className="edit-view scroll-content">
-      <label className="edit-avatar">
-        <span className="edit-avatar-visual">
+    <div className={cn(profileStyles.editView, sharedStyles.scrollContent)}>
+      <label className={profileStyles.editAvatar}>
+        <span className={profileStyles.editAvatarVisual}>
           <Avatar
             large
             src={image?.previewUrl ?? initial.imageUrl}
           />
 
-          <span className="edit-avatar-overlay" aria-hidden>
-            <Asset name="profile-photo-shade.svg" className="profile-photo-shade" />
-            <Asset name="profile-photo-add.svg" className="profile-photo-add" />
+          <span className={profileStyles.editAvatarOverlay} aria-hidden>
+            <Asset name="profile-photo-shade.svg" className={profileStyles.profilePhotoShade} />
+            <Asset name="profile-photo-add.svg" className={profileStyles.profilePhotoAdd} />
           </span>
         </span>
 
@@ -540,22 +544,22 @@ export function ProfileForm({
       </label>
 
       {error && (
-        <p className="profile-form-error" role="alert">
+        <p className={profileStyles.profileFormError} role="alert">
           {error}
         </p>
       )}
 
       <button
-        className="profile-save-button"
+        className={profileStyles.profileSaveButton}
         disabled={saving}
         onClick={() => void save()}
       >
         {saving ? "저장 중..." : submitLabel}
       </button>
 
-      <a className="profile-privacy-link" href="/privacy">
+      <Link className={profileStyles.profilePrivacyLink} to="/privacy">
         개인정보처리방침
-      </a>
+      </Link>
     </div>
   );
 }
