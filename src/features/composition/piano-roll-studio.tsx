@@ -62,12 +62,12 @@ export function PianoRollStudio({ notes, history, editable, ppq, maxTick, bpm, p
     const at = duplicate ? Math.max(...notes.filter((_, index) => visibleSelection.has(index)).map(n => n.startTick + n.durationTick))
       : Math.round(positionTick / stepTick) * stepTick;
     const result = pasteNotes(notes, data, at, bounds);
-    if (result === notes) { setMessage("같은 음의 겹침이나 곡의 길이를 확인해 주세요. 붙여넣지 못했어요."); return; }
+    if (result === notes) { setMessage("뒤쪽에 붙여넣을 빈 구간이 없어요. 위치나 노트 길이를 확인해 주세요."); return; }
     onPause(); history.apply(result);
     setSelected(new Set(result.slice(notes.length).map((_, index) => notes.length + index)));
     const first = Math.min(...result.slice(notes.length).map(n => n.startTick));
     if (first < viewStart || first >= viewStart + visibleTicks) setViewStart(clamp(Math.floor(first / (ppq * 4)) * ppq * 4, 0, maxTick - visibleTicks));
-    setMessage(`${data.length}개 노트를 ${duplicate ? "복제" : "붙여넣기"}했어요`);
+    setMessage(first > at ? `겹치지 않는 뒤쪽 빈 구간에 ${data.length}개 노트를 붙여넣었어요` : `${data.length}개 노트를 ${duplicate ? "복제" : "붙여넣기"}했어요`);
   }
   function undo() { if (!editable) return; onPause(); history.undo(); setSelected(new Set()); }
   function redo() { if (!editable) return; onPause(); history.redo(); setSelected(new Set()); }
@@ -135,7 +135,8 @@ export function PianoRollStudio({ notes, history, editable, ppq, maxTick, bpm, p
       <PianoRollGrid notes={notes} onCommit={commit} selected={visibleSelection} onSelect={setSelected} mode={mode}
         stepTick={stepTick} minTick={Math.max(1, Math.round(ppq / 4))} ppq={ppq} bounds={bounds} viewStart={viewStart} visibleTicks={visibleTicks}
         positionTick={positionTick} onSeek={tick => onSeek(tickToMs(tick))} initialPitch={initialPitch} editable={editable} percussion={percussion}
-        revealNote={revealNote} onEditStart={onPause} onAudition={onAudition} />
+        revealNote={revealNote} onEditStart={onPause} onAudition={onAudition}
+        onViewStart={tick => { onPause(); setViewStart(clamp(Math.round(tick), 0, maxTick - visibleTicks)); }} />
       <div className="selection-bar"><div className="selection-info"><span>{hasSelection ? `${visibleSelection.size}개 선택됨` : "노트 선택"}</span>
         <span>{hasSelection ? "드래그로 함께 이동 · 오른쪽 끝으로 길이 조절" : mode === "draw" ? "빈 곳을 탭해 추가 · 끌어서 길이 지정" : mode === "erase" ? "노트를 탭하거나 쓸어서 삭제" : "탭으로 선택 · 드래그로 영역 선택"}</span></div>
         <div className="selection-actions"><button onClick={selectAll} disabled={!notes.length} title="전체 선택 (⌘/Ctrl+A)">{visibleSelection.size === notes.length && notes.length ? "선택 해제" : "전체 선택"}</button>

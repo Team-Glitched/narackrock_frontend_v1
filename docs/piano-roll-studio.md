@@ -7,9 +7,9 @@ The supplied `piano-roll-studio.zip` provides the editor's visual design and int
 - Portrait is the default on desktop and mobile. The desktop editor is centered at up to 640px wide; smaller screens use the available width. Turning a phone/tablet to landscape uses a wider, compact layout. CSS handles orientation changes, so notes, draft history, selection, zoom and playback state are not remounted. No CSS rotation is applied.
 - Draw: click to add a note at the selected 1/4, 1/8 or 1/16 snap; drag to choose its length.
 - Select: tap individual notes to toggle selection, or drag an empty area to select a rectangle. Shift-drag adds to the selection.
-- Drag a selected note to move the group. Drag its right edge to resize the group. Blank-area dragging does not pan the canvas.
+- Drag a selected note to move the group. Drag its right edge to resize the group. Blank-area dragging selects notes. Use the visible horizontal scrollbar or horizontal/Shift-wheel scrolling to move through the timeline. On touch devices, two fingers pan both the timeline and pitch rows. The keyboard area also retains native vertical scrolling.
 - Copy, paste at the playhead, duplicate after the selected group, delete, undo and redo are available from buttons and the ZIP's shortcuts. Arrow keys move notes; Shift+arrows do not resize them.
-- Group edits are atomic. A same-pitch time overlap rejects the whole edit. MIDI velocity/effect data and relative timing/pitch intervals are preserved.
+- Group edits are atomic. A same-pitch time overlap rejects a move/resize. Pasting searches forward for the first non-overlapping placement for the whole copied group; if no later placement fits, existing notes are left untouched. MIDI velocity/effect data and relative timing/pitch intervals are preserved.
 - Each gesture creates one undo step and updates the existing draft session on completion. Cancelling a pointer gesture leaves the saved notes unchanged. History resets when the draft session changes.
 
 ## Existing behavior retained
@@ -24,7 +24,7 @@ The supplied `piano-roll-studio.zip` provides the editor's visual design and int
 
 ## Verification
 
-- `npm test`: existing composition/draft/chord/playback coverage plus grouped editing, metadata preservation, collisions, drum bounds, paste boundaries and the note-count limit.
+- `npm test`: existing composition/draft/chord/playback coverage plus grouped editing, metadata preservation, collisions, drum bounds, paste boundaries, chained paste collisions and the note-count limit.
 - `npx tsc --noEmit --incremental false`, `npm run lint`, `npm run build`.
 - Browser checks against a temporary local API using the actual production components: draw/drag length, rectangle selection, group move/resize, sweep erase, copy/paste/duplicate, undo/redo, chord insertion, autosave/reload, failed server save with local recovery, retry/commit and contribution submission.
 - Browser layout/permission checks: portrait layout, 390px mobile width without horizontal overflow, 128 piano keys, 47 drum keys, sampled piano/drum playback, disabled mutation controls for another user's track and native help dialog.
