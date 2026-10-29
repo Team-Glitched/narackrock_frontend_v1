@@ -14,8 +14,11 @@ import { PianoRollStudio } from "@/features/composition/piano-roll-studio";
 import { useNoteHistory } from "@/features/composition/use-note-history";
 import { ChordPicker } from "@/features/composition/chord-picker";
 import { chordStartTick, insertChord, type ChordQuality } from "@/features/composition/chord-input";
+import { ensurePartTrack } from "@/features/composition/part-track";
+import { InstrumentPicker } from "@/features/composition/instrument-picker";
+import { partLabel, supportsMidi } from "@/features/composition/instrument-parts";
 import { instrumentFor } from "@/features/composition/instrument-catalog";
-import { createAudioClip, createDraftProject, enterComposition, getComposition, getExport, getPendingContributions, publishComposition, reviewContribution, submitContribution, updateProjectMetadata, updateProjectTiming, uploadMedia, type CompositionDto, type MidiNoteDto, type TrackDto, type ProjectTimingDto } from "@/lib/api/composition";
+import { createAudioClip, createDraftProject, enterComposition, getComposition, getExport, getPendingContributions, publishComposition, reviewContribution, submitContribution, updateProjectMetadata, updateProjectTiming, updateTrackInstrument, uploadMedia, type CompositionDto, type MidiNoteDto, type TrackDto, type ProjectTimingDto } from "@/lib/api/composition";
 
 import { useEditorDraft, browserDraftStorage } from "@/features/composition/use-editor-draft";
 import { listLocalDrafts, type DraftContent, type ServerDraft } from "@/features/composition/editor-draft";
@@ -97,6 +100,8 @@ export function StudioScreen({ go, shortId, projectId, returnToNotifications, on
   const [publishTitle, setPublishTitle] = useState("");
   const [publishImage, setPublishImage] = useState<File | null>(null);
   const [pendingAudio, setPendingAudio] = useState<{ trackId: number; file: File; url: string } | null>(null);
+  const [partTrack, setPartTrack] = useState<TrackDto | null>(null);
+  const [pendingSelection, setPendingSelection] = useState<AudioSelection | null>(null);
   const playback = useCompositionPlayback(composition);
 
   useEffect(() => () => { if (pendingAudio) URL.revokeObjectURL(pendingAudio.url); }, [pendingAudio]);
@@ -231,6 +236,7 @@ export function StudioScreen({ go, shortId, projectId, returnToNotifications, on
       workingDrafts.set(`${draft.trackId}:${draft.targetClipId ?? "new"}`, draft);
     }
   }
+  const partAudio = partTrack?.clips.find(clip => clip.clipType === "AUDIO" && clip.mediaUrl);
   const canSubmit = shouldShowContributionSubmit(shortId, viewerPermission, tracks, workingDrafts.size);
   const layerCreationAllowed = canCreateLayer(viewerPermission, tracks);
   return <div className="studio">
@@ -271,20 +277,32 @@ export function StudioScreen({ go, shortId, projectId, returnToNotifications, on
       <div className="studio-audio-dialog-content">
         <h2 id="audio-trim-heading">파일 구간 선택</h2>
         <p>{pendingAudio.file.name}</p>
-        <AudioTrimPicker url={pendingAudio.url} saveLabel="선택 구간을 레이어에 저장"
-          onCancel={() => setPendingAudio(null)}
-          onSave={async (selection) => {
-            await addAudio(pendingAudio.trackId, pendingAudio.file, selection);
-            setPendingAudio(null);
-          }} />
+        <AudioTrimPicker url={pendingAudio.url} saveLabel="다음 · 악기/보컬 선택"
+          onCancel={() => setPendingAudio(null)} onSave={async selection => { setPendingSelection(selection); }} />
       </div>
     </div>}
+    {pendingAudio && pendingSelection && <InstrumentPicker projectId={project.projectId} currentTrackId={pendingAudio.trackId}
+      currentInstrument={tracks.find(track => track.trackId === pendingAudio.trackId)?.instrument} mode="audio"
+      midiOnly={tracks.some(track => track.trackId === pendingAudio.trackId && track.clips.some(clip => clip.clipType === "MIDI"))}
+      audio={{ url: pendingAudio.url, startMs: pendingSelection.startMs, endMs: pendingSelection.endMs }}
+      onPreview={playback.previewInstrument} onStop={playback.pause} onClose={() => setPendingSelection(null)}
+      onConfirm={async instrument => {
+        await updateTrackInstrument(project.projectId, pendingAudio.trackId, instrument);
+        await addAudio(pendingAudio.trackId, pendingAudio.file, pendingSelection);
+        setPendingAudio(null); setPendingSelection(null);
+      }} />}
+    {partTrack && <InstrumentPicker projectId={project.projectId} currentTrackId={partTrack.trackId} currentInstrument={partTrack.instrument}
+      mode={partTrack.clips.some(clip => clip.clipType === "MIDI") ? "midi" : "audio"}
+      audio={partAudio?.mediaUrl ? { url: partAudio.mediaUrl, startMs: partAudio.clipOffsetMs,
+        endMs: partAudio.clipOffsetMs + partAudio.durationMs } : undefined}
+      onPreview={playback.previewInstrument} onStop={playback.pause} onClose={() => setPartTrack(null)}
+      onConfirm={async instrument => { await updateTrackInstrument(project.projectId, partTrack.trackId, instrument); await refresh(); }} />}
     <div className="timeline"><div className="timeline-content">
       <div className="ruler">{Array.from({ length: 45 }, (_, index) => <i key={index} />)}</div>
       <div className="studio-playhead" style={{ left: `${120 + playback.positionMs / project.maxDurationMs * 756}px` }} />
       {tracks.length === 0 && <p className="studio-hint">레이어를 추가해 작곡을 시작하세요.</p>}
       {tracks.map((track) => <div className="track studio-track" key={track.trackId}>
-        <div className="track-person"><strong title={track.name}>{track.name}</strong><small>{track.instrument ? instrumentFor(track.instrument).label : "오디오"}</small></div>
+        <div className="track-person"><strong title={track.name}>{track.name}</strong><small>{partLabel(track.instrument)}</small></div>
         <div className="studio-track-clips">{track.clips.map((clip) => <button key={clip.clipId} className={`studio-clip ${clip.clipType === "MIDI" ? "midi" : "audio"}`}
           style={{ left: `${clip.startTick / project.maxTick * 100}%`, width: `${Math.max(4, clip.durationTick / project.maxTick * 100)}%` }}
           onClick={() => { if (clip.clipType === "MIDI") onEditTrack(track.trackId, clip.clipId); }}
@@ -292,7 +310,10 @@ export function StudioScreen({ go, shortId, projectId, returnToNotifications, on
           {clip.clipType === "MIDI" ? `${clip.midiNotes?.length ?? 0} notes` : "Audio"}
         </button>)}</div>
         <div className="studio-track-actions">
-          {track.instrument && track.ownerId === viewerPermission.userId && viewerPermission.canContribute
+          {track.ownerId === viewerPermission.userId && project.status !== "COMPLETED"
+            && (track.approvalStatus === "DRAFT" || track.approvalStatus === "APPROVED") &&
+            <button onClick={() => { playback.pause(); setPartTrack(track); }} disabled={busy} aria-label={`${track.name} 악기/보컬 변경`}>악기/보컬</button>}
+          {supportsMidi(track.instrument) && track.ownerId === viewerPermission.userId && viewerPermission.canContribute
             && (track.approvalStatus === "DRAFT" || track.approvalStatus === "APPROVED")
             && <button onClick={() => onEditTrack(track.trackId, null)} disabled={busy}>{track.clips.length ? "+ 노트" : "작곡 이어하기"}</button>}
           <label className="studio-upload">+ 파일<input type="file" accept="audio/wav,audio/x-wav,audio/wave,audio/mpeg,audio/mp4,audio/flac" disabled={busy || !viewerPermission.canContribute}
@@ -309,24 +330,31 @@ export function NoteEditorScreen({ projectId, trackId, clipId, onBack, onAddLaye
   const [composition, setComposition] = useState<CompositionDto | null>(null);
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
-    if (projectId == null || trackId == null) return;
+    if (projectId == null) return;
     let cancelled = false;
     getComposition(projectId).then(result => { if (!cancelled) setComposition(result); })
       .catch(cause => { if (!cancelled) setError(errorText(cause)); });
     return () => { cancelled = true; };
   }, [projectId, trackId]);
-  const track = composition?.tracks.find(item => item.trackId === trackId);
+  const track = composition?.tracks.find(item => item.trackId === trackId) ?? (composition && trackId === null ? {
+    trackId: -1, ownerId: composition.viewerPermission.userId, name: "새 레이어", instrument: null,
+    volume: 100, isMuted: false, isSolo: false, approvalStatus: "DRAFT", clips: [],
+  } : null);
   if (!composition || !track) return <div className="studio studio-state" role={error ? "alert" : "status"}>
     {error ?? "피아노롤을 불러오는 중입니다."}<button onClick={onBack}>돌아가기</button></div>;
   return <LoadedNoteEditor composition={composition} track={track} clipId={clipId}
+    onInstrumentSaved={instrument => setComposition(current => current ? { ...current,
+      tracks: current.tracks.map(item => item.trackId === trackId ? { ...item, instrument } : item) } : current)}
     onTimingSaved={timing => setComposition(current => current ? { ...current, project: { ...current.project, ...timing } } : current)}
     onBack={onBack} onAddLayer={onAddLayer} onClipSelected={onClipSelected} />;
 }
 
-function LoadedNoteEditor({ composition, track, clipId, onTimingSaved, onBack, onAddLayer, onClipSelected }: {
-  composition: CompositionDto; track: TrackDto; clipId: number | null; onTimingSaved: (timing: ProjectTimingDto) => void; onBack: () => void; onAddLayer: () => void;
+function LoadedNoteEditor({ composition, track, clipId, onInstrumentSaved, onTimingSaved, onBack, onAddLayer, onClipSelected }: {
+  composition: CompositionDto; track: TrackDto; clipId: number | null; onInstrumentSaved: (instrument: string) => void; onTimingSaved: (timing: ProjectTimingDto) => void; onBack: () => void; onAddLayer: () => void;
   onClipSelected: (trackId: number, clipId: number | null) => void;
 }) {
+  const pendingTrack = track.trackId < 0;
+  const [instrumentOpen, setInstrumentOpen] = useState(pendingTrack);
   const [lengthCells, setLengthCells] = useState(1);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -350,9 +378,9 @@ function LoadedNoteEditor({ composition, track, clipId, onTimingSaved, onBack, o
   const context = useMemo(() => ({ userId: composition.viewerPermission.userId, projectId: composition.project.projectId,
     trackId: track.trackId, targetClipId: clipId }), [composition.viewerPermission.userId, composition.project.projectId, track.trackId, clipId]);
   const onCommittedRecovery = useCallback((id: number) => onClipSelected(track.trackId, id), [onClipSelected, track.trackId]);
-  const draft = useEditorDraft({ context, content: initialContent, baseClip, enabled: editable, onCommittedRecovery });
+  const draft = useEditorDraft({ context, content: initialContent, baseClip, enabled: editable && !pendingTrack && supportsMidi(track.instrument), onCommittedRecovery });
   const notes = draft.state?.content.midiNotes ?? initialContent.midiNotes;
-  const canEditNotes = editable && Boolean(draft.session) && !busy && draft.state?.status !== "conflict";
+  const canEditNotes = editable && !pendingTrack && supportsMidi(track.instrument) && Boolean(draft.session) && !busy && draft.state?.status !== "conflict";
   const setNotes = useCallback<Dispatch<SetStateAction<MidiNoteDto[]>>>((action) => {
     if (!draft.session) return;
     const current = draft.session.getSnapshot().content;
@@ -389,7 +417,7 @@ function LoadedNoteEditor({ composition, track, clipId, onTimingSaved, onBack, o
 
   async function leave(afterSave = onBack, commit = false) {
     if (busy) return;
-    if (!editable) { afterSave(); return; }
+    if (pendingTrack || !editable) { afterSave(); return; }
     if (!draft.session) return;
     setBusy(true); setError(null); draft.session.freeze(true);
     try {
@@ -400,6 +428,21 @@ function LoadedNoteEditor({ composition, track, clipId, onTimingSaved, onBack, o
       if (!commit && draft.session.getSnapshot().localProtected) afterSave();
       else setError(errorText(cause));
     } finally { draft.session.freeze(false); setBusy(false); }
+  }
+
+  async function chooseInstrument(id: string) {
+    if (!editable || busy) return;
+    playback.seek(0); setBusy(true); draft.session?.freeze(true);
+    try {
+      if (pendingTrack) {
+        const { trackId } = await ensurePartTrack(await getComposition(composition.project.projectId), id);
+        onClipSelected(trackId, null);
+      } else {
+        await draft.session?.flush();
+        const result = await updateTrackInstrument(composition.project.projectId, track.trackId, id);
+        onInstrumentSaved(result.instrument);
+      }
+    } finally { draft.session?.freeze(false); setBusy(false); }
   }
 
   async function changeTiming(timing: MusicalTiming) {
@@ -433,16 +476,21 @@ function LoadedNoteEditor({ composition, track, clipId, onTimingSaved, onBack, o
     onTimingChange={changeTiming}
     positionMs={Math.max(0, playback.positionMs - clipStartMs)} maxDurationMs={composition.project.maxDurationMs - clipStartMs}
     onSeek={ms => playback.seek(ms + clipStartMs)} initialPitch={initialPitch} percussion={instrument.kind === "drum"}
-    revealNote={chordFocus} instrument={instrument.label} playing={playback.playing}
+    revealNote={chordFocus} instrument={partLabel(track.instrument)} playing={playback.playing}
     onPlay={() => { void playback.play(); }} onPause={playback.pause} onAudition={pitch => { void playback.audition(pitch, instrument.id); }}
     volume={playback.volume} onVolume={playback.setVolume} onBack={() => { void leave(); }} onSave={() => { void leave(onBack, true); }}
+    onInstrumentPick={() => { playback.pause(); setInstrumentOpen(true); }}
+    canPickInstrument={editable && !busy && draft.state?.status !== "conflict" && (pendingTrack || !supportsMidi(track.instrument) || Boolean(draft.session))}
     saveDisabled={!canEditNotes} busy={busy}
-    status={<>{editable ? statusText : "읽기 전용"}{draft.restored && draft.state?.status !== "conflict" ? " · 이전 작업 복원됨" : ""}</>}
+    status={<>{pendingTrack ? "악기를 골라 시작해 주세요" : editable ? statusText : "읽기 전용"}{draft.restored && draft.state?.status !== "conflict" ? " · 이전 작업 복원됨" : ""}</>}
     actions={<>
       {instrument.kind !== "drum" && <ChordPicker disabled={!canEditNotes} lengthCells={lengthCells}
         onLengthChange={setLengthCells} onOpen={playback.pause} onAdd={addChord} />}
       {layerCreationAllowed && <button className="add-layer" disabled={busy} onClick={() => { void leave(onAddLayer); }}>레이어 추가</button>}
     </>}>
+    {instrumentOpen && <InstrumentPicker projectId={composition.project.projectId} currentTrackId={pendingTrack ? undefined : track.trackId}
+      currentInstrument={track.instrument} onPreview={playback.previewInstrument} onStop={playback.pause}
+      onConfirm={chooseInstrument} onClose={() => setInstrumentOpen(false)} />}
     {editable && <div className="editor-draft-status" role="status" aria-live="polite">
       {draft.session && draft.state?.status !== "idle" && <button disabled={busy} onClick={() => setConfirmDiscard(true)}>초안 버리기</button>}
       {(draft.state?.status === "local" || draft.state?.status === "error") && <button onClick={() => { void draft.session?.flush().catch(cause => setError(errorText(cause))); }}>다시 저장</button>}

@@ -4,43 +4,42 @@ import { useEffect, useRef, useState } from "react";
 import { Asset } from "@/components/app/shared";
 import { AudioTrimPicker } from "@/features/composition/audio-trim-picker";
 import type { AudioSelection } from "@/features/composition/prepare-audio-file";
-import { instruments } from "@/features/composition/instrument-catalog";
+import { InstrumentPicker } from "@/features/composition/instrument-picker";
+import { useCompositionPlayback } from "@/features/composition/use-composition-playback";
 
 export type CreationMethod = "upload" | "record" | "note";
 
 // The three-card selection layout comes from the team's origin/fix/overall ChooseScreen.
 export function CompositionChoiceScreen({ onChoose, onBack, busy, error }: {
-  onChoose: (method: CreationMethod, instrument: string) => void;
+  onChoose: (method: CreationMethod) => void;
   onBack: () => void;
   busy: boolean;
   error: string | null;
 }) {
-  const [instrument, setInstrument] = useState("piano");
   return <div className="choose-view scroll-content">
     <button className="creation-back" onClick={onBack}>← 작곡 화면</button>
     {error && <p role="alert">{error}</p>}
-    <label className="creation-instrument">노트로 작곡할 악기
-      <select value={instrument} onChange={(event) => setInstrument(event.target.value)} disabled={busy}>
-        {instruments.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
-      </select>
-    </label>
+    <p className="creation-flow-hint">먼저 만드는 방식을 골라 주세요.<br />악기는 피아노롤에서, 녹음·파일의 역할은 소리를 확인한 뒤 선택합니다.</p>
     {([
       { method: "upload", label: "업로드", image: "choose-upload.png" },
       { method: "record", label: "녹음", image: "choose-record.png" },
       { method: "note", label: "노트로 작곡", image: "choose-piano.png" },
     ] as const).map((item) => <button className="creation-choice" key={item.method}
-      disabled={busy} onClick={() => onChoose(item.method, instrument)}>
+      disabled={busy} onClick={() => onChoose(item.method)}>
       <strong>{item.label}</strong><Asset name={item.image} />
     </button>)}
   </div>;
 }
 
 // The file selection and preview follow the team's UploadScreen; saving is wired to the project API.
-export function CompositionUploadScreen({ onSave, onBack }: {
-  onSave: (file: File, selection: AudioSelection) => Promise<void>;
+export function CompositionUploadScreen({ projectId, onSave, onBack }: {
+  projectId: number;
+  onSave: (file: File, selection: AudioSelection, instrument: string) => Promise<void>;
   onBack: () => void;
 }) {
   const [selected, setSelected] = useState<{ file: File; url: string } | null>(null);
+  const [partSelection, setPartSelection] = useState<AudioSelection | null>(null);
+  const preview = useCompositionPlayback(null);
   useEffect(() => () => { if (selected) URL.revokeObjectURL(selected.url); }, [selected]);
   return <div className="upload-view scroll-content">
     <button className="creation-back" onClick={onBack}>← 다른 방식 선택</button>
@@ -53,16 +52,24 @@ export function CompositionUploadScreen({ onSave, onBack }: {
         }} />
     </label>
     {selected && <AudioTrimPicker key={selected.url} url={selected.url}
-      onSave={(selection) => onSave(selected.file, selection)} saveLabel="선택 구간을 레이어에 저장" />}
+      onSave={async selection => { setPartSelection(selection); }} saveLabel="다음 · 악기/보컬 선택" />}
+    {selected && partSelection && <InstrumentPicker projectId={projectId} mode="audio"
+      audio={{ url: selected.url, startMs: partSelection.startMs, endMs: partSelection.endMs }}
+      onPreview={preview.previewInstrument} onStop={preview.pause} onClose={() => setPartSelection(null)}
+      onConfirm={instrument => onSave(selected.file, partSelection, instrument)} />}
   </div>;
 }
 
 // The recorder UI and MediaRecorder lifecycle follow the team's RecordScreen.
-export function CompositionRecordScreen({ onSave, onTransform, onBack }: {
-  onSave: (file: File) => Promise<void>;
-  onTransform: (file: File) => Promise<void>;
+export function CompositionRecordScreen({ projectId, onSave, onTransform, onBack }: {
+  projectId: number;
+  onSave: (file: File, instrument: string) => Promise<void>;
+  onTransform: (file: File, instrument: string) => Promise<void>;
   onBack: () => void;
 }) {
+  const [selectingPart, setSelectingPart] = useState<"audio" | "midi" | null>(null);
+  const preview = useCompositionPlayback(null);
+  const recordedAudio = useRef<HTMLAudioElement>(null);
   const recorder = useRef<MediaRecorder | null>(null);
   const stream = useRef<MediaStream | null>(null);
   const [recording, setRecording] = useState(false);
@@ -101,18 +108,10 @@ export function CompositionRecordScreen({ onSave, onTransform, onBack }: {
       setError(cause instanceof Error ? cause.message : "마이크 권한을 확인해 주세요.");
     } finally { setPending(false); }
   }
-  async function save() {
-    if (!file || pending) return;
-    setPendingLabel("저장 중"); setPending(true); setError("");
-    try { await onSave(file); }
-    catch (cause) { setError(cause instanceof Error ? cause.message : "녹음을 저장하지 못했습니다."); }
-    finally { setPending(false); }
-  }
-  async function transform() {
-    if (!file || pending) return;
-    setPendingLabel("HTI 변환 중"); setPending(true); setError("");
-    try { await onTransform(file); }
-    catch (cause) { setError(cause instanceof Error ? cause.message : "녹음을 MIDI로 변환하지 못했습니다."); }
+  async function confirmPart(instrument: string) {
+    if (!file || pending || !selectingPart) return;
+    setPendingLabel(selectingPart === "midi" ? "HTI 변환 중" : "저장 중"); setPending(true); setError("");
+    try { if (selectingPart === "midi") await onTransform(file, instrument); else await onSave(file, instrument); }
     finally { setPending(false); }
   }
   return <div className="record-view scroll-content">
@@ -120,13 +119,16 @@ export function CompositionRecordScreen({ onSave, onTransform, onBack }: {
     <Asset name="metronome-big.svg" className="record-symbol" />
     <div className="record-output">
       {error && <p role="alert">{error}</p>}
-      {url && <audio controls src={url} />}
+      {url && <audio ref={recordedAudio} controls src={url} />}
       <p role="status">{recording ? "녹음 중" : pending ? pendingLabel : file ? "녹음 완료" : "버튼을 눌러 녹음하기"}</p>
       {file && <div className="record-actions">
-        <button className="purple-pill" disabled={pending} onClick={() => { void save(); }}>레이어에 녹음 저장</button>
-        <button className="gray-pill" disabled={pending} onClick={() => { void transform(); }}>HTI로 MIDI 변환</button>
+        <button className="purple-pill" disabled={pending} onClick={() => { recordedAudio.current?.pause(); setSelectingPart("audio"); }}>다음 · 악기/보컬 선택</button>
+        <button className="gray-pill" disabled={pending} onClick={() => { recordedAudio.current?.pause(); setSelectingPart("midi"); }}>노트로 변환할 악기 선택 (HTI)</button>
       </div>}
     </div>
+    {selectingPart && file && <InstrumentPicker projectId={projectId} mode={selectingPart}
+      audio={selectingPart === "audio" ? { url, startMs: 0 } : undefined}
+      onPreview={preview.previewInstrument} onStop={preview.pause} onClose={() => setSelectingPart(null)} onConfirm={confirmPart} />}
     <button className="record-button" disabled={pending} aria-label={recording ? "녹음 종료" : "녹음 시작"}
       onClick={() => { void toggle(); }}>{recording ? "■" : <Asset name="play.svg" />}</button>
   </div>;

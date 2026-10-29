@@ -13,13 +13,13 @@ import type { NoteHistory } from "./use-note-history";
 const time = (ms: number) => `${String(Math.floor(ms / 60000)).padStart(2, "0")}:${String(Math.floor(ms / 1000) % 60).padStart(2, "0")}`;
 export function PianoRollStudio({ notes, history, editable, ppq, maxTick, bpm, timeSignatureNumerator = 4, timeSignatureDenominator = 4, canEditTiming, onTimingChange, positionMs, maxDurationMs, onSeek,
   initialPitch, percussion, revealNote, instrument, playing, onPlay, onPause, onAudition, volume, onVolume,
-  onBack, onSave, saveDisabled, busy, status, actions, children }: {
+  onBack, onSave, onInstrumentPick, canPickInstrument, saveDisabled, busy, status, actions, children }: {
   notes: MidiNoteDto[]; history: NoteHistory; editable: boolean; ppq: number; maxTick: number; bpm: number; timeSignatureNumerator?: number; timeSignatureDenominator?: number;
   canEditTiming: boolean; onTimingChange: (timing: MusicalTiming) => Promise<void>;
   positionMs: number; maxDurationMs: number; onSeek: (ms: number) => void; initialPitch: number; percussion: boolean;
   revealNote?: { pitch: number; startTick: number } | null; instrument: string; playing: boolean;
   onPlay: () => void; onPause: () => void; onAudition: (pitch: number) => void; volume: number; onVolume: (volume: number) => void;
-  onBack: () => void; onSave: () => void; saveDisabled: boolean; busy: boolean;
+  onBack: () => void; onSave: () => void; onInstrumentPick: () => void; canPickInstrument: boolean; saveDisabled: boolean; busy: boolean;
   status: ReactNode; actions: ReactNode; children: ReactNode;
 }) {
   const [selected, setSelected] = useState(new Set<number>());
@@ -161,7 +161,7 @@ export function PianoRollStudio({ notes, history, editable, ppq, maxTick, bpm, t
           <button disabled={!editable || !hasSelection} onClick={removeSelected} aria-label="선택 노트 삭제"><Trash2 /></button>
         </div></div>
     </section>
-    <section className="transport" aria-label="재생 설정"><div className="instrument panel"><Piano /><span><strong>{instrument}</strong><small>현재 레이어 악기</small></span></div>
+    <section className="transport" aria-label="재생 설정"><button type="button" className="instrument panel" onClick={onInstrumentPick} disabled={!canPickInstrument} aria-label={`악기 변경 · ${instrument}`}><Piano /><span><strong>{instrument}</strong><small>{canPickInstrument ? "눌러서 악기 변경" : "현재 레이어 악기"}</small></span><ChevronRight className="instrument-chevron" /></button>
       <div className="playback"><button className="restart" aria-label="처음부터 재생" onClick={() => { onSeek(0); if (playing) onPlay(); }}><SkipBack /></button>
         <button className="play" aria-label={playing ? "일시 정지" : "재생"} onClick={playing ? onPause : onPlay}>{playing ? <Pause /> : <Play fill="currentColor" />}</button>
       </div>

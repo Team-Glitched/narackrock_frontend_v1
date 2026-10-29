@@ -21,8 +21,8 @@ import { NoteEditorScreen, StudioScreen } from "@/features/screens/studio-screen
 import { CompositionChoiceScreen, CompositionRecordScreen, CompositionUploadScreen, type CreationMethod } from "@/features/screens/composition-creation-screens";
 import { prepareAudioFile, type AudioSelection } from "@/features/composition/prepare-audio-file";
 import { createHtiMidiLayerPlan } from "@/features/composition/hti-midi-flow";
-import { instrumentFor } from "@/features/composition/instrument-catalog";
-import { createAudioClip, createMidiClip, createTrack, getComposition, getContributionInbox, transformRecordingToMidi, uploadMedia } from "@/lib/api/composition";
+import { ensurePartTrack } from "@/features/composition/part-track";
+import { createAudioClip, createMidiClip, getComposition, getContributionInbox, transformRecordingToMidi, uploadMedia } from "@/lib/api/composition";
 import { useWebMcpNavigation } from "@/hooks/use-webmcp-navigation";
 import { PostCommentsScreen } from "@/features/screens/post-comments";
 import { CommunityDetailScreen } from "@/features/screens/community-detail";
@@ -67,9 +67,9 @@ export default function Page() {
   const [selectedCommunity, setSelectedCommunity] = useState<Community | null>(null);
   const [compositionTarget, setCompositionTarget] = useState<{ shortId: number | null; projectId: number | null }>({ shortId: null, projectId: null });
   const [abyssTargetShortId, setAbyssTargetShortId] = useState<number | null>(null);
-  const [editorTarget, setEditorTarget] = useState<{ trackId: number; clipId: number | null } | null>(null);
+  const [editorTarget, setEditorTarget] = useState<{ trackId: number | null; clipId: number | null } | null>(null);
   const [reviewOrigin, setReviewOrigin] = useState(false);
-  const [choiceBusy, setChoiceBusy] = useState(false);
+  const choiceBusy = false;
   const [choiceError, setChoiceError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -177,36 +177,27 @@ export default function Page() {
     setView("choose");
   }, []);
 
-  const chooseLayer = useCallback(async (method: CreationMethod, instrument: string) => {
-    const projectId = compositionTarget.projectId;
-    if (projectId == null || choiceBusy) return;
-    if (method !== "note") { setView(method); return; }
-    setChoiceBusy(true); setChoiceError(null);
-    try {
-      const composition = await getComposition(projectId);
-      const { trackId } = await createTrack(projectId, `${instrumentFor(instrument).label} ${composition.tracks.length + 1}`, instrument, composition.tracks.length);
-      setEditorTarget({ trackId, clipId: null });
-      setView("note");
-    } catch (cause) {
-      setChoiceError(cause instanceof Error ? cause.message : "레이어를 만들지 못했습니다.");
-    } finally { setChoiceBusy(false); }
-  }, [compositionTarget.projectId, choiceBusy]);
+  const chooseLayer = useCallback((method: CreationMethod) => {
+    if (compositionTarget.projectId == null) return;
+    if (method === "note") { setEditorTarget({ trackId: null, clipId: null }); setView("note"); }
+    else setView(method);
+  }, [compositionTarget.projectId]);
 
-  const saveAudio = useCallback(async (file: File, selection?: AudioSelection) => {
+  const saveAudio = useCallback(async (file: File, selection: AudioSelection | undefined, instrument: string, sourceType: "FILE_UPLOAD" | "RECORDING" = "FILE_UPLOAD") => {
     const projectId = compositionTarget.projectId;
     if (projectId == null) throw new Error("곡을 먼저 선택해 주세요.");
     const { wav, durationMs } = await prepareAudioFile(file, selection);
     const composition = await getComposition(projectId);
     if (durationMs > composition.project.maxDurationMs) throw new Error("오디오는 1분 이하여야 합니다.");
+    const { trackId } = await ensurePartTrack(composition, instrument);
     const mediaFileId = await uploadMedia(wav, "AUDIO");
-    const { trackId } = await createTrack(projectId, `오디오 ${composition.tracks.length + 1}`, null, composition.tracks.length);
     const { bpm, ppq, maxTick } = composition.project;
     const durationTick = Math.max(1, Math.min(maxTick, Math.ceil(durationMs * bpm * ppq / 60_000)));
-    await createAudioClip(projectId, trackId, mediaFileId, durationTick);
+    await createAudioClip(projectId, trackId, mediaFileId, durationTick, sourceType);
     setView("studio");
   }, [compositionTarget.projectId]);
 
-  const transformRecording = useCallback(async (file: File) => {
+  const transformRecording = useCallback(async (file: File, instrument: string) => {
     const projectId = compositionTarget.projectId;
     if (projectId == null) throw new Error("곡을 먼저 선택해 주세요.");
     const [{ wav, durationMs }, composition] = await Promise.all([
@@ -215,8 +206,8 @@ export default function Page() {
     ]);
     if (durationMs > composition.project.maxDurationMs) throw new Error("녹음은 1분 이하여야 합니다.");
     const result = await transformRecordingToMidi(projectId, wav);
-    const plan = createHtiMidiLayerPlan(result, composition.tracks.length, composition.project.maxTick);
-    const { trackId } = await createTrack(projectId, plan.name, plan.instrument, plan.sortOrder);
+    const plan = createHtiMidiLayerPlan(result, composition.tracks.length, composition.project.maxTick, instrument);
+    const { trackId } = await ensurePartTrack(composition, plan.instrument);
     const { clipId } = await createMidiClip(projectId, trackId, 0, plan.durationTick, plan.midiNotes);
     setEditorTarget({ trackId, clipId });
     setView("note");
@@ -271,10 +262,10 @@ export default function Page() {
     if (activeView === "login") return <AuthScreen onAuthenticated={authenticate} onFirstLogin={startProfileSetup} />;
     if (activeView === "edit" && pendingProfileSetup) return <InitialProfileSetupScreen {...pendingProfileSetup} onSaved={authenticate} />;
     if (activeView === "edit") return <EditProfileScreen onSaved={profileUpdated} />;
-    if (activeView === "choose") return <CompositionChoiceScreen onChoose={(method, instrument) => { void chooseLayer(method, instrument); }}
+    if (activeView === "choose") return <CompositionChoiceScreen onChoose={chooseLayer}
       onBack={() => setView("studio")} busy={choiceBusy} error={choiceError} />;
-    if (activeView === "upload") return <CompositionUploadScreen onSave={saveAudio} onBack={() => setView("choose")} />;
-    if (activeView === "record") return <CompositionRecordScreen onSave={saveAudio} onTransform={transformRecording} onBack={() => setView("choose")} />;
+    if (activeView === "upload") return <CompositionUploadScreen projectId={compositionTarget.projectId!} onSave={saveAudio} onBack={() => setView("choose")} />;
+    if (activeView === "record") return <CompositionRecordScreen projectId={compositionTarget.projectId!} onSave={(file, instrument) => saveAudio(file, undefined, instrument, "RECORDING")} onTransform={transformRecording} onBack={() => setView("choose")} />;
     if (activeView === "note") return <NoteEditorScreen
       key={`${currentUserId}:${compositionTarget.projectId}:${editorTarget?.trackId}:${editorTarget?.clipId}`}
       onClipSelected={editTrack}
