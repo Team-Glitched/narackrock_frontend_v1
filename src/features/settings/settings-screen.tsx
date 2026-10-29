@@ -1,4 +1,3 @@
-import { Link } from "react-router";
 import { logout } from "@/lib/api/auth";
 import type { Navigate } from "@/features/navigation/types";
 import { ChevronRight } from "lucide-react";
@@ -33,9 +32,6 @@ export function SettingsScreen({ go }: { go: Navigate }) {
         <ChevronRight size={18} strokeWidth={1.75} aria-hidden="true" />
       </button></li>)}</ul>
     </section>)}
-    <section className={groupClass} aria-label="서비스 정보"><h2>서비스 정보</h2><ul>
-      <li><Link className={rowClass} to="/privacy"><span className={copyClass}><strong>개인정보처리방침</strong></span><ChevronRight size={18} strokeWidth={1.75} aria-hidden="true" /></Link></li>
-    </ul></section>
     <button className="mt-2 block min-h-12 w-full rounded-none border-0 border-t border-solid border-app-surface bg-transparent py-3 text-left text-label leading-6 font-medium text-[#ff8d8d]" onClick={logout}>로그아웃</button>
   </section>;
 }

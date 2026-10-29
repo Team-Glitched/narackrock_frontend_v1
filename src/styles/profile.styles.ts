@@ -57,11 +57,6 @@ export const profileStyles = {
     "[&_svg]:h-12 [&_svg]:w-12",
     "[.design-canvas_&]:inset-0 [.design-canvas_&]:bg-transparent [.design-canvas_&]:bg-none [.design-canvas_&]:overflow-visible",
   ].join(" "),
-  profilePrivacyLink: [
-    "profile-privacy-link",
-    "m-[-5px_0_8px] self-center text-caption text-[#8e99a4] no-underline leading-[16px]",
-    "[&:hover]:text-app-fg [&:hover]:underline [&:hover]:[text-underline-offset:3px]",
-  ].join(" "),
   authScreen: [
     "auth-screen",
     "flex h-full flex-col bg-app-bg bg-none",

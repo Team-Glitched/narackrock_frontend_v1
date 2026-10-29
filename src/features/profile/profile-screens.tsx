@@ -1,7 +1,6 @@
 import { profileStyles } from "@/styles/profile.styles";
 import { sharedStyles } from "@/styles/shared.styles";
 import { cn } from "@/lib/utils";
-import { Link } from "react-router";
 import { uiLabels } from "@/lib/ui-labels";
 import { useEffect, useState } from "react";
 import { ProfileListSheet, type ProfileListKind } from "./profile-lists";
@@ -557,9 +556,6 @@ export function ProfileForm({
         {saving ? "저장 중..." : submitLabel}
       </button>
 
-      <Link className={profileStyles.profilePrivacyLink} to="/privacy">
-        개인정보처리방침
-      </Link>
     </div>
   );
 }

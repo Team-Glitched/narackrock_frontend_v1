@@ -14,7 +14,6 @@ npm run dev
 개발 서버는 http://127.0.0.1:5173 에서 실행됩니다.
 
 - `/`: 별도 백엔드 API를 사용하는 앱
-- `/privacy`: 개인정보처리방침
 
 ## 환경 변수
 
@@ -33,7 +32,7 @@ npm start
 ```
 
 `build`는 TypeScript 검사 후 정적 파일을 `dist/`에 생성합니다. `start`는 빌드 결과를 로컬에서 확인합니다.
-배포 서버는 `/communities/7`, `/privacy` 같은 직접 접근 경로를 `index.html`로 전달하도록 SPA fallback을 설정해야 합니다.
+배포 서버는 `/communities/7`, `/studio/42` 같은 직접 접근 경로를 `index.html`로 전달하도록 SPA fallback을 설정해야 합니다.
 백엔드는 프론트엔드의 실제 출처에 대한 CORS 요청을 허용해야 합니다.
 
 ## 구조

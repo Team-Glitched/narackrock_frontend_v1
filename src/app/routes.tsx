@@ -1,10 +1,9 @@
-import { useEffect, type ComponentType } from "react";
+import type { ComponentType } from "react";
 import { createBrowserRouter, type RouteObject } from "react-router";
 import { AppProviders } from "./session";
 import AppLayout from "@/layouts/app-layout";
 import { RequireAuth } from "@/features/auth/require-auth";
 import { pageRoutes, type PageId, type PageRoute } from "@/features/navigation/route-config";
-import PrivacyPage from "./privacy/PrivacyPage";
 import NotFoundPage from "@/pages/not-found-page";
 import HomePage from "@/pages/home-page";
 import AbyssPage from "@/pages/abyss-page";
@@ -99,14 +98,6 @@ function appPages(): RouteObject[] {
   });
 }
 
-function PrivacyRoute() {
-  useEffect(() => {
-    document.title = "개인정보처리방침 | Narackrock";
-    document.querySelector('meta[name="description"]')?.setAttribute("content", "Narackrock 서비스의 개인정보 처리 기준을 안내합니다.");
-  }, []);
-  return <PrivacyPage />;
-}
-
 function appChildren(): RouteObject[] {
   return [
     { element: <AppLayout />, children: appPages() },
@@ -115,6 +106,5 @@ function appChildren(): RouteObject[] {
 }
 
 export const router = createBrowserRouter([
-  { path: "/privacy", element: <PrivacyRoute /> },
   { path: "/", element: <AppProviders />, children: appChildren() },
 ]);
