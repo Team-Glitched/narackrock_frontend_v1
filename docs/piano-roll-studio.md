@@ -15,9 +15,9 @@ The supplied `piano-roll-studio.zip` provides the editor's visual design and int
 ## Existing behavior retained
 
 - Personal browser recovery, server autosave, retry/conflict recovery, discard, explicit commit and contribution submission use the existing draft implementation.
-- The piano editor spans MIDI pitches 0–127. Drum layers use pitches 35–81 and show percussion names. Owner/status permissions protect mutations.
+- The piano editor spans MIDI pitches 0–127. Drum layers default to 11 icon rows: two crashes, ride bell/bow, three toms, open/closed hi-hat, snare and kick. Their GM pitches remain 49/57/53/51/50/47/41/46/42/38/36. The optional full kit exposes all pitches 35–81; collapsing it preserves other notes and displays their count. Selection only includes visible kit rows, and vertical movement follows those rows rather than hidden semitones. Owner/status permissions protect mutations.
 - The 24-instrument catalog and sampled playback remain in use. Keyboard and note previews use those same samples, not the ZIP's synthesized oscillator voices.
-- Playback covers the current clip, independent of the 1/2/4-bar editing window, preserves held-note durations and respects a clip's project offset.
+- Playback stops at the last entered note release or audio clip end and returns to zero. Timeline cursor positions follow the audio clock without a separate CSS animation. Playback covers the current clip, independent of the 1/2/4-bar editing window, preserves held-note durations and respects a clip's project offset.
 - The existing chord picker writes through the same draft/history path. Its octave and chord-length settings remain available in the picker.
 - Tempo, 4/4 meter and the current instrument display the existing project's settings. Saving commits the personal draft to the layer; publishing and submitting remain in the composition workflow.
 - Upload, recording, HTI conversion, other participants' layers and project publishing are unchanged.
@@ -27,6 +27,6 @@ The supplied `piano-roll-studio.zip` provides the editor's visual design and int
 - `npm test`: existing composition/draft/chord/playback coverage plus grouped editing, metadata preservation, collisions, drum bounds, paste boundaries, chained paste collisions and the note-count limit.
 - `npx tsc --noEmit --incremental false`, `npm run lint`, `npm run build`.
 - Browser checks against a temporary local API using the actual production components: draw/drag length, rectangle selection, group move/resize, sweep erase, copy/paste/duplicate, undo/redo, chord insertion, autosave/reload, failed server save with local recovery, retry/commit and contribution submission.
-- Browser layout/permission checks: portrait layout, 390px mobile width without horizontal overflow, 128 piano keys, 47 drum keys, sampled piano/drum playback, disabled mutation controls for another user's track and native help dialog.
+- Browser layout/permission checks: portrait layout, 390px mobile width without horizontal overflow, 128 piano keys, 11 basic drum icon rows and 47 expanded rows, sampled piano/drum playback, disabled mutation controls for another user's track and native help dialog.
 
-The temporary browser fixture and its API data are not shipped in product code. Live backend integration still requires the existing editor-drafts API to be deployed.
+The temporary browser fixture and its API data are not shipped in product code. Actual backend `TEST` integration was also verified locally; see [live test report](piano-roll-studio-live-test.md).
