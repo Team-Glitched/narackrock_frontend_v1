@@ -51,7 +51,23 @@ export function pasteNotes(notes: MidiNoteDto[], clipboard: MidiNoteDto[], at: n
   if (!clipboard.length) return notes;
   const span = Math.max(...clipboard.map(n => n.startTick + n.durationTick));
   if (span > bounds.maxTick) return notes;
-  const origin = clamp(Math.round(at), 0, bounds.maxTick - span);
-  const added = clipboard.map(n => ({ ...structuredClone(n), startTick: origin + n.startTick }));
-  return canPlaceNotes(notes, added, bounds) ? [...notes, ...added] : notes;
+  if (notes.length + clipboard.length > 10_000 || !canPlaceNotes([], clipboard, bounds)) return notes;
+  let origin = clamp(Math.round(at), 0, bounds.maxTick - span);
+  // Jump past the actual blocking notes, retaining every interval in the copied group.
+  while (origin + span <= bounds.maxTick) {
+    let nextOrigin = origin;
+    for (const source of clipboard) {
+      const placed = { ...source, startTick: origin + source.startTick };
+      for (const existing of notes) {
+        if (overlaps(placed, existing)) nextOrigin = Math.max(nextOrigin,
+          existing.startTick + existing.durationTick - source.startTick);
+      }
+    }
+    if (nextOrigin === origin) {
+      const added = clipboard.map(n => ({ ...structuredClone(n), startTick: origin + n.startTick }));
+      return [...notes, ...added];
+    }
+    origin = nextOrigin;
+  }
+  return notes;
 }

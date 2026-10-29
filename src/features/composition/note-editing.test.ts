@@ -43,12 +43,12 @@ test("copy and paste retain all MIDI properties, isolate effect objects, and pre
   assert.equal(clipboard[0].effectParams.value, 3);
 });
 
-test("paste near the end shifts the whole group and rejects collisions and invalid drum pitches", () => {
+test("paste near the end keeps the group in bounds and skips occupied positions", () => {
   const clipboard = [note(60, 0), note(64, 720)];
   const pasted = pasteNotes([], clipboard, 3840, bounds);
   assert.equal(pasted[1].startTick + pasted[1].durationTick, 3840);
   const existing = [note(60, 0)];
-  assert.strictEqual(pasteNotes(existing, clipboard, 0, bounds), existing);
+  assert.deepEqual(pasteNotes(existing, clipboard, 0, bounds).slice(1).map(n => n.startTick), [480, 1200]);
   assert.equal(canPlaceNotes([], [note(34, 0)], { ...bounds, minPitch: 35, maxPitch: 81 }), false);
   assert.equal(canPlaceNotes([], [note(60, 0), note(60, 240)], bounds), false);
 });
@@ -59,4 +59,20 @@ test("empty selections, imported short notes, and the server's note-count limit 
   assert.strictEqual(moveNotes(notes, new Set(), 240, 1, bounds), notes);
   assert.equal(resizeNotes(notes, new Set([0]), -240, 120, bounds)[0].durationTick, 60);
   assert.equal(canPlaceNotes(Array.from({ length: 10_000 }, () => note(60, 0)), [note(72, 0)], bounds), false);
+});
+
+
+test("paste searches forward across chained collisions on different group pitches", () => {
+  const existing = [note(60, 0), note(60, 480), note(64, 1200)];
+  const clipboard = [note(60, 0), note(64, 240)];
+  const result = pasteNotes(existing, clipboard, 0, bounds);
+  assert.deepEqual(result.slice(3).map(n => n.startTick), [1440, 1680]);
+  assert.deepEqual(result.slice(0, 3), existing);
+  assert.deepEqual(result.slice(3).map(n => n.velocity), [83, 83]);
+});
+
+test("paste never wraps backwards or overwrites notes when no later gap fits", () => {
+  const existing = [note(60, 0, 960)];
+  assert.strictEqual(pasteNotes(existing, [note(60, 0)], 0, { ...bounds, maxTick: 960 }), existing);
+  assert.strictEqual(pasteNotes(existing, [note(60, 0)], 480, { ...bounds, maxTick: 960 }), existing);
 });
