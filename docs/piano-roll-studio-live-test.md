@@ -41,7 +41,7 @@ Verified locally on 2026-10-29. Frontend: `refector/piano-roll-studio`. Backend:
 
 ## Limits
 
-The native file-chooser/trim UI could not be completed reliably by browser automation; the real upload/media API path was verified separately. HTI's local service (port 8000) was unavailable, so live HTI conversion was not tested. Physical microphone recording, real multi-touch gestures and hardware rotation were not tested. These are not claims of end-to-end coverage for those paths.
+Native WAV file selection, trim preview and role-confirmed upload were verified in the instrument-selection follow-up; see [instrument selection](instrument-selection.md). HTI's local service (port 8000) was unavailable, so live HTI conversion was not tested. Physical microphone recording, real multi-touch gestures and hardware rotation were not tested. These are not claims of end-to-end coverage for those paths.
 
 The actual local servers remain available for inspection while their processes are running. Test data is isolated from the normal development database. This feature branch has not been merged into `dev`.
 
@@ -58,3 +58,8 @@ Backend `refector/piano-roll-timing` is based on `TEST`; frontend remains `refec
 - The published mix regenerated through the real export queue: `/files/exports/5/7/mix.wav` measured approximately 2.666 seconds, matching four quarter notes at 90 BPM. Sampled editor playback also stopped and reset at its new end.
 - 390px portrait and 844px landscape were checked for overflow. Viewport overrides were reset.
 - Frontend: 115 tests, TypeScript, lint and build passed. Backend: 1,059 tests, zero failures/errors/skips. Six new backend tests cover original-owner access, invalid/completed changes, timing/metadata preservation, clip/draft bounds, no-op version handling and published mix refresh.
+
+
+## Instrument-selection follow-up
+
+See [instrument selection and team roles](instrument-selection.md) for the current preview/confirm flow, real upload verification, simultaneous family reservation check, and final frontend/backend test counts.
