@@ -103,7 +103,7 @@ export function useCompositionPlayback(composition: CompositionDto | null) {
     const hasSolo = composition.tracks.some((track) => track.isSolo && !track.isMuted);
     const tracks = composition.tracks.filter((track) => !track.isMuted && (!hasSolo || track.isSolo));
     const endMs = compositionEndMs(composition, tracks);
-    if (endMs <= 0) { setPlaying(false); return; }
+    if (endMs <= 0) { positionRef.current = 0; setPositionMs(0); setPlaying(false); return; }
     const position = positionRef.current >= endMs ? 0 : positionRef.current;
     positionRef.current = position;
     setPositionMs(position);
@@ -163,7 +163,12 @@ export function useCompositionPlayback(composition: CompositionDto | null) {
         const next = Math.min(endMs, position + performance.now() - startedAt);
         positionRef.current = next;
         setPositionMs(next);
-        if (next >= endMs) { stopSources(); setPlaying(false); }
+        if (next >= endMs) {
+          stopSources();
+          positionRef.current = 0;
+          setPositionMs(0);
+          setPlaying(false);
+        }
       }, 50);
     } catch (cause) {
       if (request !== playRequestRef.current) return;
