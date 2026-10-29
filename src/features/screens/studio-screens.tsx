@@ -10,6 +10,8 @@ import { AudioTrimPicker } from "@/features/composition/audio-trim-picker";
 import { canCreateLayer, hasOwnDraftClip, shouldShowContributionSubmit } from "@/features/composition/contribution-session";
 import { completedExportShortId } from "@/features/composition/publish-navigation";
 import { TeamPianoRoll } from "@/features/composition/team-piano-roll";
+import { ChordPicker } from "@/features/composition/chord-picker";
+import { chordStartTick, insertChord, type ChordQuality } from "@/features/composition/chord-input";
 import { instrumentFor } from "@/features/composition/instrument-catalog";
 import { createAudioClip, createDraftProject, enterComposition, getComposition, getExport, getPendingContributions, publishComposition, reviewContribution, submitContribution, updateProjectMetadata, uploadMedia, type CompositionDto, type MidiNoteDto, type TrackDto } from "@/lib/api/composition";
 
@@ -326,6 +328,7 @@ function LoadedNoteEditor({ composition, track, clipId, onBack, onAddLayer, onCl
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [confirmDiscard, setConfirmDiscard] = useState(false);
+  const [chordFocus, setChordFocus] = useState<{ pitch: number; startTick: number } | null>(null);
   const instrument = instrumentFor(track.instrument);
   const clip = track.clips.find(item => item.clipId === clipId && item.clipType === "MIDI");
   const editable = composition.project.status !== "COMPLETED" && composition.viewerPermission.canContribute && track.ownerId === composition.viewerPermission.userId
@@ -335,6 +338,8 @@ function LoadedNoteEditor({ composition, track, clipId, onBack, onAddLayer, onCl
   const layerCreationAllowed = canCreateLayer(composition.viewerPermission, composition.tracks);
   const stepTick = Math.max(1, Math.round(composition.project.ppq / 2));
   const maxTick = composition.project.maxTick;
+  const clipStartTick = clip?.startTick ?? 0;
+  const clipStartMs = clipStartTick * 60_000 / (composition.project.bpm * composition.project.ppq);
   const baseClip = useMemo<DraftContent | null>(() => clip ? {
     startTick: clip.startTick, durationTick: clip.durationTick, midiNotes: clip.midiNotes,
   } : null, [clip]);
@@ -344,6 +349,7 @@ function LoadedNoteEditor({ composition, track, clipId, onBack, onAddLayer, onCl
   const onCommittedRecovery = useCallback((id: number) => onClipSelected(track.trackId, id), [onClipSelected, track.trackId]);
   const draft = useEditorDraft({ context, content: initialContent, baseClip, enabled: editable, onCommittedRecovery });
   const notes = draft.state?.content.midiNotes ?? initialContent.midiNotes;
+  const canEditNotes = editable && Boolean(draft.session) && !busy && draft.state?.status !== "conflict";
   const setNotes = useCallback<Dispatch<SetStateAction<MidiNoteDto[]>>>((action) => {
     if (!draft.session) return;
     const current = draft.session.getSnapshot().content;
@@ -360,6 +366,22 @@ function LoadedNoteEditor({ composition, track, clipId, onBack, onAddLayer, onCl
     return { ...composition, tracks: [{ ...track, isMuted: false, isSolo: false, clips: [previewClip] }] };
   }, [composition, track, clip, notes, maxTick]);
   const playback = useCompositionPlayback(preview);
+
+  function addChord(rootPitch: number, quality: ChordQuality, name: string) {
+    if (!canEditNotes || instrument.kind === "drum") return { added: false, message: "지금은 코드를 추가할 수 없습니다." };
+    const startTick = chordStartTick(playback.positionMs, { ...composition.project, stepTick, clipStartTick });
+    const result = insertChord(notes, { rootPitch, quality, startTick,
+      durationTick: lengthCells * stepTick, maxTick: maxTick - clipStartTick });
+    if (result.reason === "overlap") return { added: false, message: "같은 위치에 겹치는 음이 있습니다. 재생 위치를 옮기거나 기존 음을 수정해 주세요." };
+    if (result.reason === "outside-timeline") return { added: false, message: "곡의 끝에는 추가할 수 없습니다. 재생 위치를 앞으로 옮겨 주세요." };
+    if (result.reason === "outside-pitch-range") return { added: false, message: "음역을 벗어납니다. 옥타브를 낮춰 주세요." };
+    playback.pause();
+    setNotes(result.notes);
+    const added = result.notes.slice(notes.length);
+    setChordFocus({ pitch: Math.round((added[0].pitch + added[added.length - 1].pitch) / 2), startTick });
+    setError(null);
+    return { added: true, message: `${name} 코드의 ${added.length}개 음을 추가했습니다.` };
+  }
 
   async function leave(afterSave = onBack, commit = false) {
     if (busy) return;
@@ -395,6 +417,8 @@ function LoadedNoteEditor({ composition, track, clipId, onBack, onAddLayer, onCl
       piano volume={playback.volume} onVolume={playback.setVolume}
       onAdd={layerCreationAllowed ? () => { void leave(onAddLayer); } : undefined}>
       <label className="studio-note-length">길이<select value={lengthCells} onChange={event => setLengthCells(Number(event.target.value))}><option value={1}>1/8</option><option value={2}>1/4</option><option value={4}>1/2</option><option value={8}>한 마디</option></select></label>
+      {instrument.kind !== "drum" && <ChordPicker disabled={!canEditNotes} lengthCells={lengthCells}
+        onLengthChange={setLengthCells} onOpen={playback.pause} onAdd={addChord} />}
       <button className="studio-save" onClick={() => { void leave(onBack, true); }} disabled={!editable || !draft.session || busy || draft.state?.status === "conflict"}>{busy ? "저장 중" : "저장"}</button>
     </StudioToolbar>
     {editable && <div className="editor-draft-status" role="status" aria-live="polite">
@@ -422,9 +446,9 @@ function LoadedNoteEditor({ composition, track, clipId, onBack, onAddLayer, onCl
     {playback.error && !error && <p className="studio-error" role="alert">{playback.error}</p>}
     {!editable && <p className="studio-error">본인의 편집 가능한 MIDI만 수정할 수 있습니다.</p>}
     <TeamPianoRoll notes={notes} setNotes={setNotes} stepTick={stepTick}
-      maxTick={maxTick - (clip?.startTick ?? 0)} lengthCells={lengthCells}
-      editable={editable && Boolean(draft.session) && !busy && draft.state?.status !== "conflict"}
-      positionMs={playback.positionMs} maxDurationMs={composition.project.maxDurationMs}
-      onSeek={playback.seek} initialPitch={initialPitch} percussion={instrument.kind === "drum"} />
+      maxTick={maxTick - clipStartTick} lengthCells={lengthCells} editable={canEditNotes}
+      positionMs={Math.max(0, playback.positionMs - clipStartMs)} maxDurationMs={composition.project.maxDurationMs - clipStartMs}
+      onSeek={(ms) => playback.seek(ms + clipStartMs)} initialPitch={initialPitch} percussion={instrument.kind === "drum"}
+      revealNote={chordFocus} />
   </div>;
 }
