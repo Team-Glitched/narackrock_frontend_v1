@@ -276,6 +276,8 @@ export default function Page() {
     if (activeView === "upload") return <CompositionUploadScreen onSave={saveAudio} onBack={() => setView("choose")} />;
     if (activeView === "record") return <CompositionRecordScreen onSave={saveAudio} onTransform={transformRecording} onBack={() => setView("choose")} />;
     if (activeView === "note") return <NoteEditorScreen
+      key={`${currentUserId}:${compositionTarget.projectId}:${editorTarget?.trackId}:${editorTarget?.clipId}`}
+      onClipSelected={editTrack}
       projectId={compositionTarget.projectId}
       trackId={editorTarget?.trackId ?? null}
       clipId={editorTarget?.clipId ?? null}

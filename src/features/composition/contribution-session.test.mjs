@@ -21,6 +21,11 @@ test("changes the add button to submit after the participant saves a draft clip"
   assert.equal(shouldShowContributionSubmit(7, permission, [track(22, "DRAFT")]), true);
 });
 
+test("allows submitting a private working copy before it has been materialized as a clip", () => {
+  assert.equal(shouldShowContributionSubmit(7, permission, [], 1), true);
+  assert.equal(shouldShowContributionSubmit(null, permission, [], 1), false);
+});
+
 test("uses contribution mode when the studio was opened from a short, even with local test owner permissions", () => {
   assert.equal(shouldShowContributionSubmit(7, { ...permission, canReviewContribution: true }, [track(22, "DRAFT")]), true);
 });

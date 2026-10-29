@@ -35,6 +35,12 @@
 .timeline{height:auto;flex:1;min-height:0}
 .studio-workflow+.timeline{height:auto}
 .studio-empty .studio-form{height:auto;flex:1}
+.editor-draft-status,.studio-draft-resume{display:flex;align-items:center;gap:8px;flex-wrap:wrap;flex-shrink:0;padding:8px 12px;background:#252b33;color:#cbd5e1;font-size:12px}
+.editor-draft-status button,.studio-draft-resume button,.editor-draft-conflict button{padding:5px 9px;border-radius:6px;background:#453469;color:#fff;font-size:12px}
+.editor-draft-status button:disabled,.studio-draft-resume button:disabled{opacity:.5}
+.editor-draft-conflict{flex-shrink:0;padding:10px 12px;background:#493324;color:#ffe3bf;font-size:12px}
+.editor-draft-conflict p{margin:0 0 8px}
+.editor-draft-conflict button{margin:0 6px 4px 0}
 .studio-track .track-person{position:sticky;left:0;z-index:2;background:#1d1d1d}
 .team-note-workspace{display:grid;grid-template-columns:87px max-content;grid-template-rows:30px max-content;align-content:start;width:100%;height:auto;flex:1;min-height:0;overflow:auto;overscroll-behavior:contain}
 .team-note-workspace .note-ruler-corner{position:sticky;top:0;left:0;z-index:7;background:#29323b}

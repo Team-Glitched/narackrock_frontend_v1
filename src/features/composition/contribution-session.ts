@@ -15,8 +15,8 @@ export function canCreateLayer(permission: ViewerPermission, tracks: TrackDto[])
     && !tracks.some((track) => track.ownerId === permission.userId);
 }
 
-export function shouldShowContributionSubmit(shortId: number | null, permission: ViewerPermission, tracks: TrackDto[]) {
+export function shouldShowContributionSubmit(shortId: number | null, permission: ViewerPermission, tracks: TrackDto[], workingDraftCount = 0) {
   return shortId != null
     && permission.canContribute
-    && hasOwnDraftClip(tracks, permission.userId);
+    && (hasOwnDraftClip(tracks, permission.userId) || workingDraftCount > 0);
 }
