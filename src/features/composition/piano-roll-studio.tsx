@@ -4,6 +4,7 @@ import { useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "r
 import { ArrowLeft, Check, ChevronLeft, ChevronRight, Copy, Eraser, HelpCircle, Music2, Pause, Pencil, Piano, Play, Redo2, SkipBack, Trash2, Undo2, Volume2, Scan, ClipboardPaste } from "lucide-react";
 import type { MidiNoteDto } from "@/lib/api/composition";
 import { clamp, copyNotes, moveNotes, pasteNotes, type NoteBounds } from "./note-editing";
+import { drumPitches, moveDrumNotes } from "./drum-kit";
 import { PianoRollGrid, type EditorMode } from "./piano-roll-grid";
 import type { NoteHistory } from "./use-note-history";
 
@@ -21,6 +22,10 @@ export function PianoRollStudio({ notes, history, editable, ppq, maxTick, bpm, p
   const [selected, setSelected] = useState(new Set<number>());
   const [clipboard, setClipboard] = useState<MidiNoteDto[]>([]);
   const [mode, setMode] = useState<EditorMode>("select");
+  const [expandedDrums, setExpandedDrums] = useState(false);
+  const pitches = useMemo(() => percussion ? drumPitches(expandedDrums) : Array.from({ length: 128 }, (_, i) => 127 - i), [percussion, expandedDrums]);
+  const hiddenDrumNotes = percussion ? notes.filter(note => !pitches.includes(note.pitch)).length : 0;
+  const shownIndices = notes.flatMap((note, index) => pitches.includes(note.pitch) ? [index] : []);
   const [snap, setSnap] = useState(.5);
   const [zoom, setZoom] = useState(2);
   const [viewStart, setViewStart] = useState(0);
@@ -37,7 +42,7 @@ export function PianoRollStudio({ notes, history, editable, ppq, maxTick, bpm, p
     const active = notes.filter(n => n.startTick <= tick && n.startTick + n.durationTick > tick);
     return Math.min(46, 4 + active.length * 7 + (active.length ? Math.max(...active.map(n => n.velocity)) / 8 : 0));
   }), [notes, maxTick]);
-  const visibleSelection = new Set([...selected].filter(index => index < notes.length));
+  const visibleSelection = new Set([...selected].filter(index => index < notes.length && pitches.includes(notes[index].pitch)));
   const hasSelection = visibleSelection.size > 0;
   if (lastReveal !== revealNote) {
     setLastReveal(revealNote);
@@ -71,7 +76,7 @@ export function PianoRollStudio({ notes, history, editable, ppq, maxTick, bpm, p
   }
   function undo() { if (!editable) return; onPause(); history.undo(); setSelected(new Set()); }
   function redo() { if (!editable) return; onPause(); history.redo(); setSelected(new Set()); }
-  function selectAll() { setMode("select"); setSelected(visibleSelection.size === notes.length ? new Set() : new Set(notes.map((_, index) => index))); }
+  function selectAll() { setMode("select"); setSelected(visibleSelection.size === shownIndices.length ? new Set() : new Set(shownIndices)); }
   function keyDown(event: KeyboardEvent) {
     if ((event.target as Element).closest("input,select,textarea,dialog,[role=dialog]")) return;
     const key = event.key.toLowerCase(), mod = event.metaKey || event.ctrlKey;
@@ -88,8 +93,10 @@ export function PianoRollStudio({ notes, history, editable, ppq, maxTick, bpm, p
     if (["Delete", "Backspace"].includes(event.key)) { event.preventDefault(); removeSelected(); }
     if (hasSelection && ["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown"].includes(event.key)) {
       event.preventDefault(); onPause();
-      const next = moveNotes(notes, visibleSelection, event.key === "ArrowLeft" ? -stepTick : event.key === "ArrowRight" ? stepTick : 0,
-        event.key === "ArrowUp" ? 1 : event.key === "ArrowDown" ? -1 : 0, bounds);
+      const ticks = event.key === "ArrowLeft" ? -stepTick : event.key === "ArrowRight" ? stepTick : 0;
+      const rows = event.key === "ArrowUp" ? -1 : event.key === "ArrowDown" ? 1 : 0;
+      const next = percussion ? moveDrumNotes(notes, visibleSelection, ticks, rows, pitches, bounds)
+        : moveNotes(notes, visibleSelection, ticks, -rows, bounds);
       history.apply(next);
     }
   }
@@ -132,14 +139,18 @@ export function PianoRollStudio({ notes, history, editable, ppq, maxTick, bpm, p
         <button className="small-icon" aria-label="다음 구간" disabled={viewStart + visibleTicks >= maxTick} onClick={() => changeView(viewStart + visibleTicks)}><ChevronRight /></button>
         <select aria-label="표시할 마디 수" value={zoom} onChange={event => { const next = Number(event.target.value); setZoom(next); setViewStart(clamp(viewStart, 0, Math.max(0, maxTick - next * 4 * ppq))); }}>{[1, 2, 4].map(n => <option value={n} key={n}>{n}마디</option>)}</select>
       </div></div>
-      <PianoRollGrid notes={notes} onCommit={commit} selected={visibleSelection} onSelect={setSelected} mode={mode}
+      {percussion && <div className="drum-kit-bar"><span>{expandedDrums ? "전체 타악기 · 47개" : "기본 드럼 · 11개"}</span>
+        <button aria-pressed={expandedDrums} onClick={() => { onPause(); setSelected(new Set()); setExpandedDrums(!expandedDrums); }}>
+          {expandedDrums ? "기본 키트" : "전체 타악기"}{hiddenDrumNotes > 0 && <span className="drum-extra-count">다른 타악기 노트 {hiddenDrumNotes}개</span>}
+        </button></div>}
+      <PianoRollGrid notes={notes} pitches={pitches} onCommit={commit} selected={visibleSelection} onSelect={setSelected} mode={mode}
         stepTick={stepTick} minTick={Math.max(1, Math.round(ppq / 4))} ppq={ppq} bounds={bounds} viewStart={viewStart} visibleTicks={visibleTicks}
         positionTick={positionTick} onSeek={tick => onSeek(tickToMs(tick))} initialPitch={initialPitch} editable={editable} percussion={percussion}
         revealNote={revealNote} onEditStart={onPause} onAudition={onAudition}
         onViewStart={tick => { onPause(); setViewStart(clamp(Math.round(tick), 0, maxTick - visibleTicks)); }} />
       <div className="selection-bar"><div className="selection-info"><span>{hasSelection ? `${visibleSelection.size}개 선택됨` : "노트 선택"}</span>
         <span>{hasSelection ? "드래그로 함께 이동 · 오른쪽 끝으로 길이 조절" : mode === "draw" ? "빈 곳을 탭해 추가 · 끌어서 길이 지정" : mode === "erase" ? "노트를 탭하거나 쓸어서 삭제" : "탭으로 선택 · 드래그로 영역 선택"}</span></div>
-        <div className="selection-actions"><button onClick={selectAll} disabled={!notes.length} title="전체 선택 (⌘/Ctrl+A)">{visibleSelection.size === notes.length && notes.length ? "선택 해제" : "전체 선택"}</button>
+        <div className="selection-actions"><button onClick={selectAll} disabled={!shownIndices.length} title="전체 선택 (⌘/Ctrl+A)">{visibleSelection.size === shownIndices.length && shownIndices.length ? "선택 해제" : "전체 선택"}</button>
           <button disabled={!hasSelection} onClick={copy} title="복사 (⌘/Ctrl+C)"><Copy /><span>복사</span></button>
           <button disabled={!editable || !clipboard.length} onClick={() => paste()} title="재생 위치에 붙여넣기 (⌘/Ctrl+V)"><ClipboardPaste /><span>붙여넣기</span></button>
           <button disabled={!editable || !hasSelection} onClick={() => paste(true)} title="선택 노트 뒤에 복제 (⌘/Ctrl+D)">복제</button>
