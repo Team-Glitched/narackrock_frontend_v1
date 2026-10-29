@@ -102,7 +102,7 @@ export function PianoRollStudio({ notes, history, editable, ppq, maxTick, bpm, p
   }
   function changeView(next: number) { onPause(); const start = clamp(next, 0, maxTick - visibleTicks); setViewStart(start); onSeek(tickToMs(start)); }
   const endBar = Math.ceil((viewStart + visibleTicks) / (ppq * 4));
-  return <section aria-label="레이어 스튜디오" className={`piano-studio ${percussion ? "percussion-studio" : ""}`} onKeyDown={keyDown}>
+  return <section aria-label="레이어 스튜디오" className={`piano-studio ${percussion ? `percussion-studio ${expandedDrums ? "" : "basic-drums"}` : ""}`} onKeyDown={keyDown}>
     <header className="topbar"><div className="heading">
       <button className="icon-btn back" onClick={onBack} disabled={busy} aria-label="작곡 화면으로 돌아가기"><ArrowLeft /></button>
       <span className="brand"><i />LAYER<span>STUDIO</span></span><h1>레이어 만들기</h1>
