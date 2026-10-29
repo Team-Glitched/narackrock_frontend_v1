@@ -39,7 +39,7 @@ test("mixed tracks stop at the latest actual MIDI or audio end, ignoring empty c
       { clipType: "MIDI", startTick: 40_000, durationTick: 10_000, midiNotes: [] },
       { clipType: "AUDIO", startTimeMs: 500, durationMs: 3_000, clipOffsetMs: 10_000 },
     ] }],
-  } as CompositionDto;
+  } as unknown as CompositionDto;
   assert.equal(compositionEndMs(composition, composition.tracks), 3_500);
   composition.tracks[0].clips.pop();
   assert.equal(compositionEndMs(composition, composition.tracks), 2_000);
