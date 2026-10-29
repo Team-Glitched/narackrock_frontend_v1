@@ -9,7 +9,8 @@ import type { AudioSelection } from "@/features/composition/prepare-audio-file";
 import { AudioTrimPicker } from "@/features/composition/audio-trim-picker";
 import { canCreateLayer, hasOwnDraftClip, shouldShowContributionSubmit } from "@/features/composition/contribution-session";
 import { completedExportShortId } from "@/features/composition/publish-navigation";
-import { TeamPianoRoll } from "@/features/composition/team-piano-roll";
+import { PianoRollStudio } from "@/features/composition/piano-roll-studio";
+import { useNoteHistory } from "@/features/composition/use-note-history";
 import { ChordPicker } from "@/features/composition/chord-picker";
 import { chordStartTick, insertChord, type ChordQuality } from "@/features/composition/chord-input";
 import { instrumentFor } from "@/features/composition/instrument-catalog";
@@ -357,6 +358,7 @@ function LoadedNoteEditor({ composition, track, clipId, onBack, onAddLayer, onCl
     draft.session.edit({ startTick: current.startTick,
       durationTick: Math.max(baseClip?.durationTick ?? 0, stepTick, ...next.map(n => n.startTick + n.durationTick)), midiNotes: next });
   }, [draft.session, baseClip, stepTick]);
+  const history = useNoteHistory(notes, setNotes, draft.session);
   const preview = useMemo(() => {
     const previewClip = clip ? { ...clip, midiNotes: notes }
       : { clipId: -1, ownerId: composition.viewerPermission.userId, clipType: "MIDI" as const,
@@ -376,7 +378,7 @@ function LoadedNoteEditor({ composition, track, clipId, onBack, onAddLayer, onCl
     if (result.reason === "outside-timeline") return { added: false, message: "곡의 끝에는 추가할 수 없습니다. 재생 위치를 앞으로 옮겨 주세요." };
     if (result.reason === "outside-pitch-range") return { added: false, message: "음역을 벗어납니다. 옥타브를 낮춰 주세요." };
     playback.pause();
-    setNotes(result.notes);
+    history.apply(result.notes);
     const added = result.notes.slice(notes.length);
     setChordFocus({ pitch: Math.round((added[0].pitch + added[added.length - 1].pitch) / 2), startTick });
     setError(null);
@@ -411,18 +413,21 @@ function LoadedNoteEditor({ composition, track, clipId, onBack, onAddLayer, onCl
     : draft.state?.status === "conflict" ? "작업 충돌 · 복구본 확인 필요"
     : draft.state?.status === "dirty" ? "변경사항 저장 대기 중" : draft.session ? "자동 저장 사용 중" : "초안 불러오는 중…";
   const initialPitch = notes[0]?.pitch ?? (instrument.kind === "drum" ? 36 : 60);
-  return <div className="studio note-editor">
-    <StudioToolbar title={`${track.name} · ${instrument.label}`} bpm={composition.project.bpm} playing={playback.playing} positionMs={playback.positionMs}
-      onPlay={() => { void playback.play(); }} onPause={playback.pause} onBack={() => { void leave(); }}
-      piano volume={playback.volume} onVolume={playback.setVolume}
-      onAdd={layerCreationAllowed ? () => { void leave(onAddLayer); } : undefined}>
-      <label className="studio-note-length">길이<select value={lengthCells} onChange={event => setLengthCells(Number(event.target.value))}><option value={1}>1/8</option><option value={2}>1/4</option><option value={4}>1/2</option><option value={8}>한 마디</option></select></label>
+  return <PianoRollStudio key={draft.state?.draftId ?? "loading"} notes={notes} history={history} editable={canEditNotes}
+    ppq={composition.project.ppq} maxTick={maxTick - clipStartTick} bpm={composition.project.bpm}
+    positionMs={Math.max(0, playback.positionMs - clipStartMs)} maxDurationMs={composition.project.maxDurationMs - clipStartMs}
+    onSeek={ms => playback.seek(ms + clipStartMs)} initialPitch={initialPitch} percussion={instrument.kind === "drum"}
+    revealNote={chordFocus} instrument={instrument.label} playing={playback.playing}
+    onPlay={() => { void playback.play(); }} onPause={playback.pause} onAudition={pitch => { void playback.audition(pitch, instrument.id); }}
+    volume={playback.volume} onVolume={playback.setVolume} onBack={() => { void leave(); }} onSave={() => { void leave(onBack, true); }}
+    saveDisabled={!canEditNotes} busy={busy}
+    status={<>{editable ? statusText : "읽기 전용"}{draft.restored && draft.state?.status !== "conflict" ? " · 이전 작업 복원됨" : ""}</>}
+    actions={<>
       {instrument.kind !== "drum" && <ChordPicker disabled={!canEditNotes} lengthCells={lengthCells}
         onLengthChange={setLengthCells} onOpen={playback.pause} onAdd={addChord} />}
-      <button className="studio-save" onClick={() => { void leave(onBack, true); }} disabled={!editable || !draft.session || busy || draft.state?.status === "conflict"}>{busy ? "저장 중" : "저장"}</button>
-    </StudioToolbar>
+      {layerCreationAllowed && <button className="add-layer" disabled={busy} onClick={() => { void leave(onAddLayer); }}>레이어 추가</button>}
+    </>}>
     {editable && <div className="editor-draft-status" role="status" aria-live="polite">
-      <span>{statusText}{draft.restored && draft.state?.status !== "conflict" ? " · 이전 작업 복원됨" : ""}</span>
       {draft.session && draft.state?.status !== "idle" && <button disabled={busy} onClick={() => setConfirmDiscard(true)}>초안 버리기</button>}
       {(draft.state?.status === "local" || draft.state?.status === "error") && <button onClick={() => { void draft.session?.flush().catch(cause => setError(errorText(cause))); }}>다시 저장</button>}
       {draft.loadError && <span>{draft.loadError}</span>}
@@ -445,10 +450,5 @@ function LoadedNoteEditor({ composition, track, clipId, onBack, onAddLayer, onCl
     {error && <p className="studio-error" role="alert">{error}</p>}
     {playback.error && !error && <p className="studio-error" role="alert">{playback.error}</p>}
     {!editable && <p className="studio-error">본인의 편집 가능한 MIDI만 수정할 수 있습니다.</p>}
-    <TeamPianoRoll notes={notes} setNotes={setNotes} stepTick={stepTick}
-      maxTick={maxTick - clipStartTick} lengthCells={lengthCells} editable={canEditNotes}
-      positionMs={Math.max(0, playback.positionMs - clipStartMs)} maxDurationMs={composition.project.maxDurationMs - clipStartMs}
-      onSeek={(ms) => playback.seek(ms + clipStartMs)} initialPitch={initialPitch} percussion={instrument.kind === "drum"}
-      revealNote={chordFocus} />
-  </div>;
+  </PianoRollStudio>;
 }

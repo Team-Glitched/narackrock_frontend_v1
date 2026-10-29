@@ -77,6 +77,23 @@ export function useCompositionPlayback(composition: CompositionDto | null) {
     return promise;
   }, []);
 
+  const audition = useCallback(async (pitch: number, instrumentId: string) => {
+    pause();
+    const request = playRequestRef.current;
+    setError(null);
+    try {
+      await Tone.start();
+      if (request !== playRequestRef.current) return;
+      const master = masterGainRef.current ?? new Tone.Gain(volumeRef.current / 100).toDestination();
+      masterGainRef.current = master;
+      const sampler = await loadSampler(instrumentId, master);
+      if (request !== playRequestRef.current) return;
+      sampler.triggerAttackRelease(Tone.Frequency(pitch, "midi").toNote(), .35, Tone.now(), .8);
+    } catch (cause) {
+      if (request === playRequestRef.current) setError(cause instanceof Error ? cause.message : "악기 샘플을 불러오지 못했습니다.");
+    }
+  }, [loadSampler, pause]);
+
   const play = useCallback(async () => {
     if (!composition) return;
     const request = ++playRequestRef.current;
@@ -166,5 +183,5 @@ export function useCompositionPlayback(composition: CompositionDto | null) {
     masterGainRef.current = null;
   }, [stopSources]);
 
-  return { playing, positionMs, volume, error, setVolume, play, pause, seek };
+  return { playing, positionMs, volume, error, setVolume, play, pause, seek, audition };
 }
