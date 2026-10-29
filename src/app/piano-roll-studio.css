@@ -783,7 +783,7 @@
 .piano-studio .bottom-caption .dot {
   background: #645473;
 }
-.piano-studio dialog {
+.piano-studio .help-card {
   width: min(460px,calc(100% - 32px));
   padding: 25px;
   border: 1px solid #453650;
@@ -792,7 +792,7 @@
   color: #eee5f6;
   box-shadow: 0 24px 100px #0008;
 }
-.piano-studio dialog::backdrop {
+.piano-studio .help-card::backdrop {
   background: #040107b8;
   backdrop-filter: blur(7px);
 }
@@ -1882,4 +1882,68 @@
   .piano-studio .project-timing-form .parameter svg { display: none; }
   .piano-studio .project-timing-form .parameter { gap: 5px; padding: 0 7px; }
   .piano-studio .project-timing-form .tempo .muted { display: none; }
+}
+
+/* Shared instrument picker for MIDI sounds and recorded roles. */
+.instrument-dialog {
+  width: min(560px, calc(100vw - 24px));
+  max-height: min(88svh, 760px);
+  margin: auto;
+  padding: 0;
+  color: #eee7f8;
+  background: #141119;
+  border: 1px solid #49345d;
+  border-radius: 20px;
+  box-shadow: 0 24px 100px #000b;
+  overflow: hidden;
+  font-family: inherit;
+}
+.instrument-dialog[open] { display: flex; flex-direction: column; }
+.instrument-dialog::backdrop { background: #000b; backdrop-filter: blur(5px); }
+.instrument-dialog-heading { display: flex; justify-content: space-between; gap: 14px; padding: 20px 20px 12px; }
+.instrument-dialog-heading h2 { margin: 0 0 6px; font-size: 19px; font-weight: 650; }
+.instrument-dialog-heading p { color: #a398b0; margin: 0; font-size: 12px; line-height: 1.6; }
+.instrument-dialog-heading>button { flex: none; width: 32px; height: 32px; padding: 5px; color: #c3b4d4; }
+.instrument-family-navigation { display: flex; flex-wrap: wrap; gap: 6px; padding: 4px 20px 12px; border-bottom: 1px solid #32273d; }
+.instrument-family-navigation button { color: #cab4e4; font-size: 11px; border: 1px solid #493859; border-radius: 7px; padding: 6px 9px; }
+.instrument-group-list { overflow-y: auto; overscroll-behavior: contain; min-height: 0; padding: 4px 20px 16px; }
+.instrument-family { scroll-margin-top: 10px; }
+.instrument-family h3 { display: flex; flex-wrap: wrap; gap: 7px; align-items: center; margin: 18px 0 9px; color: #c2b1d4; font-size: 13px; }
+.instrument-family h3 span { overflow-wrap: anywhere; font-size: 10px; font-weight: 400; color: #a39375; }
+.instrument-options { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 8px; }
+.instrument-dialog .instrument-options button { display: flex; text-align: left; align-items: center; gap: 8px; padding: 12px; color: #d9d0e4; border: 1px solid #39303f; border-radius: 12px; background: #1c1723; font-size: 12px; min-height: 62px; }
+.instrument-dialog .instrument-options button>svg { width: 17px; flex: none; color: #aa79f0; }
+.instrument-dialog .instrument-options button>span { flex: 1; min-width: 0; }
+.instrument-dialog .instrument-options button small { display: block; color: #887c94; font-size: 10px; margin-top: 4px; }
+.instrument-dialog .instrument-options button.selected { border-color: #a267fa; background: #34204c; }
+.instrument-dialog .instrument-options button:disabled { opacity: .38; cursor: not-allowed; }
+.instrument-dialog-footer { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 14px 20px; border-top: 1px solid #3b2c48; background: #19131f; font-size: 13px; }
+.instrument-dialog-footer>button { padding: 11px 17px; background: #720cf3; color: #fff; border-radius: 10px; font-weight: 600; font-size: 12px; }
+.instrument-dialog-footer>button:disabled { opacity: .35; }
+.instrument-picker-error { margin: 0; padding: 9px 20px; color: #f4a9af; font-size: 11px; }
+.piano-studio button.instrument { cursor: pointer; text-align: left; }
+.piano-studio button.instrument:disabled { cursor: default; opacity: .65; }
+.piano-studio .instrument-chevron { width: 15px; margin-left: auto; }
+.creation-flow-hint { margin: 4px 12px 12px; color: #bcaecb; font-size: 12px; line-height: 1.65; }
+@media(max-width:520px) {
+  .instrument-dialog { max-height: 90svh; border-radius: 18px; }
+  .instrument-dialog-heading { padding: 16px 14px 10px; }
+  .instrument-family-navigation { padding: 0 14px 10px; max-height: 100px; overflow-y: auto; }
+  .instrument-group-list { padding: 0 14px 14px; }
+  .instrument-dialog .instrument-options button { padding: 10px 8px; gap: 6px; }
+  .instrument-dialog-footer { padding: 12px 14px; }
+}
+.instrument-dialog-heading,
+.instrument-dialog-footer { flex: none; }
+.instrument-family-navigation { flex-shrink: 0; scrollbar-width: thin; scrollbar-color: #69448b #17121f; }
+.instrument-group-list { flex: 1; }
+@media(max-width:520px), (max-height:600px) {
+  .instrument-family-navigation {
+    flex-wrap: nowrap;
+    max-height: none;
+    overflow-x: auto;
+    overflow-y: hidden;
+    white-space: nowrap;
+  }
+  .instrument-family-navigation button { flex: none; }
 }
