@@ -12,38 +12,38 @@ test("refresh restores draft text and files, while discard cannot resurrect queu
  const image=new File(["image data"],"cover.png",{type:"image/png"});
  const audio=new File(["wave data"],"track.wav",{type:"audio/wav"});
  const draft={title:"제목",content:"본문",image,audio,notes:[],bpm:123};
- await first.rememberCreationDraft("preview:1:post",draft);
+ await first.rememberCreationDraft("live:1:post",draft);
  const refreshed=await import("../../features/community/creation-draft.ts?refresh");
- const restored=await refreshed.restoreCreationDraft("preview:1:post");
+ const restored=await refreshed.restoreCreationDraft("live:1:post");
  assert.equal(restored.title,"제목");assert.equal(await restored.image.text(),"image data");assert.equal(await restored.audio.text(),"wave data");
- assert.equal(await refreshed.restoreCreationDraft("preview:2:post"),undefined);
- const writing=refreshed.rememberCreationDraft("preview:1:post",{...draft,image:null});
- refreshed.clearCreationDraft("preview:1:post");await writing;
- assert.equal(await readBrowserRecord("narackrock.creation-draft.preview:1:post"),undefined);
- assert.equal(files.has("narackrock.creation-draft.preview:1:post"),false);
- assert.equal((await import("../../features/community/creation-draft.ts?after-discard")).readCreationDraft("preview:1:post"),undefined);
+ assert.equal(await refreshed.restoreCreationDraft("live:2:post"),undefined);
+ const writing=refreshed.rememberCreationDraft("live:1:post",{...draft,image:null});
+ refreshed.clearCreationDraft("live:1:post");await writing;
+ assert.equal(await readBrowserRecord("narackrock.creation-draft.live:1:post"),undefined);
+ assert.equal(files.has("narackrock.creation-draft.live:1:post"),false);
+ assert.equal((await import("../../features/community/creation-draft.ts?after-discard")).readCreationDraft("live:1:post"),undefined);
 });
 test("source bookmarks survive refresh with audio, share remove state and isolate accounts",async()=>{
  const first=await import("../../features/community/saved-sources.ts?first");
  const source={id:987,title:"저장한 레이어",description:"설명",author:"작성자",userId:2,mediaUrl:null,imageUrl:null};
  const file=new File(["saved audio"],"layer.wav",{type:"audio/wav"});
- await first.toggleSavedSource("preview.1",source,file);
+ await first.toggleSavedSource("live.1",source,file);
  const refreshed=await import("../../features/community/saved-sources.ts?refresh");
- const saved=refreshed.savedSourcesSnapshot("preview.1");assert.equal(saved.length,1);
+ const saved=refreshed.savedSourcesSnapshot("live.1");assert.equal(saved.length,1);
  assert.equal(await (await refreshed.readSavedSourceAudio(saved[0])).text(),"saved audio");
- assert.equal(refreshed.savedSourcesSnapshot("live.1").length,0);assert.equal(refreshed.savedSourcesSnapshot("preview.2").length,0);
- refreshed.removeSavedSource("preview.1",source.id);
- assert.equal(first.savedSourcesSnapshot("preview.1").length,0);
+ assert.equal(refreshed.savedSourcesSnapshot("live.2").length,0);
+ refreshed.removeSavedSource("live.1",source.id);
+ assert.equal(first.savedSourcesSnapshot("live.1").length,0);
 });
 
 test("stale attachment bytes cannot reappear after image removal metadata is saved",async()=>{
  const drafts=await import("../../features/community/creation-draft.ts?remove-image");
  const image=new File(["old image"],"old.png",{type:"image/png"});
  const draft={title:"유지",content:"본문",image,audio:null,notes:[],bpm:120};
- await drafts.rememberCreationDraft("preview:1:image-removal",draft);
- await drafts.rememberCreationDraft("preview:1:image-removal",{...draft,image:null});
- files.set("narackrock.creation-draft.preview:1:image-removal",{image,audio:null}); // interrupted old transaction
+ await drafts.rememberCreationDraft("live:1:image-removal",draft);
+ await drafts.rememberCreationDraft("live:1:image-removal",{...draft,image:null});
+ files.set("narackrock.creation-draft.live:1:image-removal",{image,audio:null}); // interrupted old transaction
  const refreshed=await import("../../features/community/creation-draft.ts?removed-image-refresh");
- const restored=await refreshed.restoreCreationDraft("preview:1:image-removal");
+ const restored=await refreshed.restoreCreationDraft("live:1:image-removal");
  assert.equal(restored.image,null);assert.equal(restored.title,"유지");
 });

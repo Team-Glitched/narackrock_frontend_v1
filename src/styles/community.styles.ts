@@ -732,22 +732,6 @@ export const communityStyles = {
     "[.design-canvas_.community-actions_&]:h-[22px] [.design-canvas_.community-actions_&]:w-[1px]",
     "[.design-canvas_.community-actions_&]:flex-[0_0_1px]",
   ].join(" "),
-  reportThumbnail: [
-    "report-thumbnail",
-    "h-15 flex-[0_0_60px] bg-app-fg bg-none rounded-[3px]",
-    "[@media(max-width:359px)]:h-12 [@media(max-width:359px)]:basis-12",
-  ].join(" "),
-  reportCopy: [
-    "report-copy",
-    "flex-1 text-body leading-[18px]",
-    "[&_small]:mt-[3px] [&_small]:flex [&_small]:items-center [&_small]:gap-[6px] [&_small]:text-caption",
-    "[.design-canvas_.review-report_&]:flex [.design-canvas_.review-report_&]:h-15 [.design-canvas_.review-report_&]:min-w-0",
-    "[.design-canvas_.review-report_&]:flex-col [.design-canvas_.review-report_&]:justify-between",
-    "[.design-canvas_&>span]:font-normal [.design-canvas_&>span]:text-body [.design-canvas_&>span]:font-sans",
-    "[.design-canvas_&>span]:leading-[18px]",
-    "[.design-canvas_&_small]:m-0 [.design-canvas_&_small]:font-normal [.design-canvas_&_small]:text-caption [.design-canvas_&_small]:font-sans",
-    "[.design-canvas_&_small]:leading-[14px]",
-  ].join(" "),
   commentAttachment: [
     "comment-attachment",
     "pointer-events-none absolute top-[13px] left-[9px] h-[18px] w-[18px]",

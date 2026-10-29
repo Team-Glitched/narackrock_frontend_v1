@@ -1,6 +1,5 @@
 import { useMemo, useSyncExternalStore } from "react";
 import { useCurrentUserId } from "@/hooks/use-current-user";
-import { isPreviewMode } from "@/features/preview/preview-mode";
 import { parseSignature, validSignature, type TimeSignature } from "./time-signature";
 const listeners = new Set<()=>void>();
 const memory = new Map<string,string>();
@@ -9,7 +8,7 @@ function subscribe(listener:()=>void) { const onStorage=(event:StorageEvent)=>{i
 function read(key:string) { try { return memory.get(key)??localStorage.getItem(key)??"4/4"; } catch { return memory.get(key)??"4/4"; } }
 export function useTimeSignature(projectId:number|null) {
   const userId=useCurrentUserId();
-  const key=`narackrock.time-signature.${isPreviewMode()?"preview":"live"}.${userId??"guest"}.${projectId??"none"}`;
+  const key=`narackrock.time-signature.live.${userId??"guest"}.${projectId??"none"}`;
   const text=useSyncExternalStore(subscribe,()=>read(key),()=>"4/4");
   const signature=useMemo(()=>parseSignature(text),[text]);
   function setSignature(value:TimeSignature) {

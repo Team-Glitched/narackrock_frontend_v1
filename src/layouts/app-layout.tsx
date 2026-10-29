@@ -10,7 +10,6 @@ import { useAppNavigation } from "@/features/navigation/use-app-navigation";
 import { creationForView, creationLabels } from "@/features/navigation/context-actions";
 import { readId } from "@/features/navigation/paths";
 import { routeBackPath } from "@/features/navigation/route-back";
-import { views, type View } from "@/features/navigation/types";
 import { useWebMcpNavigation } from "@/hooks/use-webmcp-navigation";
 import NotificationsPage from "@/pages/notifications-page";
 import { PageState } from "@/pages/page-state";
@@ -34,15 +33,6 @@ export default function AppLayout() {
     document.title = page.title ? `${page.title} | Narackrock` : "Narackrock — Make it heard";
     document.querySelector('meta[name="description"]')?.setAttribute("content", "함께 만들고 발견하는 음악 커뮤니티 Narackrock");
   }, [page.title]);
-  useEffect(() => {
-    if (!session.preview) return;
-    const move = (event: Event) => {
-      const view = (event as CustomEvent<string>).detail;
-      if (typeof view === "string" && views.includes(view as View)) go(view as View);
-    };
-    window.addEventListener("narackrock-preview-navigate", move);
-    return () => window.removeEventListener("narackrock-preview-navigate", move);
-  }, [session.preview, go]);
   const invalidId = Object.entries(params).some(([key, value]) => key.endsWith("Id") && readId(value) === null);
   const content = invalidId ? <PageState error>올바르지 않은 페이지 주소입니다.</PageState> : <Outlet />;
   if (page.layout === "studio") return <DesignViewport landscape>{content}</DesignViewport>;

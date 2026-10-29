@@ -1,4 +1,3 @@
-import { isPreviewMode } from "@/features/preview/preview-mode";
 import { useSyncExternalStore } from "react";
 import { useCurrentUserId } from "@/hooks/use-current-user";
 
@@ -32,7 +31,7 @@ function read(key: string) {
 }
 export function useSavedItems() {
   const userId = useCurrentUserId();
-  const key = `${isPreviewMode() ? "narackrock.preview.saved" : "narackrock.saved"}.${userId ?? "guest"}`;
+  const key = `narackrock.saved.${userId ?? "guest"}`;
   const items = useSyncExternalStore(subscribe, () => read(key), () => empty);
   function toggle(item: Omit<SavedItem, "savedAt">) {
     const current = read(key);

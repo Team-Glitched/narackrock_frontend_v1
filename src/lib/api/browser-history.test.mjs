@@ -4,8 +4,8 @@ import { createMemoryRouter } from "react-router";
 import { pageRoutes } from "../../features/navigation/route-config.ts";
 
 function makeRouter(initialEntries) {
-  const children = prefix => pageRoutes.map(route => ({ ...(route.path ? { path: route.path } : { index: true }), id: `${prefix}:${route.id}`, handle: route }));
-  return createMemoryRouter([{ path: "/", children: children("live") }, { path: "/preview", children: children("preview") }], { initialEntries });
+  const children = () => pageRoutes.map(route => ({ ...(route.path ? { path: route.path } : { index: true }), id: route.id, handle: route }));
+  return createMemoryRouter([{ path: "/", children: children() }], { initialEntries });
 }
 
 test("router back and forward restore search context and the selected post", async () => {
@@ -35,14 +35,14 @@ test("typing replaces search history entries and a new branch replaces the forwa
   } finally { router.dispose(); }
 });
 
-test("preview links reload directly into their page and retain mode through editor navigation", async () => {
-  const router = makeRouter(["/preview/studio/42/tracks/3/notes?clipId=9&shortId=7"]);
+test("editor links open directly and preserve their selection through browser navigation", async () => {
+  const router = makeRouter(["/studio/42/tracks/3/notes?clipId=9&shortId=7"]);
   try {
     assert.equal(router.state.matches.at(-1).route.handle.id, "notes");
     assert.deepEqual(router.state.matches.at(-1).params, { projectId: "42", trackId: "3" });
-    await router.navigate("/preview/studio/42?shortId=7");
+    await router.navigate("/studio/42?shortId=7");
     await router.navigate(-1);
-    assert.equal(router.state.location.pathname, "/preview/studio/42/tracks/3/notes");
+    assert.equal(router.state.location.pathname, "/studio/42/tracks/3/notes");
     assert.equal(router.state.location.search, "?clipId=9&shortId=7");
   } finally { router.dispose(); }
 });

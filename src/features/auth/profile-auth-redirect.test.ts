@@ -8,6 +8,6 @@ test("redirects protected profile screens to login after the session expires", (
   assert.ok(protectedIds.includes("profile") && protectedIds.includes("editProfile"));
   assert.ok(!protectedIds.includes("user"));
   assert.match(guard, /currentUserId === null/);
-  assert.match(guard, /<Navigate to=\{appPath\("\/login", preview\)\}/);
+  assert.match(guard, /<Navigate to="\/login"/);
   assert.match(guard, /returnTo: location.pathname \+ location.search/);
 });

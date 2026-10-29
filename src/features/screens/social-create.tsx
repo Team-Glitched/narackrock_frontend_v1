@@ -14,13 +14,9 @@ import { CanvasDialog } from "@/components/app/dialog";
 import { createPost } from "@/lib/api/community";
 import { uploadMedia } from "@/lib/api/media";
 import { validatePostImage } from "@/features/community/post-image";
-import { createPreviewCommunity } from "@/features/preview/demo-api";
-import { createPreviewSource } from "@/features/preview/source-store";
-import { isPreviewMode } from "@/features/preview/preview-mode";
-import { useCommunityMembership } from "./community-membership";
 import type { GalleryListItem } from "@/lib/api/contracts";
 export function SocialCreate({onCancel,postTargetStatus="ready",kind,galleryId,onCreated,audioStage="details",onAudioStage}:{onCancel:()=>void;postTargetStatus?:PostTargetStatus;audioStage?:"details"|"choose"|"upload"|"record"|"note";onAudioStage?:(stage:"details"|"choose"|"upload"|"record"|"note")=>void;kind:"post"|"community"|"source";galleryId:number;onCreated:(gallery?:GalleryListItem)=>void}) {
-  const [draftKey]=useState(()=>`${isPreviewMode()?"preview":"live"}:${getCurrentUserId()??"guest"}:${kind}`);
+  const [draftKey]=useState(()=>`live:${getCurrentUserId()??"guest"}:${kind}`);
   const initial=readCreationDraft(draftKey);
   const [restoring,setRestoring]=useState(true);
   const [discarding,setDiscarding]=useState(false);
@@ -62,13 +58,10 @@ export function SocialCreate({onCancel,postTargetStatus="ready",kind,galleryId,o
   },[draftSaving]);
   const setAudioStage=(stage:"details"|"choose"|"upload"|"record"|"note")=>onAudioStage?.(stage);
   async function selectAudio(file:File,selection?:AudioSelection){setRestoreError("");const {wav}=await prepareAudioFile(file,selection);setAudio(new File([wav],"opensource.wav",{type:"audio/wav"}));setAudioStage("details");}
-  const membership=useCommunityMembership();
   useEffect(()=>()=>{if(image)URL.revokeObjectURL(image.url);},[image]);
   async function submit(event:React.FormEvent){event.preventDefault();if(busy||!title.trim()||!content.trim()||(kind==="post"&&postTargetStatus!=="ready"))return;setBusy(true);setError(null);try{
     if(kind==="post"){const imageId=image?await uploadMedia(image.file,"IMAGE"):null;await createPost(galleryId,title.trim(),content.trim(),imageId);setDiscarding(true);clearCreationDraft(draftKey);onCreated();}
-    else if(!isPreviewMode())throw new Error("생성 화면은 준비되어 있으며, 서버의 생성 API 연결이 필요합니다.");
-    else if(kind==="community"){const imageUrl=image?URL.createObjectURL(image.file):null;const gallery=createPreviewCommunity(title,content,imageUrl);await membership.toggle(gallery.galleryId);setDiscarding(true);clearCreationDraft(draftKey);onCreated(gallery);}
-    else {if(!audio)throw new Error("오디오 파일을 선택해주세요.");createPreviewSource(title,content,audio,image?URL.createObjectURL(image.file):null);setDiscarding(true);clearCreationDraft(draftKey);onCreated();}
+    else throw new Error("현재 이 생성 기능을 사용할 수 없습니다.");
   }catch(cause){setError(cause instanceof Error?cause.message:"생성하지 못했습니다.");}finally{setBusy(false);}}
   if(restoring)return <p className={sharedStyles.creationRestoreStatus} role="status">작성 중인 내용을 불러오는 중...</p>;
   if(kind==="source"&&audioStage!=="details")return <div className={sharedStyles.sourceAudioFlow}>{audioStage==="choose"?<CompositionChoiceScreen busy={false} error={null} onBack={()=>setAudioStage("details")} onChoose={method=>setAudioStage(method)}/>:audioStage==="upload"?<CompositionUploadScreen saveLabel="오디오 선택 완료" onBack={()=>setAudioStage("choose")} onSave={selectAudio}/>:audioStage==="note"?<SourcePianoEditor notes={pianoNotes} setNotes={setPianoNotes} bpm={pianoBpm} onBpm={setPianoBpm} onBack={()=>setAudioStage("choose")} onSave={file=>{setAudio(file);setAudioStage("details");}}/>:<CompositionRecordScreen saveLabel="녹음 선택 완료" onBack={()=>setAudioStage("choose")} onSave={selectAudio}/>}</div>;

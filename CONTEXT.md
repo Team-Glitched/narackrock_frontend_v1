@@ -1,4 +1,4 @@
-> 현재 프론트엔드는 React + Vite + React Router를 사용하며, 스타일은 Tailwind TS 토큰·variant·프리셋으로 관리합니다. `src/app/App.tsx`는 RouterProvider만 실행하고, 페이지는 `src/pages/`, 경로 설정은 `src/app/routes.tsx`와 `src/features/navigation/route-config.ts`, 공통 레이아웃은 `src/layouts/app-layout.tsx`에 있습니다. 실행 방법과 URL 예시는 README.md를 확인하세요. 아래는 전환 이전의 작업 이력입니다.
+> 현재 프론트엔드는 React + Vite + React Router를 사용하며, 스타일은 Tailwind TS 토큰·variant·프리셋으로 관리합니다. `src/app/App.tsx`는 RouterProvider만 실행하고, 페이지는 `src/pages/`, 경로 설정은 `src/app/routes.tsx`와 `src/features/navigation/route-config.ts`, 공통 레이아웃은 `src/layouts/app-layout.tsx`에 있습니다. 실행 방법과 URL 예시는 README.md를 확인하세요. 예시 데이터 체험 모드와 가상 API는 제거했습니다. 아래는 과거 구현의 작업 이력이며, preview 관련 내용은 현재 동작에 해당하지 않습니다.
 
 # Narackrock Frontend 작업 컨텍스트
 

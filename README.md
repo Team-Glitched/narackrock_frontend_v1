@@ -14,7 +14,6 @@ npm run dev
 개발 서버는 http://127.0.0.1:5173 에서 실행됩니다.
 
 - `/`: 별도 백엔드 API를 사용하는 앱
-- `/preview`: 로그인 없이 예시 데이터로 체험하는 앱
 - `/privacy`: 개인정보처리방침
 
 ## 환경 변수
@@ -33,8 +32,8 @@ npm run build
 npm start
 ```
 
-`build`는 TypeScript 검사 후 정적 파일을 `dist/`에 생성합니다. `start`와 `preview`는 빌드 결과를 로컬에서 확인합니다.
-배포 서버는 `/preview`, `/privacy` 같은 직접 접근 경로를 `index.html`로 전달하도록 SPA fallback을 설정해야 합니다.
+`build`는 TypeScript 검사 후 정적 파일을 `dist/`에 생성합니다. `start`는 빌드 결과를 로컬에서 확인합니다.
+배포 서버는 `/communities/7`, `/privacy` 같은 직접 접근 경로를 `index.html`로 전달하도록 SPA fallback을 설정해야 합니다.
 백엔드는 프론트엔드의 실제 출처에 대한 CORS 요청을 허용해야 합니다.
 
 ## 구조
@@ -50,7 +49,6 @@ npm start
 - `src/components/`: 서비스 공통 UI와 기본 UI
 - `src/hooks/`: 데이터 조회와 공통 React 훅
 - `src/lib/api/`: Bearer 인증 기반 API 클라이언트와 기능별 요청
-- `src/features/preview/`: 예시 데이터와 가상 API
 - `public/`: 폰트, 이미지, 피아노 샘플, 웹 앱 매니페스트
 
 Next.js/Vinext와 서버 전용 스타터 코드는 제거했습니다. 과거 작업 이력은 `CONTEXT.md`에 보관되어 있습니다.
@@ -70,7 +68,6 @@ Next.js/Vinext와 서버 전용 스타터 코드는 제거했습니다. 과거 �
 | 레이어 추가 / 녹음 | `/studio/42/layers/new`, `/studio/42/record` |
 | 노트 편집 | `/studio/42/tracks/3/notes?clipId=9` |
 
-체험 모드에서는 같은 경로 앞에 `/preview`를 붙입니다. 예를 들어 `/preview/communities/7`입니다.
 검색 조건과 선택한 리소스는 URL에 보관하며, 뒤로·앞으로 가기는 React Router의 브라우저 기록을 사용합니다.
 알림은 현재 화면의 URL에 `notifications=1`을 추가해 표시하므로 작성·녹음 중인 화면을 유지합니다.
 `View` 타입은 기존 화면 컴포넌트의 콜백 호환용이며, 실제 페이지 선택은 URL 경로가 담당합니다.
@@ -93,3 +90,7 @@ Tailwind CSS 4를 사용하며 공통 값과 스타일은 TypeScript에서 관�
 조건부 클래스는 `cn()`으로 합칩니다. 앱의 텍스트 크기도 병합 규칙에 등록되어 있습니다.
 프리셋의 marker 클래스는 포털, 드래그 좌표, 상태 선택자에서 사용하므로 유지하세요.
 오디오 진행률이나 타임라인 좌표처럼 값이 계속 바뀌는 부분은 기존의 인라인 스타일과 CSS 변수를 사용합니다.
+
+예시 데이터 체험 모드는 제거했습니다. 모든 API 요청은 `VITE_API_BASE_URL`의 백엔드로 전달됩니다.
+오픈소스 목록·검색·생성, 커뮤니티 생성·멤버 관리, 숏폼 댓글, 채팅처럼 서버 연동이 준비되지 않은 화면은 사용 불가 상태를 표시합니다.
+실제 작업의 브라우저 저장과 오디오·이미지 미리보기는 각 기능에서 사용합니다.

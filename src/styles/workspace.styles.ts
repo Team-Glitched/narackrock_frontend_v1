@@ -24,10 +24,6 @@ export const workspaceStyles = {
     "[.design-canvas_&]:border-solid [.design-canvas_&]:border-app-border",
     "[.design-canvas_&_h2]:[overflow-wrap:anywhere] [.design-canvas_&_h2]:min-w-0",
   ].join(" "),
-  workspacePreview: [
-    "workspace-preview",
-    "[.design-canvas_&]:text-app-muted [.design-canvas_&]:text-caption! [.design-canvas_&]:m-[0_0_20px]",
-  ].join(" "),
   workspaceCardLink: [
     "workspace-card-link",
     "[.design-canvas_&_small]:text-caption [.design-canvas_&_small]:text-app-muted [.design-canvas_&_small]:mt-3 [.design-canvas_&_small]:block",

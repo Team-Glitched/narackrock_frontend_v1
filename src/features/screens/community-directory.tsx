@@ -76,7 +76,7 @@ function JoinedList({ state, userId, children }: {
 }) {
   if (state.loading) return <LoadingRow />;
   if (state.failed) return <FailedRow onRetry={state.retry} message={state.failureMessage} />;
-  if (userId === null) return <p className={sharedStyles.directoryPreviewNotice}>로그인하면 가입한 커뮤니티를 볼 수 있어요.</p>;
+  if (userId === null) return <p className={sharedStyles.directoryNotice}>로그인하면 가입한 커뮤니티를 볼 수 있어요.</p>;
   if (state.joined.length === 0) return <p className={communityStyles.communityDetailStatus}>아직 가입한 커뮤니티가 없어요.</p>;
   return <>{children(state.joined)}</>;
 }

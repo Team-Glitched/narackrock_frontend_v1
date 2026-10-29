@@ -10,7 +10,6 @@
     "dev": "vite --host 127.0.0.1 --port 5173",
     "build": "tsc --noEmit && vite build",
     "start": "vite preview --host 127.0.0.1 --port 5173",
-    "preview": "vite preview --host 127.0.0.1 --port 5173",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "node --test --experimental-strip-types --no-experimental-webstorage src/lib/*.test.mjs src/lib/api/*.test.mjs src/features/*/*.test.ts src/features/*/*.test.mjs"

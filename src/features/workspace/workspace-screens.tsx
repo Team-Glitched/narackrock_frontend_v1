@@ -1,7 +1,6 @@
 import { workspaceStyles } from "@/styles/workspace.styles";
 import { sharedStyles } from "@/styles/shared.styles";
 import { cn } from "@/lib/utils";
-import { buttonVariants } from "@/styles/variants";
 import { useSavedSources } from "@/features/community/use-saved-sources";
 import { SavedSourceCard } from "@/features/community/saved-source-list";
 import { AudioPlaybackBar } from "@/components/app/audio-playback-bar";
@@ -12,14 +11,13 @@ import {getComposition, type CompositionDto} from "@/lib/api/composition";
 import { compositionDurationMs } from "@/features/composition/playback-duration";
 import { useCompositionPlayback } from "@/features/composition/use-composition-playback";
 import { Asset } from "@/components/app/shared";
-import { isPreviewMode } from "@/features/preview/preview-mode";
-import { decideSubmission, preserveSubmission, toggleResource, useWorkspace, type Resource, type Submission, type Work } from "./workspace-store";
+import { preserveSubmission, toggleResource, useWorkspace, type Resource, type Submission, type Work } from "./workspace-store";
 const labels = { PENDING: "승인 대기", APPROVED: "승인됨", REJECTED: "반려됨" };
 function Page({ title, subtitle, children }: {
     title: string;
     subtitle?: string;
     children: ReactNode;
-}) { return <section className={cn(workspaceStyles.workspacePage, sharedStyles.scrollContent)}><h1>{title}</h1>{subtitle && <p className={workspaceStyles.workspaceSubtitle}>{subtitle}</p>}{isPreviewMode() && <p className={workspaceStyles.workspacePreview}>예시와 이 브라우저에 저장한 작업입니다.</p>}{children}</section>; }
+}) { return <section className={cn(workspaceStyles.workspacePage, sharedStyles.scrollContent)}><h1>{title}</h1>{subtitle && <p className={workspaceStyles.workspaceSubtitle}>{subtitle}</p>}{children}</section>; }
 function Empty({ children }: {
     children: ReactNode;
 }) { return <p className={workspaceStyles.workspaceEmpty}>{children}</p>; }
@@ -64,7 +62,7 @@ export function ReviewInboxScreen({ onSelect }: {
 }) { const { submissions } = useWorkspace(); const items = submissions.filter(s => !s.mine); return <Page title={uiLabels.reviewInbox} subtitle="원곡에 반영하기 전에 추가된 레이어를 들어보세요.">{items.length === 0 ? <Empty>받은 참여 요청이 없습니다.</Empty> : items.map(item => <button className={cn(workspaceStyles.workspaceCard, workspaceStyles.workspaceCardLink)} key={item.id} onClick={() => onSelect(item.id)}><span className={workspaceStyles.workspaceStatus}>{labels[item.status]}</span><h2>{item.title}</h2><p>{item.author} · {item.description}</p><small>레이어 검토 →</small></button>)}</Page>; }
 export function SubmissionDetailScreen({id,onResume,onOpenSong}:{id:number;onResume:(id:number,shortId:number|null)=>void;onOpenSong:(shortId:number)=>void}){
  const state=useWorkspace();const item=state.submissions.find(value=>value.id===id);
- const [reason,setReason]=useState("");const [notice,setNotice]=useState("");const [mix,setMix]=useState(false);const [rejecting,setRejecting]=useState(false);
+ const [notice,setNotice]=useState("");const [mix,setMix]=useState(false);
  const [fetchedBase,setFetchedBase]=useState<CompositionDto|null>(null);const [baseError,setBaseError]=useState("");
  useEffect(()=>{
   if(!item||item.mine||item.baseComposition)return;
@@ -76,18 +74,12 @@ export function SubmissionDetailScreen({id,onResume,onOpenSong}:{id:number;onRes
  const base=item.baseComposition??fetchedBase;
  const canCompare=!item.mine&&Boolean(base?.tracks.length);
  const composition=mix&&canCompare&&base?{...base,tracks:[...base.tracks.filter(track=>!item.composition.tracks.some(added=>added.trackId===track.trackId)),...item.composition.tracks]}:item.composition;
- function decide(status:"APPROVED"|"REJECTED"){
-  try{if(status==="REJECTED"&&!reason.trim())return;decideSubmission(id,status,reason.trim());setRejecting(false);setNotice(status==="APPROVED"?"참여 요청을 승인했습니다.":"참여 요청을 반려했습니다.");}catch(cause){setNotice(cause instanceof Error?cause.message:"요청을 처리하지 못했습니다.");}
- }
  return <Page title={item.mine?"제출 상세":"참여 요청 검토"}>
   <span className={workspaceStyles.workspaceStatus}>{labels[item.status]}</span><h2>{item.title}</h2><p>{item.author} · {item.description}</p>
   <div className={workspaceStyles.submissionSongLink}>{item.shortId!==null?<button onClick={()=>onOpenSong(item.shortId!)}>곡으로 이동 →</button>:<span>아직 공개되지 않은 곡입니다.</span>}</div>
   {!item.mine&&<section className={workspaceStyles.submissionReviewActions} aria-label="참여 요청 처리">
-   {item.status==="PENDING"?<><div className={workspaceStyles.workspaceActions}><button className={workspaceStyles.workspacePrimary} disabled={!isPreviewMode()} onClick={()=>decide("APPROVED")}>승인</button><button disabled={!isPreviewMode()} onClick={()=>setRejecting(value=>!value)}>반려</button></div>
-    {rejecting&&<div className={workspaceStyles.workspaceReview}><label>반려 사유<textarea autoFocus aria-label="반려 사유" value={reason} onChange={event=>setReason(event.target.value)} placeholder="수정할 부분을 알려주세요"/></label><button className={buttonVariants({
-  tone: "secondary"
-})} disabled={!reason.trim()} onClick={()=>decide("REJECTED")}>반려 확인</button></div>}
-    {!isPreviewMode()&&<p>서버의 참여 요청 검토 API 연결이 필요합니다.</p>}</>:<p role="status">이미 {item.status==="APPROVED"?"승인":"반려"} 처리된 요청입니다.</p>}
+   {item.status==="PENDING"?<><div className={workspaceStyles.workspaceActions}><button className={workspaceStyles.workspacePrimary} disabled>승인</button><button disabled>반려</button></div>
+    <p>현재 참여 요청 검토 기능을 사용할 수 없습니다.</p></>:<p role="status">이미 {item.status==="APPROVED"?"승인":"반려"} 처리된 요청입니다.</p>}
   </section>}
   {canCompare&&<div className={cn(workspaceStyles.workspaceTabs, workspaceStyles.submissionPlaybackModes)} role="radiogroup" aria-label="미리듣기 모드"><button role="radio" aria-checked={!mix} onClick={()=>setMix(false)}>추가 레이어만</button><button role="radio" aria-checked={mix} onClick={()=>setMix(true)}>원곡과 함께</button></div>}
   {baseError&&!item.mine&&<p role="alert">{baseError}</p>}

@@ -1,9 +1,8 @@
 import { useCallback } from "react";
 import { useLocation, useMatches, useNavigate } from "react-router";
-import { useAppSession } from "@/app/session";
 import type { PageRoute } from "./route-config";
 import type { Navigate, View } from "./types";
-import { appPath, readId, safeReturnPath, viewPath, withQuery } from "./paths";
+import { readId, safeReturnPath, viewPath, withQuery } from "./paths";
 import { creationForView, screenScope, type SearchScope } from "./context-actions";
 
 export type AppLocationState = { from?: string; returnTo?: string; studioFrom?: string; studioIndex?: number; inbox?: boolean; pending?: { suggestedNickname: string; pictureUrl: string | null } };
@@ -16,18 +15,17 @@ export function useAppRoute() {
 export function useAppNavigation() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { preview } = useAppSession();
   const { page, params } = useAppRoute();
   const query = new URLSearchParams(location.search);
   const state = (location.state ?? {}) as AppLocationState;
   const currentPath = location.pathname + location.search + location.hash;
   const to = useCallback((path: string, options: { replace?: boolean; state?: AppLocationState } = {}) => {
-    navigate(appPath(path, preview), { replace: options.replace, state: { from: currentPath, ...options.state, ...(options.state?.studioFrom === currentPath && options.state.studioIndex == null ? { studioIndex: window.history.state?.idx } : {}) } });
-  }, [navigate, preview, currentPath]);
+    navigate(path, { replace: options.replace, state: { from: currentPath, ...options.state, ...(options.state?.studioFrom === currentPath && options.state.studioIndex == null ? { studioIndex: window.history.state?.idx } : {}) } });
+  }, [navigate, currentPath]);
   const back = useCallback((fallback = page.back ?? "/") => {
     if (state.from && window.history.state?.idx > 0) navigate(-1);
-    else navigate(safeReturnPath(state.from, preview, fallback), { replace: true });
-  }, [navigate, page.back, preview, state.from]);
+    else navigate(safeReturnPath(state.from, fallback), { replace: true });
+  }, [navigate, page.back, state.from]);
   const galleryId = readId(params.galleryId) ?? readId(query.get("galleryId"));
   const tab = page.view === "community" ? "community" : page.view === "friends" ? "friends" : "posts";
   const defaultScope = screenScope(page.view, tab, Boolean(galleryId));
@@ -51,5 +49,5 @@ export function useAppNavigation() {
     if (view === "notifications") { openNotifications(); return; }
     to(viewPath(view, { id, galleryId, projectId: readId(params.projectId), trackId: readId(params.trackId) ?? readId(query.get("trackId")), clipId: readId(query.get("clipId")), shortId: readId(params.shortId) ?? readId(query.get("shortId")) }), { state: view === "studio" ? { studioFrom: currentPath } : undefined });
   };
-  return { preview, to, back, go, openSearch, openCreate, openNotifications, page, params, query, state, currentPath, scope, galleryId };
+  return { to, back, go, openSearch, openCreate, openNotifications, page, params, query, state, currentPath, scope, galleryId };
 }

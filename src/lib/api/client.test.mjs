@@ -3,9 +3,36 @@ import { test } from "node:test";
 import {
   ApiError,
   apiRequest,
+  clearAuthSession,
+  getAccessToken,
   getCurrentUserId,
   setAuthSession,
 } from "./client.ts";
+
+test("retired demo URLs use the real session and backend transport", async () => {
+  const originalFetch = globalThis.fetch;
+  const originalWindow = Object.getOwnPropertyDescriptor(globalThis, "window");
+  setAuthSession({ accessToken: "server-token", refreshToken: "server-refresh", userId: 7 });
+  Object.defineProperty(globalThis, "window", { configurable: true, value: { location: { pathname: "/preview" } } });
+  const calls = [];
+  globalThis.fetch = async (url, init) => {
+    calls.push({ url, authorization: init.headers.get("Authorization") });
+    return Response.json({ data: { origin: "backend" } });
+  };
+  try {
+    assert.equal(getCurrentUserId(), 7);
+    assert.equal(getAccessToken(), "server-token");
+    assert.deepEqual(await apiRequest("/api/v1/posts/3"), { data: { origin: "backend" } });
+    assert.equal(calls.length, 1);
+    assert.ok(calls[0].url.endsWith("/api/v1/posts/3"));
+    assert.equal(calls[0].authorization, "Bearer server-token");
+  } finally {
+    globalThis.fetch = originalFetch;
+    if (originalWindow) Object.defineProperty(globalThis, "window", originalWindow);
+    else delete globalThis.window;
+    clearAuthSession();
+  }
+});
 
 test("keeps the backend error code on failed API responses", async () => {
   const originalFetch = globalThis.fetch;

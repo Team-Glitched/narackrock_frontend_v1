@@ -21,8 +21,6 @@ import { defaultSignature, signatureGrid, musicalGridBackground, type TimeSignat
 import { MusicalRuler } from "@/features/composition/musical-ruler";
 import { TimelineClip } from "@/features/composition/timeline-clip";
 import { canMoveClip, overlapsClip } from "@/features/composition/timeline-move";
-import { setPreviewTempo, movePreviewClip } from "@/features/preview/demo-api";
-import { isPreviewMode } from "@/features/preview/preview-mode";
 import { TeamPianoRoll } from "@/features/composition/team-piano-roll";
 import { createAudioClip, createDraftProject, createMidiClip, enterComposition, getComposition, getExport, getPendingContributions, publishComposition, reviewContribution, saveMidiClip, submitContribution, updateProjectMetadata, uploadMedia, type CompositionDto, type MidiNoteDto } from "@/lib/api/composition";
 
@@ -30,7 +28,7 @@ const errorText = (cause: unknown) => cause instanceof Error ? cause.message : "
 const clockTime = (ms: number) => `${String(Math.floor(ms / 60000)).padStart(2, "0")}:${String(Math.floor(ms / 1000) % 60).padStart(2, "0")}`;
 const subscribeToDraft = () => () => {};
 const storedDraftId = () => {
-  const value = Number(window.localStorage.getItem(isPreviewMode() ? "narackrock.preview.draft" : "glitched-composition-draft-id"));
+  const value = Number(window.localStorage.getItem("glitched-composition-draft-id"));
   return Number.isSafeInteger(value) && value > 0 ? value : null;
 };
 
@@ -87,7 +85,7 @@ export function NewProject({ onCreated, onResume }: { onCreated: (id: number) =>
     setBusy(true); setError(null);
     try {
       const { projectId } = await createDraftProject();
-      window.localStorage.setItem(isPreviewMode() ? "narackrock.preview.draft" : "glitched-composition-draft-id", String(projectId));
+      window.localStorage.setItem("glitched-composition-draft-id", String(projectId));
       const imageId = image ? await uploadMedia(image, "IMAGE") : null;
       await updateProjectMetadata(projectId, title.trim(), imageId);
       onCreated(projectId);
@@ -217,7 +215,7 @@ export function StudioScreen({ go, shortId, projectId, returnToNotifications, on
         const result = await getExport(id, exportId);
         const publishedShortId = completedExportShortId(result);
         if (publishedShortId !== null) {
-          if (shortId == null) window.localStorage.removeItem(isPreviewMode() ? "narackrock.preview.draft" : "glitched-composition-draft-id");
+          if (shortId == null) window.localStorage.removeItem("glitched-composition-draft-id");
           onReturnToShort(publishedShortId);
           return;
         }
@@ -262,7 +260,7 @@ export function StudioScreen({ go, shortId, projectId, returnToNotifications, on
   const layerCreationAllowed = canCreateLayer(viewerPermission, tracks,shortId===null);
   return <div className={studioStyles.studio}>
     <StudioToolbar signature={playback.signature} onSignature={viewerPermission.canEdit?value=>{playback.pause();playback.setSignature(value);}:undefined} title={project.title} bpm={project.bpm} playing={playback.playing} positionMs={playback.positionMs}
-      onPlay={() => { void playback.play(); }} onPause={playback.pause} volume={playback.volume} onVolume={playback.setVolume} metronome={playback.metronome} onMetronome={() => playback.setMetronome(value => !value)} onBpm={isPreviewMode() && shortId == null ? bpm => { playback.pause(); setComposition(setPreviewTempo(composition.project.projectId, bpm)); } : undefined}
+      onPlay={() => { void playback.play(); }} onPause={playback.pause} volume={playback.volume} onVolume={playback.setVolume} metronome={playback.metronome} onMetronome={() => playback.setMetronome(value => !value)}
       onImportSource={layerCreationAllowed?()=>{playback.pause();setShowSources(true);}:undefined}
       onBack={onExit??(() => returnToNotifications ? go("notifications") : shortId == null ? go("home") : onReturnToShort(shortId))}>
       {canSubmit ? <button className={studioStyles.studioSubmit} onClick={() => { setError(null); setShowSubmitForm(true); }} disabled={busy}>제출하기</button>
@@ -312,9 +310,9 @@ export function StudioScreen({ go, shortId, projectId, returnToNotifications, on
       <div className={studioStyles.timelineGridFill} aria-hidden="true" style={{width: timelineWidth,backgroundImage:`repeating-linear-gradient(to bottom,transparent 0 42px,var(--black) 42px 46px),${musicalGridBackground(playback.signature)},repeating-linear-gradient(to bottom,var(--grid-cell) 0 1px,var(--grid-row) 1px 41px,var(--grid-cell) 41px 42px,var(--black) 42px 46px,var(--grid-cell) 46px 47px,var(--grid-row-alt) 47px 87px,var(--grid-cell) 87px 88px,var(--black) 88px 92px)`}} />
       {tracks.map((track) => <div className={cn(sharedStyles.track, studioStyles.studioTrack)} key={track.trackId}>
         <div className={studioStyles.trackPerson} title={track.name}><button className={"track-settings-trigger"} aria-label={`${track.name} 트랙 설정`} onClick={() => setTrackSettingsId(track.trackId)}><Avatar /></button><button aria-label={`${track.name} ${playback.mutedTrackIds.has(track.trackId) ? "소리 켜기" : "음소거"}`} aria-pressed={playback.mutedTrackIds.has(track.trackId)} onClick={() => playback.toggleTrackMute(track.trackId)}><Asset name={playback.mutedTrackIds.has(track.trackId) ? "sound-muted.svg" : "sound.svg"} /></button></div>
-        <div className={studioStyles.studioTrackClips} style={{ width: timelineWidth, flexBasis: timelineWidth }}>{track.clips.map((clip) => <TimelineClip key={clip.clipId} clip={clip} name={track.name} color="var(--purple)" maxTick={project.maxTick} stepTick={project.ppq*2/playback.signature.denominator} cellPx={signatureGrid(playback.signature).cellPx} movable={!busy&&canMoveClip(viewerPermission,clip)&&(isPreviewMode()||clip.clipType==="MIDI")}
+        <div className={studioStyles.studioTrackClips} style={{ width: timelineWidth, flexBasis: timelineWidth }}>{track.clips.map((clip) => <TimelineClip key={clip.clipId} clip={clip} name={track.name} color="var(--purple)" maxTick={project.maxTick} stepTick={project.ppq*2/playback.signature.denominator} cellPx={signatureGrid(playback.signature).cellPx} movable={!busy&&canMoveClip(viewerPermission,clip)&&clip.clipType==="MIDI"}
           onError={setError} onSelect={()=>setTrackSettingsId(track.trackId)} onEdit={clip.clipType==="MIDI"&&clip.ownerId===viewerPermission.userId?()=>onEditTrack(track.trackId,clip.clipId):undefined}
-          onMove={async startTick=>{if(overlapsClip(clip,startTick,track.clips))throw new Error("같은 레이어의 다른 클립과 겹칠 수 없습니다.");playback.pause();setBusy(true);setError(null);try{let updated;if(isPreviewMode())updated=movePreviewClip(project.projectId,clip.clipId,startTick);else{await saveMidiClip(clip.clipId,startTick,clip.durationTick,clip.midiNotes);updated=await getComposition(project.projectId);}setComposition(updated);rememberWork(updated,shortId);}finally{setBusy(false);}}}/>)}</div>
+          onMove={async startTick=>{if(overlapsClip(clip,startTick,track.clips))throw new Error("같은 레이어의 다른 클립과 겹칠 수 없습니다.");playback.pause();setBusy(true);setError(null);try{await saveMidiClip(clip.clipId,startTick,clip.durationTick,clip.midiNotes);const updated=await getComposition(project.projectId);setComposition(updated);rememberWork(updated,shortId);}finally{setBusy(false);}}}/>)}</div>
         {track.ownerId === viewerPermission.userId && <div className={studioStyles.studioTrackActions}>
           {track.instrument && <button onClick={() => onEditTrack(track.trackId, null)}>+ 노트</button>}
           <label className={studioStyles.studioUpload}>+ 파일<input type="file" accept="audio/wav,audio/x-wav,audio/wave,audio/mpeg,audio/mp4,audio/flac" disabled={busy || !viewerPermission.canContribute}
@@ -385,7 +383,7 @@ export function NoteEditorScreen({ projectId, trackId, clipId, onBack, onImportR
   return <div className={cn(studioStyles.studio, "note-editor")}>
     <StudioToolbar signature={playback.signature} onSignature={composition.viewerPermission.canEdit?value=>{playback.pause();playback.setSignature(value);}:undefined} title={`${track.name} · 피아노롤`} bpm={composition.project.bpm} playing={playback.playing} positionMs={playback.positionMs}
       onPlay={() => { void playback.play(); }} onPause={playback.pause} onBack={() => { if (editable) void save(); else onBack(); }}
-      piano volume={playback.volume} onVolume={playback.setVolume} metronome={playback.metronome} onMetronome={() => playback.setMetronome(value => !value)} onBpm={isPreviewMode() ? bpm => { playback.pause(); setComposition(setPreviewTempo(composition.project.projectId, bpm)); } : undefined}
+      piano volume={playback.volume} onVolume={playback.setVolume} metronome={playback.metronome} onMetronome={() => playback.setMetronome(value => !value)}
       onImportSource={editable?()=>void save(()=>setShowSources(true)):undefined}
       onAdd={() => { if (editable) void save(); else onBack(); }}>
 

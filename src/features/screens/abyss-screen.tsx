@@ -18,15 +18,15 @@ import type { ShortItemDto, ShortsPageDto } from "@/lib/api/contracts";
 type FeedState = "loading" | "ready" | "error";
 type PageInfo = ShortsPageDto["page"];
 
-export function AbyssScreen({ go, onJoin, initialShortId, muted = false, previewItems, onRememberShort }: { onRememberShort?:(id:number)=>void; go: Navigate; onJoin: (shortId: number) => void; initialShortId?: number | null; muted?: boolean; previewItems?: ShortItemDto[] }) {
+export function AbyssScreen({ go, onJoin, initialShortId, muted = false, onRememberShort }: { onRememberShort?:(id:number)=>void; go: Navigate; onJoin: (shortId: number) => void; initialShortId?: number | null; muted?: boolean }) {
   const currentUserId = useCurrentUserId();
   const savedItems = useSavedItems();
   const [sheet, setSheet] = useState<"participants" | "comments" | "report" | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
-  const [shorts, setShorts] = useState<ShortItemDto[]>(previewItems ?? []);
+  const [shorts, setShorts] = useState<ShortItemDto[]>([]);
   const [page, setPage] = useState<PageInfo | null>(null);
   const [index, setIndex] = useState(0);
-  const [feedState, setFeedState] = useState<FeedState>(previewItems ? "ready" : "loading");
+  const [feedState, setFeedState] = useState<FeedState>("loading");
   const [reloadKey, setReloadKey] = useState(0);
   const [loadingMore, setLoadingMore] = useState(false);
   const [playing, setPlaying] = useState(false);
@@ -37,7 +37,6 @@ export function AbyssScreen({ go, onJoin, initialShortId, muted = false, preview
   const loadingMoreRef = useRef(false);
 
   useEffect(() => {
-    if (previewItems) return;
     const controller = new AbortController();
     (async () => {
       let result = await getShorts(undefined, controller.signal);
@@ -58,7 +57,7 @@ export function AbyssScreen({ go, onJoin, initialShortId, muted = false, preview
         if (!controller.signal.aborted) setFeedState("error");
       });
     return () => controller.abort();
-  }, [reloadKey, initialShortId, previewItems]);
+  }, [reloadKey, initialShortId]);
 
   const current = shorts[index];
   const navigate:Navigate=(view,id)=>{if(view==="profile"&&current)onRememberShort?.(current.shortId);go(view,id);};

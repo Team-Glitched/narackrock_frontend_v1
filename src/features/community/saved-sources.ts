@@ -1,6 +1,6 @@
-import type { PreviewSource } from "../preview/source-store.ts";
 import { readBrowserRecord, writeBrowserRecord, deleteBrowserRecord } from "../../lib/browser/records.ts";
-export type SavedSource=Pick<PreviewSource,"id"|"title"|"description"|"author"|"userId">&{mediaKey:string|null;savedAt:string};
+export type SourceMetadata={id:number;title:string;description:string;author:string;userId:number};
+export type SavedSource=SourceMetadata&{mediaKey:string|null;savedAt:string};
 const empty:SavedSource[]=[];
 const cache=new Map<string,{raw:string|null;items:SavedSource[]}>();
 const listeners=new Set<()=>void>();
@@ -22,7 +22,7 @@ export function removeSavedSource(scope:string,id:number){
   save(scope,current.filter(item=>item.id!==id));
   if(source?.mediaKey)void deleteBrowserRecord(source.mediaKey).catch(()=>{});
 }
-export async function toggleSavedSource(scope:string,source:PreviewSource,file:File|null){
+export async function toggleSavedSource(scope:string,source:SourceMetadata,file:File|null){
   if(savedSourcesSnapshot(scope).some(item=>item.id===source.id)){removeSavedSource(scope,source.id);return;}
   const mediaKey=file?`${storageKey(scope)}:audio:${source.id}`:null;
   if(mediaKey)await writeBrowserRecord(mediaKey,file);

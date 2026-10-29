@@ -1,6 +1,5 @@
 import { useSyncExternalStore } from "react";
 import { useCurrentUserId } from "@/hooks/use-current-user";
-import { isPreviewMode } from "@/features/preview/preview-mode";
 
 const empty: ReadonlySet<number> = new Set();
 const cache = new Map<string, { raw: string | null; ids: ReadonlySet<number> }>();
@@ -25,10 +24,10 @@ function read(key: string): ReadonlySet<number> {
   return ids;
 }
 
-/** Hiding is shared by all post surfaces, isolated by account and preview mode. */
+/** Hiding is shared by all post surfaces, isolated by account. */
 export function useHiddenPosts() {
   const userId = useCurrentUserId();
-  const key = `${isPreviewMode() ? "narackrock.preview" : "narackrock"}.hidden-posts.${userId ?? "guest"}`;
+  const key = `narackrock.hidden-posts.${userId ?? "guest"}`;
   const ids = useSyncExternalStore(subscribe, () => read(key), () => empty);
   function hide(id: number) {
     const current = read(key);

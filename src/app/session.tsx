@@ -5,7 +5,7 @@ import type { PendingProfileSetup } from "@/features/screens/auth-screens";
 import { useCurrentUserId } from "@/hooks/use-current-user";
 import { getProfile } from "@/lib/api/profile";
 
-function useSessionState(preview: boolean) {
+function useSessionState() {
   const currentUserId = useCurrentUserId();
   const [headerProfile, setHeaderProfile] = useState<{ userId: number; imageUrl: string | null } | null>(null);
   const [profileRevision, setProfileRevision] = useState(0);
@@ -21,7 +21,7 @@ function useSessionState(preview: boolean) {
     return () => { cancelled = true; };
   }, [currentUserId, profileRevision]);
   const headerProfileImageUrl = currentUserId !== null && headerProfile?.userId === currentUserId ? headerProfile.imageUrl : null;
-  return { preview, currentUserId, headerProfileImageUrl, refreshProfile, pendingProfileSetup, setPendingProfileSetup, abyssMuted, setAbyssMuted };
+  return { currentUserId, headerProfileImageUrl, refreshProfile, pendingProfileSetup, setPendingProfileSetup, abyssMuted, setAbyssMuted };
 }
 
 const SessionContext = createContext<ReturnType<typeof useSessionState> | null>(null);
@@ -31,8 +31,8 @@ export function useAppSession() {
   return value;
 }
 
-export function AppProviders({ preview = false }: { preview?: boolean }) {
-  const session = useSessionState(preview);
+export function AppProviders() {
+  const session = useSessionState();
   const membershipApi = useMemo(() => createServerMembershipApi(), []);
   return <SessionContext value={session}><CommunityMembershipProvider api={membershipApi}><Outlet /></CommunityMembershipProvider></SessionContext>;
 }

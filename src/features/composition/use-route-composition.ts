@@ -12,7 +12,7 @@ export function useRouteComposition() {
   const trackId = readId(nav.params.trackId) ?? readId(nav.query.get("trackId"));
   const clipId = readId(nav.query.get("clipId"));
   const locked = useRef(false);
-  const state = { studioFrom: nav.state.studioFrom ?? safeReturnPath(nav.state.from, nav.preview), studioIndex: nav.state.studioIndex, inbox: nav.state.inbox };
+  const state = { studioFrom: nav.state.studioFrom ?? safeReturnPath(nav.state.from), studioIndex: nav.state.studioIndex, inbox: nav.state.inbox };
   async function importResource(resource: Resource, work?: Work) {
     if (locked.current) throw new Error("다른 레이어를 추가하는 중입니다.");
     const target: CompositionTarget | null = work ? { projectId: work.id, shortId: work.shortId } : projectId ? { projectId, shortId } : null;

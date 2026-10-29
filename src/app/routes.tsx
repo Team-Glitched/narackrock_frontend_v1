@@ -4,7 +4,6 @@ import { AppProviders } from "./session";
 import AppLayout from "@/layouts/app-layout";
 import { RequireAuth } from "@/features/auth/require-auth";
 import { pageRoutes, type PageId, type PageRoute } from "@/features/navigation/route-config";
-import PreviewPage from "./preview/PreviewPage";
 import PrivacyPage from "./privacy/PrivacyPage";
 import NotFoundPage from "@/pages/not-found-page";
 import HomePage from "@/pages/home-page";
@@ -117,6 +116,5 @@ function appChildren(): RouteObject[] {
 
 export const router = createBrowserRouter([
   { path: "/privacy", element: <PrivacyRoute /> },
-  { path: "/", element: <AppProviders key="live" />, children: appChildren() },
-  { path: "/preview", element: <AppProviders key="preview" preview />, children: [{ element: <PreviewPage />, children: appChildren() }] },
+  { path: "/", element: <AppProviders />, children: appChildren() },
 ]);

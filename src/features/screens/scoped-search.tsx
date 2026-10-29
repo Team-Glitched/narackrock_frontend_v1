@@ -3,7 +3,6 @@ import { sharedStyles } from "@/styles/shared.styles";
 import { cn } from "@/lib/utils";
 import { communityStyles } from "@/styles/community.styles";
 import { buttonVariants } from "@/styles/variants";
-import { sourceStyles } from "@/styles/source.styles";
 import { useEffect, useRef, useState } from "react";
 import { Asset, Avatar } from "@/components/app/shared";
 import { MiniPost } from "./mobile-screens";
@@ -12,13 +11,11 @@ import { fetchGalleries, fetchPosts } from "@/lib/api/community";
 import { getShorts } from "@/lib/api/shorts";
 import type { GalleryListItem, PostListItem, PostWriter, ShortItemDto } from "@/lib/api/contracts";
 import type { SearchScope } from "@/features/navigation/context-actions";
-import { sourceSnapshot, type PreviewSource } from "@/features/preview/source-store";
 import { searchCommunityPosts } from "@/features/community/post-search";
-import { isPreviewMode } from "@/features/preview/preview-mode";
 const scopes:{id:SearchScope;label:string}[]=[{id:"sources",label:"오픈소스"},{id:"songs",label:"음악"},{id:"people",label:"사용자"},{id:"posts",label:"게시글"},{id:"communities",label:"커뮤니티"}];
-type Results={posts:PostListItem[];communities:GalleryListItem[];songs:ShortItemDto[];people:PostWriter[];sources:PreviewSource[]};
-const empty=():Results=>({posts:[],communities:[],songs:[],people:[],sources:[]});
-export function ScopedSearch({scope:requestedScope,community,onScope,query,onQuery,onBack,onPost,onCommunity,onSong,onProfile,onSource}:{community?:Pick<Community,"galleryId"|"name">|null;scope:SearchScope;onScope:(scope:SearchScope)=>void;query:string;onQuery:(value:string)=>void;onBack:()=>void;onPost:(id:number)=>void;onCommunity:(community:Community)=>void;onSong:(id:number)=>void;onProfile:(id:number)=>void;onSource:(id:number)=>void}) {
+type Results={posts:PostListItem[];communities:GalleryListItem[];songs:ShortItemDto[];people:PostWriter[]};
+const empty=():Results=>({posts:[],communities:[],songs:[],people:[]});
+export function ScopedSearch({scope:requestedScope,community,onScope,query,onQuery,onBack,onPost,onCommunity,onSong,onProfile}:{community?:Pick<Community,"galleryId"|"name">|null;scope:SearchScope;onScope:(scope:SearchScope)=>void;query:string;onQuery:(value:string)=>void;onBack:()=>void;onPost:(id:number)=>void;onCommunity:(community:Community)=>void;onSong:(id:number)=>void;onProfile:(id:number)=>void}) {
   const [retry,setRetry]=useState(0);
   const scope=community?"posts":requestedScope;
   const inputRef=useRef<HTMLInputElement>(null);
@@ -38,8 +35,8 @@ export function ScopedSearch({scope:requestedScope,community,onScope,query,onQue
         const pages=await Promise.all(galleries.map(async gallery=>scope==="posts"?searchCommunityPosts(fetchPosts,gallery.galleryId,keyword):(await fetchPosts(gallery.galleryId,{size:100})).posts));
         const posts=[...new Map(pages.flat().map(post=>[post.postId,post])).values()];
         if(scope==="posts")results.posts=posts;
-        else {results.people=[...new Map(posts.map(post=>[post.writer.userId,post.writer])).values()].filter(person=>matches(person.nickname));if(isPreviewMode()&&matches("Muhehehe"))results.people.push({userId:3,nickname:"Muhehehe",profileImageUrl:"/figma/profile.png"});}
-      } else if(isPreviewMode())results.sources=sourceSnapshot().filter(source=>matches(`${source.title} ${source.description}`));
+        else {results.people=[...new Map(posts.map(post=>[post.writer.userId,post.writer])).values()].filter(person=>matches(person.nickname));}
+      } else throw new Error("현재 오픈소스 검색을 사용할 수 없습니다.");
       if(active)setLoaded({key,results});
     })().catch(cause=>{if(active)setLoaded({key,results:empty(),error:cause instanceof Error?cause.message:"검색에 실패했습니다."});});},200);
     return()=>{active=false;window.clearTimeout(timer);};
@@ -59,7 +56,6 @@ export function ScopedSearch({scope:requestedScope,community,onScope,query,onQue
       {scope==="communities"&&<ul className={communityStyles.communityCardList}>{results?.communities.map(gallery=><CommunityCard key={gallery.galleryId} community={galleryToCommunity(gallery)} onOpen={onCommunity}/>)}</ul>}
       {scope==="songs"&&results?.songs.map(song=><button className={sharedStyles.chartRow} key={song.shortId} onClick={()=>onSong(song.shortId)}><span className={sharedStyles.chartArt}>{song.albumImageUrl?<AssetImage url={song.albumImageUrl}/>:<span className={sharedStyles.emptyArtwork}/>}</span><span><strong>{song.title}</strong><small>{song.author.nickname}</small></span></button>)}
       {scope==="people"&&results?.people.map(person=><button className={cn(socialStyles.personLink, socialStyles.searchPerson)} key={person.userId} onClick={()=>onProfile(person.userId)}><Avatar src={person.profileImageUrl}/><strong>{person.nickname}</strong></button>)}
-      {scope==="sources"&&results?.sources.map(source=><button className={sourceStyles.osCard} key={source.id} onClick={()=>onSource(source.id)}><strong>{source.title}</strong><small>{source.author}</small></button>)}
     </div>
   </div>;
 }

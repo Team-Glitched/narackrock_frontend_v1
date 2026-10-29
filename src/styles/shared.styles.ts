@@ -80,8 +80,8 @@ export const sharedStyles = {
     "m-[10px_20px_0] text-caption text-[#ff8d8d] leading-[18px]",
     "[.community-detail-info_&]:mx-0",
   ].join(" "),
-  directoryPreviewNotice: [
-    "directory-preview-notice",
+  directoryNotice: [
+    "directory-notice",
     "m-[16px_20px_24px] text-caption text-app-muted leading-[18px]",
   ].join(" "),
   isJoined: [
@@ -525,81 +525,6 @@ export const sharedStyles = {
     "[&::after]:bg-[image:repeating-linear-gradient(to_bottom,transparent_0_9px,var(--key-black)_9px_17px,transparent_17px_32px)]",
     "[&::after]:bg-transparent",
   ].join(" "),
-  filterChips: [
-    "filter-chips",
-    "flex items-center gap-[10px]",
-    "[&_button]:relative [&_button]:min-h-[26px] [&_button]:rounded-[15px] [&_button]:p-[4px_12px] [&_button]:text-caption [&_button]:font-medium",
-    "[&_button]:border [&_button]:border-solid [&_button]:border-app-surface [&_button]:leading-[16px]",
-    "[&_button[aria-pressed=true]]:bg-app-surface [&_button[aria-pressed=true]]:bg-none",
-    "[&_button::after]:[content:''] [&_button::after]:absolute [&_button::after]:inset-[-9px_0]",
-    "[&_button:focus-visible]:[outline:2px_solid_var(--primary-soft)] [&_button:focus-visible]:[outline-offset:4px]",
-    "[.design-canvas_&>button]:font-sans [.design-canvas_&>button]:text-caption [.design-canvas_&>button]:font-medium",
-    "[.design-canvas_&>button]:leading-[18px]",
-  ].join(" "),
-  adminTabs: [
-    "admin-tabs",
-    "flex h-8 justify-between gap-[30px] p-[0_30px]",
-    "[&_button]:relative [&_button]:w-[130px] [&_button]:text-body [&_button]:border-b-[length:2px] [&_button]:[border-bottom-style:solid]",
-    "[&_button]:border-b-transparent [&_button]:leading-[18px]",
-    "[&_button[aria-pressed=true]]:border-app-primary",
-    "[&_button::after]:[content:''] [&_button::after]:absolute [&_button::after]:inset-[-6px_0]",
-  ].join(" "),
-  adminContent: [
-    "admin-content",
-    "p-[30px_20px]",
-  ].join(" "),
-  reviewList: [
-    "review-list",
-    "list-none m-[30px_0] flex flex-col gap-5 p-0",
-  ].join(" "),
-  reviewCommunity: [
-    "review-community",
-    "rounded-[10px] p-[10px] border border-solid border-app-border",
-    "[&>p]:m-[14px_0_0] [&>p]:text-caption [&>p]:text-app-muted [&>p]:leading-[14px]",
-    "[.design-canvas_&>p]:font-normal [.design-canvas_&>p]:text-caption [.design-canvas_&>p]:font-sans [.design-canvas_&>p]:leading-[14px]",
-    "[.design-canvas_&]:border-app-border",
-  ].join(" "),
-  reviewHeading: [
-    "review-heading",
-    "flex items-center gap-[10px]",
-    "[@media(max-width:359px)]:gap-[6px]",
-  ].join(" "),
-  reviewName: [
-    "review-name",
-    "flex min-w-0 flex-1 flex-col gap-1",
-    "[&_strong]:text-label [&_strong]:font-bold",
-    "[&_small]:text-caption [&_small]:text-app-muted",
-    "[@media(max-width:359px)]:[&_strong]:text-body",
-    "[.design-canvas_&]:gap-[var(--supporting-copy-gap)]",
-    "[.design-canvas_&_strong]:font-bold [.design-canvas_&_strong]:text-label [.design-canvas_&_strong]:font-sans",
-    "[.design-canvas_&_strong]:leading-[19px]",
-  ].join(" "),
-  reviewActions: [
-    "review-actions",
-    "flex shrink-0 gap-[10px]",
-    "[&_button]:relative [&_button]:h-10 [&_button]:p-[0_16px] [&_button]:bg-app-surface [&_button]:bg-none [&_button]:rounded-[20px]",
-    "[&_button]:text-label [&_button]:font-medium",
-    "[&_button::after]:[content:''] [&_button::after]:absolute [&_button::after]:inset-[-2px_0]",
-    "[@media(max-width:359px)]:gap-[5px]",
-    "[@media(max-width:359px)]:[&_button]:p-[0_10px]",
-    "[.design-canvas_&>button]:font-sans [.design-canvas_&>button]:text-label [.design-canvas_&>button]:font-medium",
-    "[.design-canvas_&>button]:leading-[20px]",
-    "[.design-canvas_&]:w-[130px] [.design-canvas_&]:justify-between [.design-canvas_&]:gap-0",
-  ].join(" "),
-  primaryAction: [
-    "primary-action",
-    "[.review-actions_&]:bg-app-primary [.review-actions_&]:bg-none",
-    "[.design-canvas_&]:font-sans [.design-canvas_&]:text-label [.design-canvas_&]:font-medium",
-    "[.design-canvas_&]:bg-[image:var(--action-gradient)] [.design-canvas_&]:leading-[20px]",
-  ].join(" "),
-  reviewReport: [
-    "review-report",
-    "flex min-h-15 items-center gap-[10px]",
-  ].join(" "),
-  previewNotice: [
-    "preview-notice",
-    "text-body text-app-primary-soft bg-app-surface bg-none rounded-[8px] p-3",
-  ].join(" "),
   saveControl: [
     "save-control",
     "[.abyss-actions_&_img]:h-[22px] [.abyss-actions_&_img]:w-4",
@@ -615,7 +540,6 @@ export const sharedStyles = {
   designViewport: [
     "design-viewport",
     "[--canvas-scale:1] [--canvas-width:390px] [--canvas-height:844px] relative h-[100dvh] w-full overflow-hidden bg-none bg-app-bg",
-    "[.v3-preview_&]:bg-[#25252c]",
   ].join(" "),
   designViewportLandscape: [
     "design-viewport--landscape",
@@ -635,11 +559,6 @@ export const sharedStyles = {
     "[&_:is(.os-audio-player,.studio-readouts>span,.studio-timing,.creation-choice)]:bg-app-surface",
     "[&_input::placeholder]:text-[#9692a6]",
     "[&_textarea::placeholder]:text-[#9692a6]",
-    "[.v3-preview_&]:shadow-[0_0_0_1px_#555560,0_14px_44px_#0005]",
-  ].join(" "),
-  previewModeLabel: [
-    "preview-mode-label",
-    "pointer-events-none fixed right-2 bottom-[6px] z-[60] text-caption text-app-muted",
   ].join(" "),
   emptyArtwork: [
     "empty-artwork",
@@ -809,16 +728,6 @@ export const sharedStyles = {
     "[.chat-bubble&]:self-end [.chat-bubble&]:rounded-[20px_20px_4px_20px] [.chat-bubble&]:bg-app-primary [.chat-bubble&]:bg-none",
     "[.chat-bubble&]:text-app-fg",
   ].join(" "),
-  previewQuickNav: [
-    "preview-quick-nav",
-    "fixed top-3 left-3 z-[100] max-w-65 rounded-[12px] p-[10px_12px] bg-app-surface bg-none text-app-fg shadow-[0_4px_20px_#0004] font-sans",
-    "text-body",
-    "[&_summary]:cursor-pointer [&_summary]:font-semibold",
-    "[&_p]:text-caption [&_p]:text-app-muted [&_p]:leading-[18px]",
-    "[&>div]:grid [&>div]:grid-cols-[1fr_1fr] [&>div]:gap-[6px]",
-    "[&_button]:rounded-[8px] [&_button]:p-[10px] [&_button]:bg-app-bg [&_button]:bg-none [&_button]:text-left [&_button]:text-body",
-    "[&_small]:mt-[10px] [&_small]:block [&_small]:text-caption [&_small]:text-app-muted",
-  ].join(" "),
   postsListTitle: [
     "posts-list-title",
     "[.design-canvas_&]:m-[30px_20px_14px] [.design-canvas_&]:text-title [.design-canvas_&]:font-bold [.design-canvas_&]:leading-[24px]",
@@ -902,9 +811,5 @@ export const sharedStyles = {
     "[.design-canvas_&_select]:text-app-fg [.design-canvas_&_select]:font-medium [.design-canvas_&_select]:text-label",
     "[.design-canvas_&_select]:font-sans [.design-canvas_&_select]:border-0 [.design-canvas_&_select]:border-none",
     "[.design-canvas_&_select]:border-current [.design-canvas_&_select]:leading-[20px]",
-  ].join(" "),
-  v3Preview: [
-    "v3-preview",
-    "bg-[#25252c]",
   ].join(" "),
 } as const;

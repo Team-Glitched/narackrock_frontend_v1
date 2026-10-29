@@ -1,29 +1,20 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {searchCommunityPosts} from "../../features/community/post-search.ts";
-import {previewRequest} from "../../features/preview/demo-api.ts";
-
-const data=async(path,init)=>(await previewRequest(path,init)).data;
-
 test("same-keyword posts from another community never enter community search",async()=>{
   const keyword="커뮤니티 검색 범위 확인";
-  const create=galleryId=>data(`/api/v1/galleries/${galleryId}/posts`,{method:"POST",body:JSON.stringify({title:keyword,content:"검색 확인"})});
-  const first=await create(1),second=await create(2);
+  const rows=new Map([[1,[{postId:11,title:keyword}]],[2,[{postId:22,title:keyword}]]]);
   const calls=[];
   const fetchPosts=async(galleryId,query)=>{
     calls.push(galleryId);
-    return data(`/api/v1/galleries/${galleryId}/posts?keyword=${encodeURIComponent(query.keyword)}&size=${query.size}&page=${query.page}`);
+    assert.equal(query.keyword,keyword);
+    const posts=rows.get(galleryId)??[];
+    return {galleryId,totalCount:posts.length,posts};
   };
-  const firstResults=await searchCommunityPosts(fetchPosts,1,` ${keyword} `);
-  assert.ok(firstResults.some(post=>post.postId===first.postId));
-  assert.ok(!firstResults.some(post=>post.postId===second.postId));
-  assert.deepEqual(calls,[1]);
-  calls.length=0;
-  const secondResults=await searchCommunityPosts(fetchPosts,2,keyword);
-  assert.ok(secondResults.some(post=>post.postId===second.postId));
-  assert.ok(!secondResults.some(post=>post.postId===first.postId));
-  assert.deepEqual(calls,[2]);
-  calls.length=0;
+  assert.deepEqual((await searchCommunityPosts(fetchPosts,1,` ${keyword} `)).map(post=>post.postId),[11]);
+  assert.deepEqual(calls,[1]);calls.length=0;
+  assert.deepEqual((await searchCommunityPosts(fetchPosts,2,keyword)).map(post=>post.postId),[22]);
+  assert.deepEqual(calls,[2]);calls.length=0;
   assert.deepEqual(await searchCommunityPosts(fetchPosts,3,keyword),[]);
   assert.deepEqual(calls,[3]);
 });

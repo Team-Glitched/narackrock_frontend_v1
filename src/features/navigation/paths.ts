@@ -6,22 +6,11 @@ export function readId(value: string | null | undefined): number | null {
   return Number.isSafeInteger(id) && id > 0 ? id : null;
 }
 
-export function isPreviewPath(pathname: string): boolean {
-  return pathname === "/preview" || pathname.startsWith("/preview/");
-}
-
-export function appPath(path: string, preview: boolean): string {
-  const suffixIndex = path.search(/[?#]/);
-  const pathname = suffixIndex === -1 ? path : path.slice(0, suffixIndex);
-  const suffix = suffixIndex === -1 ? "" : path.slice(suffixIndex);
-  const local = isPreviewPath(pathname) ? pathname.slice(8) || "/" : pathname;
-  return (preview ? `/preview${local === "/" ? "" : local}` : local) + suffix;
-}
-
-export function safeReturnPath(value: unknown, preview: boolean, fallback = "/"): string {
-  if (typeof value !== "string" || !value.startsWith("/") || value.startsWith("//") || value.includes("\\")) return appPath(fallback, preview);
-  const pathname = new URL(value, "https://narackrock.local").pathname;
-  return isPreviewPath(pathname) === preview ? value : appPath(fallback, preview);
+export function safeReturnPath(value: unknown, fallback = "/"): string {
+  if (typeof value !== "string" || !value.startsWith("/") || value.startsWith("//") || value.includes("\\")) return fallback;
+  const url = new URL(value, "https://narackrock.local");
+  if (url.origin !== "https://narackrock.local" || url.pathname.startsWith("//")) return fallback;
+  return url.pathname + url.search + url.hash;
 }
 
 export function withQuery(path: string, values: Record<string, string | number | null | undefined>): string {
