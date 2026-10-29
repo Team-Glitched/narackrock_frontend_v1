@@ -1,0 +1,1741 @@
+
+/* Scoped adaptation of the supplied piano-roll-studio design. */
+.piano-studio {
+  color-scheme: dark;
+  --bg: #08080b;
+  --panel: #101014;
+  --line: #26252e;
+  --muted: #82818f;
+  --purple: #4c00e5;
+  --light: #b999ff;
+  --row: 32px;
+  --key: 58px;
+}
+.piano-studio * {
+  box-sizing: border-box;
+}
+.piano-studio {
+  margin: 0;
+  background: var(--bg);
+  color: #f5f4fa;
+  font: 14px 'DM Sans','Noto Sans KR',sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+.piano-studio button,.piano-studio input,.piano-studio select {
+  font: inherit;
+}
+.piano-studio button {
+  cursor: pointer;
+  color: inherit;
+  border: 0;
+  background: transparent;
+  touch-action: manipulation;
+}
+.piano-studio button:disabled {
+  opacity: .28;
+  cursor: default;
+}
+.piano-studio button,.piano-studio select,.piano-studio input {
+  -webkit-tap-highlight-color: transparent;
+}
+.piano-studio button:focus-visible,.piano-studio select:focus-visible,.piano-studio input:focus-visible,.piano-studio [tabindex]:focus-visible {
+  outline: 2px solid #ba96ff;
+  outline-offset: 3px;
+}
+.piano-studio svg {
+  width: 22px;
+  height: 22px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.65;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  flex: none;
+}
+.piano-studio {
+  max-width: 1280px;
+  margin: auto;
+  padding: 28px 40px 16px;
+}
+.piano-studio .panel {
+  background: linear-gradient(125deg,#121216,#0f0f13);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+}
+.piano-studio .topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 25px;
+  gap: 16px;
+}
+.piano-studio .heading {
+  display: flex;
+  align-items: center;
+  gap: 17px;
+  flex-wrap: wrap;
+}
+.piano-studio .brand {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 2.8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border-right: 1px solid #33313b;
+  padding-right: 20px;
+}
+.piano-studio .brand>span {
+  color: #777381;
+  letter-spacing: 2px;
+  font-weight: 400;
+}
+.piano-studio .brand i {
+  width: 10px;
+  height: 18px;
+  display: block;
+  background: var(--purple);
+  box-shadow: 4px -4px 0 #8e55ff;
+  transform: skewY(-15deg);
+  margin-right: 9px;
+}
+.piano-studio h1 {
+  font-size: 22px;
+  letter-spacing: -.8px;
+  font-weight: 700;
+  margin: 0;
+}
+.piano-studio .save-status {
+  font-size: 11px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.piano-studio .dot {
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #93919f;
+  margin-right: 6px;
+  vertical-align: middle;
+}
+.piano-studio .header-actions {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.piano-studio .icon-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  color: #aaa6b7;
+  border-radius: 10px;
+}
+.piano-studio .icon-btn:hover {
+  background: #24212c;
+}
+.piano-studio .publish,.piano-studio .primary {
+  background: var(--purple);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  border-radius: 12px;
+  height: 46px;
+  padding: 0 22px;
+  font-weight: 600;
+  font-size: 14px;
+}
+.piano-studio .publish:hover,.piano-studio .primary:hover {
+  background: #6017f5;
+}
+.piano-studio .publish svg {
+  width: 17px;
+}
+.piano-studio .overview {
+  padding: 20px 23px;
+  display: flex;
+  align-items: center;
+  gap: 36px;
+}
+.piano-studio .overview-info {
+  min-width: 167px;
+}
+.piano-studio .eyebrow {
+  font-size: 8px;
+  letter-spacing: 2.4px;
+  color: #9a94ac;
+  font-weight: 600;
+}
+.piano-studio .time {
+  font-size: 23px;
+  letter-spacing: -.5px;
+  margin: 6px 0 3px;
+  display: flex;
+  gap: 7px;
+  align-items: baseline;
+  font-variant-numeric: tabular-nums;
+}
+.piano-studio .time strong {
+  font-weight: 500;
+}
+.piano-studio .time>span {
+  font-size: 16px;
+  color: #777480;
+}
+.piano-studio .timeline-caption {
+  color: #666370;
+  font-size: 10px;
+}
+.piano-studio .wave-wrap {
+  flex: 1;
+  min-width: 0;
+  padding-top: 8px;
+}
+.piano-studio .wave {
+  position: relative;
+  height: 52px;
+  cursor: crosshair;
+  touch-action: none;
+}
+.piano-studio .wave>svg {
+  width: 100%;
+  height: 100%;
+  stroke: none;
+}
+.piano-studio .wave-window {
+  position: absolute;
+  top: -6px;
+  bottom: -6px;
+  background: #4c00e526;
+  border: 1px solid #955cfb;
+  pointer-events: none;
+}
+.piano-studio .wave-window:before,.piano-studio .wave-window:after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: #a96eff;
+  left: -1px;
+  border-radius: 3px;
+}
+.piano-studio .wave-window:after {
+  left: auto;
+  right: -1px;
+}
+.piano-studio .wave-head {
+  position: absolute;
+  top: -10px;
+  bottom: -10px;
+  width: 1px;
+  background: #fff;
+  pointer-events: none;
+}
+.piano-studio .wave-labels {
+  display: flex;
+  justify-content: space-between;
+  color: #777181;
+  font-size: 10px;
+  margin-top: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.piano-studio .parameter-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 17px 0;
+}
+.piano-studio .parameter {
+  height: 47px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid var(--line);
+  padding: 0 16px;
+  border-radius: 10px;
+  font-size: 12px;
+  background: #111115;
+}
+.piano-studio .parameter label {
+  color: #9892a3;
+  font-size: 11px;
+}
+.piano-studio .param-icon {
+  font-size: 25px;
+  color: #d0cadc;
+}
+.piano-studio .parameter input {
+  width: 40px;
+  background: transparent;
+  border: 0;
+  color: #f9f5ff;
+  font-size: 15px;
+  font-weight: 600;
+  text-align: right;
+  padding: 0;
+  appearance: textfield;
+}
+.piano-studio .parameter input::-webkit-inner-spin-button {
+  appearance: none;
+}
+.piano-studio .muted {
+  color: #a49dab;
+  font-size: 10px;
+}
+.piano-studio .parameter select {
+  border: 0;
+  background: transparent;
+  padding: 8px 4px;
+  font-size: 14px;
+  font-weight: 600;
+}
+.piano-studio .editor {
+  overflow: hidden;
+}
+.piano-studio .editor-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 48px;
+  padding: 0 16px;
+  border-bottom: 1px solid var(--line);
+  font-size: 12px;
+}
+.piano-studio .editor-heading>div {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+.piano-studio .live-dot {
+  width: 5px;
+  height: 5px;
+  background: #9f6aff;
+  box-shadow: 0 0 8px #7e3ff440;
+  border-radius: 50%;
+}
+.piano-studio .edit-caption {
+  font-size: 8px;
+  letter-spacing: 1.6px;
+  color: #625c70;
+  margin-left: 4px;
+}
+.piano-studio .view-controls {
+  color: #a59cab;
+  font-variant-numeric: tabular-nums;
+  font-size: 11px;
+}
+.piano-studio .small-icon {
+  width: 34px;
+  height: 40px;
+  font-size: 24px;
+  color: #b7adca;
+}
+.piano-studio .view-controls select {
+  background: #1c1923;
+  color: #bdb2ce;
+  border: 1px solid #34303f;
+  border-radius: 6px;
+  padding: 5px;
+  font-size: 10px;
+  margin-left: 10px;
+}
+.piano-studio .ruler-wrap {
+  display: flex;
+  background: #141318;
+  border-bottom: 1px solid #39333f;
+  height: 52px;
+}
+.piano-studio .ruler-key {
+  width: var(--key);
+  flex: none;
+  border-right: 1px solid #3e3946;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #6e657c;
+  font-size: 8px;
+}
+.piano-studio .ruler {
+  position: relative;
+  flex: 1;
+  cursor: crosshair;
+  touch-action: none;
+}
+.piano-studio .bar-label {
+  position: absolute;
+  top: 7px;
+  font-size: 12px;
+  color: #c4bbd0;
+  padding-left: 9px;
+}
+.piano-studio .beat-label {
+  position: absolute;
+  bottom: 5px;
+  border-left: 1px solid #332e3c;
+  height: 15px;
+  padding-left: 9px;
+  color: #736a80;
+  font-size: 9px;
+}
+.piano-studio .ruler-head {
+  position: absolute;
+  bottom: 0;
+  top: 0;
+  width: 1px;
+  background: #af82ff;
+  pointer-events: none;
+}
+.piano-studio .ruler-head:before {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: -5px;
+  border-left: 5px solid transparent;
+  border-right: 5px solid transparent;
+  border-top: 8px solid #a66aff;
+}
+.piano-studio .roll-scroll {
+  height: clamp(340px,47vh,550px);
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: #39303f #101014;
+}
+.piano-studio .roll-content {
+  display: flex;
+  position: relative;
+}
+.piano-studio .keys {
+  width: var(--key);
+  flex: none;
+  position: relative;
+  z-index: 3;
+  background: #b8b4c5;
+  user-select: none;
+}
+.piano-studio .key {
+  width: 100%;
+  height: var(--row);
+  border-bottom: 1px solid #c6c3cf;
+  background: linear-gradient(90deg,#eeedf4,#d6d3e2);
+  color: #4d465d;
+  text-align: right;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  font-size: 10px;
+  padding-right: 8px;
+  position: relative;
+  cursor: pointer;
+}
+.piano-studio .key.black {
+  background: #b9b5c3;
+  color: #8e899a;
+}
+.piano-studio .key.black:before {
+  content: '';
+  position: absolute;
+  left: 0;
+  width: 64%;
+  height: 25px;
+  top: 3px;
+  background: linear-gradient(90deg,#27242d,#16131c);
+  border: 1px solid #060509;
+  border-radius: 0 4px 4px 0;
+  box-shadow: 0 1px 2px #0008;
+}
+.piano-studio .key.black span {
+  font-size: 7px;
+  color: #595461;
+}
+.piano-studio .key:hover {
+  filter: brightness(1.2);
+}
+.piano-studio .grid {
+  flex: 1;
+  position: relative;
+  touch-action: none;
+  user-select: none;
+  overflow: hidden;
+  background-color: #121116;
+  background-image: linear-gradient(to right,#2e28394a 1px,transparent 1px),linear-gradient(to bottom,#302b39 1px,transparent 1px);
+  background-size: var(--step-px,32px) 100%,100% var(--row);
+}
+.piano-studio .pitch-row {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: var(--row);
+  pointer-events: none;
+}
+.piano-studio .pitch-row.dark {
+  background: #05040835;
+}
+.piano-studio .beat-line {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: #40374966;
+  pointer-events: none;
+}
+.piano-studio .beat-line.bar {
+  background: #65577588;
+}
+.piano-studio .notes {
+  position: absolute;
+  inset: 0;
+}
+.piano-studio .note {
+  position: absolute;
+  height: 25px;
+  border: 1px solid #7938ed;
+  border-radius: 5px;
+  background: linear-gradient(135deg,#7327ef,var(--purple));
+  color: #fff;
+  padding: 0 7px;
+  display: flex;
+  align-items: center;
+  font-size: 11px;
+  letter-spacing: .2px;
+  box-shadow: inset 0 1px 0 #c8a4ff25;
+  cursor: grab;
+  touch-action: none;
+  min-width: 10px;
+}
+.piano-studio .note.selected {
+  border: 1.5px solid #ddc9ff;
+  background: linear-gradient(135deg,#9957ff,#5d14e7);
+  box-shadow: 0 0 0 2px #a267ff38,inset 0 0 10px #b997ff30;
+  z-index: 4;
+}
+.piano-studio .note.selected:before {
+  content: '';
+  position: absolute;
+  width: 4px;
+  height: 4px;
+  left: 3px;
+  top: 3px;
+  background: #e9dbff;
+  border-radius: 50%;
+  opacity: .6;
+}
+.piano-studio .note span {
+  pointer-events: none;
+  overflow: hidden;
+  white-space: nowrap;
+}
+.piano-studio .resize-handle {
+  position: absolute;
+  right: 0;
+  top: -3px;
+  bottom: -3px;
+  width: 12px;
+  cursor: ew-resize;
+  touch-action: none;
+}
+.piano-studio .resize-handle:after {
+  content: '';
+  position: absolute;
+  width: 2px;
+  top: 8px;
+  bottom: 8px;
+  right: 4px;
+  background: #d2b3ff88;
+  border-radius: 2px;
+}
+.piano-studio .note:not(.selected) .resize-handle:after {
+  opacity: 0;
+}
+.piano-studio .playhead {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: #ad7bff;
+  box-shadow: 0 0 8px #8b45ff99;
+  z-index: 6;
+  pointer-events: none;
+}
+.piano-studio .marquee {
+  position: absolute;
+  border: 1px solid #b78bff;
+  background: #8045ff24;
+  z-index: 8;
+  pointer-events: none;
+}
+.piano-studio .selection-bar {
+  min-height: 56px;
+  border-top: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 14px;
+  gap: 8px;
+  background: #17131e;
+}
+.piano-studio .selection-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.piano-studio .selection-info>span:first-child {
+  font-size: 11px;
+  color: #d3b6ff;
+  min-width: 58px;
+}
+.piano-studio .selection-info>span:last-child {
+  font-size: 10px;
+  color: #777080;
+}
+.piano-studio .selection-actions {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.piano-studio .selection-actions button {
+  height: 36px;
+  min-width: 36px;
+  padding: 0 10px;
+  font-size: 11px;
+  border: 1px solid #39303f;
+  background: #211a2b;
+  border-radius: 7px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+.piano-studio .selection-actions svg {
+  width: 14px;
+  height: 14px;
+}
+.piano-studio .selection-actions .delete {
+  color: #c1a6d6;
+}
+.piano-studio .selection-actions button:hover:enabled {
+  background: #3d2759;
+}
+.piano-studio .transport {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  padding: 18px 0;
+}
+.piano-studio .instrument {
+  height: 78px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 15px 20px;
+  flex: 1;
+  text-align: left;
+}
+.piano-studio .instrument>svg {
+  width: 31px;
+  height: 31px;
+  color: #e2d9f0;
+}
+.piano-studio .instrument strong {
+  font-size: 15px;
+  font-weight: 500;
+  display: block;
+}
+.piano-studio .instrument small {
+  font-size: 10px;
+  color: #8d839a;
+  display: block;
+  margin-top: 5px;
+}
+.piano-studio .playback {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.piano-studio .play {
+  width: 76px;
+  height: 76px;
+  background: var(--purple);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 30px #4c00e51a;
+  transition: .2s;
+}
+.piano-studio .play:hover {
+  background: #6219f5;
+  transform: scale(1.03);
+}
+.piano-studio .play svg {
+  width: 32px;
+  height: 32px;
+  margin-left: 3px;
+}
+.piano-studio .restart {
+  width: 32px;
+  height: 44px;
+  color: #6d627b;
+  font-size: 18px;
+}
+.piano-studio .volume {
+  display: flex;
+  align-items: center;
+  height: 78px;
+  padding: 15px 20px;
+  gap: 14px;
+  flex: 1;
+}
+.piano-studio .volume svg {
+  width: 26px;
+}
+.piano-studio .volume label {
+  font-size: 12px;
+  white-space: nowrap;
+}
+.piano-studio .volume input {
+  min-width: 20px;
+  flex: 1;
+  width: 100%;
+  height: 3px;
+  accent-color: #a374f0;
+  cursor: pointer;
+}
+.piano-studio .volume output {
+  font-size: 10px;
+  color: #93859f;
+  min-width: 27px;
+}
+.piano-studio .toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 7px 10px;
+}
+.piano-studio .modes {
+  display: flex;
+  gap: 5px;
+}
+.piano-studio .modes button {
+  height: 45px;
+  padding: 0 18px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 12px;
+  color: #9c90a9;
+  border: 1px solid transparent;
+  border-radius: 9px;
+}
+.piano-studio .modes button.active {
+  background: #4c00e529;
+  border-color: #9260eb;
+  color: #e3d5ff;
+  box-shadow: inset 0 0 15px #4c00e51a;
+}
+.piano-studio .modes svg {
+  width: 19px;
+  height: 19px;
+}
+.piano-studio .toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+.piano-studio .snap {
+  font-size: 11px;
+  color: #aaa0b5;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-right: 15px;
+}
+.piano-studio .snap select {
+  padding: 8px;
+  border-radius: 7px;
+  background: #151219;
+  border: 1px solid #3b3046;
+  color: #efdeff;
+  font-size: 12px;
+}
+.piano-studio .divider {
+  height: 24px;
+  width: 1px;
+  background: #342b3e;
+  margin: 0 9px;
+}
+.piano-studio .bottom-caption {
+  display: flex;
+  justify-content: space-between;
+  font-size: 10px;
+  color: #625b6b;
+  margin: 14px 0 0;
+}
+.piano-studio .bottom-caption button {
+  font-size: 10px;
+  color: #87758e;
+}
+.piano-studio .bottom-caption .dot {
+  background: #645473;
+}
+.piano-studio dialog {
+  width: min(460px,calc(100% - 32px));
+  padding: 25px;
+  border: 1px solid #453650;
+  border-radius: 22px;
+  background: #141018;
+  color: #eee5f6;
+  box-shadow: 0 24px 100px #0008;
+}
+.piano-studio dialog::backdrop {
+  background: #040107b8;
+  backdrop-filter: blur(7px);
+}
+.piano-studio .shortcuts {
+  background: #211729;
+  border: 1px solid #3b2b49;
+  border-radius: 10px;
+  padding: 14px;
+  font-size: 10px;
+  line-height: 2;
+  color: #ad93c4;
+  margin: 22px 0;
+}
+.piano-studio .wide {
+  width: 100%;
+}
+.piano-studio ::-webkit-scrollbar {
+  width: 5px;
+}
+.piano-studio ::-webkit-scrollbar-thumb {
+  background: #3b2f46;
+  border-radius: 5px;
+}
+@media(min-width:1400px) {
+  .piano-studio {
+    padding-top: 38px;
+  }
+  .piano-studio .roll-scroll {
+    height: 49vh;
+    max-height: 560px;
+  }
+}
+@media(max-width:800px) {
+  .piano-studio {
+    padding: 22px 20px 14px;
+  }
+  .piano-studio .brand {
+    display: none;
+  }
+  .piano-studio .heading {
+    gap: 10px;
+  }
+  .piano-studio .save-status {
+    font-size: 10px;
+  }
+  .piano-studio .header-actions {
+    gap: 8px;
+  }
+  .piano-studio .overview {
+    gap: 20px;
+    padding: 18px;
+  }
+  .piano-studio .overview-info {
+    min-width: 132px;
+  }
+  .piano-studio .eyebrow {
+    font-size: 7px;
+    letter-spacing: 1.8px;
+  }
+  .piano-studio .selection-info>span:last-child {
+    display: none;
+  }
+  .piano-studio .transport {
+    gap: 10px;
+  }
+  .piano-studio .instrument {
+    padding: 15px;
+    gap: 10px;
+  }
+  .piano-studio .volume {
+    padding: 14px;
+    gap: 8px;
+  }
+  .piano-studio .volume label {
+    display: none;
+  }
+  .piano-studio .playback {
+    gap: 2px;
+  }
+  .piano-studio .selection-actions button {
+    padding: 0 8px;
+  }
+  .piano-studio .help {
+    display: none;
+  }
+  .piano-studio .modes button {
+    padding: 0 13px;
+  }
+  .piano-studio .snap {
+    margin-right: 4px;
+    gap: 6px;
+  }
+  .piano-studio .divider {
+    margin: 0 5px;
+  }
+}
+@media(max-width:520px) {
+  .piano-studio {
+    --key: 45px;
+    --row: 32px;
+  }
+  .piano-studio {
+    padding: 20px 12px 20px;
+  }
+  .piano-studio .topbar {
+    margin-bottom: 18px;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  .piano-studio .heading {
+    display: block;
+  }
+  .piano-studio h1 {
+    font-size: 20px;
+    letter-spacing: -.8px;
+  }
+  .piano-studio .save-status {
+    display: block;
+    margin-top: 5px;
+    font-size: 10px;
+  }
+  .piano-studio .header-actions {
+    gap: 6px;
+    padding-top: 1px;
+  }
+  .piano-studio .publish {
+    height: 40px;
+    padding: 0 13px;
+    font-size: 12px;
+    border-radius: 10px;
+    gap: 0;
+  }
+  .piano-studio .publish svg {
+    display: none;
+  }
+  .piano-studio .overview {
+    display: block;
+    padding: 14px 14px 12px;
+    border-radius: 13px;
+  }
+  .piano-studio .overview-info {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .piano-studio .overview-info .eyebrow {
+    display: none;
+  }
+  .piano-studio .time {
+    font-size: 17px;
+    margin: 0;
+    gap: 5px;
+  }
+  .piano-studio .time>span {
+    font-size: 12px;
+  }
+  .piano-studio .timeline-caption {
+    font-size: 9px;
+  }
+  .piano-studio .wave-wrap {
+    padding-top: 15px;
+  }
+  .piano-studio .wave {
+    height: 33px;
+    margin: 0 2px;
+  }
+  .piano-studio .wave-labels {
+    font-size: 9px;
+    margin-top: 10px;
+  }
+  .piano-studio .parameter-row {
+    gap: 6px;
+    padding: 12px 0;
+  }
+  .piano-studio .parameter {
+    height: 44px;
+    padding: 0 10px;
+    gap: 5px;
+    border-radius: 9px;
+    flex: 1;
+  }
+  .piano-studio .parameter label {
+    display: none;
+  }
+  .piano-studio .param-icon {
+    font-size: 21px;
+  }
+  .piano-studio .parameter input {
+    width: 30px;
+    font-size: 12px;
+  }
+  .piano-studio .muted {
+    font-size: 8px;
+  }
+  .piano-studio .parameter select {
+    font-size: 12px;
+    padding: 4px 0;
+    width: 48px;
+  }
+  .piano-studio .editor {
+    border-radius: 12px;
+  }
+  .piano-studio .editor-heading {
+    height: 43px;
+    padding: 0 10px;
+    font-size: 10px;
+  }
+  .piano-studio .edit-caption {
+    display: none;
+  }
+  .piano-studio .editor-heading>div {
+    gap: 6px;
+  }
+  .piano-studio .view-controls {
+    font-size: 10px;
+    gap: 2px!important;
+  }
+  .piano-studio .small-icon {
+    width: 28px;
+  }
+  .piano-studio .view-controls select {
+    font-size: 9px;
+    margin-left: 2px;
+  }
+  .piano-studio .ruler-wrap {
+    height: 44px;
+  }
+  .piano-studio .bar-label {
+    font-size: 11px;
+    top: 5px;
+    padding-left: 6px;
+  }
+  .piano-studio .beat-label {
+    font-size: 8px;
+    padding-left: 5px;
+  }
+  .piano-studio .ruler-key {
+    font-size: 7px;
+  }
+  .piano-studio .roll-scroll {
+    height: clamp(210px,calc(100svh - 590px),430px);
+  }
+  .piano-studio .key {
+    font-size: 9px;
+    padding-right: 5px;
+  }
+  .piano-studio .key.black:before {
+    width: 60%;
+  }
+  .piano-studio .key.black span {
+    display: none;
+  }
+  .piano-studio .note {
+    font-size: 10px;
+    padding: 0 5px;
+    border-radius: 4px;
+  }
+  .piano-studio .selection-bar {
+    padding: 9px 8px;
+    display: block;
+    min-height: 84px;
+  }
+  .piano-studio .selection-info {
+    margin-bottom: 8px;
+    gap: 8px;
+  }
+  .piano-studio .selection-info>span:first-child {
+    font-size: 10px;
+    min-width: 55px;
+  }
+  .piano-studio .selection-info>span:last-child {
+    display: inline;
+    font-size: 9px;
+  }
+  .piano-studio .selection-actions {
+    justify-content: space-between;
+    gap: 4px;
+  }
+  .piano-studio .selection-actions button {
+    height: 36px;
+    font-size: 10px;
+    padding: 0 9px;
+    min-width: 31px;
+  }
+  .piano-studio .selection-actions svg {
+    width: 13px;
+    height: 13px;
+  }
+  .piano-studio .transport {
+    gap: 9px;
+    padding: 13px 0;
+  }
+  .piano-studio .instrument {
+    height: 67px;
+    gap: 9px;
+    padding: 10px 12px;
+  }
+  .piano-studio .instrument>svg {
+    width: 23px;
+    height: 23px;
+  }
+  .piano-studio .instrument strong {
+    font-size: 12px;
+  }
+  .piano-studio .instrument small {
+    font-size: 9px;
+    margin-top: 3px;
+  }
+  .piano-studio .playback {
+    gap: 0;
+  }
+  .piano-studio .play {
+    width: 64px;
+    height: 64px;
+  }
+  .piano-studio .play svg {
+    width: 27px;
+    height: 27px;
+  }
+  .piano-studio .restart {
+    display: none;
+  }
+  .piano-studio .volume {
+    height: 67px;
+    display: grid;
+    grid-template-columns: 18px 1fr;
+    column-gap: 8px;
+    row-gap: 8px;
+    padding: 10px 12px;
+    flex: 1;
+  }
+  .piano-studio .volume svg {
+    width: 20px;
+    height: 20px;
+    grid-row: 1;
+  }
+  .piano-studio .volume label {
+    display: block;
+    font-size: 11px;
+    grid-row: 1;
+  }
+  .piano-studio .volume input {
+    grid-column: 1/3;
+    margin: 0;
+    width: 100%;
+    grid-row: 2;
+  }
+  .piano-studio .volume output {
+    display: none;
+  }
+  .piano-studio .toolbar {
+    padding: 6px;
+    gap: 3px;
+    border-radius: 12px;
+  }
+  .piano-studio .modes {
+    gap: 2px;
+  }
+  .piano-studio .modes button {
+    height: 46px;
+    flex-direction: column;
+    gap: 4px;
+    padding: 5px 10px;
+    font-size: 9px;
+    border-radius: 7px;
+  }
+  .piano-studio .modes svg {
+    width: 17px;
+    height: 17px;
+  }
+  .piano-studio .toolbar-right {
+    gap: 0;
+  }
+  .piano-studio .snap {
+    font-size: 0;
+    margin: 0 1px 0 0;
+    gap: 0;
+  }
+  .piano-studio .snap select {
+    font-size: 10px;
+    padding: 7px 4px;
+    width: 52px;
+  }
+  .piano-studio .toolbar .icon-btn {
+    width: 31px;
+    height: 42px;
+  }
+  .piano-studio .toolbar .icon-btn svg {
+    width: 19px;
+    height: 19px;
+  }
+  .piano-studio .divider {
+    margin: 0 4px;
+  }
+  .piano-studio .bottom-caption {
+    font-size: 8px;
+    margin: 12px 2px 0;
+  }
+  .piano-studio .bottom-caption button {
+    font-size: 9px;
+  }
+}
+@media(max-height:550px) and (min-width:650px) {
+  .piano-studio {
+    padding: 12px 20px;
+  }
+  .piano-studio .topbar {
+    margin-bottom: 12px;
+  }
+  .piano-studio .overview {
+    padding: 10px 16px;
+  }
+  .piano-studio .overview-info .eyebrow,.piano-studio .timeline-caption {
+    display: none;
+  }
+  .piano-studio .wave {
+    height: 25px;
+  }
+  .piano-studio .wave-labels {
+    margin-top: 5px;
+  }
+  .piano-studio .time {
+    margin: 0;
+    font-size: 18px;
+  }
+  .piano-studio .parameter-row {
+    padding: 8px 0;
+  }
+  .piano-studio .parameter {
+    height: 37px;
+  }
+  .piano-studio .roll-scroll {
+    height: 220px;
+  }
+  .piano-studio .transport {
+    padding: 10px 0;
+  }
+  .piano-studio .instrument,.piano-studio .volume {
+    height: 59px;
+  }
+  .piano-studio .play {
+    width: 58px;
+    height: 58px;
+  }
+  .piano-studio .bottom-caption {
+    display: none;
+  }
+}
+/* Integration with the existing app shell and project-backed controls. */
+.studio-shell:has(.piano-studio) {
+  padding: 0;
+  background: #08080b;
+}
+.piano-studio {
+  width: 100%;
+  height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+  color: #f5f4fa;
+  background: #08080b;
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 1.5;
+  --key: 58px;
+  --row: 32px;
+  --purple: #4c00e5;
+  --line: #26252e;
+  --muted: #82818f;
+  --bg: #08080b;
+  --panel: #101014;
+  --light: #b999ff;
+}
+.piano-studio .ruler {
+  height: auto;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  display: block;
+}
+.piano-studio .header-actions {
+  height: auto;
+  overflow: visible;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+.piano-studio .header-actions>button {
+  width: auto;
+  display: flex;
+  padding: 0 16px;
+}
+.piano-studio .header-actions>.icon-btn {
+  width: 40px;
+  padding: 0;
+}
+.piano-studio .header-actions .studio-chord-trigger,.piano-studio .add-layer {
+  height: 40px;
+  border: 1px solid #493075;
+  background: #1c142a;
+  border-radius: 10px;
+  font-size: 12px;
+  white-space: nowrap;
+  color: #e0ceff;
+}
+.piano-studio .header-actions .publish {
+  gap: 8px;
+  min-width: 90px;
+}
+.piano-studio .header-actions .publish svg {
+  width: 17px;
+}
+.piano-studio .heading {
+  gap: 12px;
+}
+.piano-studio .back {
+  margin-left: -8px;
+}
+.piano-studio .project-settings {
+  margin-left: auto;
+  color: #777080;
+  font-size: 11px;
+}
+.piano-studio .parameter strong {
+  font-size: 15px;
+  font-weight: 600;
+}
+.piano-studio .parameter>span:not(.param-icon):not(.muted) {
+  color: #9892a3;
+  font-size: 11px;
+}
+.piano-studio .small-icon {
+  display: grid;
+  place-items: center;
+}
+.piano-studio .small-icon svg {
+  width: 18px;
+}
+.percussion-studio.piano-studio {
+  --key: 125px;
+}
+.percussion-studio .key {
+  font-size: 10px;
+  background: linear-gradient(90deg,#eeedf4,#d6d3e2);
+}
+.piano-studio .grid:focus-visible {
+  outline: 2px solid #a878ff;
+  outline-offset: -2px;
+}
+.piano-studio .instrument {
+  cursor: default;
+}
+.piano-studio .editor-draft-status {
+  background: transparent;
+  padding: 0;
+  margin: 0 0 12px;
+  border-radius: 9px;
+  font-size: 11px;
+}
+.piano-studio .editor-draft-status:empty {
+  display: none;
+}
+.piano-studio .editor-draft-status button,.piano-studio .editor-draft-conflict button {
+  padding: 7px 12px;
+  border: 1px solid #493075;
+  border-radius: 7px;
+  background: #1c142a;
+  color: #dfcbff;
+}
+.piano-studio .editor-draft-conflict {
+  border: 1px solid #655030;
+  border-radius: 10px;
+  margin-bottom: 12px;
+  background: #2a2117;
+  padding: 12px;
+}
+.piano-studio .studio-error {
+  position: static;
+  margin: 0 0 12px;
+  color: #ffbacd;
+  font-size: 12px;
+  padding: 10px 12px;
+  background: #311622;
+  border-radius: 8px;
+}
+.piano-studio .edit-message {
+  margin: 8px 0 0;
+  min-height: 18px;
+  font-size: 11px;
+  color: #c6a4f4;
+  text-align: center;
+}
+.piano-studio .help-card {
+  width: min(460px,100%);
+  padding: 26px;
+  max-height: 90dvh;
+  overflow: auto;
+  background: #141018;
+  box-shadow: 0 24px 100px #0008;
+}
+.piano-studio .help-card h2 {
+  margin: 0 0 22px;
+  font-size: 22px;
+}
+.piano-studio .help-card p {
+  font-size: 13px;
+  line-height: 1.9;
+  color: #b5a5bf;
+  margin: 16px 0;
+}
+.piano-studio .shortcuts {
+  background: #211729;
+  border: 1px solid #3b2b49;
+  border-radius: 10px;
+  padding: 14px;
+}
+.piano-studio .playback .restart {
+  display: grid;
+  place-items: center;
+}
+.piano-studio .key {
+  touch-action: pan-y;
+}
+.piano-studio .roll-scroll {
+  scrollbar-gutter: stable;
+}
+.piano-studio .grid[aria-disabled=true] {
+  cursor: default!important;
+}
+@media(max-width:1000px) {
+  .piano-studio .brand {
+    display: none;
+  }
+  .piano-studio .heading {
+    gap: 8px;
+  }
+  .piano-studio .header-actions {
+    gap: 6px;
+  }
+  .piano-studio .save-status {
+    flex-basis: 100%;
+    margin-left: 46px;
+  }
+}
+@media(max-width:650px) {
+  .piano-studio .topbar {
+    align-items: flex-start;
+    gap: 10px;
+  }
+  .piano-studio .heading {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .piano-studio h1 {
+    font-size: 18px;
+  }
+  .piano-studio .header-actions .publish {
+    min-width: 64px;
+    padding: 0 10px;
+  }
+  .piano-studio .header-actions .studio-chord-trigger {
+    padding: 0 10px;
+    font-size: 11px;
+  }
+  .piano-studio .save-status {
+    font-size: 10px;
+    margin-left: 0;
+  }
+  .piano-studio .back {
+    width: 30px;
+    height: 35px;
+    margin-left: 0;
+  }
+  .piano-studio .project-settings {
+    font-size: 9px;
+    text-align: right;
+    max-width: 110px;
+  }
+  .piano-studio .instrument {
+    min-width: 0;
+  }
+  .piano-studio .instrument strong {
+    font-size: 12px;
+  }
+  .piano-studio .transport {
+    gap: 9px;
+  }
+  .piano-studio .volume {
+    min-width: 0;
+  }
+  .piano-studio .instrument>svg {
+    width: 22px;
+  }
+  .piano-studio .playback .restart {
+    display: none;
+  }
+}
+@media(max-width:520px) {
+  .piano-studio {
+    --key: 45px;
+  }
+  .percussion-studio.piano-studio {
+    --key: 100px;
+  }
+  .piano-studio .topbar {
+    flex-wrap: wrap;
+  }
+  .piano-studio .heading {
+    flex: 1;
+    min-width: 140px;
+  }
+  .piano-studio .header-actions {
+    gap: 6px;
+  }
+  .piano-studio .roll-scroll {
+    height: clamp(250px,40svh,430px);
+  }
+  .piano-studio .selection-actions button {
+    padding: 0 7px;
+  }
+  .piano-studio .header-actions .publish {
+    height: 40px;
+  }
+  .piano-studio .instrument small {
+    font-size: 8px;
+  }
+  .piano-studio .help-card {
+    padding: 20px;
+  }
+}
+.piano-studio .help-card::backdrop {
+  background: #040107b8;
+  backdrop-filter: blur(7px);
+}
+.piano-studio .help-card {
+  color: #eee5f6;
+  margin: auto;
+  border: 1px solid #453650;
+  border-radius: 22px;
+}
+.chord-dialog[data-slot="dialog-content"] {
+  background: #141018;
+  border-color: #453650;
+  color: #eee5f6;
+}
+.chord-dialog .chord-dialog-heading [data-slot="dialog-description"] {
+  color: #a897b4;
+}
+.chord-dialog .chord-dialog-close,.chord-dialog .chord-group-buttons button,.chord-dialog .chord-root-navigation button,.chord-dialog .chord-dialog-controls select {
+  background: #211a2b;
+  border-color: #493075;
+  color: #dfcbff;
+}
+.chord-dialog .chord-group-buttons button:hover:enabled,.chord-dialog .chord-root-navigation button:hover:enabled {
+  background: #4c00e5;
+}
+.chord-dialog .chord-root-group,.chord-dialog .chord-root-navigation {
+  border-color: #33263e;
+}
+.piano-studio .play svg {
+  fill: currentColor;
+  stroke: none;
+}
+
+
+/* Portrait is the default editor layout, including on desktop. */
+.piano-studio {
+  max-width: 640px;
+  padding: 24px 24px 18px;
+}
+.piano-studio .topbar {
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 14px;
+  margin-bottom: 20px;
+}
+.piano-studio .heading {
+  width: 100%;
+  gap: 10px;
+}
+.piano-studio .brand {
+  display: none;
+}
+.piano-studio .save-status {
+  flex-basis: auto;
+  margin-left: auto;
+  font-size: 10px;
+}
+.piano-studio .header-actions {
+  width: 100%;
+  gap: 8px;
+}
+.piano-studio .header-actions .studio-chord-trigger {
+  margin-right: auto;
+}
+.piano-studio .overview {
+  display: block;
+  padding: 18px;
+}
+.piano-studio .overview-info {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-width: 0;
+}
+.piano-studio .overview-info .eyebrow {
+  display: none;
+}
+.piano-studio .time {
+  margin: 0;
+  font-size: 20px;
+}
+.piano-studio .time > span {
+  font-size: 14px;
+}
+.piano-studio .wave-wrap {
+  padding-top: 20px;
+}
+.piano-studio .wave {
+  height: 40px;
+}
+.piano-studio .modes button {
+  padding-inline: 12px;
+}
+.piano-studio .selection-info > span:last-child {
+  display: none;
+}
+.piano-studio .selection-bar {
+  flex-wrap: wrap;
+}
+.piano-studio .selection-actions {
+  margin-left: auto;
+}
+@media (max-width: 520px) {
+  .piano-studio {
+    padding: 20px 12px;
+  }
+  .piano-studio .topbar {
+    gap: 10px;
+  }
+  .piano-studio .save-status {
+    margin-left: 0;
+    flex-basis: 100%;
+  }
+  .piano-studio .modes button {
+    padding: 5px 10px;
+  }
+  .piano-studio .selection-actions {
+    margin-left: 0;
+  }
+  .piano-studio .selection-info > span:last-child {
+    display: inline;
+  }
+}
+
+
+/* Follow the device's landscape orientation without rotating or remounting the editor. */
+@media (orientation: landscape) and (pointer: coarse), (orientation: landscape) and (max-height: 600px) {
+  .piano-studio {
+    max-width: none;
+    padding: 12px 20px;
+  }
+  .piano-studio .topbar {
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 12px;
+  }
+  .piano-studio .heading {
+    width: auto;
+    flex: 1;
+    gap: 8px;
+  }
+  .piano-studio h1 {
+    font-size: 18px;
+  }
+  .piano-studio .save-status {
+    margin-left: 0;
+    flex-basis: auto;
+    font-size: 9px;
+  }
+  .piano-studio .header-actions {
+    width: auto;
+    flex: none;
+  }
+  .piano-studio .overview {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    padding: 10px 16px;
+  }
+  .piano-studio .overview-info {
+    display: block;
+    min-width: 130px;
+  }
+  .piano-studio .timeline-caption {
+    display: none;
+  }
+  .piano-studio .time {
+    font-size: 18px;
+  }
+  .piano-studio .wave-wrap {
+    padding-top: 0;
+  }
+  .piano-studio .wave {
+    height: 25px;
+  }
+  .piano-studio .wave-labels {
+    margin-top: 5px;
+  }
+  .piano-studio .parameter-row {
+    padding: 8px 0;
+  }
+  .piano-studio .parameter {
+    height: 37px;
+  }
+  .piano-studio .editor-heading {
+    height: 40px;
+  }
+  .piano-studio .ruler-wrap {
+    height: 40px;
+  }
+  .piano-studio .roll-scroll {
+    height: clamp(180px, 45svh, 320px);
+  }
+  .piano-studio .selection-bar {
+    flex-wrap: nowrap;
+    min-height: 50px;
+  }
+  .piano-studio .transport {
+    gap: 18px;
+    padding: 10px 0;
+  }
+  .piano-studio .instrument,
+  .piano-studio .volume {
+    height: 59px;
+  }
+  .piano-studio .play {
+    width: 58px;
+    height: 58px;
+  }
+  .piano-studio .modes button {
+    height: 40px;
+  }
+}
