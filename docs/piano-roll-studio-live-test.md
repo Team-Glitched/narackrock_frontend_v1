@@ -44,3 +44,17 @@ Verified locally on 2026-10-29. Frontend: `refector/piano-roll-studio`. Backend:
 The native file-chooser/trim UI could not be completed reliably by browser automation; the real upload/media API path was verified separately. HTI's local service (port 8000) was unavailable, so live HTI conversion was not tested. Physical microphone recording, real multi-touch gestures and hardware rotation were not tested. These are not claims of end-to-end coverage for those paths.
 
 The actual local servers remain available for inspection while their processes are running. Test data is isolated from the normal development database. This feature branch has not been merged into `dev`.
+
+
+## Shared BPM and time-signature follow-up
+
+Backend `refector/piano-roll-timing` is based on `TEST`; frontend remains `refector/piano-roll-studio`. The local backend was restarted from that isolated worktree against the same local database. This adds a backend dependency: `PATCH /api/v1/projects/{projectId}/timing` must be deployed with the UI.
+
+- Original owner only; other users received HTTP 403. Missing/out-of-range timing inputs received HTTP 400.
+- Real owner test song: project 5 / short 905, created separately from the user's existing draft.
+- Duplicated four notes to eight, changed 120 → 90 BPM and 4/4 → 3/4: all eight private-draft MIDI pitches and ticks persisted unchanged. Ruler showed 1,2,3 for each bar. Undo still restored four notes.
+- Changed to 6/8: ruler showed 1 through 6 per bar. Full reload restored 90 BPM, 6/8 and the existing draft.
+- Created an isolated second participant's long private draft, then attempted 60 BPM from the UI: server rejected the change before mutation and UI displayed the one-minute-limit reason. The project remained 90 BPM; the temporary boundary draft was then discarded.
+- The published mix regenerated through the real export queue: `/files/exports/5/7/mix.wav` measured approximately 2.666 seconds, matching four quarter notes at 90 BPM. Sampled editor playback also stopped and reset at its new end.
+- 390px portrait and 844px landscape were checked for overflow. Viewport overrides were reset.
+- Frontend: 115 tests, TypeScript, lint and build passed. Backend: 1,059 tests, zero failures/errors/skips. Six new backend tests cover original-owner access, invalid/completed changes, timing/metadata preservation, clip/draft bounds, no-op version handling and published mix refresh.
