@@ -12,7 +12,7 @@ const rowHeight = 30;
 // Adapted from the team's origin/fix/overall NoteEditorScreen: rows, ruler,
 // pointer drag, edge resize, keyboard movement, and keyboard resize.
 export function TeamPianoRoll({ notes, setNotes, stepTick, maxTick, lengthCells, editable,
-  positionMs, maxDurationMs, onSeek, initialPitch, percussion = false }: {
+  positionMs, maxDurationMs, onSeek, initialPitch, percussion = false, revealNote }: {
   notes: MidiNoteDto[];
   setNotes: Dispatch<SetStateAction<MidiNoteDto[]>>;
   stepTick: number;
@@ -24,6 +24,7 @@ export function TeamPianoRoll({ notes, setNotes, stepTick, maxTick, lengthCells,
   onSeek: (ms: number) => void;
   initialPitch: number;
   percussion?: boolean;
+  revealNote?: { pitch: number; startTick: number } | null;
 }) {
   const pitches = percussion ? Array.from({ length: 47 }, (_, row) => 81 - row) : allPitches;
   const pitchLabel = (pitch: number) => percussion
@@ -41,6 +42,18 @@ export function TeamPianoRoll({ notes, setNotes, stepTick, maxTick, lengthCells,
     const workspace = workspaceRef.current;
     if (workspace) workspace.scrollTop = ((percussion ? 81 : 127) - initialPitch) * rowHeight - (workspace.clientHeight - 30) / 2;
   }, [initialPitch, percussion]);
+
+  useEffect(() => {
+    const workspace = workspaceRef.current;
+    if (!workspace || !revealNote) return;
+    workspace.scrollTop = ((percussion ? 81 : 127) - revealNote.pitch) * rowHeight - (workspace.clientHeight - 30) / 2;
+    const keyWidth = percussion ? 125 : 87;
+    const noteLeft = revealNote.startTick / stepTick * cellWidth;
+    const visibleWidth = workspace.clientWidth - keyWidth;
+    if (noteLeft < workspace.scrollLeft || noteLeft + cellWidth > workspace.scrollLeft + visibleWidth) {
+      workspace.scrollLeft = Math.max(0, noteLeft - visibleWidth / 2);
+    }
+  }, [revealNote, percussion, stepTick]);
 
   function overlaps(current: MidiNoteDto[], index: number, pitch: number, startTick: number, durationTick: number) {
     return current.some((note, other) => other !== index && note.pitch === pitch
