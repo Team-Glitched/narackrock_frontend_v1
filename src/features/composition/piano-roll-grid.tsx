@@ -2,6 +2,7 @@
 
 import { useEffect, useId, useMemo, useRef, useState, type CSSProperties, type PointerEvent } from "react";
 import type { MidiNoteDto } from "@/lib/api/composition";
+import { meterTiming, rulerBeats } from "./musical-time";
 import { drumPadFor, moveDrumNotes } from "./drum-kit";
 import { DrumPadIcon } from "./drum-pad-icon";
 import { drumNames } from "./instrument-catalog";
@@ -16,11 +17,11 @@ type Gesture = {
 };
 const rowHeight = 32;
 
-export function PianoRollGrid({ notes, onCommit, selected, onSelect, mode, stepTick, minTick, ppq, bounds,
+export function PianoRollGrid({ notes, onCommit, selected, onSelect, mode, stepTick, minTick, ppq, timeSignatureNumerator, timeSignatureDenominator, bounds,
   viewStart, visibleTicks, positionTick, onSeek, initialPitch, editable, percussion, pitches, revealNote, onEditStart, onAudition, onViewStart }: {
   notes: MidiNoteDto[]; onCommit: (notes: MidiNoteDto[]) => void;
   selected: Set<number>; onSelect: (selected: Set<number>) => void; mode: EditorMode;
-  stepTick: number; minTick: number; ppq: number; bounds: NoteBounds; viewStart: number; visibleTicks: number;
+  stepTick: number; minTick: number; ppq: number; timeSignatureNumerator: number; timeSignatureDenominator: number; bounds: NoteBounds; viewStart: number; visibleTicks: number;
   positionTick: number; onSeek: (tick: number) => void; initialPitch: number;
   editable: boolean; percussion: boolean; pitches: number[]; revealNote?: { pitch: number; startTick: number } | null;
   onEditStart: () => void; onAudition: (pitch: number) => void; onViewStart: (tick: number) => void;
@@ -35,6 +36,7 @@ export function PianoRollGrid({ notes, onCommit, selected, onSelect, mode, stepT
   const [erased, setErased] = useState(new Set<number>());
   const [preview, setPreview] = useState<MidiNoteDto[] | null>(null);
   const [marquee, setMarquee] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
+  const { beatTick, barTick } = meterTiming(ppq, timeSignatureNumerator, timeSignatureDenominator);
   const rowByPitch = useMemo(() => new Map(pitches.map((pitch, row) => [pitch, row])), [pitches]);
   const label = (pitch: number) => percussion ? drumPadFor(pitch)?.label ?? drumNames[pitch] ?? `퍼커션 ${pitch}` : pitchName(pitch);
 
@@ -203,8 +205,7 @@ export function PianoRollGrid({ notes, onCommit, selected, onSelect, mode, stepT
     setPreview(null); setMarquee(null); setErased(new Set());
   }
   const shown = preview ?? notes;
-  const beatTicks = Array.from({ length: Math.ceil(visibleTicks / ppq) + 1 }, (_, i) => (Math.ceil(viewStart / ppq) + i) * ppq)
-    .filter(tick => tick < viewStart + visibleTicks);
+  const beatTicks = rulerBeats(viewStart, visibleTicks, ppq, timeSignatureNumerator, timeSignatureDenominator);
   const snapTicks = Array.from({ length: Math.ceil(visibleTicks / stepTick) + 1 }, (_, i) => (Math.ceil(viewStart / stepTick) + i) * stepTick)
     .filter(tick => tick < viewStart + visibleTicks);
   const progress = (positionTick - viewStart) / visibleTicks * 100;
@@ -229,9 +230,9 @@ export function PianoRollGrid({ notes, onCommit, selected, onSelect, mode, stepT
           onSeek(event.key === "Home" ? 0 : event.key === "End" ? bounds.maxTick
             : clamp(positionTick + (event.key === "ArrowRight" ? stepTick : -stepTick), 0, bounds.maxTick));
         }}>
-        {beatTicks.map(tick => <span key={tick}>
-          {tick / ppq % 4 === 0 && <span className="bar-label" style={{ left: `${(tick - viewStart) / visibleTicks * 100}%` }}>{String(Math.floor(tick / ppq / 4) + 1).padStart(2, "0")}</span>}
-          <span className="beat-label" style={{ left: `${(tick - viewStart) / visibleTicks * 100}%`, width: `${ppq / visibleTicks * 100}%` }}>{tick / ppq % 4 + 1}</span>
+        {beatTicks.map(({ tick, beat, bar, isBar }) => <span key={tick}>
+          {isBar && <span className="bar-label" style={{ left: `${(tick - viewStart) / visibleTicks * 100}%` }}>{String(bar).padStart(2, "0")}</span>}
+          <span className="beat-label" style={{ left: `${(tick - viewStart) / visibleTicks * 100}%`, width: `${beatTick / visibleTicks * 100}%` }}>{beat}</span>
         </span>)}
         {progress >= 0 && progress <= 100 && <div className="ruler-head" style={{ left: `${progress}%` }} />}
       </div>
@@ -248,10 +249,10 @@ export function PianoRollGrid({ notes, onCommit, selected, onSelect, mode, stepT
         onPointerDown={down} onPointerMove={move} onPointerUp={event => finish(event)} onPointerCancel={event => finish(event, true)}>
         {pitches.map((pitch, i) => <div key={pitch} className={`pitch-row ${!percussion && [1, 3, 6, 8, 10].includes(pitch % 12) ? "dark" : ""}`} style={{ top: i * rowHeight }} />)}
         {snapTicks.map(tick => <div className="snap-line" key={`snap-${tick}`} style={{ left: `${(tick - viewStart) / visibleTicks * 100}%` }} />)}
-        {beatTicks.map(tick => <div className={`beat-line ${tick / ppq % 4 === 0 ? "bar" : ""}`} key={tick} style={{ left: `${(tick - viewStart) / visibleTicks * 100}%` }} />)}
+        {beatTicks.map(({ tick, isBar }) => <div className={`beat-line ${isBar ? "bar" : ""}`} key={tick} style={{ left: `${(tick - viewStart) / visibleTicks * 100}%` }} />)}
         <div className="notes">{shown.map((note, index) => !rowByPitch.has(note.pitch) || note.startTick >= viewStart + visibleTicks || note.startTick + note.durationTick <= viewStart ? null :
           <div key={index} className={`note ${selected.has(index) ? "selected" : ""}`} data-note-index={index}
-            role="button" tabIndex={0} aria-label={`${label(note.pitch)}, ${Number((note.durationTick / ppq).toFixed(2))}박`}
+            role="button" tabIndex={0} aria-label={`${label(note.pitch)}, ${Number((note.durationTick / beatTick).toFixed(2))}박`}
             aria-pressed={selected.has(index)} aria-disabled={!editable}
             onKeyDown={event => { if (event.key === "Enter") { event.preventDefault(); const ids = new Set(selected); if (ids.has(index)) ids.delete(index); else ids.add(index); onSelect(ids); } }}
             style={{ visibility: erased.has(index) ? "hidden" : undefined, left: `calc(${(note.startTick - viewStart) / visibleTicks * 100}% + 2px)`,
@@ -266,13 +267,13 @@ export function PianoRollGrid({ notes, onCommit, selected, onSelect, mode, stepT
       <span className="scroll-help">가로 스크롤 · Shift+휠 · 두 손가락으로 상하좌우 이동</span>
       <input className="timeline-scrollbar" type="range" min={0} max={Math.max(0, bounds.maxTick - visibleTicks)} step={1}
         value={viewStart} disabled={bounds.maxTick <= visibleTicks} aria-label="피아노롤 가로 스크롤" aria-controls={gridId}
-        aria-valuetext={`${Math.floor(viewStart / (ppq * 4)) + 1}마디부터 ${Math.ceil((viewStart + visibleTicks) / (ppq * 4))}마디까지`}
+        aria-valuetext={`${Math.floor(viewStart / barTick) + 1}마디부터 ${Math.ceil((viewStart + visibleTicks) / barTick)}마디까지`}
         onChange={event => onViewStart(Number(event.target.value))}
         onKeyDown={event => {
           if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
           event.preventDefault(); event.stopPropagation();
           onViewStart(event.key === "Home" ? 0 : event.key === "End" ? bounds.maxTick - visibleTicks
-            : viewStart + (event.key === "ArrowRight" ? ppq : -ppq));
+            : viewStart + (event.key === "ArrowRight" ? beatTick : -beatTick));
         }} />
     </div>
   </>;

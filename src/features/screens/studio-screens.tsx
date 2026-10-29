@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore, type Dispatch, type SetStateAction } from "react";
 import { Asset } from "@/components/app/shared";
 import type { Navigate } from "@/features/navigation/types";
+import type { MusicalTiming } from "@/features/composition/musical-time";
 import { useCompositionPlayback } from "@/features/composition/use-composition-playback";
 import { prepareAudioFile } from "@/features/composition/prepare-audio-file";
 import type { AudioSelection } from "@/features/composition/prepare-audio-file";
@@ -14,7 +15,7 @@ import { useNoteHistory } from "@/features/composition/use-note-history";
 import { ChordPicker } from "@/features/composition/chord-picker";
 import { chordStartTick, insertChord, type ChordQuality } from "@/features/composition/chord-input";
 import { instrumentFor } from "@/features/composition/instrument-catalog";
-import { createAudioClip, createDraftProject, enterComposition, getComposition, getExport, getPendingContributions, publishComposition, reviewContribution, submitContribution, updateProjectMetadata, uploadMedia, type CompositionDto, type MidiNoteDto, type TrackDto } from "@/lib/api/composition";
+import { createAudioClip, createDraftProject, enterComposition, getComposition, getExport, getPendingContributions, publishComposition, reviewContribution, submitContribution, updateProjectMetadata, updateProjectTiming, uploadMedia, type CompositionDto, type MidiNoteDto, type TrackDto, type ProjectTimingDto } from "@/lib/api/composition";
 
 import { useEditorDraft, browserDraftStorage } from "@/features/composition/use-editor-draft";
 import { listLocalDrafts, type DraftContent, type ServerDraft } from "@/features/composition/editor-draft";
@@ -318,11 +319,12 @@ export function NoteEditorScreen({ projectId, trackId, clipId, onBack, onAddLaye
   if (!composition || !track) return <div className="studio studio-state" role={error ? "alert" : "status"}>
     {error ?? "피아노롤을 불러오는 중입니다."}<button onClick={onBack}>돌아가기</button></div>;
   return <LoadedNoteEditor composition={composition} track={track} clipId={clipId}
+    onTimingSaved={timing => setComposition(current => current ? { ...current, project: { ...current.project, ...timing } } : current)}
     onBack={onBack} onAddLayer={onAddLayer} onClipSelected={onClipSelected} />;
 }
 
-function LoadedNoteEditor({ composition, track, clipId, onBack, onAddLayer, onClipSelected }: {
-  composition: CompositionDto; track: TrackDto; clipId: number | null; onBack: () => void; onAddLayer: () => void;
+function LoadedNoteEditor({ composition, track, clipId, onTimingSaved, onBack, onAddLayer, onClipSelected }: {
+  composition: CompositionDto; track: TrackDto; clipId: number | null; onTimingSaved: (timing: ProjectTimingDto) => void; onBack: () => void; onAddLayer: () => void;
   onClipSelected: (trackId: number, clipId: number | null) => void;
 }) {
   const [lengthCells, setLengthCells] = useState(1);
@@ -346,7 +348,7 @@ function LoadedNoteEditor({ composition, track, clipId, onBack, onAddLayer, onCl
   } : null, [clip]);
   const initialContent = useMemo<DraftContent>(() => baseClip ?? { startTick: 0, durationTick: stepTick, midiNotes: [] }, [baseClip, stepTick]);
   const context = useMemo(() => ({ userId: composition.viewerPermission.userId, projectId: composition.project.projectId,
-    trackId: track.trackId, targetClipId: clipId }), [composition, track.trackId, clipId]);
+    trackId: track.trackId, targetClipId: clipId }), [composition.viewerPermission.userId, composition.project.projectId, track.trackId, clipId]);
   const onCommittedRecovery = useCallback((id: number) => onClipSelected(track.trackId, id), [onClipSelected, track.trackId]);
   const draft = useEditorDraft({ context, content: initialContent, baseClip, enabled: editable, onCommittedRecovery });
   const notes = draft.state?.content.midiNotes ?? initialContent.midiNotes;
@@ -400,6 +402,17 @@ function LoadedNoteEditor({ composition, track, clipId, onBack, onAddLayer, onCl
     } finally { draft.session.freeze(false); setBusy(false); }
   }
 
+  async function changeTiming(timing: MusicalTiming) {
+    if (!composition.viewerPermission.canExport || composition.project.status === "COMPLETED" || busy) return;
+    setBusy(true); playback.seek(0);
+    draft.session?.freeze(true);
+    try {
+      await draft.session?.flush();
+      const result = await updateProjectTiming(composition.project.projectId, timing);
+      onTimingSaved(result);
+    } finally { draft.session?.freeze(false); setBusy(false); }
+  }
+
   function downloadRecovery() {
     if (!draft.session) return;
     const url = URL.createObjectURL(new Blob([JSON.stringify(draft.session.getLocalRecord(), null, 2)], { type: "application/json" }));
@@ -415,6 +428,9 @@ function LoadedNoteEditor({ composition, track, clipId, onBack, onAddLayer, onCl
   const initialPitch = notes[0]?.pitch ?? (instrument.kind === "drum" ? 36 : 60);
   return <PianoRollStudio key={draft.state?.draftId ?? "loading"} notes={notes} history={history} editable={canEditNotes}
     ppq={composition.project.ppq} maxTick={maxTick - clipStartTick} bpm={composition.project.bpm}
+    timeSignatureNumerator={composition.project.timeSignatureNumerator} timeSignatureDenominator={composition.project.timeSignatureDenominator}
+    canEditTiming={composition.viewerPermission.canExport && composition.project.status !== "COMPLETED"}
+    onTimingChange={changeTiming}
     positionMs={Math.max(0, playback.positionMs - clipStartMs)} maxDurationMs={composition.project.maxDurationMs - clipStartMs}
     onSeek={ms => playback.seek(ms + clipStartMs)} initialPitch={initialPitch} percussion={instrument.kind === "drum"}
     revealNote={chordFocus} instrument={instrument.label} playing={playback.playing}

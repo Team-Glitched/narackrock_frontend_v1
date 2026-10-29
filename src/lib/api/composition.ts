@@ -47,6 +47,8 @@ export type CompositionDto = {
     title: string;
     albumImageFileId: number | null;
     bpm: number;
+    timeSignatureNumerator: number;
+    timeSignatureDenominator: number;
     ppq: number;
     maxTick: number;
     maxDurationMs: number;
@@ -162,4 +164,10 @@ export async function publishComposition(projectId: number): Promise<{ exportId:
 
 export async function getExport(projectId: number, exportId: number): Promise<{ status: "QUEUED" | "PROCESSING" | "COMPLETED" | "FAILED"; errorMessage: string | null; shortId: number | null }> {
   return data(`/api/v1/projects/${projectId}/exports/${exportId}`);
+}
+
+
+export type ProjectTimingDto = Pick<CompositionDto["project"], "bpm" | "timeSignatureNumerator" | "timeSignatureDenominator" | "maxTick" | "version">;
+export async function updateProjectTiming(projectId: number, timing: Pick<ProjectTimingDto, "bpm" | "timeSignatureNumerator" | "timeSignatureDenominator">) {
+  return data<ProjectTimingDto>(`/api/v1/projects/${projectId}/timing`, { method: "PATCH", body: JSON.stringify(timing) });
 }

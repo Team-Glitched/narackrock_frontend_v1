@@ -1845,3 +1845,41 @@
 @media (orientation:landscape) and (pointer:coarse), (max-height:600px) {
   .piano-studio.basic-drums .roll-scroll { height: clamp(180px, 45svh, 320px); }
 }
+
+.piano-studio .project-timing-form { margin: 12px 0; }
+.piano-studio .project-timing-form .parameter-row { padding: 0; gap: 8px; flex-wrap: wrap; }
+.piano-studio .project-timing-form .parameter { gap: 7px; padding: 0 10px; }
+.piano-studio .parameter input,
+.piano-studio .parameter select {
+  color: #f3eefb;
+  background: #1e1928;
+  border: 1px solid #514264;
+  border-radius: 6px;
+  padding: 5px 4px;
+  min-height: 32px;
+  font-size: 14px;
+  font-weight: 600;
+}
+.piano-studio .parameter input { width: 64px; }
+.piano-studio .parameter select { width: 64px; }
+.piano-studio .parameter input:disabled,
+.piano-studio .parameter select:disabled { opacity: .65; cursor: default; }
+.piano-studio .timing-apply {
+  padding: 8px 12px;
+  min-height: 36px;
+  border: 1px solid #7852ae;
+  border-radius: 8px;
+  background: #312044;
+  color: #e4cdfd;
+  font-size: 11px;
+}
+.piano-studio .timing-apply:disabled { opacity: .35; cursor: default; }
+.piano-studio .project-timing-form .project-settings { margin: 7px 0 0; max-width: none; text-align: left; font-size: 10px; color: #82768f; }
+.piano-studio .timing-feedback { margin: 8px 0; color: #b9d6b8; font-size: 11px; }
+.piano-studio .timing-feedback.failed { color: #f3aaa8; }
+@media(max-width:520px) {
+  .piano-studio .project-timing-form .param-icon,
+  .piano-studio .project-timing-form .parameter svg { display: none; }
+  .piano-studio .project-timing-form .parameter { gap: 5px; padding: 0 7px; }
+  .piano-studio .project-timing-form .tempo .muted { display: none; }
+}
