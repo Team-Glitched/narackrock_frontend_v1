@@ -1,0 +1,17 @@
+[
+ {"id":"piano","label":"피아노","instruments":["piano","electric-piano"]},
+ {"id":"guitar","label":"기타","instruments":["nylon-guitar","acoustic-guitar"]},
+ {"id":"electric-guitar","label":"일렉기타","instruments":["electric-guitar","overdrive-guitar","distortion-guitar"]},
+ {"id":"bass","label":"베이스","instruments":["acoustic-bass","electric-bass","picked-bass","slap-bass","synth-bass"]},
+ {"id":"drums","label":"드럼·타악기","instruments":["drum-kit","percussion"]},
+ {"id":"strings","label":"현악기","instruments":["violin","strings"]},
+ {"id":"harp","label":"하프","instruments":["harp"]},
+ {"id":"brass","label":"트럼펫·브라스","instruments":["trumpet","brass"]},
+ {"id":"saxophone","label":"색소폰","instruments":["saxophone"]},
+ {"id":"flute","label":"플루트","instruments":["flute"]},
+ {"id":"synth","label":"신디사이저","instruments":["synth-lead","synth-pad"]},
+ {"id":"organ","label":"오르간","instruments":["organ"]},
+ {"id":"marimba","label":"마림바","instruments":["marimba"]},
+ {"id":"vocal","label":"보컬","instruments":["vocal","backing-vocal","rap"]},
+ {"id":"other","label":"기타 소리","instruments":["other"]}
+]
