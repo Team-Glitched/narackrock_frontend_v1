@@ -15,7 +15,12 @@ function fakeAudio(durationSeconds) {
     }
     async startRendering() {
       const empty = new Float32Array(calls.frames);
-      return { getChannelData: () => empty };
+      return {
+        length: calls.frames,
+        sampleRate: 44_100,
+        numberOfChannels: 2,
+        getChannelData: () => empty,
+      };
     }
     get destination() { return {}; }
   };

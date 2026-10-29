@@ -1,4 +1,3 @@
-"use client";
 import { useEffect,useRef,useState } from "react";
 import { Avatar } from "@/components/app/shared";
 import { useWorkspace,preserveSubmission } from "@/features/workspace/workspace-store";

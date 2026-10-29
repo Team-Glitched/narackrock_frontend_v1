@@ -1,5 +1,3 @@
-"use client";
-
 import { useMemo, useState, useSyncExternalStore } from "react";
 import { useSourceSave } from "@/features/community/source-save-button";
 import { SourceAudioPlayer } from "@/features/community/source-audio-player";

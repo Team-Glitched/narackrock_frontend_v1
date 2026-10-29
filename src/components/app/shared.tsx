@@ -38,7 +38,7 @@ export function Asset({
 }) {
   // Assets are local Figma exports with explicit CSS sizing; Next Image adds no benefit here.
   return (
-    // eslint-disable-next-line @next/next/no-img-element
+
     <img
       src={`${assetRoot}${name}`}
       alt={alt}
@@ -51,7 +51,7 @@ export function Asset({
 export function Avatar({ large = false, src = null }: { large?: boolean; src?: string | null }) {
   const className = large ? "avatar avatar--large" : "avatar";
   if (src) {
-    // eslint-disable-next-line @next/next/no-img-element
+
     return <span className={className}><img src={src} alt="프로필" draggable={false} /></span>;
   }
   return <span className={className}><Asset name="profile.png" alt="프로필" /></span>;
@@ -180,7 +180,7 @@ export function SectionTitle({
 }
 export function SongRail({ songs, onOpen }: { songs: ShortItemDto[]; onOpen: (shortId: number) => void }) {
   return <div className="song-rail">{songs.map(song => <button type="button" className="song-card" key={song.shortId} onClick={() => onOpen(song.shortId)} aria-label={`${song.title} 열기`}><span className="song-art">{song.albumImageUrl
-    // eslint-disable-next-line @next/next/no-img-element
+
     ? <img src={song.albumImageUrl} alt={`${song.title} 앨범 커버`} draggable={false} />
     : <span className="empty-artwork" />}</span><strong>{song.title}</strong><small>{song.author.nickname}</small></button>)}</div>;
 }

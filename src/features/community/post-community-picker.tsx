@@ -1,5 +1,3 @@
-"use client";
-
 import { ChevronDown } from "lucide-react";
 import { useId, useRef, useState } from "react";
 import { Asset, Avatar } from "@/components/app/shared";

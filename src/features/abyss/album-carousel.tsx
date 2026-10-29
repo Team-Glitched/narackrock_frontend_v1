@@ -1,4 +1,3 @@
-"use client";
 import { useRef } from "react";
 import type { ShortItemDto } from "@/lib/api/contracts";
 export function AlbumCarousel({ items, index, onPrevious, onNext }: {
@@ -17,7 +16,7 @@ export function AlbumCarousel({ items, index, onPrevious, onNext }: {
     }} onPointerCancel={() => { gesture.current = null; }}>
     <div className="abyss-cover-track" style={{ transform: `translateX(calc(${index} * -1 * var(--cover-step, 360px)))` }}>
       {items.map((item, position) => item.albumImageUrl ?
-        // eslint-disable-next-line @next/next/no-img-element
+
         <img key={item.shortId} src={item.albumImageUrl} alt={position === index ? `${item.title} 앨범 커버` : ""} aria-hidden={position !== index} className="abyss-cover" draggable={false} loading={Math.abs(position - index) > 1 ? "lazy" : "eager"} />
         : <div key={item.shortId} className="abyss-cover abyss-cover-empty" role="img" aria-label={`${item.title} 앨범 이미지 없음`} aria-hidden={position !== index} />)}
     </div>

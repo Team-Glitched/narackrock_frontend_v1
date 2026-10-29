@@ -1,6 +1,3 @@
-"use client";
-
-import Image from "next/image";
 import { useEffect, useMemo, useState, useSyncExternalStore, type CSSProperties } from "react";
 import { PublishConfirmation, VolumeDialog, NoteSettingsDialog, InstrumentDialog, TimingDialog } from "@/components/app/dialog";
 import { Asset, Avatar } from "@/components/app/shared";
@@ -97,7 +94,7 @@ function NewProject({ onCreated, onResume }: { onCreated: (id: number) => void; 
   return <form className="project-create" onSubmit={start}>
     <label className="project-title-field">음악명<input aria-label="음악명" value={title} onChange={event => setTitle(event.target.value)} maxLength={100} required /></label>
     <label className="project-artwork-field">앨범<span className="project-artwork-picker">
-      {imageUrl ? <Image src={imageUrl} alt="선택한 앨범" width={350} height={280} unoptimized /> : <><strong>앨범 추가</strong><small>JPG, PNG, WEBP 최대 100MB</small></>}
+      {imageUrl ? <img src={imageUrl} alt="선택한 앨범" width={350} height={280} /> : <><strong>앨범 추가</strong><small>JPG, PNG, WEBP 최대 100MB</small></>}
       <input type="file" accept="image/jpeg,image/png,image/webp" aria-label="앨범 추가" onChange={event => {
         const file = event.target.files?.[0]; if (!file) return;
         if (file.size > 100 * 1024 * 1024) { setError("100MB 이하의 이미지를 선택해 주세요."); return; }

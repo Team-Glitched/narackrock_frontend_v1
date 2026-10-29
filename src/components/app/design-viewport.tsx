@@ -1,5 +1,3 @@
-"use client";
-
 import { useEffect, useRef, type ReactNode } from "react";
 
 /** The Figma canvases are 390×844 and 844×390. Scale the whole canvas,

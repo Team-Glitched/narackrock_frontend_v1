@@ -1,5 +1,3 @@
-"use client";
-
 import { useSyncExternalStore } from "react";
 import { useCurrentUserId } from "@/hooks/use-current-user";
 import { isPreviewMode } from "@/features/preview/preview-mode";

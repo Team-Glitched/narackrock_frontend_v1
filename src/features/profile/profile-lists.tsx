@@ -1,4 +1,3 @@
-"use client";
 import { useEffect,useState } from "react";
 import { FigmaSheet } from "@/components/app/figma-sheet";
 import { Avatar } from "@/components/app/shared";

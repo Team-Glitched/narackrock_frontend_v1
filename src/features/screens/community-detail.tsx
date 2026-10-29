@@ -1,5 +1,3 @@
-"use client";
-
 import { useMemo, useRef } from "react";
 import { Asset, Avatar } from "@/components/app/shared";
 import { isCommunityOwner } from "@/features/admin/permissions";

@@ -1,4 +1,3 @@
-"use client";
 import { createPortal } from "react-dom";
 import { useEffect, useRef, useSyncExternalStore, type ReactNode } from "react";
 const subscribe = () => () => {};

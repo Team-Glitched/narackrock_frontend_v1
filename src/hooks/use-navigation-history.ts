@@ -1,4 +1,3 @@
-"use client";
 import { useCallback, useEffect, useRef } from "react";
 import { NavigationHistory } from "@/features/navigation/browser-history";
 export function useNavigationHistory<T>(snapshot:T,key:string,onRestore:(value:T)=>void,validate:(value:unknown)=>value is T){

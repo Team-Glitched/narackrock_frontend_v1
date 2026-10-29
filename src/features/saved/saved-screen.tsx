@@ -1,4 +1,3 @@
-"use client";
 import { uiLabels } from "@/lib/ui-labels";
 import { useHiddenPosts } from "@/features/community/hidden-posts";
 import { useState } from "react";
@@ -28,7 +27,7 @@ export function SavedLibrary({ items, onRemove, onOpenPost, onOpenSong }: {
     {visible.length === 0 ? <p className="library-empty">저장한 {kind === "post" ? "게시글" : "음악"}이 없습니다.<br />마음에 드는 콘텐츠의 저장 버튼을 눌러보세요.</p> : <ul className="saved-list">
       {visible.map(item => <li key={item.id} className={`saved-item saved-item--${kind}`}>
         <button className="saved-open" onClick={() => kind === "post" ? onOpenPost(item.id) : onOpenSong(item.id)}>
-          <span className="saved-art">{item.imageUrl && /* eslint-disable-next-line @next/next/no-img-element */
+          <span className="saved-art">{item.imageUrl &&
             <img src={item.imageUrl} alt="" />}</span>
           <span className="saved-copy"><strong>{item.title}</strong>{kind === "post" ? <span className="saved-author"><Avatar /><span>{item.author}</span></span> : <small>{item.author}</small>}</span>
         </button>

@@ -1,4 +1,3 @@
-"use client";
 import { useEffect, useRef, useState } from "react";
 import type { ClipDto } from "@/lib/api/composition";
 import { pointerAxes } from "./pointer-coordinates";

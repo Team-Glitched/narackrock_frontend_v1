@@ -1,4 +1,3 @@
-"use client";
 import { useSavedSources } from "@/features/community/use-saved-sources";
 import { SavedSourceCard } from "@/features/community/saved-source-list";
 import { AudioPlaybackBar } from "@/components/app/audio-playback-bar";

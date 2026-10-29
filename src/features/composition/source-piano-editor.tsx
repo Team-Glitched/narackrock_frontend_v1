@@ -1,5 +1,3 @@
-"use client";
-
 import { useMemo, useState, type Dispatch, type SetStateAction } from "react";
 import type { CompositionDto, MidiNoteDto } from "@/lib/api/composition";
 import { StudioToolbar } from "@/features/screens/studio-screens";

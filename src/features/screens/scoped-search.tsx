@@ -1,4 +1,3 @@
-"use client";
 import { useEffect, useRef, useState } from "react";
 import { Asset, Avatar } from "@/components/app/shared";
 import { MiniPost } from "./mobile-screens";
@@ -55,6 +54,6 @@ export function ScopedSearch({scope:requestedScope,community,onScope,query,onQue
     </div>
   </div>;
 }
-function AssetImage({url}:{url:string}){// eslint-disable-next-line @next/next/no-img-element
+function AssetImage({url}:{url:string}){
   return <img src={url} alt="앨범 커버"/>;
 }

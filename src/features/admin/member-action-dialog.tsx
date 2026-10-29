@@ -1,4 +1,3 @@
-"use client";
 import {useId,useState} from "react";
 import {CanvasDialog} from "@/components/app/dialog";
 import "./community-admin.css";

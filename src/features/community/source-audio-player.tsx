@@ -1,4 +1,3 @@
-"use client";
 import { useRef, useState } from "react";
 import { AudioPlaybackBar } from "@/components/app/audio-playback-bar";
 import "./source-audio-player.css";

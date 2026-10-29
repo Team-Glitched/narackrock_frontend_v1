@@ -1,4 +1,3 @@
-"use client";
 import { useEffect } from "react";
 import type { Navigate, View } from "@/features/navigation/types";
 import { views } from "@/features/navigation/types";

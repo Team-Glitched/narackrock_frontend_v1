@@ -1,5 +1,3 @@
-"use client";
-
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { CompositionDto } from "@/lib/api/composition";
 import { useTimeSignature } from "./use-time-signature";

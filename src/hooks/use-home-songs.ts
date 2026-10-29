@@ -1,5 +1,3 @@
-"use client";
-
 import { useEffect, useState } from "react";
 import { useCurrentUserId } from "@/hooks/use-current-user";
 import { getMyShorts, getPopularShorts, getShorts } from "@/lib/api/shorts";

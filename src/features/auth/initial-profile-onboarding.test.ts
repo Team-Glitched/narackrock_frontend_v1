@@ -8,7 +8,7 @@ const profileScreen = readFileSync(
 );
 
 const page = readFileSync(
-  new URL("../../app/page.tsx", import.meta.url),
+  new URL("../../app/App.tsx", import.meta.url),
   "utf8",
 );
 

@@ -1,5 +1,3 @@
-"use client";
-
 import { useCallback, useEffect, useState } from "react";
 import { fetchGalleries } from "@/lib/api/community";
 import type { GalleryListItem } from "@/lib/api/contracts";

@@ -1,5 +1,3 @@
-"use client";
-
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { WorkspaceScreen, SubmissionsScreen, SubmissionDetailScreen, ReviewInboxScreen, SourceLibraryScreen } from "@/features/workspace/workspace-screens";
 import { rememberWork, type Resource, type Work } from "@/features/workspace/workspace-store";
@@ -57,7 +55,7 @@ function sharedShortSnapshot() {
   return Number.isSafeInteger(id) && id > 0 ? id : null;
 }
 
-export default function Page() {
+export default function App() {
   const sharedShortId = useSyncExternalStore(subscribeLocation, sharedShortSnapshot, () => null);
   const [selectedView, setView] = useState<View | null>(null);
   const view: View = selectedView ?? (sharedShortId ? "abyss" : "home");

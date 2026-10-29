@@ -1,4 +1,3 @@
-"use client";
 import {SectionTitle} from "@/components/app/shared";
 import {ArrowUpRight} from "lucide-react";
 import {formatDistanceToNow} from "date-fns";

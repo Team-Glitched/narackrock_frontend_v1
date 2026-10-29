@@ -1,4 +1,3 @@
-"use client";
 import { useState } from "react";
 import { Asset } from "./shared";
 /** V3 Comment / Report (12798:20046). */

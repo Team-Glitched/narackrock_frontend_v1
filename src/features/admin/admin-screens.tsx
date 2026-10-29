@@ -1,4 +1,3 @@
-"use client";
 import { useRef, useState } from "react";
 import { Asset, Avatar } from "@/components/app/shared";
 

@@ -1,5 +1,3 @@
-"use client";
-
 import { useEffect, useMemo, useRef, useState } from "react";
 import {useGalleries} from "@/hooks/use-galleries";
 import {canManageCommunityMember} from "@/features/admin/permissions";
@@ -8,7 +6,6 @@ import { useHiddenPosts } from "@/features/community/hidden-posts";
 import { PostUserActionsMenu } from "@/components/app/dialog";
 import { FigmaSheet } from "@/components/app/figma-sheet";
 import { ReportReasons } from "@/components/app/report-reasons";
-import Image from "next/image";
 import { formatDistanceToNow } from "date-fns";
 import { ko } from "date-fns/locale";
 import { Asset, Avatar } from "@/components/app/shared";
@@ -92,7 +89,7 @@ export function PostCommentsScreen({ postId, onProfile, onHidden, moderation }: 
           {menu&&<PostUserActionsMenu onSuspendMember={canModerateMember?()=>{setMenu(false);setMemberAction("suspend");}:undefined} onExpelMember={canModerateMember?()=>{setMenu(false);setMemberAction("expel");}:undefined} anchorRef={optionButton} onModerateDelete={canModerate?()=>{setMenu(false);setConfirmDelete(true);}:undefined} onClose={()=>setMenu(false)} onReport={()=>{setMenu(false);setReport(true);}} onHide={()=>{hiddenPosts.hide(postId);onHidden();}}/>}
           {confirmDelete&&<div className="post-delete-confirm" role="group" aria-label="게시글 삭제 확인"><p>이 게시글을 삭제할까요?</p><button className="gray-pill" disabled={deleting} onClick={()=>setConfirmDelete(false)}>취소</button><button className="purple-pill" disabled={deleting} onClick={removePost}>{deleting?"삭제 중...":"삭제 확인"}</button></div>}
           <h2>{post.title}</h2>{post.content && <p className="comments-post-content">{post.content}</p>}
-          {post.imageUrl && <Image className="community-image" src={post.imageUrl} alt="게시글 첨부 이미지" width={350} height={262} unoptimized />}
+          {post.imageUrl && <img className="community-image" src={post.imageUrl} alt="게시글 첨부 이미지" width={350} height={262} />}
           <div className="community-actions">
             <div className="community-vote"><button disabled aria-label="게시글 좋아요 준비 중"><Asset name="post-like-off.svg" />{post.likeCount}</button><span className="community-vote-divider" /><button disabled aria-label="게시글 싫어요 준비 중"><Asset name="post-dislike-off.svg" /></button></div>
             <button aria-label={`댓글 ${post.commentCount}개로 이동`} onClick={() => setFocus(value=>value+1)}><Asset name="post-comment.svg" />{post.commentCount}</button><i />

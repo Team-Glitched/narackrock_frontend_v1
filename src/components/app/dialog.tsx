@@ -1,4 +1,3 @@
-"use client";
 import { createPortal } from "react-dom";
 import { Asset, Avatar } from "@/components/app/shared";
 import { defaultSignature, type TimeSignature } from "@/features/composition/time-signature";

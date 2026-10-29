@@ -1,4 +1,3 @@
-"use client";
 import { pointerAxes, logicalBounds } from "./pointer-coordinates";
 
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";

@@ -1,5 +1,3 @@
-"use client";
-
 import { IconSlot } from "./shared";
 import "./post-actions.css";
 

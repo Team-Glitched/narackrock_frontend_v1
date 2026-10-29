@@ -1,5 +1,3 @@
-"use client";
-
 import { useEffect, useRef, useState } from "react";
 import { Asset } from "@/components/app/shared";
 import { decodeGoogleCredential, loadGoogleAccounts, type GoogleCredentialResponse } from "@/features/auth/google-identity";
@@ -31,7 +29,7 @@ export function AuthScreen({ onAuthenticated, onFirstLogin }: AuthScreenProps) {
   const [signup, setSignup] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const clientId = process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID?.trim() ?? "";
+  const clientId = import.meta.env?.VITE_GOOGLE_CLIENT_ID?.trim() ?? "";
 
   useEffect(() => {
     const element = googleButtonRef.current;

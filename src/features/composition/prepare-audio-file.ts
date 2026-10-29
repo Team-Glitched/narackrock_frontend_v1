@@ -1,5 +1,3 @@
-"use client";
-
 const sampleRate = 44_100;
 
 export type AudioSelection = { startMs: number; endMs: number };

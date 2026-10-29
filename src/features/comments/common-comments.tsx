@@ -1,4 +1,3 @@
-"use client";
 import { useEffect, useRef, useState } from "react";
 import { Asset, Avatar } from "@/components/app/shared";
 import { PostUserActionsMenu } from "@/components/app/dialog";

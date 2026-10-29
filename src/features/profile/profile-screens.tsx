@@ -1,9 +1,6 @@
-"use client";
-
 import { uiLabels } from "@/lib/ui-labels";
 import { useEffect, useState } from "react";
 import { ProfileListSheet, type ProfileListKind } from "./profile-lists";
-import Link from "next/link";
 import { Asset, Avatar, SectionTitle } from "@/components/app/shared";
 import type { Navigate } from "@/features/navigation/types";
 import { useCurrentUserId } from "@/hooks/use-current-user";
@@ -94,7 +91,7 @@ function ProfileWorks({ title, songs, onOpen }: { title: string; songs: UserProf
     {songs.length ? <div className={`song-rail${expanded ? " profile-works-expanded" : ""}`}>
       {songs.map(song => <button className="song-card" key={song.shortId} onClick={() => onOpen(song.shortId)} aria-label={`${song.title} 열기`}>
         <span className="song-art">{song.albumImageUrl ?
-          // eslint-disable-next-line @next/next/no-img-element
+
           <img src={song.albumImageUrl} alt={`${song.title} 앨범 커버`} /> : <span className="empty-artwork" />}</span>
         <strong>{song.title}</strong>
       </button>)}
@@ -556,9 +553,9 @@ export function ProfileForm({
         {saving ? "저장 중..." : submitLabel}
       </button>
 
-      <Link className="profile-privacy-link" href="/privacy">
+      <a className="profile-privacy-link" href="/privacy">
         개인정보처리방침
-      </Link>
+      </a>
     </div>
   );
 }

@@ -1,7 +1,5 @@
-"use client";
 import { logout } from "@/lib/api/auth";
 import type { Navigate } from "@/features/navigation/types";
-import Link from "next/link";
 import { ChevronRight } from "lucide-react";
 import { uiLabels } from "@/lib/ui-labels";
 import "./settings.css";
@@ -32,7 +30,7 @@ export function SettingsScreen({ go }: { go: Navigate }) {
       </button></li>)}</ul>
     </section>)}
     <section className="settings-group" aria-label="서비스 정보"><h2>서비스 정보</h2><ul>
-      <li><Link className="settings-row" href="/privacy"><span className="settings-row-copy"><strong>개인정보처리방침</strong></span><ChevronRight size={18} strokeWidth={1.75} aria-hidden="true" /></Link></li>
+      <li><a className="settings-row" href="/privacy"><span className="settings-row-copy"><strong>개인정보처리방침</strong></span><ChevronRight size={18} strokeWidth={1.75} aria-hidden="true" /></a></li>
     </ul></section>
     <button className="profile-logout" onClick={logout}>로그아웃</button>
   </section>;

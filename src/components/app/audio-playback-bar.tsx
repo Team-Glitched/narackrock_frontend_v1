@@ -1,4 +1,3 @@
-"use client";
 import { Pause } from "lucide-react";
 import { Asset } from "./shared";
 import "@/features/community/source-audio-player.css";

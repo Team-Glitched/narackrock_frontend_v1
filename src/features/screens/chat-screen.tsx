@@ -1,4 +1,3 @@
-"use client";
 import { useState } from "react";
 import { Asset, Avatar } from "@/components/app/shared";
 import type { Navigate } from "@/features/navigation/types";

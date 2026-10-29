@@ -1,5 +1,3 @@
-"use client";
-
 import "./community.css";
 import "./opensource-discovery.css";
 import { HomeWorkSection } from "@/features/workspace/home-work-section";
@@ -18,7 +16,6 @@ import type { Community } from "./community-card";
 
 import { formatDistanceToNow } from "date-fns";
 import { ko } from "date-fns/locale";
-import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import { Asset, Avatar, IconSlot, SectionTitle, SongRail } from "@/components/app/shared";
 import type { Navigate } from "@/features/navigation/types";
@@ -63,7 +60,7 @@ export function MiniPost({ tall = false, post, onOpen }: { tall?: boolean; post:
       onClick={() => onOpen(post.postId)}
       aria-label={`${post.title} 게시글 열기`}
     >
-      <span className="post-thumb">{post.imageUrl && <Image src={post.imageUrl} alt="게시글 첨부 이미지" width={90} height={90} unoptimized />}</span>
+      <span className="post-thumb">{post.imageUrl && <img src={post.imageUrl} alt="게시글 첨부 이미지" width={90} height={90} />}</span>
       <div className="mini-post-copy">
         <strong>{excerpt}</strong>
         <div className="mini-meta" aria-label="게시글 통계">
@@ -97,7 +94,7 @@ export function ChartsScreen({ kind, onOpenShort }: { go: Navigate; kind: SongCh
   const songs = useHomeSongs(100);
   const selected = kind === "popular" ? songs.popular : kind === "recommended" ? songs.recommended : songs.mine;
   return <div className="list-view scroll-content"><h1 className="posts-list-title">{kind === "popular" ? "인기 차트" : kind === "recommended" ? "추천 음악" : uiLabels.myMusic}</h1><div className="chart-list">{selected.status !== "ready" ? <SongRailStatus state={selected.status} /> : selected.items.length === 0 ? <SongRailStatus state="empty" /> : selected.items.map(song => <button type="button" className="chart-row" key={song.shortId} onClick={() => onOpenShort(song.shortId)}><span className="chart-art">{song.albumImageUrl
-    // eslint-disable-next-line @next/next/no-img-element
+
     ? <img src={song.albumImageUrl} alt={`${song.title} 앨범 커버`} draggable={false} />
     : <span className="empty-artwork" />}</span><span><strong>{song.title}</strong><small>{song.author.nickname}</small></span><Asset name="post-more.svg" /></button>)}</div></div>;
 }
@@ -224,7 +221,7 @@ export function PostComposer({ galleryId, onCreated, onCancel }: { galleryId: nu
       <textarea aria-label="게시글 내용" value={content} onChange={(e) => setContent(e.target.value)} placeholder="내용을 입력하세요" disabled={submitting} />
       {image ? (
         <div className="post-image-preview">
-          <Image src={image.previewUrl} alt="첨부할 게시글 이미지 미리보기" width={350} height={262} unoptimized />
+          <img src={image.previewUrl} alt="첨부할 게시글 이미지 미리보기" width={350} height={262} />
           <button type="button" onClick={() => setImage(null)} disabled={submitting} aria-label="첨부 이미지 삭제">삭제</button>
         </div>
       ) : (
@@ -372,7 +369,7 @@ export function CommunityPost({ post, onChanged, onComments, onProfile, onModera
       {preview !== "" && <button className="post-preview" onClick={() => onComments(post.postId)} disabled={submitting}>{preview ?? "로그인 후 게시글 내용을 확인할 수 있어요."}</button>}
       {error && <p className="post-form-error" role="alert">{error}</p>}
       {confirmDelete && <div className="post-delete-confirm" role="group" aria-label="게시글 삭제 확인"><p>이 게시글을 삭제할까요?</p><button className="gray-pill" disabled={submitting} onClick={() => setConfirmDelete(false)}>취소</button><button className="purple-pill" disabled={submitting} onClick={remove}>{submitting ? "삭제 중..." : "삭제 확인"}</button></div>}
-      {imageUrl && <button className="post-image-open" aria-label={`${post.title} 게시글 열기`} onClick={() => onComments(post.postId)}><Image className="community-image" src={imageUrl} alt="게시글 첨부 이미지" width={350} height={262} unoptimized /></button>}
+      {imageUrl && <button className="post-image-open" aria-label={`${post.title} 게시글 열기`} onClick={() => onComments(post.postId)}><img className="community-image" src={imageUrl} alt="게시글 첨부 이미지" width={350} height={262} /></button>}
       <PostActions likeCount={post.likeCount} commentCount={post.commentCount} vote={vote} onVote={next=>setVote(current=>current===next?null:next)} onComments={()=>onComments(post.postId)} saved={saved} onSave={()=>{try {savedItems.toggle({id:post.postId,kind:"post",title:preview??post.title,author:post.writer.nickname,imageUrl:post.imageUrl});}catch(cause){setError(cause instanceof Error?cause.message:"저장하지 못했습니다.");}}}/>
 
     </article>

@@ -1,4 +1,3 @@
-"use client";
 import { useState } from "react";
 import type { PreviewSource } from "@/features/preview/source-store";
 import { sourceAudioFile } from "@/features/preview/source-store";

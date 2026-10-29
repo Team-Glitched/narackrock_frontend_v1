@@ -1,4 +1,3 @@
-"use client";
 import { useMemo } from "react";
 import { FigmaSheet } from "@/components/app/figma-sheet";
 import { CommonComments } from "@/features/comments/common-comments";

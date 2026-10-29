@@ -1,11 +1,4 @@
-import type { Metadata } from "next";
-import Link from "next/link";
 import styles from "./privacy.module.css";
-
-export const metadata: Metadata = {
-  title: "개인정보처리방침 | Narackrock",
-  description: "Narackrock 서비스의 개인정보 처리 기준을 안내합니다.",
-};
 
 const sections = [
   {
@@ -96,7 +89,7 @@ export default function PrivacyPage() {
     <main className={styles.page}>
       <article className={styles.document}>
         <header className={styles.header}>
-          <Link className={styles.brand} href="/" aria-label="Narackrock 홈으로 이동">Narackrock</Link>
+          <a className={styles.brand} href="/" aria-label="Narackrock 홈으로 이동">Narackrock</a>
           <p className={styles.eyebrow}>PRIVACY POLICY</p>
           <h1>개인정보처리방침</h1>
           <p className={styles.intro}>
@@ -116,7 +109,7 @@ export default function PrivacyPage() {
 
         <footer className={styles.footer}>
           <p>본 방침의 내용이 변경되는 경우 이 페이지를 통해 안내합니다.</p>
-          <Link href="/">Narackrock으로 돌아가기</Link>
+          <a href="/">Narackrock으로 돌아가기</a>
         </footer>
       </article>
     </main>

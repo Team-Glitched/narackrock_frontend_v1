@@ -1,5 +1,3 @@
-"use client";
-
 import { useSyncExternalStore } from "react";
 import { getCurrentUserId, subscribeCurrentUserId } from "@/lib/api/client";
 

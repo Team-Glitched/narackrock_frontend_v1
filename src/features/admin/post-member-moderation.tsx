@@ -1,4 +1,3 @@
-"use client";
 import {useCurrentUserId} from "@/hooks/use-current-user";
 import {isPreviewMode} from "@/features/preview/preview-mode";
 import {moderatePreviewCommunityMember} from "@/features/preview/demo-api";

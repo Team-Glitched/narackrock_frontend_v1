@@ -1,5 +1,3 @@
-"use client";
-
 import { isCommunityOwner } from "@/features/admin/permissions";
 import { useCurrentUserId } from "@/hooks/use-current-user";
 import { Avatar } from "@/components/app/shared";

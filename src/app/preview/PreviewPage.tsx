@@ -1,7 +1,5 @@
-"use client";
-
 import type { View } from "@/features/navigation/types";
-import App from "../page";
+import App from "../App";
 
 /** Same app, navigation, editor and API contracts; only the data source is local. */
 export default function PreviewPage() {

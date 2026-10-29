@@ -1,5 +1,3 @@
-"use client";
-
 import { useEffect, useRef, useState } from "react";
 import { AlbumCarousel } from "@/features/abyss/album-carousel";
 import { useSavedItems } from "@/features/saved/saved-store";

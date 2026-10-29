@@ -1,5 +1,3 @@
-"use client";
-
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useHiddenPosts } from "@/features/community/hidden-posts";
 import { fetchPosts } from "@/lib/api/community";

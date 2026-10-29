@@ -1,4 +1,3 @@
-"use client";
 import { useEffect, useState } from "react";
 import { SourceAudioPlayer } from "./source-audio-player";
 import { readSavedSourceAudio, removeSavedSource, type SavedSource } from "./saved-sources";

@@ -1,5 +1,3 @@
-"use client";
-
 import { useEffect, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import { MusicalRuler } from "./musical-ruler";
 import { defaultSignature, signatureGrid, musicalGridBackground, type TimeSignature } from "./time-signature";
