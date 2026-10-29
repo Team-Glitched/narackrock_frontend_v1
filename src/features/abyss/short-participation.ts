@@ -12,3 +12,9 @@ export function canJoinShort(short: JoinableShort, currentUserId: number | null)
   }
   return currentUserId == null || !short.participants.some((participant) => participant.userId === currentUserId);
 }
+
+
+export function canEditOwnShort(short: Pick<ShortItemDto, "completionStatus" | "projectId" | "author">, currentUserId: number | null): boolean {
+  return currentUserId !== null && short.author.userId === currentUserId
+    && short.projectId !== null && short.completionStatus === "IN_PROGRESS";
+}

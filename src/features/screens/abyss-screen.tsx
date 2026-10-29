@@ -8,7 +8,7 @@ import { useParticipantPlayback } from "@/features/abyss/use-participant-playbac
 import { ShortCommentsSheet } from "@/features/screens/short-comments";
 import type { PlaybackMode } from "@/features/abyss/playback-mode";
 import { ContentShareDialog } from "@/features/screens/content-share";
-import { canJoinShort } from "@/features/abyss/short-participation";
+import { canJoinShort, canEditOwnShort } from "@/features/abyss/short-participation";
 import { useCurrentUserId } from "@/hooks/use-current-user";
 import { getParticipantTracks, getShort, getShorts, toggleShortBookmark, toggleShortReaction, type ParticipantTracks } from "@/lib/api/shorts";
 import type { ShortItemDto, ShortsPageDto } from "@/lib/api/contracts";
@@ -317,7 +317,7 @@ export function AbyssScreen({ onJoin, initialShortId, muted = false, playbackMod
       </div>
       {current.completionStatus === "IN_PROGRESS" && current.projectId != null && (
         <div className="abyss-join-slot">
-          {canJoinShort(current, currentUserId) && <button className="abyss-join" onClick={() => onJoin(current.shortId)}>작곡 참여하기</button>}
+          {canEditOwnShort(current, currentUserId) ? <button className="abyss-join" onClick={() => onJoin(current.shortId)}>곡 편집하기</button> : canJoinShort(current, currentUserId) && <button className="abyss-join" onClick={() => onJoin(current.shortId)}>작곡 참여하기</button>}
         </div>
       )}
       {participantsOpen && <ShortParticipantsSheet key={current.shortId} shortId={current.shortId}
