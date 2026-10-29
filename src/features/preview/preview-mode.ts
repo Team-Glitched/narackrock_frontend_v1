@@ -1,4 +1,6 @@
-/** The isolated preview never uses or changes the production authentication session. */
+import { isPreviewPath } from "../navigation/paths.ts";
+
+/** Preview URLs never use or change the production authentication session. */
 export function isPreviewMode() {
-  return typeof window !== "undefined" && window.location.pathname.replace(/\/$/, "") === "/preview";
+  return typeof window !== "undefined" && isPreviewPath(window.location.pathname);
 }

@@ -39,9 +39,13 @@ npm start
 
 ## 구조
 
-- `index.html` → `src/main.tsx`: HTML 및 React 진입점, BrowserRouter, 전역 스타일
-- `src/app/routes.tsx`: React Router 경로(`/`, `/preview`, `/privacy`, 404)와 페이지 메타데이터
-- `src/app/App.tsx`: 앱 화면 상태와 이동 흐름
+- `index.html` → `src/main.tsx`: HTML 및 React 진입점, 전역 스타일
+- `src/app/App.tsx`: React Router의 `RouterProvider` 실행
+- `src/app/routes.tsx`: 페이지 컴포넌트와 React Router 경로 연결, 인증이 필요한 경로 보호
+- `src/features/navigation/route-config.ts`: 페이지별 URL, 제목, 헤더·푸터 설정
+- `src/pages/`: URL 파라미터를 읽고 각 화면의 데이터와 이동을 연결하는 페이지
+- `src/layouts/app-layout.tsx`: 공통 헤더·푸터와 모바일·스튜디오 레이아웃
+- `src/app/session.tsx`: 사용자 세션과 공통 상태 공급
 - `src/features/`: 화면과 기능별 로직
 - `src/components/`: 서비스 공통 UI와 기본 UI
 - `src/hooks/`: 데이터 조회와 공통 React 훅
@@ -50,6 +54,26 @@ npm start
 - `public/`: 폰트, 이미지, 피아노 샘플, 웹 앱 매니페스트
 
 Next.js/Vinext와 서버 전용 스타터 코드는 제거했습니다. 과거 작업 이력은 `CONTEXT.md`에 보관되어 있습니다.
+
+## 페이지 이동
+
+페이지는 React Router로 이동하며, URL을 직접 열거나 새로고침해도 해당 화면이 열립니다.
+
+| 화면 | 경로 예시 |
+| --- | --- |
+| 홈 / 차트 | `/`, `/charts?kind=recommended` |
+| 커뮤니티 / 게시글 | `/communities/7`, `/communities/7/posts/12` |
+| 검색 | `/search?scope=posts&q=piano&galleryId=7` |
+| 오픈소스 / 댓글 | `/sources/8`, `/sources/8/comments` |
+| 내 프로필 / 다른 사용자 | `/profile`, `/users/3` |
+| 새 곡 / 작업 중인 곡 | `/studio/new`, `/studio/42` |
+| 레이어 추가 / 녹음 | `/studio/42/layers/new`, `/studio/42/record` |
+| 노트 편집 | `/studio/42/tracks/3/notes?clipId=9` |
+
+체험 모드에서는 같은 경로 앞에 `/preview`를 붙입니다. 예를 들어 `/preview/communities/7`입니다.
+검색 조건과 선택한 리소스는 URL에 보관하며, 뒤로·앞으로 가기는 React Router의 브라우저 기록을 사용합니다.
+알림은 현재 화면의 URL에 `notifications=1`을 추가해 표시하므로 작성·녹음 중인 화면을 유지합니다.
+`View` 타입은 기존 화면 컴포넌트의 콜백 호환용이며, 실제 페이지 선택은 URL 경로가 담당합니다.
 
 ## 스타일 작성
 

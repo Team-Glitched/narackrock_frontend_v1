@@ -1,11 +1,13 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
-
-const page = readFileSync(new URL("../../app/App.tsx", import.meta.url), "utf8");
-
+import { pageRoutes } from "../navigation/route-config.ts";
+const guard = readFileSync(new URL("./require-auth.tsx", import.meta.url), "utf8");
 test("redirects protected profile screens to login after the session expires", () => {
-  assert.match(page, /const activeView: View = currentUserId === null/);
-  assert.match(page, /\(view === "profile" \|\| view === "edit"\)/);
-  assert.match(page, /activeView === "login"/);
+  const protectedIds = pageRoutes.filter(route => "requiresAuth" in route && route.requiresAuth).map(route => route.id);
+  assert.ok(protectedIds.includes("profile") && protectedIds.includes("editProfile"));
+  assert.ok(!protectedIds.includes("user"));
+  assert.match(guard, /currentUserId === null/);
+  assert.match(guard, /<Navigate to=\{appPath\("\/login", preview\)\}/);
+  assert.match(guard, /returnTo: location.pathname \+ location.search/);
 });

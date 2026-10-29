@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 
-const page = readFileSync(new URL("../../app/App.tsx", import.meta.url), "utf8");
+const page = readFileSync(new URL("../../app/session.tsx", import.meta.url), "utf8");
 const authScreen = readFileSync(new URL("../screens/auth-screens.tsx", import.meta.url), "utf8");
 const profileScreen = readFileSync(new URL("../profile/profile-screens.tsx", import.meta.url), "utf8");
 

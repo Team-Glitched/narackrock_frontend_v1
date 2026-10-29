@@ -1,42 +1,48 @@
-import test from "node:test";
 import assert from "node:assert/strict";
-import {NavigationHistory} from "../../features/navigation/browser-history.ts";
-function port(){const entries=[{framework:"retained"}];let index=0;return {get state(){return entries[index];},replaceState(value){entries[index]=structuredClone(value);},pushState(value){entries.splice(index+1);entries.push(structuredClone(value));index++;},back(){return entries[--index];},forward(){return entries[++index];},get length(){return entries.length;}};}
-const valid=value=>Boolean(value)&&typeof value.view==="string"&&typeof value.query==="string";
-test("browser navigation keeps drafts/search context without keystroke history entries",()=>{
- const history=port(),controller=new NavigationHistory(history,valid);
- controller.initialize({view:"home",query:""},"home");
- assert.equal(controller.canGoBack(),false);
- controller.sync({view:"search",query:""},"search");
- controller.sync({view:"search",query:"피아노"},"search");
- controller.sync({view:"post",query:"피아노",postId:5},"post:5");
- assert.equal(history.length,3);
- assert.equal(controller.canGoBack(),true);
- const restored=controller.restore(history.back());
- assert.deepEqual(restored,{view:"search",query:"피아노"});
- controller.sync({view:"post",query:"피아노",postId:5},"post:5"); // stale pre-restore render
- controller.sync(restored,"search");
- assert.equal(history.length,3);
- assert.equal(history.state.framework,"retained");
- assert.equal(controller.restore(history.forward()).postId,5);
+import test from "node:test";
+import { createMemoryRouter } from "react-router";
+import { pageRoutes } from "../../features/navigation/route-config.ts";
+
+function makeRouter(initialEntries) {
+  const children = prefix => pageRoutes.map(route => ({ ...(route.path ? { path: route.path } : { index: true }), id: `${prefix}:${route.id}`, handle: route }));
+  return createMemoryRouter([{ path: "/", children: children("live") }, { path: "/preview", children: children("preview") }], { initialEntries });
+}
+
+test("router back and forward restore search context and the selected post", async () => {
+  const router = makeRouter(["/search?scope=posts&q=piano&galleryId=7"]);
+  try {
+    await router.navigate("/communities/7/posts/12", { state: { from: "/search?scope=posts&q=piano&galleryId=7" } });
+    assert.equal(router.state.matches.at(-1).params.postId, "12");
+    await router.navigate(-1);
+    assert.equal(router.state.location.search, "?scope=posts&q=piano&galleryId=7");
+    await router.navigate(1);
+    assert.equal(router.state.location.pathname, "/communities/7/posts/12");
+  } finally { router.dispose(); }
 });
-test("refresh restores the current screen and a new branch drops obsolete forward entries",()=>{
- const history=port(),first=new NavigationHistory(history,valid);
- first.initialize({view:"home",query:""},"home");first.sync({view:"createPost",query:""},"createPost");
- const refreshed=new NavigationHistory(history,valid);
- assert.equal(refreshed.initialize({view:"home",query:""},"home").view,"createPost");
- refreshed.sync({view:"createPost",query:""},"createPost");
- const home=refreshed.restore(history.back());refreshed.sync(home,"home");
- refreshed.sync({view:"settings",query:""},"settings");
- assert.equal(history.length,2);assert.equal(history.state.narackrockNavigation.data.view,"settings");
- assert.equal(refreshed.restore({narackrockNavigation:{version:99,key:"other",data:{view:"home",query:""}}}),null);
+
+test("typing replaces search history entries and a new branch replaces the forward path", async () => {
+  const router = makeRouter(["/"]);
+  try {
+    await router.navigate("/search?scope=songs");
+    for (const q of ["p", "pi", "piano"]) await router.navigate(`/search?scope=songs&q=${q}`, { replace: true });
+    await router.navigate("/abyss/4");
+    await router.navigate(-1);
+    assert.equal(router.state.location.search, "?scope=songs&q=piano");
+    await router.navigate("/sources/8");
+    await router.navigate(-1);
+    await router.navigate(-1);
+    assert.equal(router.state.location.pathname, "/");
+  } finally { router.dispose(); }
 });
-test("logical back replaces the current workflow page instead of adding another back entry",()=>{
- const history=port(),controller=new NavigationHistory(history,valid);
- controller.initialize({view:"settings",query:""},"settings");
- controller.sync({view:"edit",query:""},"edit");
- controller.replaceNext();controller.sync({view:"settings",query:""},"settings");
- assert.equal(history.length,2);
- assert.equal(history.state.narackrockNavigation.data.view,"settings");
- controller.sync({view:"search",query:""},"search");assert.equal(history.length,3);
+
+test("preview links reload directly into their page and retain mode through editor navigation", async () => {
+  const router = makeRouter(["/preview/studio/42/tracks/3/notes?clipId=9&shortId=7"]);
+  try {
+    assert.equal(router.state.matches.at(-1).route.handle.id, "notes");
+    assert.deepEqual(router.state.matches.at(-1).params, { projectId: "42", trackId: "3" });
+    await router.navigate("/preview/studio/42?shortId=7");
+    await router.navigate(-1);
+    assert.equal(router.state.location.pathname, "/preview/studio/42/tracks/3/notes");
+    assert.equal(router.state.location.search, "?clipId=9&shortId=7");
+  } finally { router.dispose(); }
 });

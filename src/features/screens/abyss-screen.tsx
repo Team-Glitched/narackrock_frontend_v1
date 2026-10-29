@@ -83,6 +83,7 @@ export function AbyssScreen({ go, onJoin, initialShortId, muted = false, preview
     setFeedback(null);
     setSheet(null);
     setIndex(nextIndex);
+    onRememberShort?.(shorts[nextIndex].shortId);
   }
 
   async function selectNext() {
@@ -102,6 +103,7 @@ export function AbyssScreen({ go, onJoin, initialShortId, muted = false, preview
         setPlaying(false); setCurrentTime(0); setDuration(0); setPlaybackError(null); setFeedback(null);
         setIndex(shorts.length);
         setShorts((previous) => [...previous, ...next.items]);
+        onRememberShort?.(next.items[0].shortId);
       }
     } catch {
       setPlaybackError("다음 숏폼을 불러오지 못했습니다.");

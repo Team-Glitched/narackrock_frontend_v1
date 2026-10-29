@@ -7,10 +7,7 @@ const profileScreen = readFileSync(
   "utf8",
 );
 
-const page = readFileSync(
-  new URL("../../app/App.tsx", import.meta.url),
-  "utf8",
-);
+import { pageRoutes } from "../navigation/route-config.ts";
 
 test("collects a first-time user's profile in name, instrument, description order", () => {
   assert.match(profileScreen, /당신의 이름은 무엇인가요?/);
@@ -25,9 +22,9 @@ test("collects a first-time user's profile in name, instrument, description orde
 });
 
 test("shows first-login onboarding without the regular header and footer", () => {
-  assert.match(page, /const onboardingView = Boolean\(pendingProfileSetup\)/);
-  assert.match(page, /const noHeader = authView \|\| onboardingView/);
-  assert.match(page, /!authView && !onboardingView && !creatingProject && commentPostId === null && activeView !== "chat" && .*<Footer/);
+  const route = pageRoutes.find(page => page.id === "onboarding")!;
+  assert.equal("hideHeader" in route && route.hideHeader, true);
+  assert.equal("hideFooter" in route && route.hideFooter, true);
 });
 
 test("returns to the name step when the nickname is actually duplicated", () => {

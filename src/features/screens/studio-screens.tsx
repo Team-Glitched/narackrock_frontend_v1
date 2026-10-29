@@ -73,7 +73,7 @@ export function StudioToolbar({ title, bpm, playing, positionMs, onPlay, onPause
   </div>;
 }
 
-function NewProject({ onCreated, onResume }: { onCreated: (id: number) => void; onResume: (id: number) => void; onBack: () => void }) {
+export function NewProject({ onCreated, onResume }: { onCreated: (id: number) => void; onResume: (id: number) => void; onBack: () => void }) {
   const savedDraftId = useSyncExternalStore(subscribeToDraft, storedDraftId, () => null);
   const [title, setTitle] = useState("");
   const [image, setImage] = useState<File | null>(null);
@@ -360,7 +360,8 @@ export function NoteEditorScreen({ projectId, trackId, clipId, onBack, onImportR
     let cancelled = false;
     getComposition(projectId).then((result) => {
       if (cancelled) return;
-      const found = result.tracks.find((item) => item.trackId === trackId)?.clips.find((item) => item.clipId === clipId);
+      const track = result.tracks.find((item) => item.trackId === trackId);
+      const found = clipId === null ? track?.clips.find(item => item.clipType === "MIDI") : track?.clips.find(item => item.clipId === clipId && item.clipType === "MIDI");
       setComposition(result); setNotes(found?.midiNotes ?? []);
       setInitialPitch(found?.midiNotes?.[0]?.pitch ?? 60);
     }).catch((cause) => { if (!cancelled) setError(errorText(cause)); });
