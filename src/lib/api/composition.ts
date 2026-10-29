@@ -91,10 +91,10 @@ export async function saveMidiClip(clipId: number, startTick: number, durationTi
   });
 }
 
-export async function createAudioClip(projectId: number, trackId: number, mediaFileId: number, durationTick: number) {
+export async function createAudioClip(projectId: number, trackId: number, mediaFileId: number, durationTick: number, sourceType: "FILE_UPLOAD" | "RECORDING" = "FILE_UPLOAD") {
   return data(`/api/v1/projects/${projectId}/tracks/${trackId}/clips/audio`, {
     method: "POST",
-    body: JSON.stringify({ mediaFileId, sourceType: "FILE_UPLOAD", startTick: 0, durationTick, clipOffsetMs: 0 }),
+    body: JSON.stringify({ mediaFileId, sourceType, startTick: 0, durationTick, clipOffsetMs: 0 }),
   });
 }
 
@@ -170,4 +170,11 @@ export async function getExport(projectId: number, exportId: number): Promise<{ 
 export type ProjectTimingDto = Pick<CompositionDto["project"], "bpm" | "timeSignatureNumerator" | "timeSignatureDenominator" | "maxTick" | "version">;
 export async function updateProjectTiming(projectId: number, timing: Pick<ProjectTimingDto, "bpm" | "timeSignatureNumerator" | "timeSignatureDenominator">) {
   return data<ProjectTimingDto>(`/api/v1/projects/${projectId}/timing`, { method: "PATCH", body: JSON.stringify(timing) });
+}
+
+
+export async function updateTrackInstrument(projectId: number, trackId: number, instrument: string) {
+  return data<{ instrument: string }>(`/api/v1/projects/${projectId}/tracks/${trackId}/instrument`, {
+    method: "PATCH", body: JSON.stringify({ instrument }),
+  });
 }

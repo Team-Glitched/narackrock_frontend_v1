@@ -35,3 +35,9 @@ test("rejects an HTI result beyond the project duration", () => {
     /최대 길이/,
   );
 });
+
+
+test("HTI uses the chosen playable sound and rejects recording-only roles", () => {
+  assert.equal(createHtiMidiLayerPlan({ durationTick: 960, midiNotes: [note] }, 0, 28_800, "electric-guitar").instrument, "electric-guitar");
+  assert.throws(() => createHtiMidiLayerPlan({ durationTick: 960, midiNotes: [note] }, 0, 28_800, "vocal"), /악기를 선택/);
+});
