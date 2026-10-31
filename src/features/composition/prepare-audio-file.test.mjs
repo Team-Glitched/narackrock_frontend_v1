@@ -5,13 +5,23 @@ import { prepareAudioFile } from "./prepare-audio-file.ts";
 function fakeAudio(durationSeconds) {
   const calls = { start: null, frames: null };
   globalThis.AudioContext = class {
-    async decodeAudioData() { return { duration: durationSeconds }; }
+    async decodeAudioData() {
+      return { duration: durationSeconds };
+    }
     async close() {}
   };
   globalThis.OfflineAudioContext = class {
-    constructor(_channels, frames) { calls.frames = frames; }
+    constructor(_channels, frames) {
+      calls.frames = frames;
+    }
     createBufferSource() {
-      return { buffer: null, connect() {}, start(...args) { calls.start = args; } };
+      return {
+        buffer: null,
+        connect() {},
+        start(...args) {
+          calls.start = args;
+        },
+      };
     }
     async startRendering() {
       const empty = new Float32Array(calls.frames);
@@ -22,7 +32,9 @@ function fakeAudio(durationSeconds) {
         getChannelData: () => empty,
       };
     }
-    get destination() { return {}; }
+    get destination() {
+      return {};
+    }
   };
   return calls;
 }

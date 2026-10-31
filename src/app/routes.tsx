@@ -1,45 +1,45 @@
 import type { ComponentType } from "react";
 import { createBrowserRouter, type RouteObject } from "react-router";
 import { AppProviders } from "./session";
-import AppLayout from "@/layouts/app-layout";
+import AppLayout from "@/app/app-layout";
 import { RequireAuth } from "@/features/auth/require-auth";
 import { pageRoutes, type PageId, type PageRoute } from "@/features/navigation/route-config";
-import NotFoundPage from "@/pages/not-found-page";
-import HomePage from "@/pages/home-page";
-import AbyssPage from "@/pages/abyss-page";
-import ChartsPage from "@/pages/charts-page";
-import PostsPage from "@/pages/posts-page";
-import PostPage from "@/pages/post-page";
-import CreatePostPage from "@/pages/create-post-page";
-import SocialPage from "@/pages/social-page";
-import JoinedPage from "@/pages/joined-page";
-import CreateCommunityPage from "@/pages/create-community-page";
-import CommunityPage from "@/pages/community-page";
-import CommunityAdminPage from "@/pages/community-admin-page";
-import SourcesPage from "@/pages/sources-page";
-import SourcePage from "@/pages/source-page";
-import CreateSourcePage from "@/pages/create-source-page";
-import SearchPage from "@/pages/search-page";
-import ProfilePage from "@/pages/profile-page";
-import EditProfilePage from "@/pages/edit-profile-page";
-import LoginPage from "@/pages/login-page";
-import OnboardingPage from "@/pages/onboarding-page";
-import SettingsPage from "@/pages/settings-page";
-import SavedPage from "@/pages/saved-page";
-import WorkspacePage from "@/pages/workspace-page";
-import SubmissionsPage from "@/pages/submissions-page";
-import SubmissionPage from "@/pages/submission-page";
-import ReviewsPage from "@/pages/reviews-page";
-import LibraryPage from "@/pages/library-page";
-import StudioNewPage from "@/pages/studio-new-page";
-import StudioPage from "@/pages/studio-page";
-import LayerChoicePage from "@/pages/layer-choice-page";
-import UploadPage from "@/pages/upload-page";
-import RecordPage from "@/pages/record-page";
-import NoteEditorPage from "@/pages/note-editor-page";
-import ChatPage from "@/pages/chat-page";
-import NotificationsPage from "@/pages/notifications-page";
-import AdminPage from "@/pages/admin-page";
+import NotFoundPage from "@/app/not-found-page";
+import HomePage from "@/features/home/pages/home-page";
+import AbyssPage from "@/features/abyss/pages/abyss-page";
+import ChartsPage from "@/features/home/pages/charts-page";
+import PostsPage from "@/features/posts/pages/posts-page";
+import PostPage from "@/features/posts/pages/post-page";
+import CreatePostPage from "@/features/posts/pages/create-post-page";
+import SocialPage from "@/features/social/pages/social-page";
+import JoinedPage from "@/features/community/pages/joined-page";
+import CreateCommunityPage from "@/features/community/pages/create-community-page";
+import CommunityPage from "@/features/community/pages/community-page";
+import CommunityAdminPage from "@/features/community/pages/community-admin-page";
+import SourcesPage from "@/features/sources/pages/sources-page";
+import SourcePage from "@/features/sources/pages/source-page";
+import CreateSourcePage from "@/features/sources/pages/create-source-page";
+import SearchPage from "@/features/search/pages/search-page";
+import ProfilePage from "@/features/profile/pages/profile-page";
+import EditProfilePage from "@/features/profile/pages/edit-profile-page";
+import LoginPage from "@/features/auth/pages/login-page";
+import OnboardingPage from "@/features/auth/pages/onboarding-page";
+import SettingsPage from "@/features/settings/pages/settings-page";
+import SavedPage from "@/features/saved/pages/saved-page";
+import WorkspacePage from "@/features/workspace/pages/workspace-page";
+import SubmissionsPage from "@/features/workspace/pages/submissions-page";
+import SubmissionPage from "@/features/workspace/pages/submission-page";
+import ReviewsPage from "@/features/workspace/pages/reviews-page";
+import LibraryPage from "@/features/workspace/pages/library-page";
+import StudioNewPage from "@/features/composition/pages/studio-new-page";
+import StudioPage from "@/features/composition/pages/studio-page";
+import LayerChoicePage from "@/features/composition/pages/layer-choice-page";
+import UploadPage from "@/features/composition/pages/upload-page";
+import RecordPage from "@/features/composition/pages/record-page";
+import NoteEditorPage from "@/features/composition/pages/note-editor-page";
+import ChatPage from "@/features/social/pages/chat-page";
+import NotificationsPage from "@/features/notifications/pages/notifications-page";
+import AdminPage from "@/features/admin/pages/admin-page";
 
 const pageComponents: Record<PageId, ComponentType> = {
   home: HomePage,
@@ -93,7 +93,13 @@ function appPages(): RouteObject[] {
   return pageRoutes.map((route): RouteObject => {
     const Component = pageComponents[route.id];
     const page: PageRoute = route;
-    const element = page.requiresAuth ? <RequireAuth><Component /></RequireAuth> : <Component />;
+    const element = page.requiresAuth ? (
+      <RequireAuth>
+        <Component />
+      </RequireAuth>
+    ) : (
+      <Component />
+    );
     return { ...(route.path ? { path: route.path } : { index: true }), element, handle: page };
   });
 }

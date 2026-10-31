@@ -3,7 +3,12 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import { logout } from "../../lib/api/auth.ts";
-import { getAccessToken, getCurrentUserId, getRefreshToken, setAuthSession } from "../../lib/api/client.ts";
+import {
+  getAccessToken,
+  getCurrentUserId,
+  getRefreshToken,
+  setAuthSession,
+} from "../../lib/api/client.ts";
 
 const profileScreen = readFileSync(
   new URL("../settings/settings-screen.tsx", import.meta.url),
@@ -21,6 +26,6 @@ test("clears every local authentication value on logout", () => {
 });
 
 test("provides logout in account settings", () => {
-  assert.match(profileScreen, />로그아웃<\/button>/);
+  assert.match(profileScreen, />\s*로그아웃\s*<\/button>/);
   assert.match(profileScreen, /onClick=\{logout\}/);
 });

@@ -3,12 +3,21 @@ import assert from "node:assert/strict";
 import { audioBufferToWav } from "./prepare-audio-file.ts";
 
 function buffer(channels: number[][]): AudioBuffer {
-  return { length: channels[0].length, sampleRate: 22050, numberOfChannels: channels.length,
+  return {
+    length: channels[0].length,
+    sampleRate: 22050,
+    numberOfChannels: channels.length,
     getChannelData: (channel: number) => Float32Array.from(channels[channel]),
   } as unknown as AudioBuffer;
 }
 test("WAV export has valid stereo PCM headers and interleaves channels", async () => {
-  const file = audioBufferToWav(buffer([[0.25, 0], [-0.5, 1]]), "piano.wav");
+  const file = audioBufferToWav(
+    buffer([
+      [0.25, 0],
+      [-0.5, 1],
+    ]),
+    "piano.wav",
+  );
   const bytes = await file.arrayBuffer();
   const view = new DataView(bytes);
   assert.equal(file.type, "audio/wav");

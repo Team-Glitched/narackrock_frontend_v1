@@ -69,10 +69,7 @@ export const abyssStyles = {
     "[.design-canvas_&_button]:text-app-fg [.design-canvas_&_button]:leading-[25.6px]",
     "[.design-canvas_&>i]:h-[26px] [.design-canvas_&>i]:flex-[0_0_1px]",
   ].join(" "),
-  abyssDislike: [
-    "abyss-dislike",
-    "[&_img]:transform-[none]",
-  ].join(" "),
+  abyssDislike: ["abyss-dislike", "[&_img]:transform-[none]"].join(" "),
   abyssPlayer: [
     "abyss-player",
     "flex flex-[0_0_auto] flex-col items-center gap-5 mt-auto",
@@ -104,10 +101,7 @@ export const abyssStyles = {
     "left-0 w-[30px]",
     "[&::after]:[content:''] [&::after]:absolute [&::after]:inset-[0_-7px]",
   ].join(" "),
-  abyssToggle: [
-    "abyss-toggle",
-    "left-14 w-[82px] rounded-[50%]",
-  ].join(" "),
+  abyssToggle: ["abyss-toggle", "left-14 w-[82px] rounded-[50%]"].join(" "),
   abyssNext: [
     "abyss-next",
     "right-0 w-[30px]",

@@ -22,7 +22,7 @@ test("collects a first-time user's profile in name, instrument, description orde
 });
 
 test("shows first-login onboarding without the regular header and footer", () => {
-  const route = pageRoutes.find(page => page.id === "onboarding")!;
+  const route = pageRoutes.find((page) => page.id === "onboarding")!;
   assert.equal("hideHeader" in route && route.hideHeader, true);
   assert.equal("hideFooter" in route && route.hideFooter, true);
 });

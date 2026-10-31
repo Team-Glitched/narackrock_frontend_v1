@@ -18,10 +18,7 @@ export const profileStyles = {
     "[.design-canvas_&>h1]:m-[28px_20px_22px] [.design-canvas_&>h1]:h-[30px] [.design-canvas_&>h1]:text-[length:25px]",
     "[.design-canvas_&>h1]:font-bold [.design-canvas_&>h1]:leading-[30px]",
   ].join(" "),
-  profileEditTrigger: [
-    "profile-edit-trigger",
-    "m-[0_auto] block",
-  ].join(" "),
+  profileEditTrigger: ["profile-edit-trigger", "m-[0_auto] block"].join(" "),
   editView: [
     "edit-view",
     "flex flex-col gap-[19px] p-[9px_20px_10px]",
@@ -57,10 +54,7 @@ export const profileStyles = {
     "[&_svg]:h-12 [&_svg]:w-12",
     "[.design-canvas_&]:inset-0 [.design-canvas_&]:bg-transparent [.design-canvas_&]:bg-none [.design-canvas_&]:overflow-visible",
   ].join(" "),
-  authScreen: [
-    "auth-screen",
-    "flex h-full flex-col bg-app-bg bg-none",
-  ].join(" "),
+  authScreen: ["auth-screen", "flex h-full flex-col bg-app-bg bg-none"].join(" "),
   authContent: [
     "auth-content",
     "flex min-h-0 flex-1 flex-col items-start justify-center gap-7 p-[0_20px] transform-[translateY(-24px)]",
@@ -90,31 +84,19 @@ export const profileStyles = {
     "flex min-h-11 w-full justify-center",
     "[.design-canvas_.auth-content_&:empty]:hidden",
   ].join(" "),
-  authError: [
-    "auth-error",
-    "w-full text-[#ff9494]! text-body!",
-  ].join(" "),
+  authError: ["auth-error", "w-full text-[#ff9494]! text-body!"].join(" "),
   profileState: [
     "profile-state",
     "grid h-full place-items-center p-5 text-center text-body text-app-muted",
   ].join(" "),
-  profileEmptyWork: [
-    "profile-empty-work",
-    "m-5 text-body text-app-muted",
-  ].join(" "),
-  profileFormError: [
-    "profile-form-error",
-    "m-0 text-body text-[#ff9494]",
-  ].join(" "),
+  profileEmptyWork: ["profile-empty-work", "m-5 text-body text-app-muted"].join(" "),
+  profileFormError: ["profile-form-error", "m-0 text-body text-[#ff9494]"].join(" "),
   profileSaveButton: [
     "profile-save-button",
     "h-11 rounded-[9px] bg-app-primary bg-none font-semibold",
     "[&:disabled]:opacity-[.55]",
   ].join(" "),
-  profileOnboarding: [
-    "profile-onboarding",
-    "flex h-full flex-col bg-app-bg bg-none",
-  ].join(" "),
+  profileOnboarding: ["profile-onboarding", "flex h-full flex-col bg-app-bg bg-none"].join(" "),
   profileOnboardingContent: [
     "profile-onboarding-content",
     "flex min-h-0 flex-1 flex-col items-stretch justify-center p-[0_20px] transform-[translateY(-24px)] [animation:onboarding-in_.2s_ease-out]",
@@ -133,10 +115,7 @@ export const profileStyles = {
     "mt-[22px] h-11 rounded-[8px] bg-app-primary bg-none font-semibold",
     "[&:disabled]:opacity-[.55]",
   ].join(" "),
-  profileWorks: [
-    "profile-works",
-    "[.design-canvas_.profile-works+&]:mt-[30px]",
-  ].join(" "),
+  profileWorks: ["profile-works", "[.design-canvas_.profile-works+&]:mt-[30px]"].join(" "),
   profileWorksExpanded: [
     "profile-works-expanded",
     "[.design-canvas_&]:grid [.design-canvas_&]:grid-cols-[repeat(2,160px)] [.design-canvas_&]:gap-5",

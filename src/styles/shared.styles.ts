@@ -70,11 +70,9 @@ export const sharedStyles = {
     "[.design-canvas_&_h2]:text-title [.design-canvas_&_h2]:tracking-[0] [.design-canvas_&_h2]:leading-[18px]",
     "[.design-canvas_&>button]:font-medium [.design-canvas_&>button]:leading-[18px]",
   ].join(" "),
-  recommendedCommunities: [
-    "recommended-communities",
-    "mt-[18px]",
-    "[.design-canvas_&]:mt-15",
-  ].join(" "),
+  recommendedCommunities: ["recommended-communities", "mt-[18px]", "[.design-canvas_&]:mt-15"].join(
+    " ",
+  ),
   membershipError: [
     "membership-error",
     "m-[10px_20px_0] text-caption text-[#ff8d8d] leading-[18px]",
@@ -105,10 +103,7 @@ export const sharedStyles = {
     "[.search-scope-tabs_button&::after]:bottom-0 [.search-scope-tabs_button&::after]:left-0 [.search-scope-tabs_button&::after]:h-[2px]",
     "[.search-scope-tabs_button&::after]:bg-app-primary [.search-scope-tabs_button&::after]:bg-none",
   ].join(" "),
-  joinedView: [
-    "joined-view",
-    "pt-[6px]",
-  ].join(" "),
+  joinedView: ["joined-view", "pt-[6px]"].join(" "),
   joinedTitle: [
     "joined-title",
     "m-[0_20px_14px] text-[length:24px] font-bold tracking-[-.4px] leading-[30px]",
@@ -210,10 +205,7 @@ export const sharedStyles = {
     "[.design-canvas>&]:shadow-[none]",
     "[.design-viewport[data-keyboard-visible=true]_.design-canvas>&]:h-full",
   ].join(" "),
-  screenBody: [
-    "screen-body",
-    "min-h-0 flex-1 overflow-hidden",
-  ].join(" "),
+  screenBody: ["screen-body", "min-h-0 flex-1 overflow-hidden"].join(" "),
   scrollContent: [
     "scroll-content",
     "h-full overflow-x-hidden overflow-y-auto [scrollbar-width:none]",
@@ -287,10 +279,7 @@ export const sharedStyles = {
     "song-rail-status",
     "m-0 h-50 p-[70px_20px_0] text-center text-body text-app-muted",
   ].join(" "),
-  listView: [
-    "list-view",
-    "pt-0",
-  ].join(" "),
+  listView: ["list-view", "pt-0"].join(" "),
   chartList: [
     "chart-list",
     "p-[0_20px]",
@@ -334,10 +323,7 @@ export const sharedStyles = {
     "[.design-canvas_&]:font-sans [.design-canvas_&]:text-label [.design-canvas_&]:font-medium",
     "[.design-canvas_&]:bg-[image:var(--action-gradient)] [.design-canvas_&]:leading-[20px]",
   ].join(" "),
-  compact: [
-    "compact",
-    "[.purple-pill&]:p-[0_16px]",
-  ].join(" "),
+  compact: ["compact", "[.purple-pill&]:p-[0_16px]"].join(" "),
   emptyCommunity: [
     "empty-community",
     "grid h-100 place-items-center text-body text-app-muted",
@@ -400,14 +386,8 @@ export const sharedStyles = {
     "[.design-canvas_.team-note-workspace_.piano-key&::before]:w-[58px] [.design-canvas_.team-note-workspace_.piano-key&::before]:rounded-none",
     "[.design-canvas_.team-note-workspace_.piano-key&::before]:bg-app-key-black",
   ].join(" "),
-  midi: [
-    "midi",
-    "[.studio-clip&]:bg-app-primary [.studio-clip&]:bg-none",
-  ].join(" "),
-  audio: [
-    "audio",
-    "[.studio-clip&]:bg-[#20a9b1] [.studio-clip&]:bg-none",
-  ].join(" "),
+  midi: ["midi", "[.studio-clip&]:bg-app-primary [.studio-clip&]:bg-none"].join(" "),
+  audio: ["audio", "[.studio-clip&]:bg-[#20a9b1] [.studio-clip&]:bg-none"].join(" "),
   isBusy: [
     "is-busy",
     "[.google-identity-button&]:pointer-events-none [.google-identity-button&]:opacity-[.55]",
@@ -475,14 +455,8 @@ export const sharedStyles = {
     "audio-waveform-shade",
     "absolute top-0 bottom-0 bg-[#15191dcc] bg-none pointer-events-none z-[1]",
   ].join(" "),
-  left: [
-    "left",
-    "[.audio-waveform-shade&]:left-0",
-  ].join(" "),
-  right: [
-    "right",
-    "[.audio-waveform-shade&]:right-0",
-  ].join(" "),
+  left: ["left", "[.audio-waveform-shade&]:left-0"].join(" "),
+  right: ["right", "[.audio-waveform-shade&]:right-0"].join(" "),
   audioWaveformSelection: [
     "audio-waveform-selection",
     "absolute top-1 bottom-1 z-[2] cursor-grab rounded-[9px] shadow-[0_0_0_1px_#7138ff,0_0_12px_#ff2c8c44] border-[length:2px] border-solid",
@@ -560,10 +534,7 @@ export const sharedStyles = {
     "[&_input::placeholder]:text-[#9692a6]",
     "[&_textarea::placeholder]:text-[#9692a6]",
   ].join(" "),
-  emptyArtwork: [
-    "empty-artwork",
-    "block h-full w-full bg-app-fg bg-none",
-  ].join(" "),
+  emptyArtwork: ["empty-artwork", "block h-full w-full bg-app-fg bg-none"].join(" "),
   figmaIconSlot: [
     "figma-icon-slot",
     "[.design-canvas_&]:relative [.design-canvas_&]:inline-block [.design-canvas_&]:flex-none [.design-canvas_&]:[vertical-align:middle]",
@@ -597,10 +568,9 @@ export const sharedStyles = {
     "[.design-canvas_&]:h-5 [.design-canvas_&]:w-5",
     "[.design-canvas_.abyss-actions_&>img]:transform-[translate(-50%,-50%)_scale(0.9090909)]",
   ].join(" "),
-  figmaIconSlotNav: [
-    "figma-icon-slot--nav",
-    "[.design-canvas_&]:h-5 [.design-canvas_&]:w-7",
-  ].join(" "),
+  figmaIconSlotNav: ["figma-icon-slot--nav", "[.design-canvas_&]:h-5 [.design-canvas_&]:w-7"].join(
+    " ",
+  ),
   projectCreate: [
     "project-create",
     "flex h-full flex-col gap-[30px] p-[30px_20px_90px]",
@@ -631,14 +601,8 @@ export const sharedStyles = {
     "project-create-actions",
     "mt-auto flex flex-col items-center gap-[10px]",
   ].join(" "),
-  resumeDraft: [
-    "resume-draft",
-    "text-caption text-app-muted underline",
-  ].join(" "),
-  projectError: [
-    "project-error",
-    "m-0 text-body text-[#ff9494]",
-  ].join(" "),
+  resumeDraft: ["resume-draft", "text-caption text-app-muted underline"].join(" "),
+  projectError: ["project-error", "m-0 text-body text-[#ff9494]"].join(" "),
   pauseSymbol: [
     "pause-symbol",
     "block h-5 w-4 border-l-[length:5px] [border-left-style:solid] border-l-app-fg border-r-[length:5px] [border-right-style:solid]",
@@ -691,10 +655,7 @@ export const sharedStyles = {
     "relative mr-[30px] h-[16.586px] w-5 shrink-0",
     "[&_img]:absolute [&_img]:top-[-1px] [&_img]:left-[-1px] [&_img]:h-auto [&_img]:w-auto [&_img]:max-w-none",
   ].join(" "),
-  figmaSheetOverlay: [
-    "figma-sheet-overlay",
-    "absolute inset-0 z-[65]",
-  ].join(" "),
+  figmaSheetOverlay: ["figma-sheet-overlay", "absolute inset-0 z-[65]"].join(" "),
   figmaSheetBackdrop: [
     "figma-sheet-backdrop",
     "absolute inset-0 h-full w-full bg-[#0006] bg-none",
@@ -763,10 +724,7 @@ export const sharedStyles = {
     "[.design-canvas_&]:flex [.design-canvas_&]:min-h-0 [.design-canvas_&]:flex-1 [.design-canvas_&]:flex-col [.design-canvas_&]:gap-[30px]",
     "[.design-canvas_&]:p-[30px_20px]",
   ].join(" "),
-  sourceAudioFlow: [
-    "source-audio-flow",
-    "flex h-full min-h-0 flex-col",
-  ].join(" "),
+  sourceAudioFlow: ["source-audio-flow", "flex h-full min-h-0 flex-col"].join(" "),
   sourceAudioSelect: [
     "source-audio-select",
     "[.design-canvas_&]:h-11 [.design-canvas_&]:p-[10px] [.design-canvas_&]:rounded-[10px] [.design-canvas_&]:text-left",

@@ -41,7 +41,13 @@ export type TrackDto = {
 };
 
 export type CompositionDto = {
-  viewerPermission: { userId: number; canEdit: boolean; canContribute: boolean; canReviewContribution: boolean; canExport: boolean };
+  viewerPermission: {
+    userId: number;
+    canEdit: boolean;
+    canContribute: boolean;
+    canReviewContribution: boolean;
+    canExport: boolean;
+  };
   project: {
     projectId: number;
     title: string;
@@ -71,47 +77,85 @@ export async function getComposition(projectId: number): Promise<CompositionDto>
   return data(`/api/v1/projects/${projectId}/tracks`);
 }
 
-export async function createTrack(projectId: number, name: string, instrument: string | null, sortOrder: number) {
+export async function createTrack(
+  projectId: number,
+  name: string,
+  instrument: string | null,
+  sortOrder: number,
+) {
   return data<{ trackId: number }>(`/api/v1/projects/${projectId}/tracks`, {
-    method: "POST", body: JSON.stringify({ name, instrument, sortOrder }),
+    method: "POST",
+    body: JSON.stringify({ name, instrument, sortOrder }),
   });
 }
 
-export async function createMidiClip(projectId: number, trackId: number, startTick: number, durationTick: number, midiNotes: MidiNoteDto[]) {
+export async function createMidiClip(
+  projectId: number,
+  trackId: number,
+  startTick: number,
+  durationTick: number,
+  midiNotes: MidiNoteDto[],
+) {
   return data<{ clipId: number }>(`/api/v1/projects/${projectId}/tracks/${trackId}/clips/midi`, {
-    method: "POST", body: JSON.stringify({ startTick, durationTick, midiNotes }),
+    method: "POST",
+    body: JSON.stringify({ startTick, durationTick, midiNotes }),
   });
 }
 
-export async function saveMidiClip(clipId: number, startTick: number, durationTick: number, midiNotes: MidiNoteDto[]) {
+export async function saveMidiClip(
+  clipId: number,
+  startTick: number,
+  durationTick: number,
+  midiNotes: MidiNoteDto[],
+) {
   return data(`/api/v1/clips/${clipId}/midi`, {
-    method: "PATCH", body: JSON.stringify({ startTick, durationTick, midiNotes }),
+    method: "PATCH",
+    body: JSON.stringify({ startTick, durationTick, midiNotes }),
   });
 }
 
-export async function createAudioClip(projectId: number, trackId: number, mediaFileId: number, durationTick: number) {
+export async function createAudioClip(
+  projectId: number,
+  trackId: number,
+  mediaFileId: number,
+  durationTick: number,
+) {
   return data(`/api/v1/projects/${projectId}/tracks/${trackId}/clips/audio`, {
     method: "POST",
-    body: JSON.stringify({ mediaFileId, sourceType: "FILE_UPLOAD", startTick: 0, durationTick, clipOffsetMs: 0 }),
+    body: JSON.stringify({
+      mediaFileId,
+      sourceType: "FILE_UPLOAD",
+      startTick: 0,
+      durationTick,
+      clipOffsetMs: 0,
+    }),
   });
 }
 
 export async function transformRecordingToMidi(projectId: number, file: File) {
   const form = new FormData();
   form.append("audio", file);
-  return data<{ durationTick: number; midiNotes: MidiNoteDto[] }>(`/api/v1/projects/${projectId}/hti-transform`, {
-    method: "POST",
-    body: form,
-  });
+  return data<{ durationTick: number; midiNotes: MidiNoteDto[] }>(
+    `/api/v1/projects/${projectId}/hti-transform`,
+    {
+      method: "POST",
+      body: form,
+    },
+  );
 }
 
 export async function createDraftProject() {
   return data<{ projectId: number }>("/api/v1/projects/drafts", { method: "POST" });
 }
 
-export async function updateProjectMetadata(projectId: number, title: string, albumImageFileId: number | null) {
+export async function updateProjectMetadata(
+  projectId: number,
+  title: string,
+  albumImageFileId: number | null,
+) {
   return data<void>(`/api/v1/projects/${projectId}/metadata`, {
-    method: "PATCH", body: JSON.stringify({ title, albumImageFileId }),
+    method: "PATCH",
+    body: JSON.stringify({ title, albumImageFileId }),
   });
 }
 
@@ -135,24 +179,39 @@ export type ContributionNotificationDto = {
 };
 
 export async function getContributionInbox(): Promise<ContributionNotificationDto[]> {
-  const response = await data<{ items: ContributionNotificationDto[] }>("/api/v1/notifications/contributions");
+  const response = await data<{ items: ContributionNotificationDto[] }>(
+    "/api/v1/notifications/contributions",
+  );
   return response.items;
 }
 
 export async function getPendingContributions(projectId: number): Promise<ContributionDto[]> {
-  const response = await data<{ items: ContributionDto[] }>(`/api/v1/projects/${projectId}/contributions?status=PENDING`);
+  const response = await data<{ items: ContributionDto[] }>(
+    `/api/v1/projects/${projectId}/contributions?status=PENDING`,
+  );
   return response.items;
 }
 
-export async function submitContribution(projectId: number, version: { major: number; minor: number }, items: { changeType: "ADD" | "UPDATE"; targetType: "TRACK" | "CLIP"; targetId: number }[], description: string | null = null) {
+export async function submitContribution(
+  projectId: number,
+  version: { major: number; minor: number },
+  items: { changeType: "ADD" | "UPDATE"; targetType: "TRACK" | "CLIP"; targetId: number }[],
+  description: string | null = null,
+) {
   return data(`/api/v1/projects/${projectId}/contributions`, {
-    method: "POST", body: JSON.stringify({ description, baseProjectVersion: version, items }),
+    method: "POST",
+    body: JSON.stringify({ description, baseProjectVersion: version, items }),
   });
 }
 
-export async function reviewContribution(projectId: number, contributionId: number, approvalStatus: "APPROVED" | "REJECTED") {
+export async function reviewContribution(
+  projectId: number,
+  contributionId: number,
+  approvalStatus: "APPROVED" | "REJECTED",
+) {
   return data(`/api/v1/projects/${projectId}/contributions/${contributionId}`, {
-    method: "PATCH", body: JSON.stringify({ approvalStatus, reviewComment: null }),
+    method: "PATCH",
+    body: JSON.stringify({ approvalStatus, reviewComment: null }),
   });
 }
 
@@ -160,6 +219,13 @@ export async function publishComposition(projectId: number): Promise<{ exportId:
   return data(`/api/v1/projects/${projectId}/exports`, { method: "POST" });
 }
 
-export async function getExport(projectId: number, exportId: number): Promise<{ status: "QUEUED" | "PROCESSING" | "COMPLETED" | "FAILED"; errorMessage: string | null; shortId: number | null }> {
+export async function getExport(
+  projectId: number,
+  exportId: number,
+): Promise<{
+  status: "QUEUED" | "PROCESSING" | "COMPLETED" | "FAILED";
+  errorMessage: string | null;
+  shortId: number | null;
+}> {
   return data(`/api/v1/projects/${projectId}/exports/${exportId}`);
 }

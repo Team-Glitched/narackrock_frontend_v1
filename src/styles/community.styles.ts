@@ -62,10 +62,7 @@ export const communityStyles = {
     "[.design-canvas_&]:h-10 [.design-canvas_&]:min-w-15 [.design-canvas_&]:p-[0_16px] [.design-canvas_&]:text-label",
     "[.design-canvas_&]:font-medium",
   ].join(" "),
-  communityDetailBanner: [
-    "community-detail-banner",
-    "h-[90px] bg-[#383838] bg-none",
-  ].join(" "),
+  communityDetailBanner: ["community-detail-banner", "h-[90px] bg-[#383838] bg-none"].join(" "),
   communityDetailInfo: [
     "community-detail-info",
     "m-[0_20px_8px] p-[6px_0_22px] border-b [border-bottom-style:solid] border-b-app-border",
@@ -109,10 +106,7 @@ export const communityStyles = {
     "flex items-center gap-[10px]",
     "[.design-canvas_&]:w-full",
   ].join(" "),
-  communityCardTitle: [
-    "community-card-title",
-    "min-w-0 flex-1",
-  ].join(" "),
+  communityCardTitle: ["community-card-title", "min-w-0 flex-1"].join(" "),
   communityCardDescription: [
     "community-card-description",
     "m-[12px_0_0] text-body text-app-muted [overflow-wrap:anywhere] leading-[18px]",
@@ -184,10 +178,7 @@ export const communityStyles = {
     "[.design-canvas_.community-view_&>button:not(.post-author-link)]:flex-[0_0_40px]",
     "[.design-canvas_.community-view_&>span]:flex-[0_0_auto] [.design-canvas_.community-view_&>span]:whitespace-nowrap",
   ].join(" "),
-  postRead: [
-    "post-read",
-    "[.community-view_&]:w-full [.community-view_&]:text-left",
-  ].join(" "),
+  postRead: ["post-read", "[.community-view_&]:w-full [.community-view_&]:text-left"].join(" "),
   postPreview: [
     "post-preview",
     "[.community-view_&]:[display:-webkit-box] [.community-view_&]:[-webkit-box-orient:vertical] [.community-view_&]:[-webkit-line-clamp:2]",
@@ -313,10 +304,7 @@ export const communityStyles = {
     "[.community-view_&]:mb-4",
     "[.community-view_&_button+button]:ml-2",
   ].join(" "),
-  communityRetry: [
-    "community-retry",
-    "m-[16px_auto_24px] block",
-  ].join(" "),
+  communityRetry: ["community-retry", "m-[16px_auto_24px] block"].join(" "),
   postListControls: [
     "post-list-controls",
     "flex flex-col gap-[10px] p-[4px_20px_2px]",
@@ -341,18 +329,9 @@ export const communityStyles = {
     "post-search-active",
     "m-0 flex items-center gap-2 text-caption text-app-muted [overflow-wrap:anywhere] leading-[18px]",
   ].join(" "),
-  postFeedSentinel: [
-    "post-feed-sentinel",
-    "h-[1px]",
-  ].join(" "),
-  postFeedEnd: [
-    "post-feed-end",
-    "flex flex-col items-center gap-2 p-[12px_20px_24px]",
-  ].join(" "),
-  postFeedError: [
-    "post-feed-error",
-    "m-0 text-caption text-[#ff8d8d] leading-[18px]",
-  ].join(" "),
+  postFeedSentinel: ["post-feed-sentinel", "h-[1px]"].join(" "),
+  postFeedEnd: ["post-feed-end", "flex flex-col items-center gap-2 p-[12px_20px_24px]"].join(" "),
+  postFeedError: ["post-feed-error", "m-0 text-caption text-[#ff8d8d] leading-[18px]"].join(" "),
   postFeedEndNotice: [
     "post-feed-end-notice",
     "m-0 p-[12px_20px_28px] text-center text-caption text-app-muted",
@@ -382,14 +361,10 @@ export const communityStyles = {
     "community-members-view",
     "flex h-full min-h-0 flex-col overflow-hidden",
   ].join(" "),
-  communityMembersContent: [
-    "community-members-content",
-    "min-h-0 flex-1 p-[30px_20px]",
-  ].join(" "),
-  communityMemberList: [
-    "community-member-list",
-    "list-none m-0 flex flex-col gap-[30px] p-0",
-  ].join(" "),
+  communityMembersContent: ["community-members-content", "min-h-0 flex-1 p-[30px_20px]"].join(" "),
+  communityMemberList: ["community-member-list", "list-none m-0 flex flex-col gap-[30px] p-0"].join(
+    " ",
+  ),
   communityMemberRow: [
     "community-member-row",
     "flex min-h-[42px] items-center justify-between gap-3",
@@ -441,10 +416,9 @@ export const communityStyles = {
     "nr-comments-list",
     "[.design-canvas_&]:min-h-0 [.design-canvas_&]:flex-1 [.design-canvas_&]:overflow-auto [.design-canvas_&]:p-[0_20px]",
   ].join(" "),
-  nrCommentThread: [
-    "nr-comment-thread",
-    "[.design-canvas_.nr-comment-thread+&]:mt-[29px]",
-  ].join(" "),
+  nrCommentThread: ["nr-comment-thread", "[.design-canvas_.nr-comment-thread+&]:mt-[29px]"].join(
+    " ",
+  ),
   nrCommentCard: [
     "nr-comment-card",
     "[.design-canvas_&]:relative [.design-canvas_&]:min-w-0",
@@ -524,10 +498,9 @@ export const communityStyles = {
     "[.design-canvas_&]:p-0 [.design-canvas_&]:bg-app-line [.design-canvas_&]:bg-none",
     "[.design-canvas_&::after]:[content:''] [.design-canvas_&::after]:absolute [.design-canvas_&::after]:inset-[0_-8px]",
   ].join(" "),
-  nrRepliesBody: [
-    "nr-replies-body",
-    "[.design-canvas_&]:min-w-0 [.design-canvas_&]:flex-1",
-  ].join(" "),
+  nrRepliesBody: ["nr-replies-body", "[.design-canvas_&]:min-w-0 [.design-canvas_&]:flex-1"].join(
+    " ",
+  ),
   nrCommentsMore: [
     "nr-comments-more",
     "[.design-canvas_&]:py-[10px] [.design-canvas_&]:text-caption [.design-canvas_&]:text-app-muted",
@@ -569,10 +542,7 @@ export const communityStyles = {
     "nr-comment-delete",
     "[.design-canvas_&_button]:mr-3 [.design-canvas_&_button]:text-caption",
   ].join(" "),
-  commentsScreen: [
-    "comments-screen",
-    "flex h-full flex-col",
-  ].join(" "),
+  commentsScreen: ["comments-screen", "flex h-full flex-col"].join(" "),
   commentsPost: [
     "comments-post",
     "[.comments-screen_&]:pt-[14px]",
@@ -701,14 +671,8 @@ export const communityStyles = {
     "mt-auto flex items-center gap-[6px] text-caption text-left",
     "[.design-canvas_&]:mt-3 [.design-canvas_&]:text-[length:var(--readable-meta)] [.design-canvas_&]:leading-[var(--readable-meta-line)]",
   ].join(" "),
-  miniPostTall: [
-    "mini-post--tall",
-    "h-[90px]",
-  ].join(" "),
-  communityView: [
-    "community-view",
-    "pt-0",
-  ].join(" "),
+  miniPostTall: ["mini-post--tall", "h-[90px]"].join(" "),
+  communityView: ["community-view", "pt-0"].join(" "),
   postForm: [
     "post-form",
     "m-[10px_0] flex flex-col gap-[10px]",
@@ -722,10 +686,7 @@ export const communityStyles = {
     "[.design-canvas_&_input]:border-app-surface",
     "[.design-canvas_&_textarea]:border-app-surface",
   ].join(" "),
-  postFormActions: [
-    "post-form-actions",
-    "flex justify-end gap-2",
-  ].join(" "),
+  postFormActions: ["post-form-actions", "flex justify-end gap-2"].join(" "),
   communityVoteDivider: [
     "community-vote-divider",
     "h-[21px] w-[1px] bg-app-fg bg-none shrink-0",

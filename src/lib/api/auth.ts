@@ -25,11 +25,12 @@ export function refreshAccessToken(refreshToken: string): Promise<TokenRefreshRe
     body: JSON.stringify({ refreshToken }),
   }).then((response) => {
     const userId = getCurrentUserId();
-    if (userId != null) setAuthSession({
-      accessToken: response.data.accessToken,
-      refreshToken: response.data.refreshToken,
-      userId,
-    });
+    if (userId != null)
+      setAuthSession({
+        accessToken: response.data.accessToken,
+        refreshToken: response.data.refreshToken,
+        userId,
+      });
     return response.data;
   });
 }

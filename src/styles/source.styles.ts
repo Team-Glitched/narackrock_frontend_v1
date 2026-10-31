@@ -25,10 +25,7 @@ export const sourceStyles = {
     "flex items-stretch gap-5 overflow-x-auto [scroll-snap-type:x_proximity] [scrollbar-width:none] pb-[1px]",
     "[&::-webkit-scrollbar]:hidden",
   ].join(" "),
-  osDiscoveryList: [
-    "os-discovery-list",
-    "flex flex-col gap-5",
-  ].join(" "),
+  osDiscoveryList: ["os-discovery-list", "flex flex-col gap-5"].join(" "),
   osDiscoveryEmpty: [
     "os-discovery-empty",
     "m-[24px_0] text-app-muted font-normal text-body font-sans leading-[20px]",
@@ -38,10 +35,7 @@ export const sourceStyles = {
     "flex flex-col gap-[14px] p-[14px_20px]",
     "[.design-canvas_&]:gap-5 [.design-canvas_&]:p-[30px_20px]",
   ].join(" "),
-  osHead: [
-    "os-head",
-    "flex items-center gap-[10px]",
-  ].join(" "),
+  osHead: ["os-head", "flex items-center gap-[10px]"].join(" "),
   osAuthor: [
     "os-author",
     "mr-auto flex min-w-0 items-center gap-[10px] text-left",
@@ -99,33 +93,22 @@ export const sourceStyles = {
     "[.design-canvas_.os-card_&]:text-[length:var(--readable-body)] [.design-canvas_.os-card_&]:font-normal",
     "[.design-canvas_.os-card_&]:text-app-fg [.design-canvas_.os-card_&]:leading-[var(--readable-body-line)]",
   ].join(" "),
-  osFoot: [
-    "os-foot",
-    "flex items-center gap-[10px]",
-    "[.design-canvas_.os-card_&]:mt-3",
-  ].join(" "),
+  osFoot: ["os-foot", "flex items-center gap-[10px]", "[.design-canvas_.os-card_&]:mt-3"].join(" "),
   osFootAuthor: [
     "os-foot-author",
     "mr-auto flex items-center gap-[6px] text-caption text-app-muted",
     "[.design-canvas_&]:text-[length:var(--readable-meta)] [.design-canvas_&]:text-app-fg [.design-canvas_&]:leading-[var(--readable-meta-line)]",
   ].join(" "),
-  opensourceDetailShell: [
-    "opensource-detail-shell",
-    "flex h-full flex-col overflow-hidden",
-  ].join(" "),
+  opensourceDetailShell: ["opensource-detail-shell", "flex h-full flex-col overflow-hidden"].join(
+    " ",
+  ),
   opensourceDetail: [
     "opensource-detail",
     "min-h-0 flex-1 p-[8px_20px_16px]",
     "[.design-canvas_.nr-comments-list>&]:mx-[-20px] [.design-canvas_.nr-comments-list>&]:px-5",
   ].join(" "),
-  osDetailArticle: [
-    "os-detail-article",
-    "pb-3",
-  ].join(" "),
-  osDetailTitleRow: [
-    "os-detail-title-row",
-    "flex min-h-[58px] items-center gap-3",
-  ].join(" "),
+  osDetailArticle: ["os-detail-article", "pb-3"].join(" "),
+  osDetailTitleRow: ["os-detail-title-row", "flex min-h-[58px] items-center gap-3"].join(" "),
   osDetailTitle: [
     "os-detail-title",
     "flex min-w-0 flex-1 items-center gap-[10px]",
@@ -145,8 +128,5 @@ export const sourceStyles = {
     "[.design-canvas_&]:mb-[26px] [.design-canvas_&]:text-[length:var(--readable-body)] [.design-canvas_&]:font-normal",
     "[.design-canvas_&]:text-app-fg [.design-canvas_&]:leading-[var(--readable-body-line)]",
   ].join(" "),
-  osAudioPlayer: [
-    "os-audio-player",
-    "[.design-canvas_.workspace-page_&]:m-[20px_0]",
-  ].join(" "),
+  osAudioPlayer: ["os-audio-player", "[.design-canvas_.workspace-page_&]:m-[20px_0]"].join(" "),
 } as const;

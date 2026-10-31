@@ -19,15 +19,24 @@ const viewToFooterTab: Partial<Record<View, FooterTab>> = {
   opensourceDetail: "opensource",
   opensourceComments: "opensource",
 };
-const activeFooterTab = (view: View): FooterTab | null =>
-  viewToFooterTab[view] ?? null;
+const activeFooterTab = (view: View): FooterTab | null => viewToFooterTab[view] ?? null;
 
 const assetRoot = "/figma/";
 export const postImages = ["abyss-album.png", "profile.png"];
 
 /** Figma layout slots exclude the SVG's painted stroke overflow. */
-export function IconSlot({name,kind}:{name:string;kind:"mini"|"post"|"short"|"post-save"|"short-save"|"short-share"|"nav"}) {
-  return <span className={iconSlotVariants({ kind })} aria-hidden="true"><Asset name={name}/></span>;
+export function IconSlot({
+  name,
+  kind,
+}: {
+  name: string;
+  kind: "mini" | "post" | "short" | "post-save" | "short-save" | "short-share" | "nav";
+}) {
+  return (
+    <span className={iconSlotVariants({ kind })} aria-hidden="true">
+      <Asset name={name} />
+    </span>
+  );
 }
 
 export function Asset({
@@ -40,26 +49,46 @@ export function Asset({
   className?: string;
 }) {
   // Local Figma exports keep their explicit layout dimensions.
-  return (
+  return <img src={`${assetRoot}${name}`} alt={alt} className={className} draggable={false} />;
+}
 
-    <img
-      src={`${assetRoot}${name}`}
-      alt={alt}
-      className={className}
-      draggable={false}
-    />
+export function Avatar({
+  large = false,
+  src = null,
+  className,
+}: {
+  large?: boolean;
+  src?: string | null;
+  className?: string;
+}) {
+  return (
+    <span
+      className={cn(
+        cn(
+          sharedStyles.avatar,
+          "block size-[30px] flex-none overflow-hidden rounded-full border border-solid border-app-fg bg-[#555] [&>img]:size-full [&>img]:object-cover",
+        ),
+        large && cn(sharedStyles.avatarLarge, "size-[140px] border-2"),
+        className,
+      )}
+    >
+      {src ? (
+        <img src={src} alt="프로필" draggable={false} />
+      ) : (
+        <Asset name="profile.png" alt="프로필" />
+      )}
+    </span>
   );
 }
 
-export function Avatar({ large = false, src = null, className }: { large?: boolean; src?: string | null; className?: string }) {
-  return <span className={cn(cn(sharedStyles.avatar, "block size-[30px] flex-none overflow-hidden rounded-full border border-solid border-app-fg bg-[#555] [&>img]:size-full [&>img]:object-cover"), large && cn(sharedStyles.avatarLarge, "size-[140px] border-2"), className)}>
-    {src ? <img src={src} alt="프로필" draggable={false} /> : <Asset name="profile.png" alt="프로필" />}
-  </span>;
+function Logo() {
+  return (
+    <Asset name="auth-logo.svg" alt="Narackrock" className={"h-[43px] w-17 flex-[0_0_68px]"} />
+  );
 }
 
-function Logo() { return <Asset name="auth-logo.svg" alt="Narackrock" className={"h-[43px] w-17 flex-[0_0_68px]"} />; }
-
-const headerControl = "grid size-11 place-items-center p-[10px] [&>img]:h-auto [&>img]:w-auto [&>img]:max-h-none [&>img]:max-w-none [&>img]:shrink-0";
+const headerControl =
+  "grid size-11 place-items-center p-[10px] [&>img]:h-auto [&>img]:w-auto [&>img]:max-h-none [&>img]:max-w-none [&>img]:shrink-0";
 
 export function Header({
   onSearch,
@@ -92,7 +121,12 @@ export function Header({
 }) {
   if (blank) return <div className={"h-11 flex-[0_0_44px]"} />;
   return (
-    <header className={cn("flex h-11 flex-[0_0_44px] items-center justify-between pr-1 pl-[15px]", abyss && "px-2")}>
+    <header
+      className={cn(
+        "flex h-11 flex-[0_0_44px] items-center justify-between pr-1 pl-[15px]",
+        abyss && "px-2",
+      )}
+    >
       {back || onBack ? (
         <button className={headerControl} aria-label="뒤로" onClick={onBack}>
           <Asset name="return.svg" />
@@ -119,13 +153,15 @@ export function Header({
         <button className={headerControl} aria-label="검색" onClick={onSearch}>
           <Asset name="v3-search.svg" />
         </button>
-        {communitySelector ?? <button
-          aria-label={onSettings ? "설정" : "프로필"}
-          className={cn(headerControl, !onSettings && "p-[7px] [&_.avatar]:border-0")}
-          onClick={onSettings ?? onProfile}
-        >
-          {onSettings ? <Asset name="settings.svg" /> : <Avatar src={profileImageUrl} />}
-        </button>}
+        {communitySelector ?? (
+          <button
+            aria-label={onSettings ? "설정" : "프로필"}
+            className={cn(headerControl, !onSettings && "p-[7px] [&_.avatar]:border-0")}
+            onClick={onSettings ?? onProfile}
+          >
+            {onSettings ? <Asset name="settings.svg" /> : <Avatar src={profileImageUrl} />}
+          </button>
+        )}
       </div>
     </header>
   );
@@ -138,15 +174,28 @@ const nav: { id: FooterTab; label: string }[] = [
   { id: "social", label: "소셜" },
   { id: "opensource", label: "오픈소스" },
 ];
-export function Footer({ view, go, onCreate, createLabel = "곡 만들기" }: { view: View; go: Navigate; onCreate?:()=>void; createLabel?:string }) {
+export function Footer({
+  view,
+  go,
+  onCreate,
+  createLabel = "곡 만들기",
+}: {
+  view: View;
+  go: Navigate;
+  onCreate?: () => void;
+  createLabel?: string;
+}) {
   const active = activeFooterTab(view);
   return (
     <footer className={sharedStyles.appFooter}>
       {nav.map((item) => (
         <button
           key={item.id}
-          className={cn(item.id === "studio" ? sharedStyles.makeButton : "", item.id === active ? sharedStyles.active : "")}
-          onClick={() => item.id === "studio" && onCreate ? onCreate() : go(item.id)}
+          className={cn(
+            item.id === "studio" ? sharedStyles.makeButton : "",
+            item.id === active ? sharedStyles.active : "",
+          )}
+          onClick={() => (item.id === "studio" && onCreate ? onCreate() : go(item.id))}
           aria-label={item.id === "studio" ? createLabel : item.label}
           aria-current={item.id === active ? "page" : undefined}
         >
@@ -174,15 +223,56 @@ export function SectionTitle({
   allLabel?: string;
 }) {
   return (
-    <div className={cn(sharedStyles.sectionTitle, "mb-[10px] flex h-[18px] items-center justify-between px-4")}>
-      <h2 className={"m-0 w-[247px] text-title leading-[18px] font-bold tracking-[-0.4px]"}>{children}</h2>
-      {onAll && <button className={"relative text-label leading-[18px] font-medium text-app-muted after:absolute after:inset-x-0 after:-inset-y-[9px] after:content-['']"} onClick={onAll}>{allLabel}</button>}
+    <div
+      className={cn(
+        sharedStyles.sectionTitle,
+        "mb-[10px] flex h-[18px] items-center justify-between px-4",
+      )}
+    >
+      <h2 className={"m-0 w-[247px] text-title leading-[18px] font-bold tracking-[-0.4px]"}>
+        {children}
+      </h2>
+      {onAll && (
+        <button
+          className={
+            "relative text-label leading-[18px] font-medium text-app-muted after:absolute after:inset-x-0 after:-inset-y-[9px] after:content-['']"
+          }
+          onClick={onAll}
+        >
+          {allLabel}
+        </button>
+      )}
     </div>
   );
 }
-export function SongRail({ songs, onOpen }: { songs: ShortItemDto[]; onOpen: (shortId: number) => void }) {
-  return <div className={sharedStyles.songRail}>{songs.map(song => <button type="button" className={sharedStyles.songCard} key={song.shortId} onClick={() => onOpen(song.shortId)} aria-label={`${song.title} 열기`}><span className={sharedStyles.songArt}>{song.albumImageUrl
-
-    ? <img src={song.albumImageUrl} alt={`${song.title} 앨범 커버`} draggable={false} />
-    : <span className={sharedStyles.emptyArtwork} />}</span><strong>{song.title}</strong><small>{song.author.nickname}</small></button>)}</div>;
+export function SongRail({
+  songs,
+  onOpen,
+}: {
+  songs: ShortItemDto[];
+  onOpen: (shortId: number) => void;
+}) {
+  return (
+    <div className={sharedStyles.songRail}>
+      {songs.map((song) => (
+        <button
+          type="button"
+          className={sharedStyles.songCard}
+          key={song.shortId}
+          onClick={() => onOpen(song.shortId)}
+          aria-label={`${song.title} 열기`}
+        >
+          <span className={sharedStyles.songArt}>
+            {song.albumImageUrl ? (
+              <img src={song.albumImageUrl} alt={`${song.title} 앨범 커버`} draggable={false} />
+            ) : (
+              <span className={sharedStyles.emptyArtwork} />
+            )}
+          </span>
+          <strong>{song.title}</strong>
+          <small>{song.author.nickname}</small>
+        </button>
+      ))}
+    </div>
+  );
 }

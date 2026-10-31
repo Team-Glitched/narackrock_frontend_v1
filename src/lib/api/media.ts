@@ -8,10 +8,18 @@ async function data<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export async function uploadMedia(file: File, fileType: "AUDIO" | "IMAGE"): Promise<number> {
-  const session = await data<{ mediaFileId: number; uploadUrl: string; method: string }>("/api/v1/media/upload-sessions", {
-    method: "POST",
-    body: JSON.stringify({ fileType, fileName: file.name, mimeType: file.type, fileSize: file.size }),
-  });
+  const session = await data<{ mediaFileId: number; uploadUrl: string; method: string }>(
+    "/api/v1/media/upload-sessions",
+    {
+      method: "POST",
+      body: JSON.stringify({
+        fileType,
+        fileName: file.name,
+        mimeType: file.type,
+        fileSize: file.size,
+      }),
+    },
+  );
   await apiRequest<void>(session.uploadUrl, {
     method: "PUT",
     headers: { "Content-Type": file.type },

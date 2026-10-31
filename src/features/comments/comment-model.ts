@@ -1,6 +1,13 @@
 export type CommentItem = {
-  id: number; parentId: number | null; userId: number; author: string;
-  avatarUrl: string | null; text: string; time: string; replyCount: number; likes: number;
+  id: number;
+  parentId: number | null;
+  userId: number;
+  author: string;
+  avatarUrl: string | null;
+  text: string;
+  time: string;
+  replyCount: number;
+  likes: number;
 };
 export type CommentPage = { items: CommentItem[]; total: number; page: number };
 export type CommentAdapter = {

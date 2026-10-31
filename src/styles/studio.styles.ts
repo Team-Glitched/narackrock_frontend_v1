@@ -406,10 +406,9 @@ export const studioStyles = {
     "[.design-canvas_&]:absolute [.design-canvas_&]:top-[345px] [.design-canvas_&]:w-[350px]",
     "[.design-canvas_&>[role=status]]:text-caption [.design-canvas_&>[role=status]]:text-app-muted",
   ].join(" "),
-  recordActions: [
-    "record-actions",
-    "flex flex-wrap items-center justify-center gap-[10px]",
-  ].join(" "),
+  recordActions: ["record-actions", "flex flex-wrap items-center justify-center gap-[10px]"].join(
+    " ",
+  ),
   recordButton: [
     "record-button",
     "h-[82px] w-[82px] rounded-[50%] bg-[white] bg-none grid shrink-0 place-items-center text-[length:28px] text-app-bg",
@@ -491,10 +490,7 @@ export const studioStyles = {
     "[&_span:first-child]:flex [&_span:first-child]:items-baseline [&_span:first-child]:gap-[5px] [&_span:first-child]:text-[#c5cbd2]",
     "[&_strong]:text-title [&_strong]:text-[#fff]",
   ].join(" "),
-  audioTrimGuide: [
-    "audio-trim-guide",
-    "text-caption",
-  ].join(" "),
+  audioTrimGuide: ["audio-trim-guide", "text-caption"].join(" "),
   audioTrimHandle: [
     "audio-trim-handle",
     "absolute top-[-2px] bottom-[-2px] w-[18px] bg-app-accent bg-none z-[3] [cursor:ew-resize] border-0 border-none border-current",
@@ -508,10 +504,7 @@ export const studioStyles = {
     "[&_button]:rounded-[7px] [&_button]:bg-app-surface [&_button]:bg-none [&_button]:p-[7px_10px] [&_button]:text-caption [&_button]:text-[#fff]",
     "[&_button:disabled]:opacity-[.5]",
   ].join(" "),
-  audioTrimError: [
-    "audio-trim-error",
-    "[.audio-trim-picker_&]:text-[#ff9ca8]",
-  ].join(" "),
+  audioTrimError: ["audio-trim-error", "[.audio-trim-picker_&]:text-[#ff9ca8]"].join(" "),
   studioAudioDialog: [
     "studio-audio-dialog",
     "absolute inset-0 z-[25] bg-[#14171bdd] bg-none grid place-items-center overflow-y-auto p-4",
@@ -548,10 +541,7 @@ export const studioStyles = {
     "[.design-canvas_.studio-toolbar_&]:p-0",
     "[&::after]:[content:''] [&::after]:absolute [&::after]:inset-[-11px_-8px]",
   ].join(" "),
-  trackVolumeDialog: [
-    "track-volume-dialog",
-    "h-[163px]",
-  ].join(" "),
+  trackVolumeDialog: ["track-volume-dialog", "h-[163px]"].join(" "),
   trackSettingsIdentity: [
     "track-settings-identity",
     "mb-5 flex h-[43px] w-[310px] justify-between",

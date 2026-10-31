@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { canCreateLayer, shouldShowContributionSubmit, shouldOfferSongPublish } from "./contribution-session.ts";
+import {
+  canCreateLayer,
+  shouldShowContributionSubmit,
+  shouldOfferSongPublish,
+} from "./contribution-session.ts";
 
 const permission = { userId: 22, canContribute: true, canReviewContribution: false };
 const track = (ownerId, approvalStatus) => ({ ownerId, clips: [{ ownerId, approvalStatus }] });
@@ -22,16 +26,21 @@ test("changes the add button to submit after the participant saves a draft clip"
 });
 
 test("uses contribution mode when the studio was opened from a short, even with local test owner permissions", () => {
-  assert.equal(shouldShowContributionSubmit(7, { ...permission, canReviewContribution: true }, [track(22, "DRAFT")]), true);
+  assert.equal(
+    shouldShowContributionSubmit(7, { ...permission, canReviewContribution: true }, [
+      track(22, "DRAFT"),
+    ]),
+    true,
+  );
 });
 
 test("participation keeps add-layer action even when export permission exists", () => {
-  assert.equal(shouldOfferSongPublish(7, {canExport:true}, [track(10, "APPROVED")]), false);
-  assert.equal(shouldOfferSongPublish(null, {canExport:true}, [track(22, "DRAFT")]), true);
+  assert.equal(shouldOfferSongPublish(7, { canExport: true }, [track(10, "APPROVED")]), false);
+  assert.equal(shouldOfferSongPublish(null, { canExport: true }, [track(22, "DRAFT")]), true);
 });
-test("new-song owners can import more layers while participation still permits one",()=>{
- const owner={...permission,canEdit:true};
- assert.equal(canCreateLayer(owner,[track(22,"DRAFT")],true),true);
- assert.equal(canCreateLayer(owner,[track(22,"DRAFT")],false),false);
- assert.equal(canCreateLayer({...owner,canEdit:false,canContribute:false},[],true),false);
+test("new-song owners can import more layers while participation still permits one", () => {
+  const owner = { ...permission, canEdit: true };
+  assert.equal(canCreateLayer(owner, [track(22, "DRAFT")], true), true);
+  assert.equal(canCreateLayer(owner, [track(22, "DRAFT")], false), false);
+  assert.equal(canCreateLayer({ ...owner, canEdit: false, canContribute: false }, [], true), false);
 });

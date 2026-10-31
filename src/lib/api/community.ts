@@ -15,31 +15,48 @@ import type {
  * 아니므로(constraints-harness.md C3) 코드가 없다 — 그때는 null이다.
  */
 function errorCodeOf(error: unknown): string | null {
-  return error instanceof ApiError ? error.errorCode ?? null : null;
+  return error instanceof ApiError ? (error.errorCode ?? null) : null;
 }
 
-export function fetchPostComments(postId: number, parentCommentId: number | null = null, page = 0): Promise<PostCommentPage> {
+export function fetchPostComments(
+  postId: number,
+  parentCommentId: number | null = null,
+  page = 0,
+): Promise<PostCommentPage> {
   const query = new URLSearchParams({ page: String(page), size: "20" });
   if (parentCommentId !== null) query.set("parentCommentId", String(parentCommentId));
-  return apiRequest<ApiResponse<PostCommentPage>>(`/api/v1/posts/${postId}/comments?${query}`).then(r => r.data);
+  return apiRequest<ApiResponse<PostCommentPage>>(`/api/v1/posts/${postId}/comments?${query}`).then(
+    (r) => r.data,
+  );
 }
 
-export function createPostComment(postId: number, content: string, parentCommentId: number | null = null): Promise<{ commentId: number }> {
+export function createPostComment(
+  postId: number,
+  content: string,
+  parentCommentId: number | null = null,
+): Promise<{ commentId: number }> {
   return apiRequest<ApiResponse<{ commentId: number }>>(`/api/v1/posts/${postId}/comments`, {
-    method: "POST", body: JSON.stringify({ content, parentCommentId }),
-  }).then(r => r.data);
+    method: "POST",
+    body: JSON.stringify({ content, parentCommentId }),
+  }).then((r) => r.data);
 }
 
 // 수정·삭제 경로에는 postId가 없다 — 댓글 id가 전역 고유해서 백엔드가 그렇게 정의했다.
-export function updatePostComment(commentId: number, content: string): Promise<{ commentId: number }> {
+export function updatePostComment(
+  commentId: number,
+  content: string,
+): Promise<{ commentId: number }> {
   return apiRequest<ApiResponse<{ commentId: number }>>(`/api/v1/posts/comments/${commentId}`, {
-    method: "PUT", body: JSON.stringify({ content }),
-  }).then(r => r.data);
+    method: "PUT",
+    body: JSON.stringify({ content }),
+  }).then((r) => r.data);
 }
 
 export function deletePostComment(commentId: number): Promise<void> {
   // 삭제 응답에는 data 키가 없으므로(NON_NULL 봉투) 본문을 읽지 않는다.
-  return apiRequest<ApiResponse<void>>(`/api/v1/posts/comments/${commentId}`, { method: "DELETE" }).then(() => undefined);
+  return apiRequest<ApiResponse<void>>(`/api/v1/posts/comments/${commentId}`, {
+    method: "DELETE",
+  }).then(() => undefined);
 }
 import type {
   ApiResponse,
@@ -65,12 +82,14 @@ export const DEFAULT_GALLERY_ID = 1;
 // 전체 갤러리 목록. 비로그인도 호출할 수 있고, 페이지네이션 없이 전량이 온다.
 // 정렬은 서버가 구독자 수 내림차순 → id 오름차순으로 고정한다.
 export function fetchGalleries(): Promise<GalleryListItem[]> {
-  return apiRequest<ApiResponse<GalleryListItem[]>>("/api/v1/galleries").then(r => r.data);
+  return apiRequest<ApiResponse<GalleryListItem[]>>("/api/v1/galleries").then((r) => r.data);
 }
 
 // 요청자가 구독한 갤러리만. 인증 필수 — 비로그인으로 부르면 401(빈 본문)이다.
 export function fetchSubscribedGalleries(): Promise<GalleryListItem[]> {
-  return apiRequest<ApiResponse<GalleryListItem[]>>("/api/v1/galleries/subscribed").then(r => r.data);
+  return apiRequest<ApiResponse<GalleryListItem[]>>("/api/v1/galleries/subscribed").then(
+    (r) => r.data,
+  );
 }
 
 /**
@@ -81,12 +100,17 @@ export function fetchSubscribedGalleries(): Promise<GalleryListItem[]> {
  * 버튼이 고장난 것으로 본다. 갤러리가 없어서 나는 404 GALLERY_NOT_FOUND는 진짜 실패라 그대로 던진다.
  */
 export function subscribeGallery(galleryId: number): Promise<void> {
-  return apiRequest<ApiResponse<GallerySubscribeResponse>>(`/api/v1/galleries/${galleryId}/subscriptions`, {
-    method: "POST",
-  }).then(() => undefined).catch((error: unknown) => {
-    if (errorCodeOf(error) === "ALREADY_SUBSCRIBED") return;
-    throw error;
-  });
+  return apiRequest<ApiResponse<GallerySubscribeResponse>>(
+    `/api/v1/galleries/${galleryId}/subscriptions`,
+    {
+      method: "POST",
+    },
+  )
+    .then(() => undefined)
+    .catch((error: unknown) => {
+      if (errorCodeOf(error) === "ALREADY_SUBSCRIBED") return;
+      throw error;
+    });
 }
 
 // 구독 취소. 구독 중이 아니면 404 NOT_SUBSCRIBED — 구독과 같은 이유로 성공으로 흡수한다.
@@ -94,10 +118,12 @@ export function subscribeGallery(galleryId: number): Promise<void> {
 export function unsubscribeGallery(galleryId: number): Promise<void> {
   return apiRequest<ApiResponse<void>>(`/api/v1/galleries/${galleryId}/subscriptions`, {
     method: "DELETE",
-  }).then(() => undefined).catch((error: unknown) => {
-    if (errorCodeOf(error) === "NOT_SUBSCRIBED") return;
-    throw error;
-  });
+  })
+    .then(() => undefined)
+    .catch((error: unknown) => {
+      if (errorCodeOf(error) === "NOT_SUBSCRIBED") return;
+      throw error;
+    });
 }
 
 export type PostListQuery = {
@@ -117,19 +143,24 @@ export type PostListQuery = {
  *
  * `size`는 1~100을 벗어나면 400(VALIDATION_ERROR)이다.
  */
-export function fetchPosts(galleryId: number, query: PostListQuery = {}): Promise<PostListResponse> {
+export function fetchPosts(
+  galleryId: number,
+  query: PostListQuery = {},
+): Promise<PostListResponse> {
   const { page = 0, size = 20, sort = "LATEST", keyword } = query;
   const params = new URLSearchParams({ page: String(page), size: String(size), sort });
   const trimmed = keyword?.trim();
   if (trimmed) params.set("keyword", trimmed);
   return apiRequest<ApiResponse<PostListResponse>>(
-    `/api/v1/galleries/${galleryId}/posts?${params}`
+    `/api/v1/galleries/${galleryId}/posts?${params}`,
   ).then((response) => response.data);
 }
 
 // 상세 조회는 로그인(Authorization 헤더)이 필요하다 — 백엔드가 isLiked/isDisliked를 계산하려면 요청자 식별이 필요하기 때문.
 export function fetchPost(postId: number): Promise<PostDetailResponse> {
-  return apiRequest<ApiResponse<PostDetailResponse>>(`/api/v1/posts/${postId}`).then((response) => response.data);
+  return apiRequest<ApiResponse<PostDetailResponse>>(`/api/v1/posts/${postId}`).then(
+    (response) => response.data,
+  );
 }
 
 // 아래 3개도 로그인(Authorization 헤더)이 필요하다 — auth.ts의 loginWithGoogle()로 먼저 토큰을 발급받아야 한다.
@@ -146,7 +177,11 @@ export function createPost(
   }).then((response) => response.data);
 }
 
-export function updatePost(postId: number, title: string, content: string): Promise<PostUpdateResponse> {
+export function updatePost(
+  postId: number,
+  title: string,
+  content: string,
+): Promise<PostUpdateResponse> {
   return apiRequest<ApiResponse<PostUpdateResponse>>(`/api/v1/posts/${postId}`, {
     method: "PUT",
     body: JSON.stringify({ title, content }),

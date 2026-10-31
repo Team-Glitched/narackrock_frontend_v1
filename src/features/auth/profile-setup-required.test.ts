@@ -12,5 +12,8 @@ test("recovers an account created before onboarding was completed", () => {
 });
 
 test("does not repeat onboarding for a completed profile", () => {
-  assert.equal(profileSetupRequired(false, { primaryInstrument: "Piano", explanation: "Composer" }), false);
+  assert.equal(
+    profileSetupRequired(false, { primaryInstrument: "Piano", explanation: "Composer" }),
+    false,
+  );
 });

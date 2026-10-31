@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 
 const page = readFileSync(new URL("../../app/session.tsx", import.meta.url), "utf8");
-const layout = readFileSync(new URL("../../layouts/app-layout.tsx", import.meta.url), "utf8");
+const layout = readFileSync(new URL("../../app/app-layout.tsx", import.meta.url), "utf8");
 const shared = readFileSync(new URL("../../components/app/shared.tsx", import.meta.url), "utf8");
 
 test("renders the current user's saved profile image in the header", () => {

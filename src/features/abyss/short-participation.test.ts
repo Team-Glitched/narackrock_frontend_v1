@@ -5,7 +5,6 @@ import { abyssStyles } from "../../styles/abyss.styles.ts";
 
 import { canJoinShort } from "./short-participation.ts";
 
-
 const joinableShort = {
   completionStatus: "IN_PROGRESS" as const,
   projectId: 12,

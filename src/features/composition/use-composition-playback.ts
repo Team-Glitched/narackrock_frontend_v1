@@ -18,7 +18,7 @@ export function scheduleMidiEnvelope(gain: AudioParam, start: number, end: numbe
 }
 
 export function useCompositionPlayback(composition: CompositionDto | null) {
-  const {signature,setSignature}=useTimeSignature(composition?.project.projectId??null);
+  const { signature, setSignature } = useTimeSignature(composition?.project.projectId ?? null);
   const [playing, setPlaying] = useState(false);
   const [metronome, setMetronome] = useState(false);
   const [positionMs, setPositionMs] = useState(0);
@@ -45,29 +45,45 @@ export function useCompositionPlayback(composition: CompositionDto | null) {
     setTrackVolumes(trackVolumesRef.current);
     const gain = trackGainsRef.current.get(trackId);
     if (gain) gain.gain.value = mutedTrackIdsRef.current.has(trackId) ? 0 : value / 100;
-    audioRef.current.filter(audio => Number(audio.dataset.trackId) === trackId).forEach(audio => {
-      audio.dataset.trackVolume = String(value / 100);
-      audio.volume = value / 100 * volumeRef.current / 100;
-    });
+    audioRef.current
+      .filter((audio) => Number(audio.dataset.trackId) === trackId)
+      .forEach((audio) => {
+        audio.dataset.trackVolume = String(value / 100);
+        audio.volume = ((value / 100) * volumeRef.current) / 100;
+      });
   }, []);
 
-  const toggleTrackMute = useCallback((trackId: number) => {
-    const next = new Set(mutedTrackIdsRef.current);
-    if (next.has(trackId)) next.delete(trackId); else next.add(trackId);
-    mutedTrackIdsRef.current = next;
-    setMutedTrackIds(next);
-    const gain = trackGainsRef.current.get(trackId);
-    if (gain) gain.gain.value = next.has(trackId) ? 0 : (trackVolumesRef.current[trackId] ?? composition?.tracks.find(track => track.trackId === trackId)?.volume ?? 100) / 100;
-    audioRef.current.filter(audio => Number(audio.dataset.trackId) === trackId)
-      .forEach(audio => { audio.muted = next.has(trackId); });
-  }, [composition]);
+  const toggleTrackMute = useCallback(
+    (trackId: number) => {
+      const next = new Set(mutedTrackIdsRef.current);
+      if (next.has(trackId)) next.delete(trackId);
+      else next.add(trackId);
+      mutedTrackIdsRef.current = next;
+      setMutedTrackIds(next);
+      const gain = trackGainsRef.current.get(trackId);
+      if (gain)
+        gain.gain.value = next.has(trackId)
+          ? 0
+          : (trackVolumesRef.current[trackId] ??
+              composition?.tracks.find((track) => track.trackId === trackId)?.volume ??
+              100) / 100;
+      audioRef.current
+        .filter((audio) => Number(audio.dataset.trackId) === trackId)
+        .forEach((audio) => {
+          audio.muted = next.has(trackId);
+        });
+    },
+    [composition],
+  );
 
   const setVolume = useCallback((next: number) => {
     const value = Math.max(0, Math.min(100, next));
     volumeRef.current = value;
     setVolumeState(value);
     if (masterGainRef.current) masterGainRef.current.gain.value = value / 100;
-    audioRef.current.forEach((audio) => { audio.volume = Number(audio.dataset.trackVolume ?? 1) * value / 100; });
+    audioRef.current.forEach((audio) => {
+      audio.volume = (Number(audio.dataset.trackVolume ?? 1) * value) / 100;
+    });
   }, []);
 
   const stopSources = useCallback(() => {
@@ -75,11 +91,20 @@ export function useCompositionPlayback(composition: CompositionDto | null) {
     intervalRef.current = null;
     timersRef.current.forEach(window.clearTimeout);
     timersRef.current = [];
-    scheduledSourcesRef.current.forEach((node) => { try { node.stop(); } catch { /* already stopped */ } });
+    scheduledSourcesRef.current.forEach((node) => {
+      try {
+        node.stop();
+      } catch {
+        /* already stopped */
+      }
+    });
     scheduledSourcesRef.current = [];
-    trackGainsRef.current.forEach(gain => gain.disconnect());
+    trackGainsRef.current.forEach((gain) => gain.disconnect());
     trackGainsRef.current.clear();
-    audioRef.current.forEach((audio) => { audio.pause(); audio.src = ""; });
+    audioRef.current.forEach((audio) => {
+      audio.pause();
+      audio.src = "";
+    });
     audioRef.current = [];
   }, []);
 
@@ -89,11 +114,14 @@ export function useCompositionPlayback(composition: CompositionDto | null) {
     setPlaying(false);
   }, [stopSources]);
 
-  const seek = useCallback((nextMs: number) => {
-    pause();
-    positionRef.current = Math.max(0, nextMs);
-    setPositionMs(positionRef.current);
-  }, [pause]);
+  const seek = useCallback(
+    (nextMs: number) => {
+      pause();
+      positionRef.current = Math.max(0, nextMs);
+      setPositionMs(positionRef.current);
+    },
+    [pause],
+  );
 
   const play = useCallback(async () => {
     if (!composition) return;
@@ -102,23 +130,33 @@ export function useCompositionPlayback(composition: CompositionDto | null) {
     const tickMs = 60_000 / (composition.project.bpm * composition.project.ppq);
     const hasSolo = composition.tracks.some((track) => track.isSolo && !track.isMuted);
     const endMs = compositionDurationMs(composition);
-    if (endMs <= 0) { setPlaying(false); return; }
+    if (endMs <= 0) {
+      setPlaying(false);
+      return;
+    }
     const position = positionRef.current >= endMs ? 0 : positionRef.current;
     positionRef.current = position;
     setPositionMs(position);
     const context = contextRef.current ?? new AudioContext();
     contextRef.current = context;
     await context.resume();
-    if (!pianoSamplesRef.current && composition.tracks.some((track) => track.clips.some((clip) => clip.clipType === "MIDI"))) {
+    if (
+      !pianoSamplesRef.current &&
+      composition.tracks.some((track) => track.clips.some((clip) => clip.clipType === "MIDI"))
+    ) {
       try {
-        const samples = await Promise.all(pianoSamplePitches.map(async (pitch) => {
-          const name = pitch === 21 ? "A0" : `C${pitch / 12 - 1}`;
-          const response = await fetch(`/audio/piano/${name}.mp3`);
-          if (!response.ok) throw new Error("피아노 샘플을 불러오지 못했습니다.");
-          return [pitch, await context.decodeAudioData(await response.arrayBuffer())] as const;
-        }));
+        const samples = await Promise.all(
+          pianoSamplePitches.map(async (pitch) => {
+            const name = pitch === 21 ? "A0" : `C${pitch / 12 - 1}`;
+            const response = await fetch(`/audio/piano/${name}.mp3`);
+            if (!response.ok) throw new Error("피아노 샘플을 불러오지 못했습니다.");
+            return [pitch, await context.decodeAudioData(await response.arrayBuffer())] as const;
+          }),
+        );
         pianoSamplesRef.current = new Map(samples);
-      } catch { pianoSamplesRef.current = new Map(); }
+      } catch {
+        pianoSamplesRef.current = new Map();
+      }
     }
     if (request !== playRequestRef.current) return;
     const masterGain = masterGainRef.current ?? context.createGain();
@@ -129,7 +167,10 @@ export function useCompositionPlayback(composition: CompositionDto | null) {
 
     for (const track of composition.tracks) {
       if (track.isMuted || (hasSolo && !track.isSolo)) continue;
-      const volume = Math.max(0, Math.min(1, (trackVolumesRef.current[track.trackId] ?? track.volume) / 100));
+      const volume = Math.max(
+        0,
+        Math.min(1, (trackVolumesRef.current[track.trackId] ?? track.volume) / 100),
+      );
       const trackGain = context.createGain();
       trackGain.gain.value = mutedTrackIdsRef.current.has(track.trackId) ? 0 : volume;
       trackGain.connect(masterGain);
@@ -144,7 +185,9 @@ export function useCompositionPlayback(composition: CompositionDto | null) {
             const end = now + (noteEndMs - position) / 1000;
             const gain = context.createGain();
             gain.connect(trackGain);
-            const nearest = pianoSamplePitches.reduce((best, pitch) => Math.abs(note.pitch - pitch) < Math.abs(note.pitch - best) ? pitch : best);
+            const nearest = pianoSamplePitches.reduce((best, pitch) =>
+              Math.abs(note.pitch - pitch) < Math.abs(note.pitch - best) ? pitch : best,
+            );
             const sample = pianoSamplesRef.current?.get(nearest);
             if (sample) {
               scheduleMidiEnvelope(gain.gain, start, end, (note.velocity / 127) * 0.8);
@@ -192,7 +235,7 @@ export function useCompositionPlayback(composition: CompositionDto | null) {
           audio.dataset.trackId = String(track.trackId);
           audio.muted = mutedTrackIdsRef.current.has(track.trackId);
           audio.dataset.trackVolume = String(volume);
-          audio.volume = volume * volumeRef.current / 100;
+          audio.volume = (volume * volumeRef.current) / 100;
           audio.preload = "auto";
           audioRef.current.push(audio);
           const begin = () => {
@@ -212,23 +255,29 @@ export function useCompositionPlayback(composition: CompositionDto | null) {
       const next = Math.min(endMs, position + performance.now() - startedAt);
       positionRef.current = next;
       setPositionMs(next);
-      if (next >= endMs) { stopSources(); setPlaying(false); }
+      if (next >= endMs) {
+        stopSources();
+        setPlaying(false);
+      }
     }, 50);
   }, [composition, stopSources]);
 
-  useEffect(() => () => {
-    playRequestRef.current++;
-    stopSources();
-    void contextRef.current?.close();
-    contextRef.current = null;
-    masterGainRef.current = null;
-  }, [stopSources]);
+  useEffect(
+    () => () => {
+      playRequestRef.current++;
+      stopSources();
+      void contextRef.current?.close();
+      contextRef.current = null;
+      masterGainRef.current = null;
+    },
+    [stopSources],
+  );
 
   useEffect(() => {
     if (!playing || !metronome || !composition) return;
     const context = contextRef.current;
     if (!context || !masterGainRef.current) return;
-    const {beatMs}=signatureTiming(signature,composition.project.bpm);
+    const { beatMs } = signatureTiming(signature, composition.project.bpm);
     let lastBeat = -1;
     const tick = () => {
       const beat = Math.floor(positionRef.current / beatMs);
@@ -239,14 +288,35 @@ export function useCompositionPlayback(composition: CompositionDto | null) {
       sound.frequency.value = beat % signature.numerator === 0 ? 1200 : 800;
       gain.gain.setValueAtTime(0.15, context.currentTime);
       gain.gain.exponentialRampToValueAtTime(0.001, context.currentTime + 0.04);
-      sound.connect(gain); gain.connect(masterGainRef.current!);
-      sound.onended = () => { sound.disconnect(); gain.disconnect(); };
-      sound.start(); sound.stop(context.currentTime + 0.04);
+      sound.connect(gain);
+      gain.connect(masterGainRef.current!);
+      sound.onended = () => {
+        sound.disconnect();
+        gain.disconnect();
+      };
+      sound.start();
+      sound.stop(context.currentTime + 0.04);
     };
     tick();
     const timer = window.setInterval(tick, 25);
     return () => window.clearInterval(timer);
   }, [playing, metronome, composition, signature]);
 
-  return { signature, setSignature, metronome, setMetronome, trackVolumes, setTrackVolume, mutedTrackIds, toggleTrackMute, playing, positionMs, volume, setVolume, play, pause, seek };
+  return {
+    signature,
+    setSignature,
+    metronome,
+    setMetronome,
+    trackVolumes,
+    setTrackVolume,
+    mutedTrackIds,
+    toggleTrackMute,
+    playing,
+    positionMs,
+    volume,
+    setVolume,
+    play,
+    pause,
+    seek,
+  };
 }

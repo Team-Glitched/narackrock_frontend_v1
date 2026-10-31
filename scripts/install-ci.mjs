@@ -13,8 +13,16 @@ if (!process.env.npm_execpath) {
 const installed = spawnSync(
   process.execPath,
   [
-    process.env.npm_execpath, "ci", "--prefix", projectRoot, "--workspaces=false",
-    "--include=dev", "--include=optional", "--prefer-offline", "--no-audit", "--no-fund",
+    process.env.npm_execpath,
+    "ci",
+    "--prefix",
+    projectRoot,
+    "--workspaces=false",
+    "--include=dev",
+    "--include=optional",
+    "--prefer-offline",
+    "--no-audit",
+    "--no-fund",
   ],
   { stdio: "inherit" },
 );
@@ -24,7 +32,9 @@ if (installed.status !== 0) process.exit(installed.status ?? 1);
 try {
   accessSync(
     path.join(
-      projectRoot, "node_modules", ".bin",
+      projectRoot,
+      "node_modules",
+      ".bin",
       process.platform === "win32" ? "vite.cmd" : "vite",
     ),
     process.platform === "win32" ? constants.F_OK : constants.X_OK,

@@ -3,8 +3,11 @@ import { readFileSync } from "node:fs";
 import test from "node:test";
 
 const page = readFileSync(new URL("../../app/session.tsx", import.meta.url), "utf8");
-const authScreen = readFileSync(new URL("../screens/auth-screens.tsx", import.meta.url), "utf8");
-const profileScreen = readFileSync(new URL("../profile/profile-screens.tsx", import.meta.url), "utf8");
+const authScreen = readFileSync(new URL("./auth-screen.tsx", import.meta.url), "utf8");
+const profileScreen = readFileSync(
+  new URL("../profile/profile-screens.tsx", import.meta.url),
+  "utf8",
+);
 
 test("uses the shared Google authentication flow for Figma login and signup views", () => {
   assert.doesNotMatch(authScreen, /mode: "login" \| "signup"/);

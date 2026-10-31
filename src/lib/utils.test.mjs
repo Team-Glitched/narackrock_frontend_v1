@@ -12,5 +12,8 @@ test("replaces app text sizes without discarding the foreground color", () => {
 
 test("lets variants override dimensions and descendant typography", () => {
   assert.equal(cn("size-[30px]", "size-5"), "size-5");
-  assert.equal(cn("[&>strong]:text-label", "[&>strong]:text-body [&>strong]:text-app-fg"), "[&>strong]:text-body [&>strong]:text-app-fg");
+  assert.equal(
+    cn("[&>strong]:text-label", "[&>strong]:text-body [&>strong]:text-app-fg"),
+    "[&>strong]:text-body [&>strong]:text-app-fg",
+  );
 });

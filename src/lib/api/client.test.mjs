@@ -13,7 +13,10 @@ test("retired demo URLs use the real session and backend transport", async () =>
   const originalFetch = globalThis.fetch;
   const originalWindow = Object.getOwnPropertyDescriptor(globalThis, "window");
   setAuthSession({ accessToken: "server-token", refreshToken: "server-refresh", userId: 7 });
-  Object.defineProperty(globalThis, "window", { configurable: true, value: { location: { pathname: "/preview" } } });
+  Object.defineProperty(globalThis, "window", {
+    configurable: true,
+    value: { location: { pathname: "/preview" } },
+  });
   const calls = [];
   globalThis.fetch = async (url, init) => {
     calls.push({ url, authorization: init.headers.get("Authorization") });
@@ -36,17 +39,22 @@ test("retired demo URLs use the real session and backend transport", async () =>
 
 test("keeps the backend error code on failed API responses", async () => {
   const originalFetch = globalThis.fetch;
-  globalThis.fetch = async () => new Response(JSON.stringify({
-    message: "존재하지 않는 갤러리입니다.",
-    errorCode: "GALLERY_NOT_FOUND",
-  }), { status: 404, headers: { "Content-Type": "application/json" } });
+  globalThis.fetch = async () =>
+    new Response(
+      JSON.stringify({
+        message: "존재하지 않는 갤러리입니다.",
+        errorCode: "GALLERY_NOT_FOUND",
+      }),
+      { status: 404, headers: { "Content-Type": "application/json" } },
+    );
 
   try {
     await assert.rejects(
       () => apiRequest("/api/v1/galleries/1/posts"),
-      (error) => error instanceof ApiError
-        && error.status === 404
-        && error.errorCode === "GALLERY_NOT_FOUND",
+      (error) =>
+        error instanceof ApiError &&
+        error.status === 404 &&
+        error.errorCode === "GALLERY_NOT_FOUND",
     );
   } finally {
     globalThis.fetch = originalFetch;
@@ -61,9 +69,7 @@ test("clears an expired session and keeps a visible message on an empty 401 resp
   try {
     await assert.rejects(
       () => apiRequest("/api/v1/users/profiles/7"),
-      (error) => error instanceof ApiError
-        && error.status === 401
-        && error.message.length > 0,
+      (error) => error instanceof ApiError && error.status === 401 && error.message.length > 0,
     );
     assert.equal(getCurrentUserId(), null);
   } finally {
@@ -74,7 +80,10 @@ test("clears an expired session and keeps a visible message on an empty 401 resp
 test("does not clear a newly logged-in account when an old request later returns 401", async () => {
   const originalFetch = globalThis.fetch;
   let resolveOldRequest;
-  globalThis.fetch = () => new Promise((resolve) => { resolveOldRequest = resolve; });
+  globalThis.fetch = () =>
+    new Promise((resolve) => {
+      resolveOldRequest = resolve;
+    });
   setAuthSession({ accessToken: "old-token", refreshToken: "old-refresh", userId: 7 });
 
   try {

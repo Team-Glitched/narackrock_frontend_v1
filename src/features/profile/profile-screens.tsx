@@ -6,15 +6,13 @@ import { useEffect, useState } from "react";
 import { ProfileListSheet, type ProfileListKind } from "./profile-lists";
 import { Asset, Avatar, SectionTitle } from "@/components/app/shared";
 import type { Navigate } from "@/features/navigation/types";
-import { useCurrentUserId } from "@/hooks/use-current-user";
+import { useCurrentUserId } from "@/features/auth/use-current-user";
 import { ApiError } from "@/lib/api/client";
 import { getProfile, updateProfile, updateProfileImage } from "@/lib/api/profile";
 import type { UserProfile } from "@/lib/api/contracts";
 
 function profileErrorMessage(error: unknown): string {
-  return error instanceof Error
-    ? error.message
-    : "프로필을 불러오지 못했습니다.";
+  return error instanceof Error ? error.message : "프로필을 불러오지 못했습니다.";
 }
 
 function useOwnProfile(targetUserId?: number) {
@@ -87,24 +85,66 @@ function useOwnProfile(targetUserId?: number) {
 function compactCount(count: number) {
   return count >= 1000 ? `${Number((count / 1000).toFixed(1))}k` : String(count);
 }
-function ProfileWorks({ title, songs, onOpen }: { title: string; songs: UserProfile["activities"]["participatedShorts"]; onOpen: (id: number) => void }) {
+function ProfileWorks({
+  title,
+  songs,
+  onOpen,
+}: {
+  title: string;
+  songs: UserProfile["activities"]["participatedShorts"];
+  onOpen: (id: number) => void;
+}) {
   const [expanded, setExpanded] = useState(false);
-  return <section className={profileStyles.profileWorks}>
-    <SectionTitle allLabel={expanded ? "접기" : "모두보기"} onAll={songs.length ? () => setExpanded(current => !current) : undefined}>{title}</SectionTitle>
-    {songs.length ? <div className={cn(sharedStyles.songRail, expanded ? profileStyles.profileWorksExpanded : "")}>
-      {songs.map(song => <button className={sharedStyles.songCard} key={song.shortId} onClick={() => onOpen(song.shortId)} aria-label={`${song.title} 열기`}>
-        <span className={sharedStyles.songArt}>{song.albumImageUrl ?
-
-          <img src={song.albumImageUrl} alt={`${song.title} 앨범 커버`} /> : <span className={sharedStyles.emptyArtwork} />}</span>
-        <strong>{song.title}</strong>
-      </button>)}
-    </div> : <p className={profileStyles.profileEmptyWork}>아직 등록한 곡이 없습니다.</p>}
-  </section>;
+  return (
+    <section className={profileStyles.profileWorks}>
+      <SectionTitle
+        allLabel={expanded ? "접기" : "모두보기"}
+        onAll={songs.length ? () => setExpanded((current) => !current) : undefined}
+      >
+        {title}
+      </SectionTitle>
+      {songs.length ? (
+        <div
+          className={cn(sharedStyles.songRail, expanded ? profileStyles.profileWorksExpanded : "")}
+        >
+          {songs.map((song) => (
+            <button
+              className={sharedStyles.songCard}
+              key={song.shortId}
+              onClick={() => onOpen(song.shortId)}
+              aria-label={`${song.title} 열기`}
+            >
+              <span className={sharedStyles.songArt}>
+                {song.albumImageUrl ? (
+                  <img src={song.albumImageUrl} alt={`${song.title} 앨범 커버`} />
+                ) : (
+                  <span className={sharedStyles.emptyArtwork} />
+                )}
+              </span>
+              <strong>{song.title}</strong>
+            </button>
+          ))}
+        </div>
+      ) : (
+        <p className={profileStyles.profileEmptyWork}>아직 등록한 곡이 없습니다.</p>
+      )}
+    </section>
+  );
 }
 
-export function ProfileScreen({ go, onOpenShort, userId, onOpenPost }: { userId?: number; go: Navigate; onOpenShort: (id: number) => void; onOpenPost:(id:number)=>void }) {
+export function ProfileScreen({
+  go,
+  onOpenShort,
+  userId,
+  onOpenPost,
+}: {
+  userId?: number;
+  go: Navigate;
+  onOpenShort: (id: number) => void;
+  onOpenPost: (id: number) => void;
+}) {
   const currentUserId = useCurrentUserId();
-  const [list,setList]=useState<ProfileListKind|null>(null);
+  const [list, setList] = useState<ProfileListKind | null>(null);
   const own = userId === undefined || userId === currentUserId;
   const { profile, loading, error } = useOwnProfile(userId);
 
@@ -144,15 +184,15 @@ export function ProfileScreen({ go, onOpenShort, userId, onOpenPost }: { userId?
       <h1>{profile.nickname}</h1>
 
       <div className={sharedStyles.stats}>
-        <button aria-label="팔로워 목록" onClick={()=>setList("followers")}>
+        <button aria-label="팔로워 목록" onClick={() => setList("followers")}>
           <strong>팔로워</strong>
           <small>{compactCount(profile.relations.followerCount)}</small>
         </button>
-        <button aria-label="팔로잉 목록" onClick={()=>setList("following")}>
+        <button aria-label="팔로잉 목록" onClick={() => setList("following")}>
           <strong>팔로잉</strong>
           <small>{compactCount(profile.relations.followingCount)}</small>
         </button>
-        <button aria-label="작성한 게시글 목록" onClick={()=>setList("articles")}>
+        <button aria-label="작성한 게시글 목록" onClick={() => setList("articles")}>
           <strong>게시글</strong>
           <small>{compactCount(profile.activities.postCount)}</small>
         </button>
@@ -171,20 +211,31 @@ export function ProfileScreen({ go, onOpenShort, userId, onOpenPost }: { userId?
         <p>{profile.explanation || "아직 소개가 없습니다."}</p>
       </section>
 
-      <ProfileWorks title={uiLabels.featuredMusic} songs={[...profile.activities.pinnedShorts].sort((a, b) => a.displayOrder - b.displayOrder)} onOpen={onOpenShort} />
-      <ProfileWorks title={uiLabels.participatedMusic} songs={profile.activities.participatedShorts} onOpen={onOpenShort} />
-      {list&&<ProfileListSheet kind={list} profile={profile} onClose={()=>setList(null)} onProfile={id=>go("profile",id)} onPost={onOpenPost}/>}
+      <ProfileWorks
+        title={uiLabels.featuredMusic}
+        songs={[...profile.activities.pinnedShorts].sort((a, b) => a.displayOrder - b.displayOrder)}
+        onOpen={onOpenShort}
+      />
+      <ProfileWorks
+        title={uiLabels.participatedMusic}
+        songs={profile.activities.participatedShorts}
+        onOpen={onOpenShort}
+      />
+      {list && (
+        <ProfileListSheet
+          kind={list}
+          profile={profile}
+          onClose={() => setList(null)}
+          onProfile={(id) => go("profile", id)}
+          onPost={onOpenPost}
+        />
+      )}
     </div>
   );
 }
 
 export function EditProfileScreen({ onSaved }: { onSaved: () => void }) {
-  const {
-    profile,
-    loading,
-    error: loadError,
-    setProfile,
-  } = useOwnProfile();
+  const { profile, loading, error: loadError, setProfile } = useOwnProfile();
 
   if (loading) {
     return (
@@ -211,12 +262,7 @@ export function EditProfileScreen({ onSaved }: { onSaved: () => void }) {
         imageUrl: profile.profileImageUrl,
       }}
       submitLabel="프로필 저장"
-      onSubmit={async ({
-        nickname,
-        instrument,
-        explanation,
-        image,
-      }) => {
+      onSubmit={async ({ nickname, instrument, explanation, image }) => {
         const updated = await updateProfile({
           nickname,
           primaryInstrument: instrument,
@@ -228,8 +274,7 @@ export function EditProfileScreen({ onSaved }: { onSaved: () => void }) {
         setProfile({
           ...profile,
           ...updated,
-          profileImageUrl:
-            uploaded?.profileImageUrl ?? profile.profileImageUrl,
+          profileImageUrl: uploaded?.profileImageUrl ?? profile.profileImageUrl,
         });
 
         onSaved();
@@ -293,10 +338,7 @@ export function InitialProfileSetupScreen({
 
       onSaved();
     } catch (cause) {
-      if (
-        cause instanceof ApiError &&
-        cause.errorCode === "DUPLICATE_NICKNAME"
-      ) {
+      if (cause instanceof ApiError && cause.errorCode === "DUPLICATE_NICKNAME") {
         setStep(0);
       }
 
@@ -374,11 +416,7 @@ export function InitialProfileSetupScreen({
           </p>
         )}
 
-        <button
-          type="submit"
-          className={profileStyles.profileOnboardingNext}
-          disabled={saving}
-        >
+        <button type="submit" className={profileStyles.profileOnboardingNext} disabled={saving}>
           {saving ? "저장 중..." : step === 2 ? "시작하기" : "다음"}
         </button>
       </div>
@@ -394,14 +432,7 @@ type ProfileDraft = {
 };
 
 function validateProfileImage(file: File): void {
-  if (
-    !new Set([
-      "image/jpeg",
-      "image/png",
-      "image/webp",
-      "image/gif",
-    ]).has(file.type)
-  ) {
+  if (!new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]).has(file.type)) {
     throw new Error("JPG, PNG, WEBP 또는 GIF 이미지를 선택해 주세요.");
   }
 
@@ -470,10 +501,7 @@ export function ProfileForm({
     <div className={cn(profileStyles.editView, sharedStyles.scrollContent)}>
       <label className={profileStyles.editAvatar}>
         <span className={profileStyles.editAvatarVisual}>
-          <Avatar
-            large
-            src={image?.previewUrl ?? initial.imageUrl}
-          />
+          <Avatar large src={image?.previewUrl ?? initial.imageUrl} />
 
           <span className={profileStyles.editAvatarOverlay} aria-hidden>
             <Asset name="profile-photo-shade.svg" className={profileStyles.profilePhotoShade} />
@@ -555,7 +583,6 @@ export function ProfileForm({
       >
         {saving ? "저장 중..." : submitLabel}
       </button>
-
     </div>
   );
 }

@@ -1,16 +1,13 @@
 import { cva, type VariantProps } from "class-variance-authority";
 import { sharedStyles } from "./shared.styles.ts";
 
-export const buttonVariants = cva(
-  "h-10 rounded-pill px-[17px] py-0 text-label whitespace-nowrap",
-  {
-    variants: {
-      tone: { primary: sharedStyles.purplePill, secondary: sharedStyles.grayPill },
-      size: { default: "", compact: sharedStyles.compact },
-    },
-    defaultVariants: { tone: "primary", size: "default" },
+export const buttonVariants = cva("h-10 rounded-pill px-[17px] py-0 text-label whitespace-nowrap", {
+  variants: {
+    tone: { primary: sharedStyles.purplePill, secondary: sharedStyles.grayPill },
+    size: { default: "", compact: sharedStyles.compact },
   },
-);
+  defaultVariants: { tone: "primary", size: "default" },
+});
 
 export const iconSlotVariants = cva(sharedStyles.figmaIconSlot, {
   variants: {
@@ -45,8 +42,10 @@ export const filterChipVariants = cva(
   {
     variants: {
       appearance: {
-        outline: "rounded-[15px] border-app-surface aria-pressed:bg-app-surface after:absolute after:inset-x-0 after:-inset-y-[9px] after:content-[''] focus-visible:outline-offset-4 focus-visible:outline-app-primary-soft",
-        filled: "rounded-card border-app-border bg-app-surface text-app-muted aria-pressed:border-app-primary aria-pressed:bg-app-primary aria-pressed:text-app-fg focus-visible:outline-offset-2 focus-visible:outline-app-accent",
+        outline:
+          "rounded-[15px] border-app-surface aria-pressed:bg-app-surface after:absolute after:inset-x-0 after:-inset-y-[9px] after:content-[''] focus-visible:outline-offset-4 focus-visible:outline-app-primary-soft",
+        filled:
+          "rounded-card border-app-border bg-app-surface text-app-muted aria-pressed:border-app-primary aria-pressed:bg-app-primary aria-pressed:text-app-fg focus-visible:outline-offset-2 focus-visible:outline-app-accent",
       },
       size: {
         compact: "min-h-[26px] px-3 py-1 leading-4",

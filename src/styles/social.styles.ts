@@ -48,14 +48,8 @@ export const socialStyles = {
     "[.design-canvas_.friends-view_&_small]:text-caption [.design-canvas_.friends-view_&_small]:leading-[14px]",
     "[.design-canvas_.friends-view_&>span]:gap-[var(--supporting-copy-gap)]",
   ].join(" "),
-  searchView: [
-    "search-view",
-    "h-full p-[4px_15px]",
-  ].join(" "),
-  searchResult: [
-    "search-result",
-    "mt-20 text-center text-body text-app-muted",
-  ].join(" "),
+  searchView: ["search-view", "h-full p-[4px_15px]"].join(" "),
+  searchResult: ["search-result", "mt-20 text-center text-body text-app-muted"].join(" "),
   personLink: [
     "person-link",
     "mr-auto flex min-w-0 items-center gap-[10px] text-left",
@@ -70,10 +64,7 @@ export const socialStyles = {
     "[.design-canvas_&]:rounded-[14px_14px_0_0] [.design-canvas_&]:p-[10px_20px] [.design-canvas_&]:bg-app-bg [.design-canvas_&]:bg-none",
     "[.design-canvas_&]:flex [.design-canvas_&]:flex-col [.design-canvas_&]:items-center [.design-canvas_&]:gap-[30px]",
   ].join(" "),
-  notificationOverlay: [
-    "notification-overlay",
-    "absolute inset-0 z-[60]",
-  ].join(" "),
+  notificationOverlay: ["notification-overlay", "absolute inset-0 z-[60]"].join(" "),
   notificationBackdrop: [
     "notification-backdrop",
     "absolute inset-0 h-full w-full bg-[#0006] bg-none",
@@ -103,10 +94,7 @@ export const socialStyles = {
     "[&_small]:mt-1 [&_small]:text-caption [&_small]:text-app-muted [&_small]:leading-[14px]",
     "[.design-canvas_&_small]:mt-[var(--supporting-copy-gap)]",
   ].join(" "),
-  chatScreen: [
-    "chat-screen",
-    "flex h-full flex-col",
-  ].join(" "),
+  chatScreen: ["chat-screen", "flex h-full flex-col"].join(" "),
   chatHeader: [
     "chat-header",
     "flex flex-[0_0_44px] items-center px-1",
@@ -129,10 +117,7 @@ export const socialStyles = {
     "chat-bubble",
     "m-0 max-w-68 rounded-[20px_20px_20px_4px] p-[12px_10px] text-caption bg-[#d7dce2] bg-none text-app-bg leading-[14px]",
   ].join(" "),
-  chatIncoming: [
-    "chat-incoming",
-    "flex items-end gap-[10px]",
-  ].join(" "),
+  chatIncoming: ["chat-incoming", "flex items-end gap-[10px]"].join(" "),
   searchScopeTabs: [
     "search-scope-tabs",
     "[.design-canvas_&]:mt-5 [.design-canvas_&]:flex [.design-canvas_&]:h-10 [.design-canvas_&]:min-h-10 [.design-canvas_&]:items-center",
