@@ -59,7 +59,6 @@ src/
     ...              # notifications, search, saved, settings, admin, abyss
   components/
     app/             # 헤더·푸터, 다이얼로그, 재생 바 등 서비스 공통 UI
-    ui/              # 기본 UI 라이브러리
   hooks/             # 여러 기능에서 쓰는 범용 훅
   lib/
     api/             # API 클라이언트, 응답 타입, 서버 요청
@@ -81,6 +80,7 @@ src/
 페이지 파일은 URL 파라미터와 이동을 연결하고, 같은 기능 폴더의 화면·훅을 조합합니다.
 여러 기능이 섞인 `features/screens`와 별도로 흩어진 `pages`, `layouts`는 위 구조로 통합했습니다.
 API 폴더에는 실제 서버 요청과 API 클라이언트 테스트를 두고, 나머지 테스트는 해당 기능 옆에 둡니다.
+사용하지 않는 shadcn 기본 컴포넌트와 전용 의존성은 제거했습니다. `components.json`은 향후 필요한 컴포넌트를 생성할 때 쓸 설정으로 유지합니다.
 `npm test`는 `src/` 아래의 테스트를 하위 폴더까지 자동으로 찾아 실행합니다.
 
 Next.js/Vinext와 서버 전용 스타터 코드는 제거했습니다. 과거 작업 이력은 `CONTEXT.md`에 보관되어 있습니다.
@@ -94,7 +94,7 @@ npm run format:check  # 파일을 수정하지 않고 포맷 검사
 
 Prettier 설정은 `.prettierrc.json`, 기본 편집 규칙은 `.editorconfig`에서 관리합니다.
 들여쓰기는 공백 2칸, 일반 코드의 줄 너비는 100자를 기준으로 합니다.
-환경 파일, 빌드 결과, 원본 자산, 과거 작업 이력은 포맷 대상에서 제외합니다.
+환경 파일, 빌드 결과, 원본 자산, 과거 작업 이력, `.thinkrail/` 작업 메타데이터는 포맷 대상에서 제외합니다.
 
 ## 페이지 이동
 

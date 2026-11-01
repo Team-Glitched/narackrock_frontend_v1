@@ -15,12 +15,4 @@ export default defineConfig([
     files: ["src/**/*.{ts,tsx}"],
     extends: [hooks.configs.flat.recommended],
   },
-  {
-    files: ["src/components/ui/**/*.{ts,tsx}", "src/hooks/use-mobile.ts"],
-    rules: {
-      "@typescript-eslint/no-unused-vars": "off",
-      "react-hooks/purity": "off",
-      "react-hooks/set-state-in-effect": "off",
-    },
-  },
 ]);

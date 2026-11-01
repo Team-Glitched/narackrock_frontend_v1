@@ -22,7 +22,6 @@ const viewToFooterTab: Partial<Record<View, FooterTab>> = {
 const activeFooterTab = (view: View): FooterTab | null => viewToFooterTab[view] ?? null;
 
 const assetRoot = "/figma/";
-export const postImages = ["abyss-album.png", "profile.png"];
 
 /** Figma layout slots exclude the SVG's painted stroke overflow. */
 export function IconSlot({
