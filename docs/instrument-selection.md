@@ -36,7 +36,7 @@ An empty personal layer is reused on a retry after a failed upload/lost response
 
 ## Backend dependency
 
-Deploy with backend branch `refector/piano-roll-timing`:
+Deploy with backend `TEST` commit `c78abb73b4c60137d01b84ce23ba80cbde9da576` or a descendant containing these APIs (`refector/piano-roll-timing` has been merged into TEST):
 
 - Track creation requires a known instrument/recorded role.
 - `PATCH /api/v1/projects/{projectId}/tracks/{trackId}/instrument` changes the authenticated owner's editable track.
@@ -57,4 +57,11 @@ The existing isolated TEST-derived backend/database was used, with separate veri
 - Frontend: 120 tests, TypeScript, lint and production build passed. Backend: 1,066 tests, zero failures/errors/skips.
 - Physical microphone capture and live HTI conversion were not exercised. The shared role picker and actual uploaded-audio path were verified; HTI output-sound selection has unit coverage.
 
-Runtime evidence remains under `/private/tmp/narackrock-studio-live.v3wxk7qq/parts-checks.json`. Runtime authentication data and test bootstrap pages are not included in product code. Frontend and backend changes are on their `refector` branches; they are not merged into dev/TEST.
+Runtime evidence remains under `/private/tmp/narackrock-studio-live.v3wxk7qq/parts-checks.json`. Runtime authentication data and test bootstrap pages are not included in product code. Frontend changes remain on `refector/piano-roll-studio`, pending a PR into dev. Backend changes have been merged and pushed to TEST at `c78abb73b4c60137d01b84ce23ba80cbde9da576`; the merged backend passed all 1,066 tests.
+
+## PR verification — 2026-11-02
+
+- Rechecked against current remote dev: no new base commits or whitespace errors.
+- All 120 frontend tests passed; TypeScript, ESLint and production build passed again.
+- Confirmed the remote backend TEST branch contains the required APIs at `c78abb73b4c60137d01b84ce23ba80cbde9da576`.
+- The browser and API checks above were performed on 2026-10-29; physical microphone capture and live HTI conversion remain unverified.
