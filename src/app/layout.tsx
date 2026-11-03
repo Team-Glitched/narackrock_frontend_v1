@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import "./composition-team.css";
+import "./piano-roll-studio.css";
 
 export const metadata: Metadata = {
   title: "Narackrock — Make it heard",

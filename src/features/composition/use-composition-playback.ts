@@ -77,6 +77,51 @@ export function useCompositionPlayback(composition: CompositionDto | null) {
     return promise;
   }, []);
 
+  const audition = useCallback(async (pitch: number, instrumentId: string) => {
+    pause();
+    const request = playRequestRef.current;
+    setError(null);
+    try {
+      await Tone.start();
+      if (request !== playRequestRef.current) return;
+      const master = masterGainRef.current ?? new Tone.Gain(volumeRef.current / 100).toDestination();
+      masterGainRef.current = master;
+      const sampler = await loadSampler(instrumentId, master);
+      if (request !== playRequestRef.current) return;
+      sampler.triggerAttackRelease(Tone.Frequency(pitch, "midi").toNote(), .35, Tone.now(), .8);
+    } catch (cause) {
+      if (request === playRequestRef.current) setError(cause instanceof Error ? cause.message : "악기 샘플을 불러오지 못했습니다.");
+    }
+  }, [loadSampler, pause]);
+
+  const previewInstrument = useCallback(async (instrumentId: string) => {
+    pause();
+    const request = playRequestRef.current;
+    setError(null);
+    try {
+      await Tone.start();
+      const master = masterGainRef.current ?? new Tone.Gain(volumeRef.current / 100).toDestination();
+      masterGainRef.current = master;
+      const instrument = instrumentFor(instrumentId);
+      const sampler = await loadSampler(instrument.id, master);
+      if (request !== playRequestRef.current) return;
+      const pitches = instrument.kind === "drum" ? [36, 42, 38, 42]
+        : instrument.program >= 32 && instrument.program <= 38 ? [36, 40, 43]
+          : instrument.program >= 24 && instrument.program <= 30 ? [52, 55, 59] : [60, 64, 67];
+      const transport = Tone.getTransport();
+      pitches.forEach((pitch, index) => transport.scheduleOnce(time => {
+        sampler.triggerAttackRelease(Tone.Frequency(pitch, "midi").toNote(), instrument.kind === "drum" ? 1.45 : .25, time, .8);
+      }, index * .24));
+      transport.start();
+      timersRef.current.push(window.setTimeout(() => { if (request === playRequestRef.current) stopSources(); },
+        instrument.kind === "drum" ? 2400 : 1100));
+    } catch (cause) {
+      if (request !== playRequestRef.current) return;
+      setError(cause instanceof Error ? cause.message : "예시 소리를 불러오지 못했습니다.");
+      throw cause;
+    }
+  }, [loadSampler, pause, stopSources]);
+
   const play = useCallback(async () => {
     if (!composition) return;
     const request = ++playRequestRef.current;
@@ -86,7 +131,7 @@ export function useCompositionPlayback(composition: CompositionDto | null) {
     const hasSolo = composition.tracks.some((track) => track.isSolo && !track.isMuted);
     const tracks = composition.tracks.filter((track) => !track.isMuted && (!hasSolo || track.isSolo));
     const endMs = compositionEndMs(composition, tracks);
-    if (endMs <= 0) { setPlaying(false); return; }
+    if (endMs <= 0) { positionRef.current = 0; setPositionMs(0); setPlaying(false); return; }
     const position = positionRef.current >= endMs ? 0 : positionRef.current;
     positionRef.current = position;
     setPositionMs(position);
@@ -146,7 +191,12 @@ export function useCompositionPlayback(composition: CompositionDto | null) {
         const next = Math.min(endMs, position + performance.now() - startedAt);
         positionRef.current = next;
         setPositionMs(next);
-        if (next >= endMs) { stopSources(); setPlaying(false); }
+        if (next >= endMs) {
+          stopSources();
+          positionRef.current = 0;
+          setPositionMs(0);
+          setPlaying(false);
+        }
       }, 50);
     } catch (cause) {
       if (request !== playRequestRef.current) return;
@@ -166,5 +216,5 @@ export function useCompositionPlayback(composition: CompositionDto | null) {
     masterGainRef.current = null;
   }, [stopSources]);
 
-  return { playing, positionMs, volume, error, setVolume, play, pause, seek };
+  return { playing, positionMs, volume, error, setVolume, play, pause, seek, audition, previewInstrument };
 }

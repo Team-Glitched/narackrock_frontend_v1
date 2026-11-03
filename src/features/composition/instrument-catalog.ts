@@ -24,9 +24,14 @@ const aliases: Record<string, string> = {
   "드럼": "drum-kit",
 };
 
-export function instrumentFor(value: string | null | undefined): InstrumentDefinition {
+export function canonicalInstrumentId(value: string | null | undefined): string {
   const id = value?.trim() ?? "";
-  return instruments.find((item) => item.id === (aliases[id] ?? id)) ?? instruments[0];
+  return aliases[id] ?? aliases[id.toUpperCase()] ?? id;
+}
+
+export function instrumentFor(value: string | null | undefined): InstrumentDefinition {
+  const id = canonicalInstrumentId(value);
+  return instruments.find((item) => item.id === id) ?? instruments[0];
 }
 
 export function samplePitches(instrument: InstrumentDefinition): number[] {

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 
-import { canJoinShort } from "./short-participation.ts";
+import { canJoinShort, canEditOwnShort } from "./short-participation.ts";
 
 const abyssScreen = readFileSync(new URL("../screens/abyss-screen.tsx", import.meta.url), "utf8");
 const globalStyles = readFileSync(new URL("../../app/globals.css", import.meta.url), "utf8");
@@ -38,4 +38,13 @@ test("does not allow participation in a completed short", () => {
 test("keeps the original short layout when only the participation button is hidden", () => {
   assert.match(abyssScreen, /className="abyss-join-slot"/);
   assert.match(globalStyles, /\.abyss-join-slot\{[^}]*height:44px[^}]*flex:0 0 44px/);
+});
+
+
+test("only the original owner can reopen an unfinished published song for shared settings", () => {
+  const short = { ...joinableShort, author: { userId: 7, nickname: "owner", profileImageUrl: null } };
+  assert.equal(canEditOwnShort(short,7),true);
+  assert.equal(canEditOwnShort(short,8),false);
+  assert.equal(canEditOwnShort(short,null),false);
+  assert.equal(canEditOwnShort({ ...short, completionStatus:"COMPLETED" },7),false);
 });

@@ -184,7 +184,7 @@
   overflow: hidden;
 }.studio-playhead,
 .note-playhead {
-  animation: playhead-move 8s linear infinite;
+  animation: none;
 }.note-workspace {
   overflow: hidden;
 }.piano-keys {
