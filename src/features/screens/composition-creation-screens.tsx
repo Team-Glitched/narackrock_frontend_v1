@@ -10,22 +10,19 @@ import { useCompositionPlayback } from "@/features/composition/use-composition-p
 export type CreationMethod = "upload" | "record" | "note";
 
 // The three-card selection layout comes from the team's origin/fix/overall ChooseScreen.
-export function CompositionChoiceScreen({ onChoose, onBack, busy, error }: {
+export function CompositionChoiceScreen({ onChoose, onBack }: {
   onChoose: (method: CreationMethod) => void;
   onBack: () => void;
-  busy: boolean;
-  error: string | null;
 }) {
   return <div className="choose-view scroll-content">
     <button className="creation-back" onClick={onBack}>← 작곡 화면</button>
-    {error && <p role="alert">{error}</p>}
     <p className="creation-flow-hint">먼저 만드는 방식을 골라 주세요.<br />악기는 피아노롤에서, 녹음·파일의 역할은 소리를 확인한 뒤 선택합니다.</p>
     {([
       { method: "upload", label: "업로드", image: "choose-upload.png" },
       { method: "record", label: "녹음", image: "choose-record.png" },
       { method: "note", label: "노트로 작곡", image: "choose-piano.png" },
     ] as const).map((item) => <button className="creation-choice" key={item.method}
-      disabled={busy} onClick={() => onChoose(item.method)}>
+      onClick={() => onChoose(item.method)}>
       <strong>{item.label}</strong><Asset name={item.image} />
     </button>)}
   </div>;
@@ -126,7 +123,7 @@ export function CompositionRecordScreen({ projectId, onSave, onTransform, onBack
         <button className="gray-pill" disabled={pending} onClick={() => { recordedAudio.current?.pause(); setSelectingPart("midi"); }}>노트로 변환할 악기 선택 (HTI)</button>
       </div>}
     </div>
-    {selectingPart && file && <InstrumentPicker projectId={projectId} mode={selectingPart}
+    {selectingPart && file && <InstrumentPicker projectId={projectId} mode={selectingPart} pitchedOnly={selectingPart === "midi"}
       audio={selectingPart === "audio" ? { url, startMs: 0 } : undefined}
       onPreview={preview.previewInstrument} onStop={preview.pause} onClose={() => setSelectingPart(null)} onConfirm={confirmPart} />}
     <button className="record-button" disabled={pending} aria-label={recording ? "녹음 종료" : "녹음 시작"}

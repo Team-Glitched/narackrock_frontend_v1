@@ -41,3 +41,7 @@ test("HTI uses the chosen playable sound and rejects recording-only roles", () =
   assert.equal(createHtiMidiLayerPlan({ durationTick: 960, midiNotes: [note] }, 0, 28_800, "electric-guitar").instrument, "electric-guitar");
   assert.throws(() => createHtiMidiLayerPlan({ durationTick: 960, midiNotes: [note] }, 0, 28_800, "vocal"), /악기를 선택/);
 });
+
+test("HTI rejects drum kits because sung pitches fall outside the drum rows", () => {
+  assert.throws(() => createHtiMidiLayerPlan({ durationTick: 960, midiNotes: [note] }, 0, 28_800, "drum-kit"), /음정 악기/);
+});

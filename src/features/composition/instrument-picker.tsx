@@ -3,11 +3,14 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { Check, Headphones, X } from "lucide-react";
 import { getComposition } from "@/lib/api/composition";
+import { instrumentFor } from "./instrument-catalog";
 import { instrumentGroups, instrumentParts, occupyingTrack, partLabel, supportsMidi, type PartTrack } from "./instrument-parts";
 
-export function InstrumentPicker({ projectId, currentTrackId, currentInstrument, mode = "midi", midiOnly = false, onPreview, onStop,
+export function InstrumentPicker({ projectId, currentTrackId, currentInstrument, mode = "midi", midiOnly = false, pitchedOnly = false, onPreview, onStop,
   onConfirm, onClose, audio }: {
   projectId: number; currentTrackId?: number; currentInstrument?: string | null; mode?: "midi" | "audio"; midiOnly?: boolean;
+  /** Hide drum kits, e.g. when converting a sung melody to notes. */
+  pitchedOnly?: boolean;
   onPreview: (id: string) => Promise<void>; onStop: () => void; onConfirm: (id: string) => Promise<void>; onClose: () => void;
   audio?: { url: string; startMs: number; endMs?: number };
 }) {
@@ -21,7 +24,8 @@ export function InstrumentPicker({ projectId, currentTrackId, currentInstrument,
   const [loadingSound, setLoadingSound] = useState("");
   const [error, setError] = useState("");
   const request = useRef(0);
-  const groups = instrumentGroups.filter(group => (mode === "audio" && !midiOnly) || group.instruments.some(supportsMidi));
+  const selectable = (id: string) => ((mode === "audio" && !midiOnly) || supportsMidi(id)) && !(pitchedOnly && instrumentFor(id).kind === "drum");
+  const groups = instrumentGroups.filter(group => group.instruments.some(selectable));
   useEffect(() => {
     dialog.current?.showModal();
     const originalAudio = source.current;
@@ -70,7 +74,7 @@ export function InstrumentPicker({ projectId, currentTrackId, currentInstrument,
         return <section className="instrument-family" key={group.id} aria-label={`${group.label} 종류`}>
           <h3 ref={element => { if (element) headings.current.set(group.id, element); }} tabIndex={-1}>{group.label}
             {occupant && <span>팀원 사용 중 · {occupant.name}</span>}</h3>
-          <div className="instrument-options">{group.instruments.filter(id => (mode === "audio" && !midiOnly) || supportsMidi(id)).map(id =>
+          <div className="instrument-options">{group.instruments.filter(selectable).map(id =>
             <button type="button" key={id} className={candidate === id ? "selected" : ""} aria-pressed={candidate === id}
               aria-label={`${partLabel(id)}${mode === "midi" ? " 미리 듣기" : " 역할 선택"}`}
               disabled={!tracks || saving || Boolean(occupant)} onClick={() => { void preview(id); }}>

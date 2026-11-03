@@ -69,8 +69,6 @@ export default function Page() {
   const [abyssTargetShortId, setAbyssTargetShortId] = useState<number | null>(null);
   const [editorTarget, setEditorTarget] = useState<{ trackId: number | null; clipId: number | null } | null>(null);
   const [reviewOrigin, setReviewOrigin] = useState(false);
-  const choiceBusy = false;
-  const [choiceError, setChoiceError] = useState<string | null>(null);
 
   useEffect(() => {
     const openSharedContent = () => {
@@ -173,7 +171,6 @@ export default function Page() {
   const startDraft = useCallback((projectId: number) => {
     setReviewOrigin(false);
     setCompositionTarget({ shortId: null, projectId });
-    setChoiceError(null);
     setView("choose");
   }, []);
 
@@ -262,8 +259,7 @@ export default function Page() {
     if (activeView === "login") return <AuthScreen onAuthenticated={authenticate} onFirstLogin={startProfileSetup} />;
     if (activeView === "edit" && pendingProfileSetup) return <InitialProfileSetupScreen {...pendingProfileSetup} onSaved={authenticate} />;
     if (activeView === "edit") return <EditProfileScreen onSaved={profileUpdated} />;
-    if (activeView === "choose") return <CompositionChoiceScreen onChoose={chooseLayer}
-      onBack={() => setView("studio")} busy={choiceBusy} error={choiceError} />;
+    if (activeView === "choose") return <CompositionChoiceScreen onChoose={chooseLayer} onBack={() => setView("studio")} />;
     if (activeView === "upload") return <CompositionUploadScreen projectId={compositionTarget.projectId!} onSave={saveAudio} onBack={() => setView("choose")} />;
     if (activeView === "record") return <CompositionRecordScreen projectId={compositionTarget.projectId!} onSave={(file, instrument) => saveAudio(file, undefined, instrument, "RECORDING")} onTransform={transformRecording} onBack={() => setView("choose")} />;
     if (activeView === "note") return <NoteEditorScreen
@@ -273,7 +269,7 @@ export default function Page() {
       trackId={editorTarget?.trackId ?? null}
       clipId={editorTarget?.clipId ?? null}
       onBack={backToStudio}
-      onAddLayer={() => { setChoiceError(null); setView("choose"); }}
+      onAddLayer={() => setView("choose")}
     />;
     return <StudioScreen
       go={go}
@@ -283,10 +279,10 @@ export default function Page() {
       onReturnToShort={returnToJoinedShort}
       onProjectSelected={selectProject}
       onDraftCreated={startDraft}
-      onAddLayer={() => { setChoiceError(null); setView("choose"); }}
+      onAddLayer={() => setView("choose")}
       onEditTrack={editTrack}
     />;
-  }, [abyssMuted, playbackMode, changePlaybackMode, selectedCommunity, commentPostId, communityTab, authenticate, profileUpdated, startProfileSetup, pendingProfileSetup, go, activeView, currentUserId, compositionTarget, abyssTargetShortId, editorTarget, joinShort, selectProject, returnToJoinedShort, openHomeShort, openSongChart, songChartKind, startDraft, chooseLayer, choiceBusy, choiceError, saveAudio, transformRecording, editTrack, backToStudio, openReviewProject, reviewOrigin, openChat, openPersonProfile, chatFriend, chatReturnView, profileTargetId]);
+  }, [abyssMuted, playbackMode, changePlaybackMode, selectedCommunity, commentPostId, communityTab, authenticate, profileUpdated, startProfileSetup, pendingProfileSetup, go, activeView, currentUserId, compositionTarget, abyssTargetShortId, editorTarget, joinShort, selectProject, returnToJoinedShort, openHomeShort, openSongChart, songChartKind, startDraft, chooseLayer, saveAudio, transformRecording, editTrack, backToStudio, openReviewProject, reviewOrigin, openChat, openPersonProfile, chatFriend, chatReturnView, profileTargetId]);
 
   // 가입 상태는 커뮤니티 목록·전체목록·상세가 공유하며 서버 구독 API에서 가져온다.
   if (activeView === "studio" || activeView === "note") return <main className="studio-shell">{content}</main>;

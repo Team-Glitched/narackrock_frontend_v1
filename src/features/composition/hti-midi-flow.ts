@@ -1,3 +1,4 @@
+import { instrumentFor } from "./instrument-catalog.ts";
 import { supportsMidi } from "./instrument-parts.ts";
 
 export type HtiMidiNote = {
@@ -22,6 +23,7 @@ export function createHtiMidiLayerPlan(result: HtiMidiResult, trackCount: number
     throw new Error("녹음에서 변환할 음정을 찾지 못했습니다. 반주 없이 다시 녹음해 주세요.");
   }
   if (!supportsMidi(instrument)) throw new Error("MIDI로 연주할 악기를 선택해 주세요.");
+  if (instrumentFor(instrument).kind === "drum") throw new Error("노트로 변환할 음정 악기를 선택해 주세요.");
   return {
     name: `HTI MIDI ${trackCount + 1}`,
     instrument,
