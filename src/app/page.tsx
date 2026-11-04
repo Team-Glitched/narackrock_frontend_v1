@@ -72,6 +72,7 @@ export default function Page() {
 
   useEffect(() => {
     const openSharedContent = () => {
+      if (/^\/opensource\/[1-9]\d*\/?$/.test(window.location.pathname)) { setView(currentUserId === null ? "login" : "opensource"); return; }
       const target = parseContentLink(window.location.pathname, window.location.search);
       if (!target) return;
       if (target.kind === "post") {
@@ -247,9 +248,9 @@ export default function Page() {
     if (activeView === "mutual" || activeView === "recommendations" || activeView === "followers" || activeView === "following") return <PeopleListScreen kind={activeView} onChat={openChat} onProfile={openPersonProfile} />;
     if (activeView === "chatInbox") return <ChatInboxScreen onChat={openChat} />;
     if (activeView === "chat" && chatFriend) return <ChatConversationScreen key={chatFriend.userId} friend={chatFriend} onBack={() => go(chatReturnView)} onNotifications={() => go("notifications")} onSearch={() => go("search")} />;
-    if (activeView === "search") return <SearchScreen go={go} />;
+    if (activeView === "search") return <SearchScreen go={go} onProfile={id => { setProfileTargetId(id); setView("profile"); }} />;
     if (activeView === "social" || activeView === "community") return <CommunityScreen go={go} tab={communityTab} onTabChange={setCommunityTab} onComments={setCommentPostId} onOpenCommunity={setSelectedCommunity} onChat={openChat} onProfile={openPersonProfile} />;
-    if (activeView === "opensource") return <OpensourceScreen go={go} />;
+    if (activeView === "opensource") return <OpensourceScreen go={go} onProfile={id => { setProfileTargetId(id); setView("profile"); }} />;
     if (activeView === "opensourceDetail") return <OpensourceDetailScreen />;
     if (activeView === "opensourceComments") return <OpensourceDetailScreen focusComments />;
     if (activeView === "joined") return <JoinedCommunitiesScreen onOpen={setSelectedCommunity} />;

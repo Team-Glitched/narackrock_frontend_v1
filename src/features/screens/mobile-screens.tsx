@@ -1,4 +1,5 @@
 "use client";
+import { OpensourceScreen } from "./opensource-screens";
 
 import "./community.css";
 import "./popular-charts.css";
@@ -113,7 +114,11 @@ export function PostsScreen({ onOpenPost }: { go: Navigate; onOpenPost: (postId:
     <PopularActions content={{ kind: "post", id: post.postId }} />
   </div>)}</div></div>;
 }
-export function SearchScreen({ go }: { go: Navigate }) { const [query, setQuery] = useState(""); return <div className="search-view"><div className="search-line"><button onClick={() => go("home")} aria-label="뒤로"><Asset name="return.svg" /></button><label><Asset name="search.svg" /><input autoFocus value={query} onChange={e => setQuery(e.target.value)} placeholder="검색" />{query && <button onClick={() => setQuery("")} aria-label="검색어 지우기">×</button>}</label></div>{query && <p className="search-result">‘{query}’ 검색 결과가 없습니다.</p>}</div>; }
+export function SearchScreen({ go, onProfile }: { go: Navigate; onProfile?: (id: number) => void }) {
+  const [query, setQuery] = useState("");
+  const [submitted, setSubmitted] = useState<string | null>(null);
+  return <div className="search-view"><form className="search-line" onSubmit={event => { event.preventDefault(); setSubmitted(query.trim()); }}><button type="button" onClick={() => go("home")} aria-label="뒤로"><Asset name="return.svg" /></button><label><Asset name="search.svg" /><input aria-label="통합 검색어" value={query} onChange={event => setQuery(event.target.value)} placeholder="오픈소스 검색" /></label><button type="submit">검색</button></form>{submitted !== null && <OpensourceScreen go={go} onProfile={onProfile} initialSearch={submitted} resolvePath={false} />}</div>;
+}
 export function PostComposer({ galleryId, onCreated, onCancel }: { galleryId: number; onCreated: () => void; onCancel: () => void }) {
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");

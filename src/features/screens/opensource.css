@@ -1,0 +1,22 @@
+.opensource-view, .opensource-detail { padding: 20px; overflow-wrap: anywhere; }
+.opensource-view nav { flex-wrap: wrap; padding: 0 0 20px !important; }
+.opensource-view button, .opensource-detail button { min-height: 40px; padding: 8px 12px; border-radius: 12px; background: #303034; margin: 4px; text-align: left; }
+.opensource-view button[aria-pressed="true"], .opensource-detail button[aria-pressed="true"] { background: #6331c9; }
+.opensource-view button:disabled, .opensource-detail button:disabled { opacity: .5; cursor: wait; }
+.opensource-view button:focus-visible, .opensource-detail button:focus-visible { outline: 2px solid #bba1ff; outline-offset: 2px; }
+.opensource-view section { display: flex; flex-direction: column; gap: 12px; }
+.opensource-view section label { display: flex; flex-direction: column; gap: 8px; font-size: 14px; }
+.opensource-view input, .opensource-view textarea, .opensource-detail textarea { width: 100%; min-width: 0; padding: 12px; border: 1px solid #57575e; border-radius: 10px; background: #28282d; color: #fff; font: inherit; box-sizing: border-box; }
+.opensource-view textarea, .opensource-detail textarea { min-height: 104px; resize: vertical; }
+.opensource-view input[type="file"] { font-size: 13px; }
+.opensource-view form { display: flex; gap: 8px; align-items: center; margin-bottom: 16px; }
+.opensource-view h2, .opensource-detail h2 { font-size: 22px; font-weight: 700; margin: 8px 0 16px; }
+.opensource-view h3, .opensource-detail h3 { font-size: 17px; font-weight: 600; margin: 12px 0; }
+.opensource-view .os-card { padding: 16px; border: 1px solid #39393e; border-radius: 16px; margin: 12px 0; }
+.opensource-view .os-card > button:first-child { width: 100%; margin: 0; background: transparent; padding: 0; }
+.opensource-detail p { margin: 12px 0; line-height: 1.6; }
+.opensource-detail .os-detail-comment { padding: 16px 0; border-bottom: 1px solid #39393e; }
+.opensource-detail .os-detail-comment .os-detail-comment { margin-left: 16px; padding-left: 12px; border-left: 2px solid #6331c9; }
+.opensource-view [role="alert"], .opensource-detail [role="alert"] { color: #ffb7b7; padding: 12px; }
+.search-view > .opensource-view { padding: 12px; }
+.opensource-view form button { flex-shrink: 0; white-space: nowrap; }
