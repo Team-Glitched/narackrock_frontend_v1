@@ -1,10 +1,10 @@
 import { buttonVariants } from "@/styles/variants";
-import { SectionTitle } from "@/components/app/shared";
+import { SectionTitle } from "@/components/ui/section-title";
 import { ArrowUpRight } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { ko } from "date-fns/locale";
-import type { Navigate } from "@/features/navigation/types";
-import { useWorkspace, type Work } from "./workspace-store";
+import type { Work } from "./workspace-store";
+import { useVisitedWorks } from "./use-visited-works";
 import { workingMusic } from "./working-music";
 function modifiedLabel(value: string) {
   const date = new Date(value);
@@ -57,19 +57,22 @@ function DraftPreview({ work }: { work: Work }) {
   );
 }
 export function HomeWorkSection({
-  go,
+  onOpenWorkspace,
+  onStartSong,
   onResume,
 }: {
-  go: Navigate;
+  onOpenWorkspace: () => void;
+  onStartSong: () => void;
   onResume: (projectId: number, shortId: number | null) => void;
 }) {
-  const { works } = useWorkspace();
+  const { works, error } = useVisitedWorks();
   const items = workingMusic(works);
   return (
     <section className="home-working-music">
-      <SectionTitle onAll={items.length ? () => go("workspace") : undefined}>
-        작업 중인 음악
+      <SectionTitle onAll={items.length ? onOpenWorkspace : undefined}>
+        이 브라우저에서 연 작업
       </SectionTitle>
+      {error && <p role="alert">{error}</p>}
       {items.length ? (
         <div
           className="scrollbar-none flex snap-x snap-mandatory gap-3 overflow-x-auto px-5 pb-1 [scroll-padding-inline:20px]"
@@ -87,7 +90,7 @@ export function HomeWorkSection({
               >
                 <span className="flex items-center justify-between gap-2 text-caption leading-[18px] font-normal text-app-muted">
                   {modified ? (
-                    <time dateTime={work.updatedAt}>{modified} 수정</time>
+                    <time dateTime={work.updatedAt}>{modified} 방문</time>
                   ) : (
                     <span>작업 중</span>
                   )}
@@ -112,7 +115,7 @@ export function HomeWorkSection({
             className={buttonVariants({
               tone: "primary",
             })}
-            onClick={() => go("studio")}
+            onClick={onStartSong}
           >
             작곡 시작하기
           </button>

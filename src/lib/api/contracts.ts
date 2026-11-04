@@ -92,6 +92,7 @@ export type PostDetailResponse = {
   commentCount: number;
   isLiked: boolean;
   isDisliked: boolean;
+  isBookmarked: boolean;
   createdAt: string;
   updatedAt: string | null;
 };
@@ -104,6 +105,10 @@ export type PostComment = {
   writer: { userId: number; nickname: string | null; profileImageUrl: string | null };
   content: string;
   replyCount: number;
+  likeCount: number;
+  dislikeCount: number;
+  isLiked: boolean;
+  isDisliked: boolean;
   createdAt: string;
 };
 export type PostCommentPage = {
@@ -133,7 +138,7 @@ export type UserProfile = {
   profileImageUrl: string | null;
   explanation: string | null;
   primaryInstrument: string | null;
-  relations: { followerCount: number; followingCount: number; isFollowing: boolean };
+  relations: { followerCount: number; followingCount: number; isFollowing: boolean; isFollowedBy: boolean };
   activities: {
     postCount: number;
     posts: { postId: number; title: string; thumbnailUrl: string | null }[];
@@ -146,4 +151,5 @@ export type UserProfile = {
       displayOrder: number;
     }[];
   };
+  isPrivate: boolean;
 };

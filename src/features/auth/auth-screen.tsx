@@ -2,7 +2,7 @@ import { profileStyles } from "@/styles/profile.styles";
 import { cn } from "@/lib/utils";
 import { sharedStyles } from "@/styles/shared.styles";
 import { useEffect, useRef, useState } from "react";
-import { Asset } from "@/components/app/shared";
+import { Asset } from "@/components/ui/asset";
 import {
   decodeGoogleCredential,
   loadGoogleAccounts,
@@ -13,10 +13,7 @@ import { loginWithGoogle } from "@/lib/api/auth";
 import { ApiError } from "@/lib/api/client";
 import { getProfile } from "@/lib/api/profile";
 
-export type PendingProfileSetup = {
-  suggestedNickname: string;
-  pictureUrl: string | null;
-};
+import type { PendingProfileSetup } from "./profile-setup";
 
 type AuthScreenProps = {
   onAuthenticated: () => void;

@@ -1,35 +1,31 @@
 import { communityStyles } from "@/styles/community.styles";
 import { buttonVariants } from "@/styles/variants";
 import { useHiddenPosts } from "@/features/community/hidden-posts";
-import {
-  PostMemberModeration,
-  type PostModerationCommunity,
-} from "@/features/admin/post-member-moderation";
-import { canManageCommunityMember } from "@/features/admin/permissions";
-import { PostUserActionsMenu } from "@/components/app/dialog";
-import { FigmaSheet } from "@/components/app/figma-sheet";
-import { ReportReasons } from "@/components/app/report-reasons";
-import { PostActions } from "@/components/app/post-actions";
-import { useSavedItems } from "@/features/saved/saved-store";
+import { PostMemberModeration } from "@/features/admin/post-member-moderation";
+import { canSanction, type ModerationScope } from "@/features/community/use-gallery-role";
+import { PostUserActionsMenu } from "@/features/posts/post-user-actions-menu";
+import { FigmaSheet } from "@/components/ui/figma-sheet";
+import { ReportReasons } from "@/features/comments/report-reasons";
+import { PostActions } from "@/features/posts/post-actions";
+import { usePostInteractions } from "@/features/posts/use-post-interactions";
 import { useEffect, useRef, useState } from "react";
-import { Asset, Avatar } from "@/components/app/shared";
-import { deletePost, fetchPost, updatePost } from "@/lib/api/community";
-import type { PostListItem } from "@/lib/api/contracts";
+import { Asset } from "@/components/ui/asset";
+import { Avatar } from "@/components/ui/avatar";
+import { deletePost, fetchPost, moderateGalleryContent, updatePost } from "@/lib/api/community";
+import type { PostDetailResponse, PostListItem } from "@/lib/api/contracts";
 import { getAccessToken, getCurrentUserId } from "@/lib/api/client";
 import { postError, relativeTime } from "@/features/posts/post-utils";
+import { reportPost } from "@/lib/api/reports";
 
+/** A post card. `moderation` (from the gallery role) enables moderator deletion and member sanctions. */
 export function CommunityPost({
   post,
   onChanged,
   onComments,
   onProfile,
-  onModerateDelete,
-  moderationCommunity,
-  postGalleryId,
+  moderation,
 }: {
-  postGalleryId?: number;
-  moderationCommunity?: PostModerationCommunity;
-  onModerateDelete?: (postId: number) => Promise<void>;
+  moderation?: ModerationScope;
   post: PostListItem;
   onChanged: () => void;
   onComments: (postId: number) => void;
@@ -37,20 +33,17 @@ export function CommunityPost({
 }) {
   const currentUserId = getCurrentUserId();
   const owner = currentUserId === post.writer.userId;
-  const canModerateMember = Boolean(
-    moderationCommunity &&
-    moderationCommunity.galleryId === postGalleryId &&
-    canManageCommunityMember(moderationCommunity, currentUserId, post.writer.userId),
-  );
+  const canModerate = Boolean(moderation?.canManage);
+  const canModerateMember = canSanction(moderation, currentUserId, post.writer.userId);
+  const [moderationReason, setModerationReason] = useState("");
   const [memberAction, setMemberAction] = useState<"suspend" | "expel" | null>(null);
   const [moderationNotice, setModerationNotice] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
   const optionButton = useRef<HTMLButtonElement>(null);
   const hiddenPosts = useHiddenPosts();
   const [reportOpen, setReportOpen] = useState(false);
-  const [vote, setVote] = useState<"like" | "dislike" | null>(null);
-  const savedItems = useSavedItems();
-  const saved = savedItems.has("post", post.postId);
+  const [detail, setDetail] = useState<PostDetailResponse | null>(null);
+  const interactions = usePostInteractions(post.postId, detail);
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState(post.title);
   const [content, setContent] = useState("");
@@ -60,6 +53,7 @@ export function CommunityPost({
   const [imageUrl, setImageUrl] = useState<string | null>(post.imageUrl);
 
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const moderating = canModerate && !owner;
 
   useEffect(() => {
     if (!getAccessToken()) return;
@@ -67,6 +61,7 @@ export function CommunityPost({
     fetchPost(post.postId)
       .then((detail) => {
         if (!cancelled) {
+          setDetail(detail);
           setPreview(detail.content);
           setImageUrl(detail.imageUrl);
         }
@@ -116,10 +111,15 @@ export function CommunityPost({
 
   async function remove() {
     setMenuOpen(false);
+    if (moderating && !moderationReason.trim()) {
+      setError("운영 삭제 사유를 입력해주세요.");
+      return;
+    }
     setSubmitting(true);
     setError(null);
     try {
-      if (onModerateDelete) await onModerateDelete(post.postId);
+      if (moderating && moderation)
+        await moderateGalleryContent(moderation.galleryId, "posts", post.postId, moderationReason.trim());
       else await deletePost(post.postId);
       onChanged();
     } catch (error) {
@@ -199,7 +199,7 @@ export function CommunityPost({
           <Asset name="post-more.svg" />
         </button>
       </div>
-      {menuOpen && (!owner || onModerateDelete) && (
+      {menuOpen && !owner && (
         <PostUserActionsMenu
           onSuspendMember={
             canModerateMember
@@ -218,7 +218,7 @@ export function CommunityPost({
               : undefined
           }
           onModerateDelete={
-            onModerateDelete
+            canModerate
               ? () => {
                   setConfirmDelete(true);
                   setMenuOpen(false);
@@ -237,9 +237,9 @@ export function CommunityPost({
           }}
         />
       )}
-      {memberAction && moderationCommunity && (
+      {memberAction && moderation && (
         <PostMemberModeration
-          community={moderationCommunity}
+          community={moderation}
           member={post.writer}
           action={memberAction}
           onClose={() => setMemberAction(null)}
@@ -256,10 +256,13 @@ export function CommunityPost({
       )}
       {reportOpen && (
         <FigmaSheet title="신고" onClose={() => setReportOpen(false)}>
-          <ReportReasons />
+          <ReportReasons
+            onSubmit={(reason, description) => reportPost(post.postId, reason, description)}
+            onDone={() => setReportOpen(false)}
+          />
         </FigmaSheet>
       )}
-      {menuOpen && owner && !onModerateDelete && (
+      {menuOpen && owner && (
         <PostUserActionsMenu
           anchorRef={optionButton}
           onClose={() => setMenuOpen(false)}
@@ -301,7 +304,16 @@ export function CommunityPost({
           role="group"
           aria-label="게시글 삭제 확인"
         >
-          <p>이 게시글을 삭제할까요?</p>
+          <p>{moderating ? "운영자 권한으로 이 게시글을 삭제할까요?" : "이 게시글을 삭제할까요?"}</p>
+          {moderating && (
+            <input
+              aria-label="운영 삭제 사유"
+              placeholder="삭제 사유"
+              maxLength={500}
+              value={moderationReason}
+              onChange={(event) => setModerationReason(event.target.value)}
+            />
+          )}
           <button
             className={buttonVariants({
               tone: "secondary",
@@ -315,7 +327,7 @@ export function CommunityPost({
             className={buttonVariants({
               tone: "primary",
             })}
-            disabled={submitting}
+            disabled={submitting || (moderating && !moderationReason.trim())}
             onClick={remove}
           >
             {submitting ? "삭제 중..." : "삭제 확인"}
@@ -338,26 +350,22 @@ export function CommunityPost({
         </button>
       )}
       <PostActions
-        likeCount={post.likeCount}
+        likeCount={interactions.reaction?.likeCount ?? post.likeCount}
+        dislikeCount={interactions.reaction?.dislikeCount ?? 0}
         commentCount={post.commentCount}
-        vote={vote}
-        onVote={(next) => setVote((current) => (current === next ? null : next))}
+        vote={interactions.reaction?.isLiked ? "like" : interactions.reaction?.isDisliked ? "dislike" : null}
+        busy={interactions.busy}
+        onVote={(kind) => void interactions.vote(kind)}
         onComments={() => onComments(post.postId)}
-        saved={saved}
-        onSave={() => {
-          try {
-            savedItems.toggle({
-              id: post.postId,
-              kind: "post",
-              title: preview ?? post.title,
-              author: post.writer.nickname,
-              imageUrl: post.imageUrl,
-            });
-          } catch (cause) {
-            setError(cause instanceof Error ? cause.message : "저장하지 못했습니다.");
-          }
-        }}
+        saved={interactions.bookmarked}
+        onSave={() => void interactions.toggleBookmark()}
+        onShare={() => void interactions.share(post.title)}
       />
+      {interactions.notice && (
+        <p className={communityStyles.postFormError} role="status">
+          {interactions.notice}
+        </p>
+      )}
     </article>
   );
 }

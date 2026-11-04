@@ -1,5 +1,4 @@
 import { logout } from "@/lib/api/auth";
-import type { Navigate } from "@/features/navigation/types";
 import { ChevronRight } from "lucide-react";
 import { uiLabels } from "@/lib/ui-labels";
 
@@ -7,20 +6,20 @@ const groups = [
   {
     title: "계정",
     items: [
-      { view: "edit", label: uiLabels.editProfile, description: "프로필 사진, 이름 및 소개" },
+      { path: "/profile/edit", label: uiLabels.editProfile, description: "프로필 사진, 이름 및 소개" },
     ],
   },
   {
     title: "음악 및 참여 활동",
     items: [
-      { view: "workspace", label: uiLabels.workspace, description: "작성 중인 음악과 레이어 관리" },
+      { path: "/workspace", label: uiLabels.workspace, description: "작성 중인 음악과 레이어 관리" },
       {
-        view: "submissions",
+        path: "/submissions",
         label: uiLabels.submissions,
         description: "제출한 레이어와 승인 결과 확인",
       },
       {
-        view: "reviewInbox",
+        path: "/reviews",
         label: uiLabels.reviewInbox,
         description: "내 음악에 도착한 참여 요청 검토",
       },
@@ -29,9 +28,9 @@ const groups = [
   {
     title: "보관함",
     items: [
-      { view: "saved", label: uiLabels.saved, description: "저장한 게시글과 음악" },
+      { path: "/saved", label: uiLabels.saved, description: "저장한 게시글과 음악" },
       {
-        view: "sourceLibrary",
+        path: "/library",
         label: uiLabels.sourceLibrary,
         description: "제작하거나 저장한 레이어",
       },
@@ -46,7 +45,7 @@ const copyClass =
 const groupClass =
   "mb-6 [&>h2]:mb-2 [&>h2]:text-caption [&>h2]:leading-[18px] [&>h2]:font-semibold [&>h2]:text-app-muted [&>ul]:m-0 [&>ul]:list-none [&>ul]:p-0 [&_li+li]:border-t [&_li+li]:border-app-surface";
 
-export function SettingsScreen({ go }: { go: Navigate }) {
+export function SettingsScreen({ onNavigate }: { onNavigate: (path: string) => void }) {
   return (
     <section className="scrollbar-none h-full overflow-x-hidden overflow-y-auto px-5 pt-6 pb-8 text-app-fg">
       <h1 className="m-0 mb-7 text-title leading-8 font-bold">설정</h1>
@@ -55,8 +54,8 @@ export function SettingsScreen({ go }: { go: Navigate }) {
           <h2>{group.title}</h2>
           <ul>
             {group.items.map((item) => (
-              <li key={item.view}>
-                <button className={rowClass} onClick={() => go(item.view)}>
+              <li key={item.path}>
+                <button className={rowClass} onClick={() => onNavigate(item.path)}>
                   <span className={copyClass}>
                     <strong>{item.label}</strong>
                     <small>{item.description}</small>

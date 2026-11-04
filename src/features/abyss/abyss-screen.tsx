@@ -1,38 +1,57 @@
 import { abyssStyles } from "@/styles/abyss.styles";
 import { cn } from "@/lib/utils";
 import { sharedStyles } from "@/styles/shared.styles";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { AlbumCarousel } from "@/features/abyss/album-carousel";
-import { useSavedItems } from "@/features/saved/saved-store";
+import { ShortParticipants } from "@/features/abyss/short-participants";
 import { AbyssComments } from "./abyss-comments";
-import type { Navigate } from "@/features/navigation/types";
-import { FigmaSheet } from "@/components/app/figma-sheet";
-import { ReportReasons } from "@/components/app/report-reasons";
-import { Asset, Avatar, IconSlot } from "@/components/app/shared";
+import { FigmaSheet } from "@/components/ui/figma-sheet";
+import { ReportReasons } from "@/features/comments/report-reasons";
+import { Asset } from "@/components/ui/asset";
+import { IconSlot } from "@/components/ui/icon-slot";
+import { canonicalShareLink } from "@/lib/api/content-link";
 import { initialShortIndex } from "@/features/abyss/initial-short";
+import { shareLink } from "@/lib/share-link";
+import { ApiError } from "@/lib/api/client";
 import { canJoinShort } from "@/features/abyss/short-participation";
 import { useCurrentUserId } from "@/features/auth/use-current-user";
-import { getShorts } from "@/lib/api/shorts";
+import {
+  getShort,
+  getShortShareLink,
+  getShorts,
+  reactToShort,
+  recordShortView,
+  toggleShortBookmark,
+  toggleShortPlayback,
+} from "@/lib/api/shorts";
+import { reportShort } from "@/lib/api/reports";
 import type { ShortItemDto, ShortsPageDto } from "@/lib/api/contracts";
 
 type FeedState = "loading" | "ready" | "error";
 type PageInfo = ShortsPageDto["page"];
 
+function actionError(cause: unknown) {
+  if (cause instanceof ApiError && cause.status === 401) return "로그인 후 이용할 수 있습니다.";
+  if (cause instanceof ApiError) return cause.message;
+  if (cause instanceof DOMException) return "링크를 복사하지 못했습니다.";
+  if (cause instanceof TypeError) return "요청을 처리하지 못했습니다. 네트워크를 확인해주세요.";
+  return cause instanceof Error ? cause.message : "요청을 처리하지 못했습니다.";
+}
 export function AbyssScreen({
-  go,
+  onProfile,
   onJoin,
   initialShortId,
   muted = false,
   onRememberShort,
 }: {
   onRememberShort?: (id: number) => void;
-  go: Navigate;
+  onProfile: (userId: number) => void;
   onJoin: (shortId: number) => void;
   initialShortId?: number | null;
   muted?: boolean;
 }) {
   const currentUserId = useCurrentUserId();
-  const savedItems = useSavedItems();
+  const [busy, setBusy] = useState(false);
   const [sheet, setSheet] = useState<"participants" | "comments" | "report" | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [shorts, setShorts] = useState<ShortItemDto[]>([]);
@@ -48,38 +67,53 @@ export function AbyssScreen({
   const audioRef = useRef<HTMLAudioElement>(null);
   const loadingMoreRef = useRef(false);
 
+  // The feed (with its cursor) loads once per account; the URL's short is read when it loads. A shared/saved
+  // deep link outside the first page is read directly instead of scanning the feed for it.
+  const linkedShortId = useEffectEvent(() => initialShortId);
   useEffect(() => {
     const controller = new AbortController();
+    const target = linkedShortId();
     (async () => {
-      let result = await getShorts(undefined, controller.signal);
-      const items = [...result.items];
-      const seenCursors = new Set<number>();
-      while (
-        initialShortId != null &&
-        !items.some((item) => item.shortId === initialShortId) &&
-        result.page.hasMore &&
-        result.page.nextCursor != null &&
-        !seenCursors.has(result.page.nextCursor)
-      ) {
-        seenCursors.add(result.page.nextCursor);
-        result = await getShorts(result.page.nextCursor, controller.signal);
-        items.push(...result.items);
+      const result = await getShorts(undefined, controller.signal);
+      let items = result.items;
+      if (target != null && !items.some((item) => item.shortId === target)) {
+        const linked = await getShort(target, controller.signal).catch((cause) => {
+          if (cause instanceof ApiError && cause.status === 404) return null;
+          throw cause;
+        });
+        if (linked) items = [linked, ...items];
       }
       if (controller.signal.aborted) return;
       setShorts(items);
       setPage(result.page);
-      setIndex(initialShortIndex(items, initialShortId));
+      setIndex(initialShortIndex(items, target));
       setFeedState("ready");
     })().catch(() => {
       if (!controller.signal.aborted) setFeedState("error");
     });
     return () => controller.abort();
-  }, [reloadKey, initialShortId]);
+  }, [reloadKey, currentUserId]);
+
+  // Selecting a short rewrites the URL to it; only a URL change to a short that is not loaded needs a reload.
+  const [seenLinkedId, setSeenLinkedId] = useState(initialShortId);
+  if (initialShortId !== seenLinkedId) {
+    setSeenLinkedId(initialShortId);
+    const found = shorts.findIndex((item) => item.shortId === initialShortId);
+    if (found >= 0) setIndex(found);
+    else if (initialShortId != null) setReloadKey((key) => key + 1);
+  }
+
+  const currentShortId = shorts[index]?.shortId;
+  useEffect(() => {
+    if (currentShortId === undefined) return;
+    // View counting is best-effort and never blocks listening.
+    void recordShortView(currentShortId).catch(() => {});
+  }, [currentShortId]);
 
   const current = shorts[index];
-  const navigate: Navigate = (view, id) => {
-    if (view === "profile" && current) onRememberShort?.(current.shortId);
-    go(view, id);
+  const openProfile = (userId: number) => {
+    if (current) onRememberShort?.(current.shortId);
+    onProfile(userId);
   };
   const mediaUrl = current?.mediaUrl?.trim() || null;
   const hasNext = index < shorts.length - 1 || Boolean(page?.hasMore && page.nextCursor != null);
@@ -139,49 +173,51 @@ export function AbyssScreen({
   async function togglePlayback() {
     const audio = audioRef.current;
     if (!audio || !mediaUrl) return;
-    if (!audio.paused) {
-      audio.pause();
-      return;
+    const willPlay = audio.paused;
+    if (!willPlay) audio.pause();
+    else {
+      setPlaybackError(null);
+      try {
+        await audio.play();
+      } catch {
+        setPlaybackError("음원을 재생하지 못했습니다.");
+        return;
+      }
     }
-    setPlaybackError(null);
-    try {
-      await audio.play();
-    } catch {
-      setPlaybackError("음원을 재생하지 못했습니다.");
-    }
+    if (currentUserId !== null)
+      void toggleShortPlayback(current.shortId, willPlay, audio.currentTime).catch(() => {});
   }
 
-  function vote(kind: "like" | "dislike") {
-    setShorts((items) =>
-      items.map((item, position) => {
-        if (position !== index) return item;
-        const liked = kind === "like" ? !item.isLiked : false;
-        const disliked = kind === "dislike" ? !item.isDisliked : false;
-        return {
-          ...item,
-          isLiked: liked,
-          isDisliked: disliked,
-          likeCount: Math.max(0, item.likeCount + Number(liked) - Number(item.isLiked)),
-          dislikeCount: Math.max(0, item.dislikeCount + Number(disliked) - Number(item.isDisliked)),
-        };
-      }),
-    );
+  const replaceCurrent = (next: ShortItemDto) =>
+    setShorts((items) => items.map((item) => (item.shortId === next.shortId ? next : item)));
+  async function run(action: () => Promise<void>) {
+    if (busy) return;
+    setBusy(true);
     setFeedback(null);
-  }
-  async function share() {
-    const url = new URL(window.location.href);
-    url.searchParams.set("short", String(current.shortId));
     try {
-      if (navigator.share) await navigator.share({ title: current.title, url: url.toString() });
-      else {
-        await navigator.clipboard.writeText(url.toString());
-        setFeedback("링크를 복사했습니다.");
-      }
+      await action();
     } catch (cause) {
-      if (!(cause instanceof DOMException && cause.name === "AbortError"))
-        setFeedback("링크를 공유하지 못했습니다.");
+      setFeedback(actionError(cause));
+    } finally {
+      setBusy(false);
     }
   }
+  const vote = (kind: "like" | "dislike") =>
+    run(async () => {
+      await reactToShort(current.shortId, kind);
+      // The reaction response has only the requested side; the detail has both.
+      replaceCurrent(await getShort(current.shortId));
+    });
+  const bookmark = () =>
+    run(async () => {
+      const result = await toggleShortBookmark(current.shortId);
+      replaceCurrent({ ...current, isBookmarked: result.isBookmarked });
+    });
+  const share = () =>
+    run(async () => {
+      const { shareUrl } = await getShortShareLink(current.shortId);
+      setFeedback(await shareLink(current.title, canonicalShareLink("short", current.shortId, shareUrl, window.location.origin)));
+    });
 
   if (feedState === "loading") {
     return (
@@ -227,7 +263,7 @@ export function AbyssScreen({
         <div className={abyssStyles.abyssTitle}>
           <h1>{current.title}</h1>
           <p>
-            <button onClick={() => navigate("profile", current.author.userId)}>
+            <button onClick={() => openProfile(current.author.userId)}>
               {current.author.nickname}
             </button>{" "}
             <i /> <button onClick={() => setSheet("participants")}>작곡 참여자 보기</button>
@@ -240,7 +276,8 @@ export function AbyssScreen({
             className={current.isLiked ? sharedStyles.active : ""}
             aria-label={`좋아요 ${current.likeCount}개`}
             aria-pressed={current.isLiked}
-            onClick={() => vote("like")}
+            disabled={busy}
+            onClick={() => void vote("like")}
           >
             <IconSlot
               name={current.isLiked ? "v3-short-like-on.svg" : "v3-short-like-off.svg"}
@@ -253,7 +290,8 @@ export function AbyssScreen({
             className={abyssStyles.abyssDislike}
             aria-label={`싫어요 ${current.dislikeCount}개`}
             aria-pressed={current.isDisliked}
-            onClick={() => vote("dislike")}
+            disabled={busy}
+            onClick={() => void vote("dislike")}
           >
             <IconSlot
               name={current.isDisliked ? "v3-short-dislike-on.svg" : "v3-short-dislike-off.svg"}
@@ -277,26 +315,11 @@ export function AbyssScreen({
         <button
           className={sharedStyles.saveControl}
           aria-label="저장"
-          aria-pressed={savedItems.has("song", current.shortId)}
-          onClick={() => {
-            try {
-              savedItems.toggle({
-                id: current.shortId,
-                kind: "song",
-                title: current.title,
-                author: current.author.nickname,
-                imageUrl: current.albumImageUrl,
-              });
-              setFeedback(null);
-            } catch (cause) {
-              setFeedback(cause instanceof Error ? cause.message : "저장하지 못했습니다.");
-            }
-          }}
+          aria-pressed={current.isBookmarked}
+          disabled={busy}
+          onClick={() => void bookmark()}
         >
-          <IconSlot
-            name={savedItems.has("song", current.shortId) ? "save-on.svg" : "save-off.svg"}
-            kind="short-save"
-          />
+          <IconSlot name={current.isBookmarked ? "save-on.svg" : "save-off.svg"} kind="short-save" />
         </button>
         <button
           className={abyssStyles.abyssReport}
@@ -378,7 +401,10 @@ export function AbyssScreen({
         </div>
         {sheet === "report" && (
           <FigmaSheet title="신고" onClose={() => setSheet(null)}>
-            <ReportReasons />
+            <ReportReasons
+              onSubmit={(reason, description) => reportShort(current.shortId, reason, description)}
+              onDone={() => setSheet(null)}
+            />
           </FigmaSheet>
         )}
         {feedback && (
@@ -388,39 +414,19 @@ export function AbyssScreen({
         )}
         {sheet === "participants" && (
           <FigmaSheet title="작곡 참여자" onClose={() => setSheet(null)}>
-            <ul className={sharedStyles.participantList}>
-              {current.participants.length ? (
-                current.participants.map((person) => (
-                  <li key={person.userId}>
-                    <Avatar />
-                    <span>
-                      <strong>{person.nickname}</strong>
-                      <small>{person.role === "CREATOR" ? "원곡자" : "작곡 참여자"}</small>
-                    </span>
-                  </li>
-                ))
-              ) : (
-                <li>아직 참여자가 없습니다.</li>
-              )}
-            </ul>
+            <ShortParticipants short={current} onBeforePlay={() => audioRef.current?.pause()} />
           </FigmaSheet>
         )}
         <AbyssComments
           key={current.shortId}
           shortId={current.shortId}
-          onCreated={() =>
-            setShorts((items) =>
-              items.map((item) =>
-                item.shortId === current.shortId
-                  ? { ...item, commentCount: item.commentCount + 1 }
-                  : item,
-              ),
-            )
-          }
-          commentCount={current.commentCount}
+          onCreated={() => {
+            void getShort(current.shortId)
+              .then(replaceCurrent)
+              .catch(() => {});
+          }}
           open={sheet === "comments"}
           onClose={() => setSheet(null)}
-          go={navigate}
         />
         {current.completionStatus === "IN_PROGRESS" && current.projectId != null && (
           <div className={abyssStyles.abyssJoinSlot}>

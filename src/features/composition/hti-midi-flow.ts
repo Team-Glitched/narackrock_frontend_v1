@@ -25,7 +25,6 @@ export function createHtiMidiLayerPlan(result: HtiMidiResult, trackCount: number
   }
   return {
     name: `HTI MIDI ${trackCount + 1}`,
-    instrument: "piano",
     sortOrder: trackCount,
     durationTick: result.durationTick,
     midiNotes: result.midiNotes,

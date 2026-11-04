@@ -3,10 +3,10 @@ import { communityStyles } from "@/styles/community.styles";
 import { cn } from "@/lib/utils";
 import { HomeWorkSection } from "@/features/workspace/home-work-section";
 import { uiLabels } from "@/lib/ui-labels";
-import { Asset, SectionTitle, SongRail } from "@/components/app/shared";
-import type { Navigate } from "@/features/navigation/types";
+import { Asset } from "@/components/ui/asset";
+import { SectionTitle } from "@/components/ui/section-title";
+import { SongRail } from "@/features/home/song-rail";
 import { useGalleryPosts } from "@/features/community/use-gallery-posts";
-import { DEFAULT_GALLERY_ID } from "@/lib/api/community";
 import { useHomeSongs } from "@/features/home/use-home-songs";
 import { MiniPost, PostListStatus } from "@/features/posts/post-list";
 
@@ -25,23 +25,27 @@ function SongRailStatus({ state }: { state: "loading" | "error" | "empty" | "sig
 export type SongChartKind = "popular" | "mine" | "recommended";
 
 export function HomeScreen({
-  go,
+  onOpenPosts,
+  onOpenWorkspace,
+  onStartSong,
   onOpenPost,
   onOpenShort,
   onShowSongs,
   onResume,
 }: {
   onResume: (projectId: number, shortId: number | null) => void;
-  go: Navigate;
+  onOpenPosts: () => void;
+  onOpenWorkspace: () => void;
+  onStartSong: () => void;
   onOpenPost: (postId: number) => void;
   onOpenShort: (shortId: number) => void;
   onShowSongs: (kind: SongChartKind) => void;
 }) {
-  const posts = useGalleryPosts(DEFAULT_GALLERY_ID, { sort: "POPULAR" });
+  const posts = useGalleryPosts("popular");
   const songs = useHomeSongs();
   return (
     <div className={cn(sharedStyles.homeContent, sharedStyles.scrollContent)}>
-      <HomeWorkSection go={go} onResume={onResume} />
+      <HomeWorkSection onOpenWorkspace={onOpenWorkspace} onStartSong={onStartSong} onResume={onResume} />
       <section>
         <SectionTitle onAll={() => onShowSongs("popular")}>인기 차트</SectionTitle>
         {songs.popular.status !== "ready" ? (
@@ -63,7 +67,7 @@ export function HomeScreen({
         )}
       </section>
       <section>
-        <SectionTitle onAll={() => go("posts")}>{uiLabels.popularPosts}</SectionTitle>
+        <SectionTitle onAll={onOpenPosts}>{uiLabels.popularPosts}</SectionTitle>
         <div className={communityStyles.miniPostList}>
           {posts.status !== "ready" ? (
             <PostListStatus state={posts.status} />
@@ -94,7 +98,6 @@ export function ChartsScreen({
   kind,
   onOpenShort,
 }: {
-  go: Navigate;
   kind: SongChartKind;
   onOpenShort: (shortId: number) => void;
 }) {

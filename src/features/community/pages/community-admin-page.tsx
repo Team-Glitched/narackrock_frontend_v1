@@ -1,39 +1,44 @@
-import { CommunityAdminScreen } from "@/features/admin/admin-screens";
-import { useRouteCommunity } from "@/features/community/use-route-community";
-import { useAppNavigation } from "@/features/navigation/use-app-navigation";
-import { useAppSession } from "@/app/session";
-import { moderateCommunityPost } from "@/features/admin/moderate-post";
-import { PageState } from "../../../components/app/page-state";
+import { DesignViewport } from "@/components/ui/design-viewport";
+import { Header } from "@/features/navigation/header";
+import { Footer } from "@/features/navigation/footer";
+import { NotificationsOverlay } from "@/features/notifications/notifications-overlay";
+import { useUrlNavigation } from "@/features/navigation/use-url-navigation";
+import { readId, withQuery } from "@/features/navigation/paths";
+import { resolveSearchScope } from "@/features/search/search-scope";
+import { creationTarget } from "@/features/navigation/creation-target";
+import { sharedStyles } from "@/styles/shared.styles";
+import { CommunityManagementContent } from "@/features/community/community-management-content";
+import { PageState } from "@/components/ui/page-state";
+
 export default function CommunityAdminPage() {
-  const { to, page, galleryId, state } = useAppNavigation();
-  const { currentUserId } = useAppSession();
-  const result = useRouteCommunity(galleryId);
-  if (galleryId && result.status !== "ready")
-    return (
-      <PageState error={result.status !== "loading"}>
-        {result.status === "loading" ? "커뮤니티를 불러오는 중..." : "커뮤니티를 찾을 수 없습니다."}
-      </PageState>
-    );
-  const community = result.status === "ready" ? result.community : null;
-  const members = page.id === "communityMembers";
+  const { to, back, params, query, currentPath } = useUrlNavigation();
+  const galleryId = readId(params.galleryId) ?? readId(query.get("galleryId"));
+  const scope = resolveSearchScope(query.get("scope"), "posts", Boolean(galleryId));
+  const target = creationTarget(scope, galleryId);
+  const invalidGalleryId = readId(params.galleryId) === null;
   return (
-    <CommunityAdminScreen
-      community={community}
-      currentUserId={currentUserId}
-      members={members}
-      onMembers={() => {
-        if (galleryId) to(`/communities/${galleryId}/members`);
-      }}
-      onBack={() =>
-        to(galleryId ? `/communities/${galleryId}${members ? "/manage" : ""}` : "/communities", {
-          replace: true,
-          state: { from: state.from },
-        })
-      }
-      onSelect={(value) => to(`/communities/${value.galleryId}/manage`)}
-      onComments={(id) => to(galleryId ? `/communities/${galleryId}/posts/${id}` : `/posts/${id}`)}
-      onProfile={(id) => to(`/users/${id}`)}
-      onDelete={(target, id) => moderateCommunityPost(target, currentUserId, id)}
-    />
+    <DesignViewport>
+      <div className={sharedStyles.phoneFrame}>
+        <Header
+          onBack={() => back(`/communities/${galleryId}`)}
+          onSearch={() => to(withQuery("/search", { scope, galleryId }))}
+        />
+        <div className={sharedStyles.screenBody}>
+          {invalidGalleryId ? (
+            <PageState error>올바르지 않은 페이지 주소입니다.</PageState>
+          ) : (
+            <CommunityManagementContent galleryId={galleryId} members={false} />
+          )}
+        </div>
+        <Footer
+          activeTab="social"
+          onCreate={() => to(target.path, target.path === "/studio/new" ? {
+            state: { studioFrom: currentPath, studioIndex: window.history.state?.idx },
+          } : undefined)}
+          createLabel={target.label}
+        />
+        <NotificationsOverlay />
+      </div>
+    </DesignViewport>
   );
 }

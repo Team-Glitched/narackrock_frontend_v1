@@ -1,21 +1,24 @@
-import type { ComponentType } from "react";
 import { createBrowserRouter, type RouteObject } from "react-router";
-import { AppProviders } from "./session";
-import AppLayout from "@/app/app-layout";
+import { AppProviders } from "./providers";
+import { AppRuntime } from "./runtime";
 import { RequireAuth } from "@/features/auth/require-auth";
-import { pageRoutes, type PageId, type PageRoute } from "@/features/navigation/route-config";
-import NotFoundPage from "@/app/not-found-page";
+import NotFoundPage from "@/features/navigation/pages/not-found-page";
 import HomePage from "@/features/home/pages/home-page";
 import AbyssPage from "@/features/abyss/pages/abyss-page";
+import ShortLinkPage from "@/features/abyss/pages/short-link-page";
 import ChartsPage from "@/features/home/pages/charts-page";
 import PostsPage from "@/features/posts/pages/posts-page";
 import PostPage from "@/features/posts/pages/post-page";
 import CreatePostPage from "@/features/posts/pages/create-post-page";
 import SocialPage from "@/features/social/pages/social-page";
+import CommunitiesPage from "@/features/social/pages/communities-page";
+import FriendsPage from "@/features/social/pages/friends-page";
 import JoinedPage from "@/features/community/pages/joined-page";
 import CreateCommunityPage from "@/features/community/pages/create-community-page";
 import CommunityPage from "@/features/community/pages/community-page";
 import CommunityAdminPage from "@/features/community/pages/community-admin-page";
+import CommunityMembersPage from "@/features/community/pages/community-members-page";
+import OwnedCommunitiesPage from "@/features/community/pages/owned-communities-page";
 import SourcesPage from "@/features/sources/pages/sources-page";
 import SourcePage from "@/features/sources/pages/source-page";
 import CreateSourcePage from "@/features/sources/pages/create-source-page";
@@ -37,80 +40,62 @@ import LayerChoicePage from "@/features/composition/pages/layer-choice-page";
 import UploadPage from "@/features/composition/pages/upload-page";
 import RecordPage from "@/features/composition/pages/record-page";
 import NoteEditorPage from "@/features/composition/pages/note-editor-page";
+import ImportSourcePage from "@/features/composition/pages/import-source-page";
 import ChatPage from "@/features/social/pages/chat-page";
 import NotificationsPage from "@/features/notifications/pages/notifications-page";
 import AdminPage from "@/features/admin/pages/admin-page";
 
-const pageComponents: Record<PageId, ComponentType> = {
-  home: HomePage,
-  abyss: AbyssPage,
-  short: AbyssPage,
-  charts: ChartsPage,
-  posts: PostsPage,
-  post: PostPage,
-  createPost: CreatePostPage,
-  social: SocialPage,
-  communities: SocialPage,
-  friends: SocialPage,
-  joined: JoinedPage,
-  createCommunity: CreateCommunityPage,
-  community: CommunityPage,
-  communityPost: PostPage,
-  communityAdmin: CommunityAdminPage,
-  communityMembers: CommunityAdminPage,
-  ownedCommunities: CommunityAdminPage,
-  sources: SourcesPage,
-  source: SourcePage,
-  sourceComments: SourcePage,
-  createSource: CreateSourcePage,
-  search: SearchPage,
-  profile: ProfilePage,
-  user: ProfilePage,
-  editProfile: EditProfilePage,
-  login: LoginPage,
-  onboarding: OnboardingPage,
-  settings: SettingsPage,
-  saved: SavedPage,
-  workspace: WorkspacePage,
-  submissions: SubmissionsPage,
-  submission: SubmissionPage,
-  reviews: ReviewsPage,
-  library: LibraryPage,
-  studioNew: StudioNewPage,
-  studio: StudioPage,
-  joinShort: StudioPage,
-  choose: LayerChoicePage,
-  upload: UploadPage,
-  record: RecordPage,
-  notes: NoteEditorPage,
-  import: LibraryPage,
-  chat: ChatPage,
-  notifications: NotificationsPage,
-  admin: AdminPage,
-};
-
-function appPages(): RouteObject[] {
-  return pageRoutes.map((route): RouteObject => {
-    const Component = pageComponents[route.id];
-    const page: PageRoute = route;
-    const element = page.requiresAuth ? (
-      <RequireAuth>
-        <Component />
-      </RequireAuth>
-    ) : (
-      <Component />
-    );
-    return { ...(route.path ? { path: route.path } : { index: true }), element, handle: page };
-  });
-}
-
-function appChildren(): RouteObject[] {
-  return [
-    { element: <AppLayout />, children: appPages() },
+export const appRoutes: RouteObject[] = [{
+  path: "/",
+  element: <AppProviders><AppRuntime /></AppProviders>,
+  children: [
+    { index: true, element: <HomePage /> },
+    { path: "abyss", element: <AbyssPage /> },
+    { path: "abyss/:shortId", element: <AbyssPage /> },
+    { path: "shorts/:shortId", element: <ShortLinkPage /> },
+    { path: "charts", element: <ChartsPage /> },
+    { path: "posts", element: <PostsPage /> },
+    { path: "posts/:postId", element: <PostPage /> },
+    { path: "posts/new", element: <CreatePostPage /> },
+    { path: "social", element: <SocialPage /> },
+    { path: "communities", element: <CommunitiesPage /> },
+    { path: "friends", element: <FriendsPage /> },
+    { path: "communities/joined", element: <JoinedPage /> },
+    { path: "communities/new", element: <CreateCommunityPage /> },
+    { path: "communities/:galleryId", element: <CommunityPage /> },
+    { path: "communities/:galleryId/posts/:postId", element: <PostPage /> },
+    { path: "communities/:galleryId/manage", element: <CommunityAdminPage /> },
+    { path: "communities/:galleryId/members", element: <CommunityMembersPage /> },
+    { path: "communities/manage", element: <OwnedCommunitiesPage /> },
+    { path: "sources", element: <SourcesPage /> },
+    { path: "sources/:sourceId", element: <SourcePage /> },
+    { path: "sources/:sourceId/comments", element: <SourcePage /> },
+    { path: "sources/new", element: <CreateSourcePage /> },
+    { path: "search", element: <SearchPage /> },
+    { path: "profile", element: <RequireAuth><ProfilePage /></RequireAuth> },
+    { path: "users/:userId", element: <ProfilePage /> },
+    { path: "profile/edit", element: <RequireAuth><EditProfilePage /></RequireAuth> },
+    { path: "login", element: <LoginPage /> },
+    { path: "onboarding", element: <OnboardingPage /> },
+    { path: "settings", element: <SettingsPage /> },
+    { path: "saved", element: <SavedPage /> },
+    { path: "workspace", element: <WorkspacePage /> },
+    { path: "submissions", element: <SubmissionsPage /> },
+    { path: "submissions/:submissionId", element: <SubmissionPage /> },
+    { path: "reviews", element: <ReviewsPage /> },
+    { path: "library", element: <LibraryPage /> },
+    { path: "studio/new", element: <StudioNewPage /> },
+    { path: "studio/:projectId", element: <StudioPage /> },
+    { path: "studio/shorts/:shortId", element: <StudioPage /> },
+    { path: "studio/:projectId/layers/new", element: <LayerChoicePage /> },
+    { path: "studio/:projectId/upload", element: <UploadPage /> },
+    { path: "studio/:projectId/record", element: <RecordPage /> },
+    { path: "studio/:projectId/tracks/:trackId/notes", element: <NoteEditorPage /> },
+    { path: "studio/:projectId/import", element: <ImportSourcePage /> },
+    { path: "chat", element: <ChatPage /> },
+    { path: "notifications", element: <NotificationsPage /> },
+    { path: "admin", element: <AdminPage /> },
     { path: "*", element: <NotFoundPage /> },
-  ];
-}
-
-export const router = createBrowserRouter([
-  { path: "/", element: <AppProviders />, children: appChildren() },
-]);
+  ],
+}];
+export const router = createBrowserRouter(appRoutes);

@@ -1,8 +1,14 @@
 import { sharedStyles } from "@/styles/shared.styles";
 import { buttonVariants } from "@/styles/variants";
 import { useEffect, useState, useSyncExternalStore } from "react";
-import { createDraftProject, updateProjectMetadata, uploadMedia } from "@/lib/api/composition";
-import { errorText, storedDraftId, subscribeToDraft } from "./studio-helpers";
+import {
+  createDraftProject,
+  getComposition,
+  updateProjectMetadata,
+  uploadMedia,
+} from "@/lib/api/composition";
+import { getCurrentUserId } from "@/lib/api/client";
+import { errorText, projectDraftKey, storedDraftId, subscribeToDraft } from "./studio-helpers";
 
 export function NewProject({
   onCreated,
@@ -31,7 +37,7 @@ export function NewProject({
     setError(null);
     try {
       const { projectId } = await createDraftProject();
-      window.localStorage.setItem("glitched-composition-draft-id", String(projectId));
+      window.localStorage.setItem(projectDraftKey(), String(projectId));
       const imageId = image ? await uploadMedia(image, "IMAGE") : null;
       await updateProjectMetadata(projectId, title.trim(), imageId);
       onCreated(projectId);
@@ -101,7 +107,16 @@ export function NewProject({
           <button
             className={sharedStyles.resumeDraft}
             type="button"
-            onClick={() => onResume(savedDraftId)}
+            onClick={async () => {
+              try {
+                const composition = await getComposition(savedDraftId);
+                if (composition.project.ownerId !== getCurrentUserId())
+                  throw new Error("현재 계정의 초안이 아닙니다.");
+                onResume(savedDraftId);
+              } catch (cause) {
+                setError(errorText(cause));
+              }
+            }}
           >
             이전 작업 이어하기
           </button>

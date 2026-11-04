@@ -1,5 +1,6 @@
 import { useRef } from "react";
-import { useAppNavigation } from "@/features/navigation/use-app-navigation";
+import { useUrlNavigation } from "@/features/navigation/use-url-navigation";
+import type { StudioLocationState } from "./studio-location-state";
 import {
   notesPath,
   readId,
@@ -9,20 +10,20 @@ import {
 } from "@/features/navigation/paths";
 import {
   importMidiResource,
-  importSavedAudio,
+  PartialLayerError,
   type CompositionTarget,
   type EditorTarget,
 } from "./composition-actions";
 import type { Resource, Work } from "@/features/workspace/workspace-store";
-import type { SavedSource } from "@/features/community/saved-sources";
 
 export function useRouteComposition() {
-  const nav = useAppNavigation();
+  const nav = useUrlNavigation<StudioLocationState>();
   const projectId = readId(nav.params.projectId);
   const shortId = readId(nav.params.shortId) ?? readId(nav.query.get("shortId"));
   const trackId = readId(nav.params.trackId) ?? readId(nav.query.get("trackId"));
   const clipId = readId(nav.query.get("clipId"));
   const locked = useRef(false);
+  const partial = useRef<{ key: string; error: PartialLayerError } | null>(null);
   const state = {
     studioFrom: nav.state.studioFrom ?? safeReturnPath(nav.state.from),
     studioIndex: nav.state.studioIndex,
@@ -36,20 +37,25 @@ export function useRouteComposition() {
         ? { projectId, shortId }
         : null;
     if (!target) throw new Error("곡을 먼저 선택해주세요.");
-    const editor: EditorTarget | undefined = !work && trackId ? { trackId, clipId } : undefined;
     locked.current = true;
     try {
-      return { target, editor: await importMidiResource(resource, target, editor) };
-    } finally {
-      locked.current = false;
-    }
-  }
-  async function importAudio(source: SavedSource) {
-    if (locked.current) throw new Error("다른 레이어를 추가하는 중입니다.");
-    if (!projectId) throw new Error("곡을 먼저 선택해주세요.");
-    locked.current = true;
-    try {
-      await importSavedAudio(source, { projectId, shortId });
+      if (trackId && !work)
+        throw new Error("기존 레이어 가져오기는 피아노롤의 개인 초안에서 실행해주세요.");
+      const key = `${target.projectId}:${resource.id}`;
+      if (partial.current) {
+        if (partial.current.key !== key || !partial.current.error.retry)
+          throw new Error("이전 가져오기를 먼저 재시도해주세요.");
+        await partial.current.error.retry();
+      } else {
+        try {
+          await importMidiResource(resource, target);
+        } catch (cause) {
+          if (cause instanceof PartialLayerError) partial.current = { key, error: cause };
+          throw cause;
+        }
+      }
+      partial.current = null;
+      return { target };
     } finally {
       locked.current = false;
     }
@@ -62,7 +68,6 @@ export function useRouteComposition() {
     clipId,
     studioState: state,
     importResource,
-    importAudio,
     studioUrl: projectId ? studioPath(projectId, shortId) : "/studio/new",
     layerUrl: (step: "layers/new" | "upload" | "record" | "import") =>
       withQuery(`/studio/${projectId}/${step}`, {

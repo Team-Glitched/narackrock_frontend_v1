@@ -1,8 +1,8 @@
 import { Navigate, useLocation } from "react-router";
-import { useAppSession } from "@/app/session";
+import { useAuthSession } from "@/features/auth/auth-session";
 import type { ReactNode } from "react";
 export function RequireAuth({ children }: { children: ReactNode }) {
-  const { currentUserId } = useAppSession();
+  const { currentUserId } = useAuthSession();
   const location = useLocation();
   if (currentUserId === null)
     return (

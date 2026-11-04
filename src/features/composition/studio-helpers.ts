@@ -1,3 +1,6 @@
+import { apiOrigin, getCurrentUserId } from "@/lib/api/client";
+
+export const projectDraftKey = () => `narackrock.project-draft.v2:${apiOrigin()}:${getCurrentUserId() ?? "guest"}`;
 export const errorText = (cause: unknown) =>
   cause instanceof Error ? cause.message : "요청을 처리하지 못했습니다.";
 
@@ -7,6 +10,6 @@ export const clockTime = (ms: number) =>
 export const subscribeToDraft = () => () => {};
 
 export const storedDraftId = () => {
-  const value = Number(window.localStorage.getItem("glitched-composition-draft-id"));
+  const value = Number(window.localStorage.getItem(projectDraftKey()));
   return Number.isSafeInteger(value) && value > 0 ? value : null;
 };

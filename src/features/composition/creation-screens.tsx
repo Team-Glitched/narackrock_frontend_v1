@@ -3,7 +3,7 @@ import { cn } from "@/lib/utils";
 import { studioStyles } from "@/styles/studio.styles";
 import { buttonVariants } from "@/styles/variants";
 import { useEffect, useRef, useState } from "react";
-import { Asset } from "@/components/app/shared";
+import { Asset } from "@/components/ui/asset";
 import { AudioTrimPicker } from "@/features/composition/audio-trim-picker";
 import type { AudioSelection } from "@/features/composition/prepare-audio-file";
 

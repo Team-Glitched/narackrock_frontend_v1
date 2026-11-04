@@ -4,7 +4,6 @@ import { buttonVariants } from "@/styles/variants";
 import { cn } from "@/lib/utils";
 import { useMemo } from "react";
 import type { ReactNode } from "react";
-import type { Navigate } from "@/features/navigation/types";
 import { useCurrentUserId } from "@/features/auth/use-current-user";
 import { useGalleries } from "@/features/community/use-galleries";
 import { galleryToCommunity, type Community } from "./community-card";
@@ -107,10 +106,10 @@ function JoinedList({
 }
 
 export function CommunityDirectory({
-  go,
+  onJoined,
   onOpen,
 }: {
-  go: Navigate;
+  onJoined: () => void;
   onOpen: (community: Community) => void;
 }) {
   const userId = useCurrentUserId();
@@ -121,7 +120,7 @@ export function CommunityDirectory({
       <section aria-labelledby="joined-communities-heading">
         <div className={sharedStyles.directoryHeading}>
           <h2 id="joined-communities-heading">가입한 커뮤니티</h2>
-          <button onClick={() => go("joined")}>모두보기</button>
+          <button onClick={onJoined}>모두보기</button>
         </div>
         <JoinedList state={state} userId={userId}>
           {(joined) => (

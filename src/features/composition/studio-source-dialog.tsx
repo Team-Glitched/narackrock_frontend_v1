@@ -1,118 +1,81 @@
 import { studioStyles } from "@/styles/studio.styles";
 import { buttonVariants } from "@/styles/variants";
 import { useId, useState } from "react";
-import { CanvasDialog } from "@/components/app/dialog";
-import { Asset } from "@/components/app/shared";
+import { CanvasDialog } from "@/components/ui/canvas-dialog";
+import { Asset } from "@/components/ui/asset";
 import { useWorkspace, type Resource } from "@/features/workspace/workspace-store";
-import { useSavedSources } from "@/features/community/use-saved-sources";
-import type { SavedSource } from "@/features/community/saved-sources";
+
 export function StudioSourceDialog({
   onClose,
   onResource,
-  onAudio,
-  midiOnly = false,
 }: {
   midiOnly?: boolean;
   onClose: () => void;
   onResource: (resource: Resource) => Promise<void>;
-  onAudio: (source: SavedSource) => Promise<void>;
 }) {
   const id = useId();
   const { resources } = useWorkspace();
-  const { items } = useSavedSources();
-  const [query, setQuery] = useState(""),
-    [busy, setBusy] = useState<string | null>(null),
-    [error, setError] = useState("");
-  const matches = (title: string) =>
-    title.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase());
-  const midi = resources.filter((resource) => matches(resource.title));
-  const audio = midiOnly ? [] : items.filter((source) => matches(source.title));
-  async function use(key: string, action: () => Promise<void>) {
-    if (busy) return;
-    setBusy(key);
-    setError("");
-    try {
-      await action();
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "오픈소스를 추가하지 못했습니다.");
-    } finally {
-      setBusy(null);
-    }
-  }
+  const [query, setQuery] = useState("");
+  const [busy, setBusy] = useState<number | null>(null);
+  const [error, setError] = useState("");
+  const midi = resources.filter((resource) =>
+    resource.title.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()),
+  );
   return (
     <CanvasDialog
       className={studioStyles.studioSourceDialog}
       titleId={id}
       onClose={() => {
-        if (busy === null) onClose();
+        if (!busy) onClose();
       }}
     >
       <header>
-        <h2 id={id}>오픈소스 추가</h2>
-        <button aria-label="오픈소스 추가 닫기" disabled={busy !== null} onClick={onClose}>
+        <h2 id={id}>이 브라우저의 MIDI 복구 자료</h2>
+        <button aria-label="가져오기 닫기" disabled={busy !== null} onClick={onClose}>
           <Asset name="search-close.svg" />
         </button>
       </header>
+      <p>개인 초안으로 가져옵니다. 서버 오픈소스의 프로젝트 삽입은 현재 지원하지 않습니다.</p>
       <label>
-        <Asset name="search-input.svg" />
         <input
-          autoFocus
-          aria-label="추가할 오픈소스 검색"
-          placeholder="보관함 검색"
+          aria-label="로컬 MIDI 검색"
+          placeholder="로컬 MIDI 검색"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
         />
       </label>
       <div className={studioStyles.studioSourceResults}>
         {midi.map((resource) => (
-          <div className={studioStyles.studioSourceRow} key={`midi:${resource.id}`}>
+          <div className={studioStyles.studioSourceRow} key={resource.id}>
             <span>
               <strong>{resource.title}</strong>
-              <small>MIDI · {resource.description}</small>
+              <small>이 브라우저의 MIDI · {resource.description}</small>
             </span>
             <button
-              className={buttonVariants({
-                tone: "primary",
-              })}
+              className={buttonVariants({ tone: "primary" })}
               disabled={
                 busy !== null ||
-                (midiOnly &&
-                  resource.composition.tracks.some((track) =>
-                    track.clips.some((clip) => clip.clipType !== "MIDI"),
-                  ))
+                resource.composition.tracks.some((track) =>
+                  track.clips.some((clip) => clip.clipType !== "MIDI"),
+                )
               }
-              onClick={() => void use(`midi:${resource.id}`, () => onResource(resource))}
+              onClick={async () => {
+                setBusy(resource.id);
+                setError("");
+                try {
+                  await onResource(resource);
+                } catch (cause) {
+                  setError(cause instanceof Error ? cause.message : "가져오지 못했습니다.");
+                } finally {
+                  setBusy(null);
+                }
+              }}
             >
-              {busy === `midi:${resource.id}` ? "추가 중…" : "추가"}
+              {busy === resource.id ? "가져오는 중…" : "개인 초안으로 가져오기"}
             </button>
           </div>
         ))}
-        {audio.map((source) => (
-          <div className={studioStyles.studioSourceRow} key={`audio:${source.id}`}>
-            <span>
-              <strong>{source.title}</strong>
-              <small>오디오 · {source.author}</small>
-            </span>
-            <button
-              className={buttonVariants({
-                tone: "primary",
-              })}
-              disabled={busy !== null || !source.mediaKey}
-              onClick={() => void use(`audio:${source.id}`, () => onAudio(source))}
-            >
-              {busy === `audio:${source.id}`
-                ? "추가 중…"
-                : source.mediaKey
-                  ? "추가"
-                  : "오디오 없음"}
-            </button>
-          </div>
-        ))}
-        {midi.length + audio.length === 0 && (
-          <p role="status">
-            {query.trim() ? "검색 결과가 없습니다." : "보관함에 저장한 오픈소스가 없습니다."}
-          </p>
-        )}
+        {!midi.length && <p>이 브라우저에 저장한 MIDI가 없습니다.</p>}
       </div>
       {error && <p role="alert">{error}</p>}
     </CanvasDialog>

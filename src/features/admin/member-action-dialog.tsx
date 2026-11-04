@@ -2,7 +2,7 @@ import { communityStyles } from "@/styles/community.styles";
 import { buttonVariants } from "@/styles/variants";
 import { sharedStyles } from "@/styles/shared.styles";
 import { useId, useState } from "react";
-import { CanvasDialog } from "@/components/app/dialog";
+import { CanvasDialog } from "@/components/ui/canvas-dialog";
 export function MemberActionDialog({
   member,
   action,
@@ -11,7 +11,7 @@ export function MemberActionDialog({
 }: {
   member: { nickname: string };
   action: "suspend" | "expel";
-  onConfirm: (reason: string, days: number) => void;
+  onConfirm: (reason: string, days: number) => Promise<void>;
   onClose: () => void;
 }) {
   const id = useId();
@@ -19,17 +19,23 @@ export function MemberActionDialog({
   const [days, setDays] = useState("30");
   const validDays = Number.isInteger(Number(days)) && Number(days) >= 1 && Number(days) <= 365;
   const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
   return (
     <CanvasDialog className={communityStyles.communityMemberDialog} titleId={id} onClose={onClose}>
       <form
-        onSubmit={(event) => {
+        onSubmit={async (event) => {
           event.preventDefault();
+          if (busy) return;
+          setBusy(true);
+          setError("");
           try {
             if (action === "suspend" && !validDays)
               throw new Error("이용정지 기간은 1일부터 365일까지 입력해주세요.");
-            onConfirm(reason, Number(days));
+            await onConfirm(reason.trim(), Number(days));
           } catch (cause) {
             setError(cause instanceof Error ? cause.message : "처리하지 못했습니다.");
+          } finally {
+            setBusy(false);
           }
         }}
         aria-label={`${member.nickname} ${action === "suspend" ? "이용정지" : "추방"}`}
@@ -41,7 +47,7 @@ export function MemberActionDialog({
               tone: "primary",
             })}
             type="submit"
-            disabled={!reason.trim() || (action === "suspend" && !validDays)}
+            disabled={busy || !reason.trim() || (action === "suspend" && !validDays)}
           >
             확인
           </button>

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useHiddenPosts } from "@/features/community/hidden-posts";
-import { fetchPosts } from "@/lib/api/community";
+import { fetchPosts, getPopularPosts } from "@/lib/api/community";
 import type { PostListItem, PostSort } from "@/lib/api/contracts";
 
 const PAGE_SIZE = 20;
@@ -40,7 +40,8 @@ type Loaded = { key: string; state: GalleryPostsState };
  * 것인지 키로 비교해 파생한다(community-membership.tsx의 loadedUserId와 같은 방식).
  */
 export function useGalleryPosts(
-  galleryId: number,
+  /** A gallery ID, or `"popular"` for the cross-gallery popular list (`GET /posts/popular`). */
+  galleryId: number | "popular",
   { sort = "LATEST", keyword = null }: GalleryPostsOptions = {},
 ): GalleryPosts {
   const { ids: hiddenPosts } = useHiddenPosts();
@@ -52,10 +53,17 @@ export function useGalleryPosts(
 
   // 널 문자로 이어 붙여 "a|b"와 "a" + "|b"가 같은 키가 되는 일을 막는다.
   const queryKey = [galleryId, sort, keyword ?? "", reloadToken].join("\u0000");
+  const fetchPage = useCallback(
+    (page: number) =>
+      galleryId === "popular"
+        ? getPopularPosts(page, PAGE_SIZE)
+        : fetchPosts(galleryId, { sort, keyword, page, size: PAGE_SIZE }),
+    [galleryId, keyword, sort],
+  );
 
   useEffect(() => {
     let cancelled = false;
-    fetchPosts(galleryId, { sort, keyword, page: 0, size: PAGE_SIZE })
+    fetchPage(0)
       .then((result) => {
         if (cancelled) return;
         setLoaded({
@@ -74,7 +82,7 @@ export function useGalleryPosts(
     return () => {
       cancelled = true;
     };
-  }, [galleryId, sort, keyword, queryKey]);
+  }, [fetchPage, queryKey]);
 
   // loadMore가 이 값을 의존성으로 쓰므로, 매 렌더 새 객체가 되지 않도록 메모한다.
   const state = useMemo<GalleryPostsState>(
@@ -96,7 +104,7 @@ export function useGalleryPosts(
     setAppendingKey(key);
     setAppendFailedKey((previous) => (previous === key ? null : previous));
 
-    fetchPosts(galleryId, { sort, keyword, page: nextPage, size: PAGE_SIZE })
+    fetchPage(nextPage)
       .then((result) => {
         setLoaded((previous) => {
           // 받는 사이에 조건이 바뀌었으면 남의 결과다. 버린다.
@@ -119,7 +127,7 @@ export function useGalleryPosts(
       })
       .catch(() => setAppendFailedKey(key))
       .finally(() => setAppendingKey((previous) => (previous === key ? null : previous)));
-  }, [appending, galleryId, keyword, queryKey, sort, state]);
+  }, [appending, fetchPage, queryKey, state]);
 
   const refetch = useCallback(() => setReloadToken((token) => token + 1), []);
 

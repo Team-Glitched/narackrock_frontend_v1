@@ -1,11 +1,13 @@
 import { profileStyles } from "@/styles/profile.styles";
 import { communityStyles } from "@/styles/community.styles";
 import { useEffect, useState } from "react";
-import { FigmaSheet } from "@/components/app/figma-sheet";
-import { Avatar } from "@/components/app/shared";
+import { FigmaSheet } from "@/components/ui/figma-sheet";
+import { Avatar } from "@/components/ui/avatar";
 import { MiniPost } from "@/features/posts/post-list";
 import { fetchPost } from "@/lib/api/community";
 import type { UserProfile, PostListItem } from "@/lib/api/contracts";
+import { getRelations } from "@/lib/api/social";
+import { ApiError } from "@/lib/api/client";
 export type ProfileListKind = "followers" | "following" | "articles";
 type Person = {
   userId: number;
@@ -50,30 +52,19 @@ export function ProfileListSheet({
         setState("ready");
         return;
       }
-      const relations = profile.relations as UserProfile["relations"] & {
-        followers?: Person[];
-        following?: Person[];
-      };
-      if (Array.isArray(relations[kind])) {
-        if (active) {
-          setPeople(relations[kind]!);
-          setState("ready");
-        }
-        return;
-      }
-      const count =
-        kind === "followers" ? profile.relations.followerCount : profile.relations.followingCount;
+      const people = await getRelations(profile.userId, kind);
       if (active) {
-        if (count === 0) setState("ready");
-        else {
-          setError("사용자 목록 API 연결이 필요합니다.");
-          setState("error");
-        }
+        setPeople(people);
+        setState("ready");
       }
-    })().catch(() => {
+    })().catch((cause) => {
       if (active) {
         setState("error");
-        setError("목록을 불러오지 못했습니다.");
+        setError(
+          cause instanceof ApiError && cause.status === 403
+            ? "비공개 프로필의 관계 목록은 볼 수 없습니다."
+            : "목록을 불러오지 못했습니다.",
+        );
       }
     });
     return () => {

@@ -4,8 +4,10 @@ import { cn } from "@/lib/utils";
 import { uiLabels } from "@/lib/ui-labels";
 import { useEffect, useState } from "react";
 import { ProfileListSheet, type ProfileListKind } from "./profile-lists";
-import { Asset, Avatar, SectionTitle } from "@/components/app/shared";
-import type { Navigate } from "@/features/navigation/types";
+import { ProfilePrivacyToggle, ProfileRelationActions } from "./profile-relations";
+import { Asset } from "@/components/ui/asset";
+import { Avatar } from "@/components/ui/avatar";
+import { SectionTitle } from "@/components/ui/section-title";
 import { useCurrentUserId } from "@/features/auth/use-current-user";
 import { ApiError } from "@/lib/api/client";
 import { getProfile, updateProfile, updateProfileImage } from "@/lib/api/profile";
@@ -18,6 +20,7 @@ function profileErrorMessage(error: unknown): string {
 function useOwnProfile(targetUserId?: number) {
   const currentUserId = useCurrentUserId();
   const userId = targetUserId ?? currentUserId;
+  const [revision, setRevision] = useState(0);
   const [result, setResult] = useState<{
     userId: number;
     profile: UserProfile | null;
@@ -48,7 +51,8 @@ function useOwnProfile(targetUserId?: number) {
     return () => {
       cancelled = true;
     };
-  }, [userId]);
+  }, [userId, revision]);
+  const reload = () => setRevision((value) => value + 1);
 
   const setProfile = (profile: UserProfile) => {
     if (userId != null) {
@@ -62,6 +66,7 @@ function useOwnProfile(targetUserId?: number) {
       loading: false,
       error: "로그인이 필요합니다.",
       setProfile,
+      reload,
     };
   }
 
@@ -71,6 +76,7 @@ function useOwnProfile(targetUserId?: number) {
       loading: true,
       error: null,
       setProfile,
+      reload,
     };
   }
 
@@ -79,6 +85,7 @@ function useOwnProfile(targetUserId?: number) {
     loading: false,
     error: result.error,
     setProfile,
+    reload,
   };
 }
 
@@ -133,20 +140,24 @@ function ProfileWorks({
 }
 
 export function ProfileScreen({
-  go,
+  onEdit,
+  onProfile,
   onOpenShort,
   userId,
   onOpenPost,
+  onChat,
 }: {
   userId?: number;
-  go: Navigate;
+  onEdit: () => void;
+  onProfile: (id: number) => void;
   onOpenShort: (id: number) => void;
   onOpenPost: (id: number) => void;
+  onChat: (id: number) => void;
 }) {
   const currentUserId = useCurrentUserId();
   const [list, setList] = useState<ProfileListKind | null>(null);
   const own = userId === undefined || userId === currentUserId;
-  const { profile, loading, error } = useOwnProfile(userId);
+  const { profile, loading, error, reload } = useOwnProfile(userId);
 
   if (loading) {
     return (
@@ -174,7 +185,7 @@ export function ProfileScreen({
     <div className={cn(profileStyles.profileView, sharedStyles.scrollContent)}>
       <button
         className={profileStyles.profileEditTrigger}
-        onClick={own ? () => go("edit") : undefined}
+        onClick={own ? onEdit : undefined}
         disabled={!own}
         aria-label={own ? "프로필 편집" : "사용자 프로필 사진"}
       >
@@ -182,6 +193,9 @@ export function ProfileScreen({
       </button>
 
       <h1>{profile.nickname}</h1>
+      {!own && currentUserId !== null && (
+        <ProfileRelationActions profile={profile} onChanged={reload} onChat={onChat} />
+      )}
 
       <div className={sharedStyles.stats}>
         <button aria-label="팔로워 목록" onClick={() => setList("followers")}>
@@ -226,7 +240,7 @@ export function ProfileScreen({
           kind={list}
           profile={profile}
           onClose={() => setList(null)}
-          onProfile={(id) => go("profile", id)}
+          onProfile={onProfile}
           onPost={onOpenPost}
         />
       )}
@@ -254,6 +268,8 @@ export function EditProfileScreen({ onSaved }: { onSaved: () => void }) {
   }
 
   return (
+    <>
+    <ProfilePrivacyToggle isPrivate={profile.isPrivate} onChanged={(isPrivate) => setProfile({ ...profile, isPrivate })} />
     <ProfileForm
       initial={{
         nickname: profile.nickname,
@@ -280,6 +296,7 @@ export function EditProfileScreen({ onSaved }: { onSaved: () => void }) {
         onSaved();
       }}
     />
+    </>
   );
 }
 

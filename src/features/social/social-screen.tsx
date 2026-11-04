@@ -2,10 +2,9 @@ import { sharedStyles } from "@/styles/shared.styles";
 import { communityStyles } from "@/styles/community.styles";
 import { cn } from "@/lib/utils";
 import { buttonVariants } from "@/styles/variants";
-import { useGalleries } from "@/features/community/use-galleries";
+import { useGalleryRole } from "@/features/community/use-gallery-role";
 import { CommunityDirectory } from "../community/community-directory";
 import type { Community } from "../community/community-card";
-import type { Navigate } from "@/features/navigation/types";
 import { useGalleryPosts } from "@/features/community/use-gallery-posts";
 import { DEFAULT_GALLERY_ID } from "@/lib/api/community";
 import { PostListStatus } from "@/features/posts/post-list";
@@ -16,20 +15,24 @@ export type CommunityTab = "posts" | "community" | "friends";
 
 // tab은 page.tsx가 들고 있다 — "모두보기"로 전체 목록에 다녀와도 커뮤니티 탭이 유지되도록.
 export function CommunityScreen({
-  go,
+  onProfile,
+  onChat,
+  onJoined,
   tab,
   onTabChange,
   onComments,
   onOpenCommunity,
 }: {
-  go: Navigate;
+  onProfile: (id: number) => void;
+  onChat: (userId: number) => void;
+  onJoined: () => void;
   tab: CommunityTab;
   onTabChange: (tab: CommunityTab) => void;
   onComments: (postId: number) => void;
   onOpenCommunity: (community: Community) => void;
 }) {
   const posts = useGalleryPosts(DEFAULT_GALLERY_ID);
-  const galleries = useGalleries(0);
+  const role = useGalleryRole(DEFAULT_GALLERY_ID);
 
   return (
     <div className={cn(communityStyles.communityView, sharedStyles.socialScreen)}>
@@ -82,25 +85,18 @@ export function CommunityScreen({
               <CommunityPost
                 key={post.postId}
                 post={post}
-                postGalleryId={DEFAULT_GALLERY_ID}
-                moderationCommunity={
-                  galleries.status === "ready"
-                    ? galleries.galleries.find(
-                        (gallery) => gallery.galleryId === DEFAULT_GALLERY_ID,
-                      )
-                    : undefined
-                }
+                moderation={{ galleryId: DEFAULT_GALLERY_ID, canManage: Boolean(role?.canManage) }}
                 onChanged={posts.refetch}
-                onProfile={(id) => go("profile", id)}
+                onProfile={onProfile}
                 onComments={onComments}
               />
             ))
           )}
         </div>
       ) : tab === "friends" ? (
-        <FriendsScreen go={go} />
+        <FriendsScreen onProfile={onProfile} onChat={onChat} />
       ) : (
-        <CommunityDirectory go={go} onOpen={onOpenCommunity} />
+        <CommunityDirectory onJoined={onJoined} onOpen={onOpenCommunity} />
       )}
     </div>
   );

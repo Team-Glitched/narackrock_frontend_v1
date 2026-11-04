@@ -3,10 +3,11 @@ import { cn } from "@/lib/utils";
 import { useMemo, useState, type Dispatch, type SetStateAction } from "react";
 import type { CompositionDto, MidiNoteDto } from "@/lib/api/composition";
 import { StudioToolbar } from "@/features/composition/studio-toolbar";
-import { NoteSettingsDialog } from "@/components/app/dialog";
+import { NoteSettingsDialog } from "@/features/composition/note-settings-dialog";
 import { TeamPianoRoll } from "./team-piano-roll";
 import { useCompositionPlayback } from "./use-composition-playback";
 import { renderPianoAudio } from "./source-piano-render";
+import { defaultSignature } from "./time-signature";
 
 export function SourcePianoEditor({
   notes,
@@ -24,6 +25,8 @@ export function SourcePianoEditor({
   onSave: (file: File) => void;
 }) {
   const maxTick = bpm * 480; // One minute, matching upload/record limits.
+  // A source sketch is not a project; its time signature is only for this editor's grid.
+  const [signature, setSignature] = useState(defaultSignature);
   const composition = useMemo<CompositionDto>(
     () => ({
       viewerPermission: {
@@ -36,7 +39,10 @@ export function SourcePianoEditor({
       project: {
         projectId: 0,
         title: "오픈소스",
+        ownerId: 0,
         albumImageFileId: null,
+        timeSignatureNumerator: signature.numerator,
+        timeSignatureDenominator: signature.denominator,
         bpm,
         ppq: 480,
         maxTick,
@@ -75,7 +81,7 @@ export function SourcePianoEditor({
         },
       ],
     }),
-    [notes, bpm, maxTick],
+    [notes, bpm, maxTick, signature],
   );
   const player = useCompositionPlayback(composition);
   const [pending, setPending] = useState(false);
@@ -102,9 +108,13 @@ export function SourcePianoEditor({
     <div className={cn(studioStyles.studio, "note-editor")}>
       <StudioToolbar
         signature={player.signature}
-        onSignature={(value) => {
+        onTiming={async (timing) => {
+          if (notes.some((note) => note.startTick + note.durationTick > timing.bpm * 480))
+            throw new Error("현재 노트가 1분을 초과하는 BPM입니다.");
           player.pause();
-          player.setSignature(value);
+          onBpm(timing.bpm);
+          setSignature(timing.signature);
+          setError(null);
         }}
         piano
         title="오픈소스 피아노롤"
@@ -122,15 +132,6 @@ export function SourcePianoEditor({
         onVolume={player.setVolume}
         metronome={player.metronome}
         onMetronome={() => player.setMetronome((value) => !value)}
-        onBpm={(value) => {
-          if (notes.some((note) => note.startTick + note.durationTick > value * 480)) {
-            setError("현재 노트가 1분을 초과하는 BPM입니다.");
-            return;
-          }
-          player.pause();
-          onBpm(value);
-          setError(null);
-        }}
         addLabel="오디오 선택 완료"
         onAdd={pending ? undefined : () => void save()}
       />

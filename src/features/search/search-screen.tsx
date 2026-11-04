@@ -4,13 +4,17 @@ import { cn } from "@/lib/utils";
 import { communityStyles } from "@/styles/community.styles";
 import { buttonVariants } from "@/styles/variants";
 import { useEffect, useRef, useState } from "react";
-import { Asset, Avatar } from "@/components/app/shared";
+import { Asset } from "@/components/ui/asset";
+import { Avatar } from "@/components/ui/avatar";
 import { MiniPost } from "@/features/posts/post-list";
 import { CommunityCard, galleryToCommunity, type Community } from "../community/community-card";
 import { fetchGalleries, fetchPosts } from "@/lib/api/community";
 import { getShorts } from "@/lib/api/shorts";
 import type { GalleryListItem, PostListItem, PostWriter, ShortItemDto } from "@/lib/api/contracts";
-import type { SearchScope } from "@/features/navigation/context-actions";
+import { listOpenSources, type OpenSourceSummary } from "@/lib/api/open-sources";
+import { useCurrentUserId } from "@/features/auth/use-current-user";
+import { sourceError } from "@/features/sources/source-screens";
+import type { SearchScope } from "@/features/search/search-scope";
 import { searchCommunityPosts } from "@/features/community/post-search";
 const scopes: { id: SearchScope; label: string }[] = [
   { id: "sources", label: "오픈소스" },
@@ -24,8 +28,9 @@ type Results = {
   communities: GalleryListItem[];
   songs: ShortItemDto[];
   people: PostWriter[];
+  sources: OpenSourceSummary[];
 };
-const empty = (): Results => ({ posts: [], communities: [], songs: [], people: [] });
+const empty = (): Results => ({ posts: [], communities: [], songs: [], people: [], sources: [] });
 export function ScopedSearch({
   scope: requestedScope,
   community,
@@ -36,6 +41,7 @@ export function ScopedSearch({
   onPost,
   onCommunity,
   onSong,
+  onSource,
   onProfile,
 }: {
   community?: Pick<Community, "galleryId" | "name"> | null;
@@ -47,13 +53,15 @@ export function ScopedSearch({
   onPost: (id: number) => void;
   onCommunity: (community: Community) => void;
   onSong: (id: number) => void;
+  onSource: (id: number) => void;
   onProfile: (id: number) => void;
 }) {
   const [retry, setRetry] = useState(0);
   const scope = community ? "posts" : requestedScope;
   const inputRef = useRef<HTMLInputElement>(null);
   const galleryId = community?.galleryId;
-  const key = `${galleryId ?? "all"}:${scope}:${query.trim()}:${retry}`;
+  const userId = useCurrentUserId();
+  const key = `${userId}:${galleryId ?? "all"}:${scope}:${query.trim()}:${retry}`;
   const [loaded, setLoaded] = useState<{ key: string; results: Results; error?: string } | null>(
     null,
   );
@@ -92,7 +100,16 @@ export function ScopedSearch({
               ...new Map(posts.map((post) => [post.writer.userId, post.writer])).values(),
             ].filter((person) => matches(person.nickname));
           }
-        } else throw new Error("현재 오픈소스 검색을 사용할 수 없습니다.");
+        } else {
+          if (userId === null) throw new Error("오픈소스 검색은 로그인 후 사용할 수 있습니다.");
+          for (let page = 0; ; page++) {
+            const result = await listOpenSources({ keyword, page }).catch((cause) => {
+              throw new Error(sourceError(cause, "오픈소스를 검색하지 못했습니다."));
+            });
+            results.sources.push(...result.items);
+            if (!result.hasNext) break;
+          }
+        }
         if (active) setLoaded({ key, results });
       })().catch((cause) => {
         if (active)
@@ -107,7 +124,7 @@ export function ScopedSearch({
       active = false;
       window.clearTimeout(timer);
     };
-  }, [scope, query, key, galleryId]);
+  }, [scope, query, key, galleryId, userId]);
   const results = loaded?.key === key ? loaded.results : null;
   return (
     <div className={cn(socialStyles.searchView, sharedStyles.scopedSearch)}>
@@ -215,6 +232,26 @@ export function ScopedSearch({
               <span>
                 <strong>{song.title}</strong>
                 <small>{song.author.nickname}</small>
+              </span>
+            </button>
+          ))}
+        {scope === "sources" &&
+          results?.sources.map((source) => (
+            <button
+              className={sharedStyles.chartRow}
+              key={source.openSourceId}
+              onClick={() => onSource(source.openSourceId)}
+            >
+              <span className={sharedStyles.chartArt}>
+                {source.thumbnailUrl ? (
+                  <AssetImage url={source.thumbnailUrl} />
+                ) : (
+                  <span className={sharedStyles.emptyArtwork} />
+                )}
+              </span>
+              <span>
+                <strong>{source.title}</strong>
+                <small>{source.writer.nickname}</small>
               </span>
             </button>
           ))}

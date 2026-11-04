@@ -1,5 +1,5 @@
-import { apiRequest, clearAuthSession, getCurrentUserId, setAuthSession } from "./client.ts";
-import type { ApiResponse, GoogleLoginResponse, TokenRefreshResponse } from "./contracts.ts";
+import { apiRequest, clearAuthSession, setAuthSession } from "./client.ts";
+import type { ApiResponse, GoogleLoginResponse } from "./contracts.ts";
 
 function storeAuthentication(response: GoogleLoginResponse): void {
   setAuthSession({
@@ -15,22 +15,6 @@ export function loginWithGoogle(idToken: string): Promise<GoogleLoginResponse> {
     body: JSON.stringify({ idToken }),
   }).then((response) => {
     storeAuthentication(response.data);
-    return response.data;
-  });
-}
-
-export function refreshAccessToken(refreshToken: string): Promise<TokenRefreshResponse> {
-  return apiRequest<ApiResponse<TokenRefreshResponse>>("/api/v1/auth/refresh", {
-    method: "POST",
-    body: JSON.stringify({ refreshToken }),
-  }).then((response) => {
-    const userId = getCurrentUserId();
-    if (userId != null)
-      setAuthSession({
-        accessToken: response.data.accessToken,
-        refreshToken: response.data.refreshToken,
-        userId,
-      });
     return response.data;
   });
 }

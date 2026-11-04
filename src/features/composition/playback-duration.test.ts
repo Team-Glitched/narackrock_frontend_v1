@@ -50,7 +50,10 @@ function composition(tracks: TrackDto[], maxDurationMs = 120000): CompositionDto
     project: {
       projectId: 1,
       title: "곡",
+      ownerId: 1,
       albumImageFileId: null,
+      timeSignatureNumerator: 4,
+      timeSignatureDenominator: 4,
       bpm: 120,
       ppq: 480,
       maxTick: 115200,

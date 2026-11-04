@@ -1,9 +1,8 @@
 import { communityStyles } from "@/styles/community.styles";
 import { sharedStyles } from "@/styles/shared.styles";
 import { cn } from "@/lib/utils";
-import { isCommunityOwner } from "@/features/admin/permissions";
 import { useCurrentUserId } from "@/features/auth/use-current-user";
-import { Avatar } from "@/components/app/shared";
+import { Avatar } from "@/components/ui/avatar";
 import type { GalleryListItem } from "@/lib/api/contracts";
 import { useCommunityMembership } from "./community-membership";
 
@@ -59,7 +58,8 @@ export function CommunityJoinButton({
   const membership = useCommunityMembership();
   const joined = membership.isJoined(community.id);
   const pending = membership.isPending(community.id);
-  if (isCommunityOwner(community, userId))
+  // The creator cannot leave their own gallery, so the join control shows a fixed badge (display only).
+  if (userId !== null && community.ownerId === userId)
     return (
       <span
         className={cn(

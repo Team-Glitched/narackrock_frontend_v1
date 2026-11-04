@@ -1,28 +1,20 @@
-import { NotificationsScreen } from "@/features/notifications/notifications-screen";
-import { useAppNavigation } from "@/features/navigation/use-app-navigation";
-export default function NotificationsPage({ overlay = false }: { overlay?: boolean }) {
-  const { to, back, currentPath, query, params } = useAppNavigation();
-  function close() {
-    if (!overlay) {
-      back("/");
-      return;
-    }
-    const next = new URLSearchParams(query);
-    next.delete("notifications");
-    const path = window.location.pathname + (next.size ? `?${next}` : "");
-    if (window.history.state?.idx > 0) back(path);
-    else to(path, { replace: true });
-  }
+import { NotificationPanel } from "../notification-panel";
+import { DesignViewport } from "@/components/ui/design-viewport";
+import { Header } from "@/features/navigation/header";
+import { useUrlNavigation } from "@/features/navigation/use-url-navigation";
+import { readId, withQuery } from "@/features/navigation/paths";
+import { resolveSearchScope } from "@/features/search/search-scope";
+import { sharedStyles } from "@/styles/shared.styles";
+export default function NotificationsPage() {
+  const { to, back, params, query } = useUrlNavigation();
+  const galleryId = readId(params.galleryId) ?? readId(query.get("galleryId"));
+  const scope = resolveSearchScope(query.get("scope"), "songs", Boolean(galleryId));
   return (
-    <NotificationsScreen
-      onBack={close}
-      onOpenProject={(id) =>
-        to(`/studio/${id}`, { state: { studioFrom: currentPath, inbox: true } })
-      }
-      onOpenSubmission={(id) => to(`/submissions/${id}`)}
-      onOpenFriends={() => to("/friends")}
-      onReviewInbox={() => to("/reviews")}
-      key={params.projectId ?? "notifications"}
-    />
+    <DesignViewport>
+      <div className={sharedStyles.phoneFrame}>
+        <Header onSearch={() => to(withQuery("/search", { scope, galleryId }))} onBack={() => back("/")} />
+        <div className={sharedStyles.screenBody}><NotificationPanel /></div>
+      </div>
+    </DesignViewport>
   );
 }

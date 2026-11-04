@@ -1,7 +1,7 @@
-import { apiRequest } from "@/lib/api/client";
-import type { ApiEnvelope } from "@/lib/api/contracts";
+import { apiRequest } from "./client.ts";
+import type { ApiEnvelope } from "./contracts.ts";
 
-export { uploadMedia } from "@/lib/api/media";
+export { uploadMedia } from "./media.ts";
 
 export type MidiNoteDto = {
   pitch: number;
@@ -51,8 +51,11 @@ export type CompositionDto = {
   project: {
     projectId: number;
     title: string;
+    ownerId: number;
     albumImageFileId: number | null;
     bpm: number;
+    timeSignatureNumerator: number;
+    timeSignatureDenominator: number;
     ppq: number;
     maxTick: number;
     maxDurationMs: number;
@@ -77,10 +80,11 @@ export async function getComposition(projectId: number): Promise<CompositionDto>
   return data(`/api/v1/projects/${projectId}/tracks`);
 }
 
+/** Creates a track. `instrument` must be a sampled instrument or a recorded role; the server rejects others. */
 export async function createTrack(
   projectId: number,
   name: string,
-  instrument: string | null,
+  instrument: string,
   sortOrder: number,
 ) {
   return data<{ trackId: number }>(`/api/v1/projects/${projectId}/tracks`, {
@@ -89,29 +93,37 @@ export async function createTrack(
   });
 }
 
-export async function createMidiClip(
-  projectId: number,
-  trackId: number,
-  startTick: number,
-  durationTick: number,
-  midiNotes: MidiNoteDto[],
-) {
-  return data<{ clipId: number }>(`/api/v1/projects/${projectId}/tracks/${trackId}/clips/midi`, {
-    method: "POST",
-    body: JSON.stringify({ startTick, durationTick, midiNotes }),
-  });
+/** Removes the caller's own track (used only to cancel a just-created empty track). */
+export async function deleteTrack(trackId: number) {
+  return apiRequest(`/api/v1/tracks/${trackId}`, { method: "DELETE" });
 }
 
-export async function saveMidiClip(
-  clipId: number,
-  startTick: number,
-  durationTick: number,
-  midiNotes: MidiNoteDto[],
+/** Original owner only, DRAFT/IN_PROGRESS projects; all three fields are required. */
+export async function updateProjectTiming(
+  projectId: number,
+  timing: { bpm: number; timeSignatureNumerator: number; timeSignatureDenominator: number },
 ) {
-  return data(`/api/v1/clips/${clipId}/midi`, {
-    method: "PATCH",
-    body: JSON.stringify({ startTick, durationTick, midiNotes }),
-  });
+  return data<{
+    bpm: number;
+    timeSignatureNumerator: number;
+    timeSignatureDenominator: number;
+    maxTick: number;
+  }>(`/api/v1/projects/${projectId}/timing`, { method: "PATCH", body: JSON.stringify(timing) });
+}
+
+/** Owner-only tone change; 409 INSTRUMENT_FAMILY_TAKEN when another track holds the family. */
+export async function updateTrackInstrument(
+  projectId: number,
+  trackId: number,
+  instrument: string,
+) {
+  return data<{ instrument: string }>(
+    `/api/v1/projects/${projectId}/tracks/${trackId}/instrument`,
+    {
+      method: "PATCH",
+      body: JSON.stringify({ instrument }),
+    },
+  );
 }
 
 export async function createAudioClip(
@@ -119,16 +131,11 @@ export async function createAudioClip(
   trackId: number,
   mediaFileId: number,
   durationTick: number,
+  sourceType: "FILE_UPLOAD" | "RECORDING" = "FILE_UPLOAD",
 ) {
   return data(`/api/v1/projects/${projectId}/tracks/${trackId}/clips/audio`, {
     method: "POST",
-    body: JSON.stringify({
-      mediaFileId,
-      sourceType: "FILE_UPLOAD",
-      startTick: 0,
-      durationTick,
-      clipOffsetMs: 0,
-    }),
+    body: JSON.stringify({ mediaFileId, sourceType, startTick: 0, durationTick, clipOffsetMs: 0 }),
   });
 }
 
@@ -159,12 +166,39 @@ export async function updateProjectMetadata(
   });
 }
 
+export type ContributionItem = {
+  changeType: string;
+  targetType: string;
+  targetId: number;
+  itemStatus: string;
+};
+
+/** `GET /projects/{id}/contributions` item; ids and states come from the server only. */
 export type ContributionDto = {
   contributionId: number;
+  projectId: number;
   userId: number;
   nickname: string;
+  profileImageUrl: string | null;
+  description: string | null;
+  baseProjectVersion: { major: number; minor: number; display: string };
   approvalStatus: "PENDING" | "APPROVED" | "REJECTED";
-  items: { changeType: string; targetType: string; targetId: number }[];
+  reviewedBy: number | null;
+  reviewedAt: string | null;
+  reviewComment: string | null;
+  createdAt: string;
+  items: ContributionItem[];
+};
+
+/** Response of a contribution submission (`editor-drafts/submit`). */
+export type SubmittedContribution = {
+  projectId: number;
+  contributionId: number;
+  baseProjectVersion: { major: number; minor: number; display: string };
+  approvalStatus: "PENDING" | "APPROVED" | "REJECTED";
+  description: string | null;
+  items: ContributionItem[];
+  createdAt: string;
 };
 
 export type ContributionNotificationDto = {
@@ -186,32 +220,40 @@ export async function getContributionInbox(): Promise<ContributionNotificationDt
 }
 
 export async function getPendingContributions(projectId: number): Promise<ContributionDto[]> {
-  const response = await data<{ items: ContributionDto[] }>(
-    `/api/v1/projects/${projectId}/contributions?status=PENDING`,
-  );
-  return response.items;
+  return listContributions(projectId, "PENDING");
 }
 
-export async function submitContribution(
+/** Every contribution of a project (optionally by status), following the cursor to the end. */
+export async function listContributions(
   projectId: number,
-  version: { major: number; minor: number },
-  items: { changeType: "ADD" | "UPDATE"; targetType: "TRACK" | "CLIP"; targetId: number }[],
-  description: string | null = null,
-) {
-  return data(`/api/v1/projects/${projectId}/contributions`, {
-    method: "POST",
-    body: JSON.stringify({ description, baseProjectVersion: version, items }),
-  });
+  status?: "PENDING" | "APPROVED" | "REJECTED",
+): Promise<ContributionDto[]> {
+  const items: ContributionDto[] = [];
+  let cursor: number | null = null;
+  for (;;) {
+    const params = new URLSearchParams({ size: "50" });
+    if (status) params.set("status", status);
+    if (cursor !== null) params.set("cursor", String(cursor));
+    const page: {
+      items: ContributionDto[];
+      page: { nextCursor: number | null; hasMore: boolean };
+    } = await data(`/api/v1/projects/${projectId}/contributions?${params}`);
+    items.push(...page.items);
+    if (!page.page.hasMore || page.page.nextCursor === null || page.page.nextCursor === cursor)
+      return items;
+    cursor = page.page.nextCursor;
+  }
 }
 
 export async function reviewContribution(
   projectId: number,
   contributionId: number,
   approvalStatus: "APPROVED" | "REJECTED",
+  reviewComment: string | null = null,
 ) {
   return data(`/api/v1/projects/${projectId}/contributions/${contributionId}`, {
     method: "PATCH",
-    body: JSON.stringify({ approvalStatus, reviewComment: null }),
+    body: JSON.stringify({ approvalStatus, reviewComment }),
   });
 }
 

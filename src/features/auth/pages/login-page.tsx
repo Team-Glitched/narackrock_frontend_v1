@@ -1,11 +1,16 @@
 import { useCallback } from "react";
-import { AuthScreen, type PendingProfileSetup } from "@/features/auth/auth-screen";
-import { useAppSession } from "@/app/session";
-import { useAppNavigation } from "@/features/navigation/use-app-navigation";
+import { AuthScreen } from "@/features/auth/auth-screen";
+import type { PendingProfileSetup } from "@/features/auth/profile-setup";
+import { useAuthSession } from "@/features/auth/auth-session";
+import { useUrlNavigation } from "@/features/navigation/use-url-navigation";
+import type { AuthLocationState } from "../auth-location-state";
+import { DesignViewport } from "@/components/ui/design-viewport";
+import { NotificationsOverlay } from "@/features/notifications/notifications-overlay";
+import { sharedStyles } from "@/styles/shared.styles";
 import { safeReturnPath } from "@/features/navigation/paths";
 export default function LoginPage() {
-  const { to, state } = useAppNavigation();
-  const { refreshProfile, setPendingProfileSetup } = useAppSession();
+  const { to, state } = useUrlNavigation<AuthLocationState>();
+  const { refreshProfile, setPendingProfileSetup } = useAuthSession();
   const onAuthenticated = useCallback(() => {
     setPendingProfileSetup(null);
     refreshProfile();
@@ -14,9 +19,16 @@ export default function LoginPage() {
   const onFirstLogin = useCallback(
     (pending: PendingProfileSetup) => {
       setPendingProfileSetup(pending);
-      to("/onboarding", { state: { pending } });
+      to("/onboarding", { state: { pending, returnTo: state.returnTo, from: state.from } });
     },
-    [setPendingProfileSetup, to],
+    [setPendingProfileSetup, to, state.returnTo, state.from],
   );
-  return <AuthScreen onAuthenticated={onAuthenticated} onFirstLogin={onFirstLogin} />;
+  return (
+    <DesignViewport>
+      <div className={sharedStyles.phoneFrame}>
+        <div className={sharedStyles.screenBody}><AuthScreen onAuthenticated={onAuthenticated} onFirstLogin={onFirstLogin} /></div>
+        <NotificationsOverlay />
+      </div>
+    </DesignViewport>
+  );
 }

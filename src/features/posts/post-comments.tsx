@@ -2,16 +2,16 @@ import { communityStyles } from "@/styles/community.styles";
 import { cn } from "@/lib/utils";
 import { buttonVariants } from "@/styles/variants";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useGalleries } from "@/features/community/use-galleries";
-import { canManageCommunityMember } from "@/features/admin/permissions";
+import { canSanction, useGalleryRole, type ModerationScope } from "@/features/community/use-gallery-role";
 import { PostMemberModeration } from "@/features/admin/post-member-moderation";
 import { useHiddenPosts } from "@/features/community/hidden-posts";
-import { PostUserActionsMenu } from "@/components/app/dialog";
-import { FigmaSheet } from "@/components/app/figma-sheet";
-import { ReportReasons } from "@/components/app/report-reasons";
+import { PostUserActionsMenu } from "@/features/posts/post-user-actions-menu";
+import { FigmaSheet } from "@/components/ui/figma-sheet";
+import { ReportReasons } from "@/features/comments/report-reasons";
 import { formatDistanceToNow } from "date-fns";
 import { ko } from "date-fns/locale";
-import { Asset, Avatar } from "@/components/app/shared";
+import { Asset } from "@/components/ui/asset";
+import { Avatar } from "@/components/ui/avatar";
 import {
   createPostComment,
   deletePostComment,
@@ -19,11 +19,16 @@ import {
   fetchPostComments,
   recordPostView,
   updatePostComment,
+  reactToPostComment,
+  moderateGalleryContent,
 } from "@/lib/api/community";
 import { ApiError, getCurrentUserId } from "@/lib/api/client";
 import { CommonComments } from "@/features/comments/common-comments";
 import type { CommentAdapter } from "@/features/comments/comment-model";
 import type { PostDetailResponse } from "@/lib/api/contracts";
+import { reportPost, reportPostComment } from "@/lib/api/reports";
+import { PostActions } from "@/features/posts/post-actions";
+import { usePostInteractions } from "@/features/posts/use-post-interactions";
 
 function errorMessage(error: unknown, forbidden = "현재 계정은 댓글을 작성할 수 없습니다.") {
   if (error instanceof ApiError) {
@@ -46,20 +51,24 @@ export function PostCommentsScreen({
   postId,
   onProfile,
   onHidden,
-  moderation,
 }: {
-  moderation?: { galleryId: number; remove: (postId: number) => Promise<void> };
   postId: number;
   onProfile?: (userId: number) => void;
   onHidden: () => void;
 }) {
   const hiddenPosts = useHiddenPosts();
-  const galleries = useGalleries(0);
   const [memberAction, setMemberAction] = useState<"suspend" | "expel" | null>(null);
   const [moderationNotice, setModerationNotice] = useState("");
   const [post, setPost] = useState<PostDetailResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [revision, setRevision] = useState(0);
+  const role = useGalleryRole(post?.gallery.galleryId ?? null);
+  const postGalleryId = post?.gallery.galleryId ?? null;
+  const roleCanManage = role?.canManage === true;
+  const moderationGalleryId = roleCanManage ? postGalleryId : null;
+  const scope: ModerationScope | undefined =
+    postGalleryId !== null && role ? { galleryId: postGalleryId, canManage: roleCanManage } : undefined;
+  const canModerate = roleCanManage;
   const adapter = useMemo<CommentAdapter>(
     () => ({
       async load(parentId, page) {
@@ -76,15 +85,23 @@ export function PostCommentsScreen({
             text: item.content,
             time: time(item.createdAt),
             replyCount: item.replyCount,
-            likes: 0,
+            likes: item.likeCount,
+            dislikes: item.dislikeCount,
+            isLiked: item.isLiked,
+            isDisliked: item.isDisliked,
           })),
         };
       },
       create: (text, parentId) => createPostComment(postId, text, parentId),
       update: updatePostComment,
       remove: deletePostComment,
+      react: reactToPostComment,
+      report: reportPostComment,
+      ...(moderationGalleryId !== null
+        ? { moderate: (id: number, reason: string) => moderateGalleryContent(moderationGalleryId, "comments", id, reason) }
+        : {}),
     }),
-    [postId],
+    [postId, moderationGalleryId],
   );
   useEffect(() => {
     let cancelled = false;
@@ -122,28 +139,22 @@ export function PostCommentsScreen({
   const [report, setReport] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  const moderationCommunity =
-    post && galleries.status === "ready"
-      ? galleries.galleries.find((gallery) => gallery.galleryId === post.gallery.galleryId)
-      : undefined;
-  const canModerateMember =
-    post &&
-    moderationCommunity &&
-    canManageCommunityMember(moderationCommunity, getCurrentUserId(), post.writer.userId);
-  const canModerate = post && moderation?.galleryId === post.gallery.galleryId;
+  const [moderationReason, setModerationReason] = useState("");
+  const canModerateMember = post ? canSanction(scope, getCurrentUserId(), post.writer.userId) : false;
   async function removePost() {
-    if (!canModerate || !moderation) return;
+    if (!canModerate || !scope || !moderationReason.trim()) return;
     setDeleting(true);
     try {
-      await moderation.remove(postId);
+      await moderateGalleryContent(scope.galleryId, "posts", postId, moderationReason.trim());
       onHidden();
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "삭제하지 못했습니다.");
+      setError(errorMessage(cause, "이 게시글을 삭제할 권한이 없습니다."));
       setDeleting(false);
       setConfirmDelete(false);
     }
   }
   const [focus, setFocus] = useState(0);
+  const interactions = usePostInteractions(postId, post);
   return (
     <div className={cn(communityStyles.commentsScreen, communityStyles.communityView)}>
       <CommonComments
@@ -175,9 +186,9 @@ export function PostCommentsScreen({
               </div>
             )}
             {!post && !error && <p role="status">게시글을 불러오는 중...</p>}
-            {post && moderationCommunity && memberAction && (
+            {post && scope && memberAction && (
               <PostMemberModeration
-                community={moderationCommunity}
+                community={scope}
                 member={post.writer}
                 action={memberAction}
                 onClose={() => setMemberAction(null)}
@@ -260,7 +271,14 @@ export function PostCommentsScreen({
                       role="group"
                       aria-label="게시글 삭제 확인"
                     >
-                      <p>이 게시글을 삭제할까요?</p>
+                      <p>운영자 권한으로 이 게시글을 삭제할까요?</p>
+                      <input
+                        aria-label="운영 삭제 사유"
+                        placeholder="삭제 사유"
+                        maxLength={500}
+                        value={moderationReason}
+                        onChange={(event) => setModerationReason(event.target.value)}
+                      />
                       <button
                         className={buttonVariants({
                           tone: "secondary",
@@ -274,7 +292,7 @@ export function PostCommentsScreen({
                         className={buttonVariants({
                           tone: "primary",
                         })}
-                        disabled={deleting}
+                        disabled={deleting || !moderationReason.trim()}
                         onClick={removePost}
                       >
                         {deleting ? "삭제 중..." : "삭제 확인"}
@@ -294,32 +312,19 @@ export function PostCommentsScreen({
                       height={262}
                     />
                   )}
-                  <div className={communityStyles.communityActions}>
-                    <div className={communityStyles.communityVote}>
-                      <button disabled aria-label="게시글 좋아요 준비 중">
-                        <Asset name="post-like-off.svg" />
-                        {post.likeCount}
-                      </button>
-                      <span className={communityStyles.communityVoteDivider} />
-                      <button disabled aria-label="게시글 싫어요 준비 중">
-                        <Asset name="post-dislike-off.svg" />
-                      </button>
-                    </div>
-                    <button
-                      aria-label={`댓글 ${post.commentCount}개로 이동`}
-                      onClick={() => setFocus((value) => value + 1)}
-                    >
-                      <Asset name="post-comment.svg" />
-                      {post.commentCount}
-                    </button>
-                    <i />
-                    <button disabled aria-label="공유 준비 중">
-                      <Asset name="post-share.svg" />
-                    </button>
-                    <button disabled aria-label="북마크 준비 중">
-                      <Asset name="post-save-off.svg" />
-                    </button>
-                  </div>
+                  <PostActions
+                    likeCount={interactions.reaction?.likeCount ?? post.likeCount}
+                    dislikeCount={interactions.reaction?.dislikeCount ?? post.dislikeCount}
+                    commentCount={post.commentCount}
+                    vote={interactions.reaction?.isLiked ? "like" : interactions.reaction?.isDisliked ? "dislike" : null}
+                    busy={interactions.busy}
+                    onVote={(kind) => void interactions.vote(kind)}
+                    onComments={() => setFocus((value) => value + 1)}
+                    saved={interactions.bookmarked}
+                    onSave={() => void interactions.toggleBookmark()}
+                    onShare={() => void interactions.share(post.title)}
+                  />
+                  {interactions.notice && <p role="status">{interactions.notice}</p>}
                 </article>
                 <div className={communityStyles.nrPostCommentDivider} />
               </>
@@ -329,7 +334,10 @@ export function PostCommentsScreen({
       />
       {report && (
         <FigmaSheet title="신고" onClose={() => setReport(false)}>
-          <ReportReasons />
+          <ReportReasons
+            onSubmit={(reason, description) => reportPost(postId, reason, description)}
+            onDone={() => setReport(false)}
+          />
         </FigmaSheet>
       )}
     </div>

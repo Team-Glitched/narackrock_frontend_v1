@@ -1,18 +1,24 @@
+import { DesignViewport } from "@/components/ui/design-viewport";
+import { PageState } from "@/components/ui/page-state";
 import { NoteEditorScreen } from "@/features/composition/note-editor-screen";
 import { useRouteComposition } from "@/features/composition/use-route-composition";
+import { readId } from "@/features/navigation/paths";
+
 export default function NoteEditorPage() {
   const route = useRouteComposition();
   return (
-    <NoteEditorScreen
-      key={`${route.projectId}:${route.trackId}:${route.clipId}`}
-      projectId={route.projectId}
-      trackId={route.trackId}
-      clipId={route.clipId}
-      onBack={() => route.to(route.studioUrl, { replace: true, state: route.studioState })}
-      onAddLayer={() => route.to(route.layerUrl("layers/new"), { state: route.studioState })}
-      onImportResource={async (resource) => {
-        await route.importResource(resource);
-      }}
-    />
+    <DesignViewport landscape>
+      {route.projectId === null || readId(route.params.trackId) === null ? (
+        <PageState error>올바르지 않은 페이지 주소입니다.</PageState>
+      ) : (
+        <NoteEditorScreen
+          key={`${route.projectId}:${route.trackId}:${route.clipId}`}
+          projectId={route.projectId}
+          trackId={route.trackId}
+          clipId={route.clipId}
+          onBack={() => route.to(route.studioUrl, { replace: true, state: route.studioState })}
+        />
+      )}
+    </DesignViewport>
   );
 }

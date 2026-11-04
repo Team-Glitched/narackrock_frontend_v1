@@ -1,5 +1,5 @@
-import { apiRequest } from "@/lib/api/client";
-import type { ApiEnvelope } from "@/lib/api/contracts";
+import { apiRequest } from "./client.ts";
+import type { ApiEnvelope } from "./contracts.ts";
 
 async function data<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await apiRequest<ApiEnvelope<T>>(path, init);
@@ -7,7 +7,11 @@ async function data<T>(path: string, init?: RequestInit): Promise<T> {
   return response.data;
 }
 
-export async function uploadMedia(file: File, fileType: "AUDIO" | "IMAGE"): Promise<number> {
+export async function uploadMedia(
+  file: File,
+  fileType: "AUDIO" | "IMAGE",
+  onSession?: (mediaFileId: number) => void,
+): Promise<number> {
   const session = await data<{ mediaFileId: number; uploadUrl: string; method: string }>(
     "/api/v1/media/upload-sessions",
     {
@@ -20,6 +24,7 @@ export async function uploadMedia(file: File, fileType: "AUDIO" | "IMAGE"): Prom
       }),
     },
   );
+  onSession?.(session.mediaFileId);
   await apiRequest<void>(session.uploadUrl, {
     method: "PUT",
     headers: { "Content-Type": file.type },

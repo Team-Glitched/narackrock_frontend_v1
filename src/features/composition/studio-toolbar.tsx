@@ -2,8 +2,10 @@ import { studioStyles } from "@/styles/studio.styles";
 import { cn } from "@/lib/utils";
 import { sharedStyles } from "@/styles/shared.styles";
 import { useState } from "react";
-import { VolumeDialog, InstrumentDialog, TimingDialog } from "@/components/app/dialog";
-import { Asset } from "@/components/app/shared";
+import { VolumeDialog } from "@/features/composition/volume-dialog";
+import { InstrumentDialog, type InstrumentChoice } from "@/features/composition/instrument-dialog";
+import { TimingDialog, type ProjectTiming } from "@/features/composition/timing-dialog";
+import { Asset } from "@/components/ui/asset";
 import { defaultSignature, type TimeSignature } from "@/features/composition/time-signature";
 import { clockTime } from "./studio-helpers";
 
@@ -22,16 +24,18 @@ export function StudioToolbar({
   onAdd,
   metronome,
   onMetronome,
-  onBpm,
+  onTiming,
+  instrument,
   onImportSource,
   signature = defaultSignature,
-  onSignature,
   addLabel = "타임라인 검토",
 }: {
   signature?: TimeSignature;
-  onSignature?: (value: TimeSignature) => void;
+  /** Saves BPM and time signature together; omitted when the viewer may not change them. */
+  onTiming?: (timing: ProjectTiming) => Promise<void>;
+  /** Instrument picker for the edited track; omitted when it cannot be changed. */
+  instrument?: InstrumentChoice;
   addLabel?: string;
-  onBpm?: (value: number) => void;
   onImportSource?: () => void;
   title: string;
   bpm: number;
@@ -114,7 +118,7 @@ export function StudioToolbar({
             <span>오픈소스</span>
           </button>
         )}
-        {piano && (
+        {piano && instrument && (
           <button
             className={studioStyles.studioViewSwitch}
             aria-label="악기 선택"
@@ -142,14 +146,14 @@ export function StudioToolbar({
           onClose={() => setVolumeOpen(false)}
         />
       )}
-      {instrumentOpen && <InstrumentDialog onClose={() => setInstrumentOpen(false)} />}
+      {instrumentOpen && instrument && (
+        <InstrumentDialog choice={instrument} onClose={() => setInstrumentOpen(false)} />
+      )}
       {timing && (
         <TimingDialog
-          signature={signature}
-          onSignature={onSignature}
-          bpm={bpm}
+          timing={{ bpm, signature }}
           beat={timing === "beat"}
-          onChange={onBpm}
+          onApply={onTiming}
           onClose={() => setTiming(null)}
         />
       )}

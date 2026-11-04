@@ -1,11 +1,12 @@
 import { studioStyles } from "@/styles/studio.styles";
 import { cn } from "@/lib/utils";
 import { sharedStyles } from "@/styles/shared.styles";
-import { useEffect, useState, type CSSProperties } from "react";
-import { PublishConfirmation, VolumeDialog } from "@/components/app/dialog";
-import { Asset, Avatar } from "@/components/app/shared";
-import type { Navigate } from "@/features/navigation/types";
-import { rememberWork, rememberSubmission } from "@/features/workspace/workspace-store";
+import { useEffect, useMemo, useState, type CSSProperties } from "react";
+import { PublishConfirmation } from "@/features/composition/publish-confirmation";
+import { VolumeDialog } from "@/features/composition/volume-dialog";
+import { Asset } from "@/components/ui/asset";
+import { Avatar } from "@/components/ui/avatar";
+import { rememberWork } from "@/features/workspace/workspace-store";
 import { useCompositionPlayback } from "@/features/composition/use-composition-playback";
 import { prepareAudioFile } from "@/features/composition/prepare-audio-file";
 import type { AudioSelection } from "@/features/composition/prepare-audio-file";
@@ -19,7 +20,6 @@ import { completedExportShortId } from "@/features/composition/publish-navigatio
 import { pointerAxes, logicalBounds } from "@/features/composition/pointer-coordinates";
 import { StudioSourceDialog } from "@/features/composition/studio-source-dialog";
 import type { Resource } from "@/features/workspace/workspace-store";
-import type { SavedSource } from "@/features/community/saved-sources";
 import { signatureGrid, musicalGridBackground } from "@/features/composition/time-signature";
 import { MusicalRuler } from "@/features/composition/musical-ruler";
 import { TimelineClip } from "@/features/composition/timeline-clip";
@@ -32,40 +32,43 @@ import {
   getPendingContributions,
   publishComposition,
   reviewContribution,
-  saveMidiClip,
-  submitContribution,
   updateProjectMetadata,
   uploadMedia,
   type CompositionDto,
 } from "@/lib/api/composition";
 import { errorText } from "./studio-helpers";
 import { StudioToolbar } from "./studio-toolbar";
-import { NewProject } from "./new-project-screen";
+import { ApiError, apiOrigin } from "@/lib/api/client";
+import {
+  getEditorDrafts,
+  commitEditorDrafts,
+  submitEditorDrafts,
+  saveEditorDraft,
+} from "@/lib/api/composition-drafts";
+import { updateProjectTiming } from "@/lib/api/composition";
+import { syncProjectEditorDrafts, clearCommittedRecovery } from "./project-editor-drafts";
+import { browserDraftStorage } from "./use-editor-draft";
+import { listLocalDrafts, readLocalDraft, DraftSession, type ServerDraft } from "./editor-draft";
+import { withPersonalDrafts } from "./draft-preview";
 
 export function StudioScreen({
-  go,
+  onSubmitted,
   shortId,
   projectId,
-  returnToNotifications,
   onReturnToShort,
   onProjectSelected,
-  onDraftCreated,
   onAddLayer,
   onEditTrack,
   onImportResource,
-  onImportAudio,
   onExit,
 }: {
-  go: Navigate;
+  onSubmitted: () => void;
   shortId: number | null;
   projectId: number | null;
-  returnToNotifications?: boolean;
-  onExit?: () => void;
+  onExit: () => void;
   onReturnToShort: (shortId: number) => void;
   onProjectSelected: (id: number) => void;
-  onDraftCreated: (id: number) => void;
   onImportResource: (resource: Resource) => Promise<void>;
-  onImportAudio: (source: SavedSource) => Promise<void>;
   onAddLayer: () => void;
   onEditTrack: (trackId: number, clipId: number | null) => void;
 }) {
@@ -86,7 +89,27 @@ export function StudioScreen({
     file: File;
     url: string;
   } | null>(null);
-  const playback = useCompositionPlayback(composition);
+  const [personalDrafts, setPersonalDrafts] = useState<ServerDraft[]>([]);
+  const preview = useMemo(() => {
+    if (!composition) return null;
+    const local = listLocalDrafts(
+      browserDraftStorage(),
+      apiOrigin(),
+      composition.viewerPermission.userId,
+      composition.project.projectId,
+    ).filter((draft) => draft.dirty || draft.pending);
+    const merged = [
+      ...personalDrafts.filter(
+        (remote) =>
+          !local.some(
+            (item) => item.trackId === remote.trackId && item.targetClipId === remote.targetClipId,
+          ),
+      ),
+      ...local,
+    ];
+    return withPersonalDrafts(composition, merged);
+  }, [composition, personalDrafts]);
+  const playback = useCompositionPlayback(preview);
 
   useEffect(
     () => () => {
@@ -100,9 +123,10 @@ export function StudioScreen({
     let cancelled = false;
     (async () => {
       const id = shortId == null ? projectId! : (await enterComposition(shortId)).projectId;
-      const result = await getComposition(id);
+      const [result, drafts] = await Promise.all([getComposition(id), getEditorDrafts(id)]);
       if (!cancelled) {
         setComposition(result);
+        setPersonalDrafts(drafts);
         try {
           rememberWork(result, shortId);
         } catch {
@@ -119,7 +143,12 @@ export function StudioScreen({
   }, [shortId, projectId, onProjectSelected]);
 
   async function refresh() {
-    if (composition) setComposition(await getComposition(composition.project.projectId));
+    if (composition) {
+      const id = composition.project.projectId;
+      const [latest, drafts] = await Promise.all([getComposition(id), getEditorDrafts(id)]);
+      setComposition(latest);
+      setPersonalDrafts(drafts);
+    }
   }
   async function addAudio(trackId: number, file: File, selection: AudioSelection) {
     if (!composition || busy) throw new Error("잠시 후 다시 시도해 주세요.");
@@ -144,52 +173,35 @@ export function StudioScreen({
   async function submitDrafts(event: React.FormEvent) {
     event.preventDefault();
     if (!composition || busy || !submitComment.trim()) return;
-    const userId = composition.viewerPermission.userId;
-    const draftClips = composition.tracks
-      .flatMap((track) => track.clips)
-      .filter((clip) => clip.ownerId === userId && clip.approvalStatus === "DRAFT");
-    const items = [
-      ...composition.tracks
-        .filter(
-          (track) =>
-            track.ownerId === userId &&
-            track.approvalStatus === "DRAFT" &&
-            track.clips.some((clip) => draftClips.some((draft) => draft.clipId === clip.clipId)),
-        )
-        .map((track) => ({
-          changeType: "ADD" as const,
-          targetType: "TRACK" as const,
-          targetId: track.trackId,
-        })),
-      ...draftClips.map((clip) => ({
-        changeType: "ADD" as const,
-        targetType: "CLIP" as const,
-        targetId: clip.clipId,
-      })),
-    ];
-    if (!draftClips.length) {
-      setError("먼저 레이어에 노트나 오디오를 저장해 주세요.");
-      return;
-    }
     setBusy(true);
     setError(null);
     setStatus(null);
     try {
-      await submitContribution(
-        composition.project.projectId,
+      const id = composition.project.projectId;
+      const drafts = await syncProjectEditorDrafts(
+        id,
+        composition.viewerPermission.userId,
+        browserDraftStorage(),
+      );
+      const submitted = await submitEditorDrafts(
+        id,
+        drafts,
         composition.project.version,
-        items,
         submitComment.trim(),
       );
-      try {
-        rememberSubmission(composition, shortId, submitComment.trim());
-      } catch {
-        /* Submission has already succeeded on the server. */
-      }
+      clearCommittedRecovery(browserDraftStorage(), drafts);
+      setStatus(`제출 #${submitted.contributionId} · ${submitted.approvalStatus}`);
       setShowSubmitForm(false);
-      go("submissions");
+      onSubmitted();
     } catch (cause) {
       setError(errorText(cause));
+      if (cause instanceof ApiError && cause.status === 409) {
+        try {
+          await refresh();
+        } catch {
+          /* Keep the original conflict visible and all local recovery intact. */
+        }
+      }
     } finally {
       setBusy(false);
     }
@@ -202,27 +214,26 @@ export function StudioScreen({
     setStatus("숏폼 음원을 생성하는 중입니다.");
     try {
       const id = composition.project.projectId;
+      const drafts = await syncProjectEditorDrafts(
+        id,
+        composition.viewerPermission.userId,
+        browserDraftStorage(),
+      );
+      const committed = await commitEditorDrafts(id, drafts);
+      clearCommittedRecovery(browserDraftStorage(), committed);
       if (composition.viewerPermission.canReviewContribution) {
         const latest = await getComposition(id);
         const userId = latest.viewerPermission.userId;
-        const items = [
-          ...latest.tracks
-            .filter((track) => track.ownerId === userId && track.approvalStatus === "DRAFT")
-            .map((track) => ({
-              changeType: "ADD" as const,
-              targetType: "TRACK" as const,
-              targetId: track.trackId,
-            })),
-          ...latest.tracks
-            .flatMap((track) => track.clips)
-            .filter((clip) => clip.ownerId === userId && clip.approvalStatus === "DRAFT")
-            .map((clip) => ({
-              changeType: "ADD" as const,
-              targetType: "CLIP" as const,
-              targetId: clip.clipId,
-            })),
-        ];
-        if (items.length) await submitContribution(id, latest.project.version, items);
+        const hasUnsubmitted = latest.tracks.some(
+          (track) =>
+            track.ownerId === userId &&
+            (track.approvalStatus === "DRAFT" ||
+              track.clips.some(
+                (clip) => clip.ownerId === userId && clip.approvalStatus === "DRAFT",
+              )),
+        );
+        if (hasUnsubmitted)
+          await submitEditorDrafts(id, [], latest.project.version, "원작성자 변경 반영");
         for (const pending of (await getPendingContributions(id)).filter(
           (item) => item.userId === userId,
         )) {
@@ -236,11 +247,12 @@ export function StudioScreen({
       }
       const { exportId } = await publishComposition(id);
       for (let attempt = 0; attempt < 30; attempt++) {
-        await new Promise((resolve) => window.setTimeout(resolve, 1_000));
+        const { promise, resolve } = Promise.withResolvers<void>();
+        window.setTimeout(resolve, 1000);
+        await promise;
         const result = await getExport(id, exportId);
         const publishedShortId = completedExportShortId(result);
         if (publishedShortId !== null) {
-          if (shortId == null) window.localStorage.removeItem("glitched-composition-draft-id");
           onReturnToShort(publishedShortId);
           return;
         }
@@ -286,14 +298,6 @@ export function StudioScreen({
     }
   }
 
-  if (shortId == null && projectId == null)
-    return (
-      <NewProject
-        onCreated={onDraftCreated}
-        onResume={onProjectSelected}
-        onBack={() => go("home")}
-      />
-    );
   if (!composition)
     return (
       <div
@@ -301,16 +305,11 @@ export function StudioScreen({
         role={error ? "alert" : "status"}
       >
         <p>{error ?? "작곡 데이터를 불러오는 중입니다."}</p>
-        {error && (
-          <button
-            onClick={onExit ?? (() => (shortId == null ? go("home") : onReturnToShort(shortId)))}
-          >
-            돌아가기
-          </button>
-        )}
+        {error && <button onClick={onExit}>돌아가기</button>}
       </div>
     );
-  const { project, tracks, viewerPermission } = composition;
+  const { project, viewerPermission } = composition;
+  const tracks = preview?.tracks ?? composition.tracks;
   const timelineWidth = (project.maxTick / Math.max(1, project.ppq / 2)) * 20;
   const canSubmit = shouldShowContributionSubmit(shortId, viewerPermission, tracks);
   const canPublish = shouldOfferSongPublish(shortId, viewerPermission, tracks);
@@ -319,11 +318,17 @@ export function StudioScreen({
     <div className={studioStyles.studio}>
       <StudioToolbar
         signature={playback.signature}
-        onSignature={
-          viewerPermission.canEdit
-            ? (value) => {
+        onTiming={
+          project.ownerId === viewerPermission.userId &&
+          ["DRAFT", "IN_PROGRESS"].includes(project.status)
+            ? async ({ bpm, signature }) => {
                 playback.pause();
-                playback.setSignature(value);
+                await updateProjectTiming(project.projectId, {
+                  bpm,
+                  timeSignatureNumerator: signature.numerator,
+                  timeSignatureDenominator: signature.denominator,
+                });
+                await refresh();
               }
             : undefined
         }
@@ -347,15 +352,7 @@ export function StudioScreen({
               }
             : undefined
         }
-        onBack={
-          onExit ??
-          (() =>
-            returnToNotifications
-              ? go("notifications")
-              : shortId == null
-                ? go("home")
-                : onReturnToShort(shortId))
-        }
+        onBack={onExit}
       >
         {canSubmit ? (
           <button
@@ -386,9 +383,9 @@ export function StudioScreen({
           </button>
         )}
       </StudioToolbar>
-      {error && !showSubmitForm && (
+      {(error || playback.error) && !showSubmitForm && (
         <p className={studioStyles.studioError} role="alert">
-          {error}
+          {error ?? playback.error}
         </p>
       )}
       {status && (
@@ -519,11 +516,6 @@ export function StudioScreen({
             setComposition(await getComposition(project.projectId));
             setShowSources(false);
           }}
-          onAudio={async (source) => {
-            await onImportAudio(source);
-            setComposition(await getComposition(project.projectId));
-            setShowSources(false);
-          }}
         />
       )}
       <div
@@ -626,13 +618,16 @@ export function StudioScreen({
                     stepTick={(project.ppq * 2) / playback.signature.denominator}
                     cellPx={signatureGrid(playback.signature).cellPx}
                     movable={
-                      !busy && canMoveClip(viewerPermission, clip) && clip.clipType === "MIDI"
+                      !busy &&
+                      clip.clipId > 0 &&
+                      canMoveClip(viewerPermission, clip) &&
+                      clip.clipType === "MIDI"
                     }
                     onError={setError}
                     onSelect={() => setTrackSettingsId(track.trackId)}
                     onEdit={
                       clip.clipType === "MIDI" && clip.ownerId === viewerPermission.userId
-                        ? () => onEditTrack(track.trackId, clip.clipId)
+                        ? () => onEditTrack(track.trackId, clip.clipId > 0 ? clip.clipId : null)
                         : undefined
                     }
                     onMove={async (startTick) => {
@@ -642,12 +637,44 @@ export function StudioScreen({
                       setBusy(true);
                       setError(null);
                       try {
-                        await saveMidiClip(
-                          clip.clipId,
-                          startTick,
-                          clip.durationTick,
-                          clip.midiNotes,
+                        const shared = composition.tracks
+                          .find((item) => item.trackId === track.trackId)
+                          ?.clips.find((item) => item.clipId === clip.clipId);
+                        if (!shared) throw new Error("새 개인 초안은 피아노롤에서 편집해주세요.");
+                        const context = {
+                          origin: apiOrigin(),
+                          userId: viewerPermission.userId,
+                          projectId: project.projectId,
+                          trackId: track.trackId,
+                          targetClipId: clip.clipId,
+                        };
+                        const baseClip = {
+                          startTick: shared.startTick,
+                          durationTick: shared.durationTick,
+                          midiNotes: shared.midiNotes ?? [],
+                        };
+                        const local = readLocalDraft(browserDraftStorage(), context);
+                        const server = personalDrafts.find(
+                          (item) =>
+                            item.trackId === track.trackId && item.targetClipId === clip.clipId,
                         );
+                        const session = new DraftSession({
+                          context,
+                          content: baseClip,
+                          baseClip,
+                          local,
+                          server,
+                          storage: browserDraftStorage(),
+                          save: (request, id) =>
+                            saveEditorDraft(project.projectId, track.trackId, id, request),
+                        });
+                        try {
+                          session.edit({ ...session.getSnapshot().content, startTick });
+                          await session.flush();
+                        } finally {
+                          session.dispose();
+                        }
+                        setPersonalDrafts(await getEditorDrafts(project.projectId));
                         const updated = await getComposition(project.projectId);
                         setComposition(updated);
                         rememberWork(updated, shortId);

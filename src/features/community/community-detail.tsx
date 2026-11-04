@@ -3,9 +3,9 @@ import { sharedStyles } from "@/styles/shared.styles";
 import { cn } from "@/lib/utils";
 import { buttonVariants } from "@/styles/variants";
 import { useMemo, useRef } from "react";
-import { Asset, Avatar } from "@/components/app/shared";
-import { isCommunityOwner } from "@/features/admin/permissions";
-import { useCurrentUserId } from "@/features/auth/use-current-user";
+import { Asset } from "@/components/ui/asset";
+import { Avatar } from "@/components/ui/avatar";
+import { useGalleryRole } from "@/features/community/use-gallery-role";
 import { useGalleries } from "@/features/community/use-galleries";
 import { useGalleryPosts } from "@/features/community/use-gallery-posts";
 import { useInfiniteScroll } from "@/hooks/use-infinite-scroll";
@@ -23,15 +23,14 @@ export function CommunityDetailScreen({
   onComments,
   onProfile,
   onManage,
-  onModerateDelete,
 }: {
   onManage?: () => void;
-  onModerateDelete?: (postId: number) => Promise<void>;
   onProfile?: (userId: number) => void;
   community: Community;
   onComments: (postId: number) => void;
 }) {
-  const currentUserId = useCurrentUserId();
+  const role = useGalleryRole(selected.galleryId);
+  const canManage = Boolean(role?.canManage);
   const membership = useCommunityMembership();
   // 목록에서 넘어올 때 받은 값은 그 시점의 스냅샷이라, 이 화면에서 가입/탈퇴하면 가입자 수가
   // 뒤처진다. 갤러리 목록을 다시 받아 같은 id를 덮어쓴다(아직 못 받았으면 넘겨받은 값으로 그린다).
@@ -60,12 +59,10 @@ export function CommunityDetailScreen({
       <div
         className={cn(
           communityStyles.communityDetailBanner,
-          isCommunityOwner(community, currentUserId)
-            ? communityStyles.communityDetailBannerOwned
-            : "",
+          canManage ? communityStyles.communityDetailBannerOwned : "",
         )}
       >
-        {isCommunityOwner(community, currentUserId) && onManage && (
+        {canManage && onManage && (
           <button
             className={communityStyles.communityManageTrigger}
             aria-label="커뮤니티 멤버 관리"
@@ -133,10 +130,8 @@ export function CommunityDetailScreen({
             <CommunityPost
               key={post.postId}
               post={post}
-              postGalleryId={community.galleryId}
-              moderationCommunity={community}
+              moderation={{ galleryId: community.galleryId, canManage }}
               onChanged={posts.refetch}
-              onModerateDelete={onModerateDelete}
               onProfile={onProfile}
               onComments={onComments}
             />

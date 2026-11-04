@@ -17,10 +17,16 @@ npm run dev
 
 ## 환경 변수
 
-- `VITE_API_BASE_URL`: 백엔드 주소 (예: `http://localhost:8080`)
-- `VITE_GOOGLE_CLIENT_ID`: Google 로그인용 공개 클라이언트 ID
+- `VITE_API_BASE_URL`: 명시적 백엔드 origin (예: `http://127.0.0.1:8081`). REST와 STOMP `/ws/chat`이 같은 base URL을 사용합니다. 별도 Vite API proxy는 없습니다.
+- `VITE_GOOGLE_CLIENT_ID`: Google OAuth용 공개 클라이언트 ID. Google의 허용 JavaScript origin과 백엔드 OAuth 설정도 필요합니다. 서버 비밀값은 Vite 변수에 넣지 않습니다.
 
-브라우저 환경 변수는 Vite의 `import.meta.env`로 읽습니다. 환경 변수를 바꾸면 개발 서버를 재시작하세요.
+브라우저 환경 변수는 Vite의 `import.meta.env`로 읽습니다. 변경 후 개발 서버를 재시작하세요. 기존 `.env.local`을 덮어쓰지 않고 격리 서버를 사용하려면:
+
+```sh
+VITE_API_BASE_URL=http://127.0.0.1:8081 npm run dev -- --host 127.0.0.1 --port 5173 --strictPort
+```
+
+백엔드는 해당 frontend origin을 CORS에 허용해야 합니다. signed media URL은 서버 응답 그대로 사용합니다. Google OAuth, 실제 HTI 변환 서비스, 마이크·OS 가상 키보드는 별도 환경 준비가 필요합니다. 운영 API를 대상으로 변경 요청 smoke를 실행하지 않습니다.
 
 ## 검증과 빌드
 
@@ -42,7 +48,7 @@ npm start
 
 ```text
 src/
-  app/               # 앱 실행, 전체 라우터, 공통 레이아웃, 세션
+  app/               # 앱 진입, 직접 라우트 트리, provider 조합, 앱 런타임
   features/
     auth/            # 로그인, 최초 가입, 인증 상태
       pages/         # login-page.tsx, onboarding-page.tsx
@@ -55,10 +61,10 @@ src/
     workspace/       # 작업 목록, 제출·검토, 리소스 보관함
     profile/         # 사용자 프로필과 편집
     sources/         # 오픈소스 페이지
-    navigation/      # URL, 경로 메타데이터, 공통 이동 규칙
+    navigation/      # URL 이동, 경로 유틸리티, 헤더·푸터와 생성 목적지
     ...              # notifications, search, saved, settings, admin, abyss
   components/
-    app/             # 헤더·푸터, 다이얼로그, 재생 바 등 서비스 공통 UI
+    ui/              # viewport, portal, 다이얼로그, 아바타와 공용 재생 UI
   hooks/             # 여러 기능에서 쓰는 범용 훅
   lib/
     api/             # API 클라이언트, 응답 타입, 서버 요청
@@ -70,15 +76,16 @@ src/
 | --------------------------------- | -------------------------------------------------------------------------------------------- |
 | 앱 실행                           | `src/main.tsx` → `src/app/App.tsx`                                                           |
 | URL에 연결된 페이지               | `src/app/routes.tsx`                                                                         |
-| 페이지 제목·헤더·푸터 설정        | `src/features/navigation/route-config.ts`                                                    |
-| 공통 헤더·푸터 배치               | `src/app/app-layout.tsx`                                                                     |
-| 로그인 사용자와 공유 상태         | `src/app/session.tsx`                                                                        |
+| 페이지별 헤더·푸터·viewport 조합  | 각 `src/features/<기능>/pages/*.tsx`                                                         |
+| 공통 헤더·푸터 구현               | `src/features/navigation/header.tsx`, `src/features/navigation/footer.tsx`                    |
+| 인증 / 어비스 음소거 상태         | `src/features/auth/auth-session.tsx`, `src/features/abyss/playback-preferences.tsx`           |
 | 특정 기능의 페이지                | `src/features/<기능>/pages/`                                                                 |
 | 스튜디오 화면·상단 도구·노트 편집 | `src/features/composition/studio-screen.tsx`, `studio-toolbar.tsx`, `note-editor-screen.tsx` |
 | 특정 로직의 테스트                | 같은 폴더의 `*.test.ts` 또는 `*.test.mjs`                                                    |
 
-페이지 파일은 URL 파라미터와 이동을 연결하고, 같은 기능 폴더의 화면·훅을 조합합니다.
-여러 기능이 섞인 `features/screens`와 별도로 흩어진 `pages`, `layouts`는 위 구조로 통합했습니다.
+페이지 파일은 URL 파라미터·검색 문맥·이동 행동과 자신의 `DesignViewport`, `Header`, `Footer`, `NotificationsOverlay`를 직접 조합합니다.
+공용 layout 설정이나 slot wrapper로 화면 역할을 추론하지 않습니다. resource ID가 잘못되면 chrome 안에 오류를 표시하고 해당 resource 화면을 마운트하지 않습니다.
+`src/app`에는 `App.tsx`, `routes.tsx`, `providers.tsx`, `runtime.tsx`만 둡니다. provider는 children을 받고 feature 상태는 소유 feature에 둡니다.
 API 폴더에는 실제 서버 요청과 API 클라이언트 테스트를 두고, 나머지 테스트는 해당 기능 옆에 둡니다.
 사용하지 않는 shadcn 기본 컴포넌트와 전용 의존성은 제거했습니다. `components.json`은 향후 필요한 컴포넌트를 생성할 때 쓸 설정으로 유지합니다.
 `npm test`는 `src/` 아래의 테스트를 하위 폴더까지 자동으로 찾아 실행합니다.
@@ -113,7 +120,10 @@ Prettier 설정은 `.prettierrc.json`, 기본 편집 규칙은 `.editorconfig`�
 
 검색 조건과 선택한 리소스는 URL에 보관하며, 뒤로·앞으로 가기는 React Router의 브라우저 기록을 사용합니다.
 알림은 현재 화면의 URL에 `notifications=1`을 추가해 표시하므로 작성·녹음 중인 화면을 유지합니다.
-`View` 타입은 기존 화면 컴포넌트의 콜백 호환용이며, 실제 페이지 선택은 URL 경로가 담당합니다.
+`useUrlNavigation`은 `to`, `back`, `params`, `query`, `state`, `currentPath`만 제공합니다. 화면 컴포넌트에는 `onProfile`, `onStartSong`처럼 필요한 행동 callback만 전달합니다.
+검색 문맥은 query 값 → 커뮤니티의 posts → 페이지 기본값 순서로 결정합니다. 생성 목적지는 페이지가 계산하며 프로필의 생성은 항상 곡 만들기입니다.
+스튜디오 최초 진입은 `studioFrom`과 `studioIndex`를 기록하고 레이어·녹음·노트 이동에서는 이를 보존합니다. 알림은 기존 query와 route state를 유지합니다.
+portal host는 각 페이지 mount의 layout effect에서 찾고 body fallback을 사용하지 않습니다. viewport 크기·회전·키보드 정책은 기존 디자인 canvas 기준을 유지합니다.
 
 ## 스타일 작성
 
@@ -134,6 +144,49 @@ Tailwind CSS 4를 사용하며 공통 값과 스타일은 TypeScript에서 관�
 프리셋의 marker 클래스는 포털, 드래그 좌표, 상태 선택자에서 사용하므로 유지하세요.
 오디오 진행률이나 타임라인 좌표처럼 값이 계속 바뀌는 부분은 기존의 인라인 스타일과 CSS 변수를 사용합니다.
 
-예시 데이터 체험 모드는 제거했습니다. 모든 API 요청은 `VITE_API_BASE_URL`의 백엔드로 전달됩니다.
-오픈소스 목록·검색·생성, 커뮤니티 생성·멤버 관리, 숏폼 댓글, 채팅처럼 서버 연동이 준비되지 않은 화면은 사용 불가 상태를 표시합니다.
-실제 작업의 브라우저 저장과 오디오·이미지 미리보기는 각 기능에서 사용합니다.
+## API 지원 범위
+
+계약 기준: backend `dev`의 `240487735c52130ced6c654baf63915f91a554e2`. 없는 API를 로컬 성공 데이터로 대체하지 않습니다.
+
+| 영역 | 연결한 계약 | 실제 제한 |
+| --- | --- | --- |
+| 인증 | bearer session, 단일 refresh와 원요청 최대 1회 재전송 | refresh 400/401은 만료, 네트워크/5xx는 session 유지. 계정 전환 후 늦은 응답은 무효. 다른 탭 logout 실시간 동기화는 미지원 |
+| 오픈소스 | 인증 목록·검색·상세·signed 재생·반응·댓글·서버 보관, 업로드→PRIVATE→명시적 PUBLIC | 인기·추천, 신고, 댓글 수정/삭제/신고, source-ID 기반 프로젝트 삽입 미지원 |
+| 숏폼·게시글 | ID 딥링크, 반응·댓글·신고·bookmark·공유·조회수 | mute 조회 API가 없어 감상 음소거는 session-only. 익명 감상은 가능, 보호된 행동은 로그인 필요 |
+| 친구·프로필·채팅 | public follow/private 요청·승인·관계 접근권, REST 발송·STOMP 수신과 연결 단절 중 polling | WebSocket CONNECT마다 현재 bearer 사용. 비공개 목록의 403은 빈 목록으로 숨기지 않음 |
+| 커뮤니티·관리자 | 개설 신청·내 신청·admin 검토, manage/me 권한, 설명·제재·운영 삭제·신고 처리 | 신청은 즉시 커뮤니티 생성이 아님. 전체 회원 명부, 커뮤니티 사진·이름 변경 계약 없음 |
+| 알림 | 기여 알림과 별도 follow 요청 | 일반 알림 history/read/unread 미지원 |
+| 스튜디오 | 서버 timing·악기 계열·다중 sample, 개인 editor draft·명시적 commit·원자적 submit, 실제 검토·export polling | 원작성자만 DRAFT/IN_PROGRESS timing 수정. 알 수 없는 악기·sample 실패는 오류 표시 |
+| 작업·제출 | 환경·계정별 방문 이력의 live composition, 알려진 프로젝트별 contribution cursor 전체 조회 | 전체 프로젝트 목록·cross-project 보낸 제출 API와 불변 제출 음원 snapshot 없음 |
+
+공유 응답의 엔티티 ID를 검증한 뒤 현재 frontend origin의 `/abyss/:id`, `/posts/:id`, `/sources/:id`로 canonical 링크를 구성합니다. 서버 기본 `/shorts/:id` 링크를 앱의 `/abyss/:id`로 변환하며 운영 share 설정을 변경하지 않습니다.
+
+### 개인 초안과 공유본
+
+피아노롤 편집·이동·velocity·MIDI 가져오기는 공유 clip을 autosave하지 않습니다. backend origin·계정·프로젝트·트랙·clip으로 격리한 로컬 복구본과 1초 debounce의 개인 서버 초안을 사용합니다. 저장 상태와 revision 충돌을 표시하며 충돌 시 서버본 열기, 로컬 JSON 내보내기, 명시적 재적용을 제공합니다.
+
+- **저장 후 나가기**: flush 후 명시적으로 공유 clip에 commit.
+- **개인 초안 유지**: 다른 참여자의 공유본은 변경하지 않고 복귀.
+- **버리기**: revision 확인 후 개인 초안만 삭제.
+- 일반 브라우저 back·페이지 이탈은 공유본 반영이 아닙니다. 로컬 복구도 실패한 dirty 상태만 이탈 경고합니다.
+- 기여 제출은 `editor-drafts/submit`의 draft 반영+contribution 생성을 한 트랜잭션으로 요청합니다. 실제 contribution ID·상태만 사용합니다.
+- 원작성자의 곡 올리기는 개인 초안 일괄 commit 후 본인 기여 검토와 export 생성·상태 확인을 수행합니다.
+
+악기는 확인 시만 track을 생성합니다. 녹음은 명시적인 악기 또는 vocal/backing-vocal/rap/percussion/other 역할을 선택하며 MIDI에는 audio-only 역할을 허용하지 않습니다. 드럼 MIDI 음역은 35–81입니다. 샘플은 `public/audio/instruments`의 실제 mp3·라이선스를 사용합니다.
+
+### 기존 브라우저 자료 이관·복구
+
+설정의 **이 브라우저 데이터 이관·복구** (`/settings?migration=1`)에서 대상 origin·계정과 원본을 확인하고 항목별로 동의합니다. mount나 로그인만으로 이관하지 않습니다. guest/다른 scope 자료의 귀속도 사용자가 명시적으로 확인해야 합니다.
+
+- bookmark는 전체 서버 목록과 상세 메타데이터를 먼저 확인하고 필요할 때만 1회 toggle한 뒤 다시 읽습니다. 중단·응답 유실 뒤에도 상태부터 확인합니다.
+- source는 유효한 서버 제목·작성자·소유권이 일치할 때 idempotent PUT으로 보관합니다.
+- 직접 작성·소유했음을 별도로 확인한 오디오만 PRIVATE publication으로 업로드합니다. 공개 전환은 하지 않습니다.
+- 계정·환경별 journal과 Web Lock을 사용합니다. upload/media ID와 publication 이전 ID 집합을 기록하고, 응답 유실 시 유일한 새 media·메타데이터 일치만 연결합니다. 결과가 불명확하면 자동 재업로드·재등록하지 않습니다. 다른 기기의 동시 toggle까지 원자성을 보장하지 않습니다.
+- 로컬 MIDI는 JSON 내보내기 또는 사용자가 고른 편집 가능한 내 트랙의 개인 초안으로 가져오기만 가능합니다. 서버 MIDI 보관함으로 이전했다고 표시하지 않습니다.
+- 이전 작업은 소유·참여·접근권 검증 후 새 방문 이력에만 추가합니다. 전역 초안 포인터는 자동 resume하지 않습니다.
+- 과거 로컬 Date.now 제출 ID·snapshot·미완성 작성물은 복구 자료로만 남습니다. 서버 review 요청에 사용하지 않습니다. 새 제출 링크는 `/submissions/:id?projectId=:projectId`이며 현재 clip을 과거 제출 음원으로 재생하지 않습니다.
+- 성공·실패와 무관하게 기존 localStorage·IndexedDB 원본은 자동 삭제하지 않습니다. 파일이 없는 자료와 미지원 자료는 사유를 확인하고 원본 JSON/오디오를 내보낼 수 있습니다.
+
+### 백엔드 후속 계약
+
+openSourceId를 이용한 출처·권한·usageCount·clip 생성의 원자적 삽입, source 인기/추천·신고·댓글 관리, 전체 커뮤니티 회원 명부, 일반 알림 이력/read, 전체 프로젝트와 cross-project 제출 목록, 불변 제출 snapshot, 영속 mute 조회가 필요합니다. 미리듣기 URL 재업로드로 source 삽입을 우회하지 않습니다. cross-tab session sync와 실제 OAuth·HTI·배포 share 환경 검증도 별도 준비 항목입니다.

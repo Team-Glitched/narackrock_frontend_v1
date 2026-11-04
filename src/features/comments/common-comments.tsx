@@ -2,11 +2,12 @@ import { communityStyles } from "@/styles/community.styles";
 import { sharedStyles } from "@/styles/shared.styles";
 import { cn } from "@/lib/utils";
 import { useEffect, useRef, useState } from "react";
-import { Asset, Avatar } from "@/components/app/shared";
-import { PostUserActionsMenu } from "@/components/app/dialog";
-import { FigmaSheet } from "@/components/app/figma-sheet";
-import { ReportReasons } from "@/components/app/report-reasons";
-import type { CommentAdapter, CommentItem, CommentPage } from "./comment-model";
+import { Asset } from "@/components/ui/asset";
+import { Avatar } from "@/components/ui/avatar";
+import { PostUserActionsMenu } from "@/features/posts/post-user-actions-menu";
+import { FigmaSheet } from "@/components/ui/figma-sheet";
+import { ReportReasons } from "@/features/comments/report-reasons";
+import type { CommentAdapter, CommentItem, CommentPage, CommentReaction } from "./comment-model";
 
 function useCommentPage(adapter: CommentAdapter, parentId: number | null, revision: number) {
   const [reload, setReload] = useState(0);
@@ -100,8 +101,7 @@ export function CommonComments({
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [report, setReport] = useState(false);
-  const [votes, setVotes] = useState<Record<number, "like" | "dislike" | null>>({});
+  const [reportTarget, setReportTarget] = useState<number | null>(null);
   const input = useRef<HTMLInputElement>(null);
   useEffect(() => {
     if (focus) input.current?.focus();
@@ -120,8 +120,7 @@ export function CommonComments({
     setExpanded((old) => new Set([...old, threadId]));
     input.current?.focus();
   };
-  const vote = (id: number, next: "like" | "dislike") =>
-    setVotes((old) => ({ ...old, [id]: old[id] === next ? null : next }));
+  const report = adapter.report;
   async function submit(event: React.FormEvent) {
     event.preventDefault();
     if (busy || !writable || !draft.trim()) return;
@@ -151,9 +150,7 @@ export function CommonComments({
         if (writable) startReply(item, threadId);
       }}
       onProfile={() => onProfile?.(item.userId)}
-      onReport={() => setReport(true)}
-      vote={votes[item.id] ?? null}
-      onVote={(next) => vote(item.id, next)}
+      onReport={report && currentUserId !== null ? () => setReportTarget(item.id) : undefined}
     />
   );
   return (
@@ -249,9 +246,12 @@ export function CommonComments({
           </button>
         </div>
       </form>
-      {report && (
-        <FigmaSheet title="신고" onClose={() => setReport(false)}>
-          <ReportReasons />
+      {reportTarget !== null && report && (
+        <FigmaSheet title="신고" onClose={() => setReportTarget(null)}>
+          <ReportReasons
+            onSubmit={(reason, description) => report(reportTarget, reason, description)}
+            onDone={() => setReportTarget(null)}
+          />
         </FigmaSheet>
       )}
     </div>
@@ -313,8 +313,6 @@ function CommentCard({
   onReply,
   onProfile,
   onReport,
-  vote,
-  onVote,
 }: {
   item: CommentItem;
   canReply: boolean;
@@ -323,9 +321,7 @@ function CommentCard({
   onChanged: () => void;
   onReply: () => void;
   onProfile: () => void;
-  onReport: () => void;
-  vote: "like" | "dislike" | null;
-  onVote: (next: "like" | "dislike") => void;
+  onReport?: () => void;
 }) {
   const [menu, setMenu] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -335,13 +331,52 @@ function CommentCard({
   const [busy, setBusy] = useState(false);
   const [hidden, setHidden] = useState(false);
   const optionButton = useRef<HTMLButtonElement>(null);
-  async function change(remove = false) {
-    if (busy || (!remove && !draft.trim())) return;
+  const [reaction, setReaction] = useState<CommentReaction | null>(null);
+  const [reacting, setReacting] = useState(false);
+  const current = reaction ?? {
+    isLiked: item.isLiked,
+    isDisliked: item.isDisliked,
+    likeCount: item.likes,
+    dislikeCount: item.dislikes,
+  };
+  const react = adapter.react;
+  const canEdit = owner && adapter.update !== undefined && adapter.remove !== undefined;
+  const moderate = owner ? undefined : adapter.moderate;
+  const [moderating, setModerating] = useState(false);
+  const [moderationReason, setModerationReason] = useState("");
+  async function removeAsModerator() {
+    if (!moderate || busy || !moderationReason.trim()) return;
     setBusy(true);
     setError(null);
     try {
-      if (remove) await adapter.remove(item.id);
-      else await adapter.update(item.id, draft.trim());
+      await moderate(item.id, moderationReason.trim());
+      setModerating(false);
+      onChanged();
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "댓글을 삭제하지 못했습니다.");
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function vote(kind: "like" | "dislike") {
+    if (!react || reacting) return;
+    setReacting(true);
+    setError(null);
+    try {
+      setReaction(await react(item.id, kind));
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "반응을 반영하지 못했습니다.");
+    } finally {
+      setReacting(false);
+    }
+  }
+  async function change(remove = false) {
+    if (!canEdit || busy || (!remove && !draft.trim())) return;
+    setBusy(true);
+    setError(null);
+    try {
+      if (remove) await adapter.remove?.(item.id);
+      else await adapter.update?.(item.id, draft.trim());
       setEditing(false);
       setConfirm(false);
       onChanged();
@@ -378,16 +413,20 @@ function CommentCard({
         <PostUserActionsMenu
           anchorRef={optionButton}
           onClose={() => setMenu(false)}
-          onReport={() => {
-            setMenu(false);
-            onReport();
-          }}
+          onReport={
+            onReport
+              ? () => {
+                  setMenu(false);
+                  onReport();
+                }
+              : undefined
+          }
           onHide={() => {
             setMenu(false);
             setHidden(true);
           }}
           onEdit={
-            owner
+            canEdit
               ? () => {
                   setEditing(true);
                   setMenu(false);
@@ -395,9 +434,17 @@ function CommentCard({
               : undefined
           }
           onDelete={
-            owner
+            canEdit
               ? () => {
                   setConfirm(true);
+                  setMenu(false);
+                }
+              : undefined
+          }
+          onModerateDelete={
+            moderate
+              ? () => {
+                  setModerating(true);
                   setMenu(false);
                 }
               : undefined
@@ -436,23 +483,41 @@ function CommentCard({
           </button>
         </div>
       )}
+      {moderating && (
+        <div className={communityStyles.nrCommentDelete}>
+          <p>운영자 권한으로 이 댓글을 삭제할까요?</p>
+          <input
+            aria-label="운영 삭제 사유"
+            placeholder="삭제 사유"
+            maxLength={500}
+            value={moderationReason}
+            onChange={(event) => setModerationReason(event.target.value)}
+          />
+          <button onClick={() => setModerating(false)}>취소</button>
+          <button disabled={busy || !moderationReason.trim()} onClick={() => void removeAsModerator()}>
+            삭제 확인
+          </button>
+        </div>
+      )}
       {error && <p role="alert">{error}</p>}
       <div className={communityStyles.nrCommentActions}>
         <button
           aria-label="댓글 좋아요"
-          aria-pressed={vote === "like"}
-          onClick={() => onVote("like")}
+          aria-pressed={current.isLiked}
+          disabled={!react || reacting}
+          onClick={() => void vote("like")}
         >
-          <Asset name={vote === "like" ? "v3-comment-like-on.svg" : "v3-comment-like-off.svg"} />
-          {item.likes + Number(vote === "like")}
+          <Asset name={current.isLiked ? "v3-comment-like-on.svg" : "v3-comment-like-off.svg"} />
+          {current.likeCount}
         </button>
         <button
-          aria-label="댓글 싫어요"
-          aria-pressed={vote === "dislike"}
-          onClick={() => onVote("dislike")}
+          aria-label={`댓글 싫어요 ${current.dislikeCount}개`}
+          aria-pressed={current.isDisliked}
+          disabled={!react || reacting}
+          onClick={() => void vote("dislike")}
         >
           <Asset
-            name={vote === "dislike" ? "v3-comment-dislike-on.svg" : "v3-comment-dislike-off.svg"}
+            name={current.isDisliked ? "v3-comment-dislike-on.svg" : "v3-comment-dislike-off.svg"}
           />
         </button>
         <button aria-label={`${item.author}에게 답글 작성`} disabled={!canReply} onClick={onReply}>

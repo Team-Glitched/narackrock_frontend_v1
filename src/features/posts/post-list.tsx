@@ -4,11 +4,11 @@ import { cn } from "@/lib/utils";
 import { uiLabels } from "@/lib/ui-labels";
 import { useHiddenPosts } from "@/features/community/hidden-posts";
 import { useEffect, useRef, useState } from "react";
-import { Avatar, IconSlot } from "@/components/app/shared";
-import type { Navigate } from "@/features/navigation/types";
+import { Avatar } from "@/components/ui/avatar";
+import { IconSlot } from "@/components/ui/icon-slot";
 import { useInfiniteScroll } from "@/hooks/use-infinite-scroll";
 import { useGalleryPosts } from "@/features/community/use-gallery-posts";
-import { DEFAULT_GALLERY_ID, fetchPost } from "@/lib/api/community";
+import { fetchPost } from "@/lib/api/community";
 import type { PostListItem } from "@/lib/api/contracts";
 import { relativeTime } from "@/features/posts/post-utils";
 
@@ -87,10 +87,9 @@ export function MiniPost({
 export function PostsScreen({
   onOpenPost,
 }: {
-  go: Navigate;
   onOpenPost: (postId: number) => void;
 }) {
-  const posts = useGalleryPosts(DEFAULT_GALLERY_ID, { sort: "POPULAR" });
+  const posts = useGalleryPosts("popular");
   const rootRef = useRef<HTMLDivElement>(null);
   const sentinel = useInfiniteScroll({
     rootRef,

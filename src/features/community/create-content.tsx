@@ -19,11 +19,13 @@ import {
   rememberCreationDraft,
   clearCreationDraft,
 } from "@/features/community/creation-draft";
-import { CanvasDialog } from "@/components/app/dialog";
-import { createPost } from "@/lib/api/community";
+import { CanvasDialog } from "@/components/ui/canvas-dialog";
+import { createPost, proposeGallery } from "@/lib/api/community";
 import { uploadMedia } from "@/lib/api/media";
 import { validatePostImage } from "@/features/community/post-image";
 import type { GalleryListItem } from "@/lib/api/contracts";
+import { hasPendingPublication, publishSource } from "@/features/sources/publish-source";
+import { sourceError } from "@/features/sources/source-screens";
 export function SocialCreate({
   onCancel,
   postTargetStatus = "ready",
@@ -147,6 +149,29 @@ export function SocialCreate({
         setDiscarding(true);
         clearCreationDraft(draftKey);
         onCreated();
+      } else if (kind === "source") {
+        const userId = getCurrentUserId();
+        if (userId === null) throw new Error("로그인 후 오픈소스를 등록할 수 있습니다.");
+        if (!audio) throw new Error("오디오를 먼저 선택해주세요.");
+        try {
+          await publishSource({ userId, draftKey, title: title.trim(), description: content.trim(), audio, image: image?.file ?? null });
+        } catch (cause) {
+          const message = sourceError(cause, "오픈소스를 등록하지 못했습니다.");
+          throw new Error(
+            hasPendingPublication({ userId, draftKey })
+              ? `오픈소스가 비공개로 등록됐지만 공개하지 못했습니다. 다시 시도하면 공개 단계만 이어서 진행합니다. (${message})`
+              : message,
+          );
+        }
+        setDiscarding(true);
+        clearCreationDraft(draftKey);
+        onCreated();
+      } else if (kind === "community") {
+        if (getCurrentUserId() === null) throw new Error("로그인 후 커뮤니티 개설을 신청할 수 있습니다.");
+        await proposeGallery(title.trim(), content.trim());
+        setDiscarding(true);
+        clearCreationDraft(draftKey);
+        onCreated();
       } else throw new Error("현재 이 생성 기능을 사용할 수 없습니다.");
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "생성하지 못했습니다.");
@@ -248,8 +273,13 @@ export function SocialCreate({
             </button>
           </label>
         )}
+        {kind === "community" ? (
+          <p className={sharedStyles.creationSaveStatus}>
+            커뮤니티 프로필 사진은 현재 서버에서 지원하지 않습니다. 이름과 설명으로 개설을 신청하면 관리자 승인 후 커뮤니티가 만들어집니다.
+          </p>
+        ) : (
         <label>
-          {kind === "community" ? "프로필" : kind === "source" ? "앨범" : "사진"}
+          {kind === "source" ? "앨범" : "사진"}
           <span className={sharedStyles.socialImagePicker}>
             {image ? (
               <img src={image.url} alt="첨부 이미지 미리보기" width={350} height={280} />
@@ -288,14 +318,11 @@ export function SocialCreate({
               disabled={busy}
               onClick={() => setImage(null)}
             >
-              {kind === "source"
-                ? "앨범 이미지 삭제"
-                : kind === "community"
-                  ? "프로필 이미지 삭제"
-                  : "첨부 사진 삭제"}
+              {kind === "source" ? "앨범 이미지 삭제" : "첨부 사진 삭제"}
             </button>
           )}
         </label>
+        )}
       </div>
       <p className={sharedStyles.creationSaveStatus} role="status">
         {draftSaving
@@ -330,7 +357,7 @@ export function SocialCreate({
           (kind === "source" && !audio)
         }
       >
-        {busy ? "저장 중..." : "입력 완료"}
+        {busy ? "저장 중..." : kind === "community" ? "개설 신청" : "입력 완료"}
       </button>
       <button
         type="button"

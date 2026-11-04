@@ -1,6 +1,15 @@
 import type { MidiNoteDto } from "@/lib/api/composition";
 import { audioBufferToWav } from "./prepare-audio-file";
-import { scheduleMidiEnvelope } from "./use-composition-playback";
+
+function scheduleMidiEnvelope(gain: AudioParam, start: number, end: number, level: number) {
+  const duration = Math.max(0, end - start);
+  const attack = Math.min(0.01, duration / 4);
+  const release = Math.min(0.08, duration / 4);
+  gain.setValueAtTime(0, start);
+  gain.linearRampToValueAtTime(level, start + attack);
+  gain.setValueAtTime(level, end - release);
+  gain.linearRampToValueAtTime(0, end);
+}
 
 /** Render authored notes to the audio attachment; no MIDI upload or HTI conversion. */
 export async function renderPianoAudio(notes: MidiNoteDto[], bpm: number): Promise<File> {

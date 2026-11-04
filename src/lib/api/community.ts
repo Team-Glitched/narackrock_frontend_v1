@@ -5,6 +5,7 @@ import type {
   GalleryListItem,
   GallerySubscribeResponse,
   PostCommentPage,
+  PostListItem,
 } from "./contracts";
 
 /**
@@ -58,6 +59,17 @@ export function deletePostComment(commentId: number): Promise<void> {
     method: "DELETE",
   }).then(() => undefined);
 }
+
+/** Toggles a post comment reaction; the response carries both reaction states and counts. */
+export function reactToPostComment(
+  commentId: number,
+  kind: "like" | "dislike",
+): Promise<{ isLiked: boolean; isDisliked: boolean; likeCount: number; dislikeCount: number }> {
+  return apiRequest<ApiResponse<{ isLiked: boolean; isDisliked: boolean; likeCount: number; dislikeCount: number }>>(
+    `/api/v1/posts/comments/${commentId}/${kind === "like" ? "likes" : "dislikes"}`,
+    { method: "POST" },
+  ).then((r) => r.data);
+}
 import type {
   ApiResponse,
   PostCreateResponse,
@@ -68,14 +80,11 @@ import type {
 } from "./contracts";
 
 /**
- * 갤러리를 고르지 않고 게시글을 보여주는 화면(홈 "인기 글", "인기글", 커뮤니티 탭의 "게시글")이
- * 쓰는 갤러리 id.
+ * 갤러리를 고르지 않는 게시글 화면(소셜의 "게시글" 탭)과 작성 기본 대상이 쓰는 갤러리 id.
  *
- * 갤러리 목록 API는 이제 있다 — 남아 있는 이유는 다르다. **갤러리를 가로지르는 게시글 통합
- * 조회 API가 없어서**(게시글 조회는 항상 `/galleries/{id}/posts`) 이 화면들이 갤러리 하나를
- * 골라야만 한다. 통합 조회나 인기글 API가 생기면 그때 제거한다.
- *
- * 커뮤니티 목록·상세는 더 이상 이 값을 쓰지 않고 서버가 준 galleryId를 쓴다.
+ * 인기글은 이제 `GET /posts/popular`(갤러리 통합)를 쓴다. 남은 이유는 **갤러리를 가로지르는 최신
+ * 게시글 목록 API가 없어서**(게시글 목록은 `/galleries/{id}/posts`뿐) 소셜 게시글 탭이 갤러리 하나를
+ * 골라야만 하기 때문이다. 통합 최신 목록 API가 생기면 그때 제거한다.
  */
 export const DEFAULT_GALLERY_ID = 1;
 
@@ -214,4 +223,134 @@ export function deletePost(postId: number): Promise<void> {
   return apiRequest<ApiResponse<void>>(`/api/v1/posts/${postId}`, {
     method: "DELETE",
   }).then(() => undefined);
+}
+
+export type PostReaction = { isLiked: boolean; isDisliked: boolean; likeCount: number; dislikeCount: number };
+
+/** Toggles a post reaction; the response contains both reaction states and counts. */
+export function reactToPost(postId: number, kind: "like" | "dislike"): Promise<PostReaction> {
+  return apiRequest<ApiResponse<PostReaction>>(`/api/v1/posts/${postId}/${kind === "like" ? "likes" : "dislikes"}`, {
+    method: "POST",
+  }).then((response) => response.data);
+}
+
+export function togglePostBookmark(postId: number): Promise<{ postId: number; isBookmarked: boolean }> {
+  return apiRequest<ApiResponse<{ postId: number; isBookmarked: boolean }>>(`/api/v1/posts/${postId}/bookmark`, {
+    method: "POST",
+  }).then((response) => response.data);
+}
+
+export function getPostShareLink(postId: number): Promise<{ postId: number; shareUrl: string }> {
+  return apiRequest<ApiResponse<{ postId: number; shareUrl: string }>>(`/api/v1/posts/${postId}/share`, {
+    method: "POST",
+  }).then((response) => response.data);
+}
+
+export type GalleryRole = { galleryId: number; galleryRole: "MANAGER" | null; isAdmin: boolean; canManage: boolean };
+
+/** The caller's moderation rights in one gallery; ownership fields are never used as permission. */
+export function getMyGalleryRole(galleryId: number, signal?: AbortSignal): Promise<GalleryRole> {
+  return apiRequest<ApiResponse<GalleryRole>>(`/api/v1/galleries/${galleryId}/manage/me`, { signal }).then((r) => r.data);
+}
+
+export function updateGalleryDescription(galleryId: number, description: string): Promise<void> {
+  return apiRequest(`/api/v1/galleries/${galleryId}/manage`, {
+    method: "PATCH",
+    body: JSON.stringify({ description }),
+  }).then(() => undefined);
+}
+
+export type GalleryModerationLog = {
+  logId: number;
+  actionType: string;
+  actorId: number;
+  targetUserId: number | null;
+  targetId: number | null;
+  reason: string | null;
+  createdAt: string;
+};
+export type GalleryBan = {
+  banId: number;
+  userId: number;
+  actorId: number;
+  banType: "SUSPEND" | "EXPEL";
+  reason: string;
+  bannedUntil: string | null;
+  liftedAt: string | null;
+  createdAt: string;
+  active: boolean;
+};
+
+export function getGalleryModerationLogs(galleryId: number, cursor: number | null) {
+  return apiRequest<ApiResponse<{ logs: GalleryModerationLog[]; nextCursor: number | null; hasNext: boolean }>>(
+    `/api/v1/galleries/${galleryId}/manage/logs?size=20${cursor === null ? "" : `&cursor=${cursor}`}`,
+  ).then((r) => r.data);
+}
+
+export function getGalleryBans(galleryId: number, cursor: number | null) {
+  return apiRequest<ApiResponse<{ bans: GalleryBan[]; nextCursor: number | null; hasNext: boolean }>>(
+    `/api/v1/galleries/${galleryId}/manage/bans?size=20${cursor === null ? "" : `&cursor=${cursor}`}`,
+  ).then((r) => r.data);
+}
+
+export function sanctionGalleryMember(
+  galleryId: number,
+  body: { userId: number; type: "SUSPEND" | "EXPEL"; durationDays: number | null; reason: string },
+): Promise<{ banId: number }> {
+  return apiRequest<ApiResponse<{ banId: number }>>(`/api/v1/galleries/${galleryId}/manage/bans`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  }).then((r) => r.data);
+}
+
+export function liftGalleryBan(galleryId: number, banId: number): Promise<void> {
+  return apiRequest(`/api/v1/galleries/${galleryId}/manage/bans/${banId}/lift`, { method: "PATCH" }).then(() => undefined);
+}
+
+/** Moderator deletion with a recorded reason; distinct from the author's own delete endpoints. */
+export function moderateGalleryContent(
+  galleryId: number,
+  kind: "posts" | "comments",
+  id: number,
+  reason: string,
+): Promise<void> {
+  return apiRequest(`/api/v1/galleries/${galleryId}/manage/${kind}/${id}/delete`, {
+    method: "PATCH",
+    body: JSON.stringify({ reason }),
+  }).then(() => undefined);
+}
+
+export type MyGalleryProposal = {
+  proposalId: number;
+  name: string;
+  description: string | null;
+  status: "PENDING" | "APPROVED" | "REJECTED";
+  rejectionReason: string | null;
+  createdAt: string;
+};
+
+/** Community creation is a proposal reviewed by a platform admin, not an immediate gallery. */
+export function proposeGallery(name: string, description: string): Promise<{ proposalId: number; status: "PENDING" }> {
+  return apiRequest<ApiResponse<{ proposalId: number; status: "PENDING" }>>("/api/v1/gallery-proposals", {
+    method: "POST",
+    body: JSON.stringify({ name, description }),
+  }).then((r) => r.data);
+}
+
+export function getMyGalleryProposals(): Promise<MyGalleryProposal[]> {
+  return apiRequest<ApiResponse<MyGalleryProposal[]>>("/api/v1/gallery-proposals/me").then((r) => r.data);
+}
+
+export type PopularPost = PostListItem & {
+  gallery: { galleryId: number; name: string };
+  contentPreview: string;
+  dislikeCount: number;
+};
+
+/** Popular posts across every gallery. */
+export function getPopularPosts(page = 0, size = 20, signal?: AbortSignal) {
+  return apiRequest<ApiResponse<{ page: number; size: number; totalCount: number; posts: PopularPost[] }>>(
+    `/api/v1/posts/popular?page=${page}&size=${size}`,
+    { signal },
+  ).then((r) => r.data);
 }

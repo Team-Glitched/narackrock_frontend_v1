@@ -1,8 +1,9 @@
 import { buttonVariants } from "@/styles/variants";
 import { ChevronDown } from "lucide-react";
 import { useId, useRef, useState } from "react";
-import { Asset, Avatar } from "@/components/app/shared";
-import { FigmaSheet } from "@/components/app/figma-sheet";
+import { Asset } from "@/components/ui/asset";
+import { Avatar } from "@/components/ui/avatar";
+import { FigmaSheet } from "@/components/ui/figma-sheet";
 import type { GalleriesState } from "@/features/community/use-galleries";
 
 export function PostCommunityPicker({

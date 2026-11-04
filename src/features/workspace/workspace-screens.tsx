@@ -1,24 +1,24 @@
 import { workspaceStyles } from "@/styles/workspace.styles";
 import { sharedStyles } from "@/styles/shared.styles";
 import { cn } from "@/lib/utils";
-import { useSavedSources } from "@/features/community/use-saved-sources";
-import { SavedSourceCard } from "@/features/community/saved-source-list";
-import { AudioPlaybackBar } from "@/components/app/audio-playback-bar";
+import { SavedOpenSources } from "@/features/sources/saved-open-sources";
+import { AudioPlaybackBar } from "@/components/ui/audio-playback-bar";
 import { uiLabels } from "@/lib/ui-labels";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
-import type { Navigate } from "@/features/navigation/types";
-import { getComposition, type CompositionDto } from "@/lib/api/composition";
+import {
+  getComposition,
+  listContributions,
+  getContributionInbox,
+  reviewContribution,
+  type ContributionDto,
+  type CompositionDto,
+} from "@/lib/api/composition";
+import { useCurrentUserId } from "@/features/auth/use-current-user";
 import { compositionDurationMs } from "@/features/composition/playback-duration";
 import { useCompositionPlayback } from "@/features/composition/use-composition-playback";
-import { Asset } from "@/components/app/shared";
-import {
-  preserveSubmission,
-  toggleResource,
-  useWorkspace,
-  type Resource,
-  type Submission,
-  type Work,
-} from "./workspace-store";
+import { Asset } from "@/components/ui/asset";
+import { toggleResource, useWorkspace, type Resource, type Work } from "./workspace-store";
+import { useVisitedWorks } from "./use-visited-works";
 const labels = { PENDING: "승인 대기", APPROVED: "승인됨", REJECTED: "반려됨" };
 function Page({
   title,
@@ -108,18 +108,23 @@ export function ClipPlayer({
 }
 
 export function WorkspaceScreen({
-  go,
+  onStartSong,
   onResume,
 }: {
-  go: Navigate;
+  onStartSong: () => void;
   onResume: (id: number, shortId: number | null) => void;
 }) {
-  const { works } = useWorkspace();
+  const { works, error, loading } = useVisitedWorks();
   return (
-    <Page title={uiLabels.workspace} subtitle="만들던 곡과 참여한 레이어를 이어서 작업하세요.">
+    <Page
+      title="이 브라우저에서 연 작업"
+      subtitle="전체 서버 프로젝트 목록이 아닌 방문 이력입니다. 기존 브라우저 자료는 설정의 데이터 이관에서 확인하세요."
+    >
+      {error && <p role="alert">{error}</p>}
+      {loading && <p role="status">방문한 프로젝트의 현재 접근권을 확인하는 중입니다.</p>}
       <div className={workspaceStyles.workspaceHeading}>
         <h2>음악 목록</h2>
-        <button className={workspaceStyles.workspacePrimary} onClick={() => go("studio")}>
+        <button className={workspaceStyles.workspacePrimary} onClick={onStartSong}>
           새 곡
         </button>
       </div>
@@ -149,201 +154,214 @@ export function WorkspaceScreen({
     </Page>
   );
 }
-export function SubmissionsScreen({ onSelect }: { onSelect: (id: number) => void }) {
-  const { submissions } = useWorkspace();
-  const [filter, setFilter] = useState("ALL");
-  const mine = submissions.filter((s) => s.mine && (filter === "ALL" || s.status === filter));
-  return (
-    <Page title={uiLabels.submissions} subtitle="승인 결과와 내 레이어를 확인하세요.">
-      <div className={workspaceStyles.workspaceTabs} role="group" aria-label="제출 상태">
-        {[["ALL", "전체"], ...Object.entries(labels)].map(([value, label]) => (
-          <button key={value} aria-pressed={filter === value} onClick={() => setFilter(value)}>
-            {label}
-          </button>
-        ))}
-      </div>
-      {mine.length === 0 ? (
-        <Empty>해당 상태의 제출 내역이 없습니다.</Empty>
-      ) : (
-        mine.map((item) => (
-          <button
-            className={cn(workspaceStyles.workspaceCard, workspaceStyles.workspaceCardLink)}
-            key={item.id}
-            onClick={() => onSelect(item.id)}
-          >
-            <span className={workspaceStyles.workspaceStatus}>{labels[item.status]}</span>
-            <h2>{item.title}</h2>
-            <p>{item.description}</p>
-            <small>상세 보기 →</small>
-          </button>
-        ))
-      )}
-    </Page>
-  );
-}
-export function ReviewInboxScreen({ onSelect }: { onSelect: (id: number) => void }) {
-  const { submissions } = useWorkspace();
-  const items = submissions.filter((s) => !s.mine);
-  return (
-    <Page title={uiLabels.reviewInbox} subtitle="원곡에 반영하기 전에 추가된 레이어를 들어보세요.">
-      {items.length === 0 ? (
-        <Empty>받은 참여 요청이 없습니다.</Empty>
-      ) : (
-        items.map((item) => (
-          <button
-            className={cn(workspaceStyles.workspaceCard, workspaceStyles.workspaceCardLink)}
-            key={item.id}
-            onClick={() => onSelect(item.id)}
-          >
-            <span className={workspaceStyles.workspaceStatus}>{labels[item.status]}</span>
-            <h2>{item.title}</h2>
-            <p>
-              {item.author} · {item.description}
-            </p>
-            <small>레이어 검토 →</small>
-          </button>
-        ))
-      )}
-    </Page>
-  );
-}
-export function SubmissionDetailScreen({
-  id,
-  onResume,
-  onOpenSong,
+export function SubmissionsScreen({
+  onSelect,
 }: {
-  id: number;
-  onResume: (id: number, shortId: number | null) => void;
-  onOpenSong: (shortId: number) => void;
+  onSelect: (id: number, projectId: number) => void;
 }) {
-  const state = useWorkspace();
-  const item = state.submissions.find((value) => value.id === id);
-  const [notice, setNotice] = useState("");
-  const [mix, setMix] = useState(false);
-  const [fetchedBase, setFetchedBase] = useState<CompositionDto | null>(null);
-  const [baseError, setBaseError] = useState("");
+  const { works } = useWorkspace();
+  const userId = useCurrentUserId();
+  const [result, setResult] = useState<{ userId: number | null; items: ContributionDto[] } | null>(
+    null,
+  );
+  const items = result?.userId === userId ? result.items : [];
+  const [error, setError] = useState("");
   useEffect(() => {
-    if (!item || item.mine || item.baseComposition) return;
     let active = true;
-    const contributionIds = new Set(item.composition.tracks.map((track) => track.trackId));
-    getComposition(item.projectId)
-      .then((value) => {
+    Promise.all(works.map((work) => listContributions(work.id)))
+      .then((lists) => {
         if (active)
-          setFetchedBase({
-            ...value,
-            tracks: value.tracks.filter((track) => !contributionIds.has(track.trackId)),
-          });
+          setResult({ userId, items: lists.flat().filter((item) => item.userId === userId) });
       })
-      .catch(() => {
+      .catch((cause) => {
         if (active)
-          setBaseError("원곡을 불러오지 못했습니다. 추가 레이어는 따로 들을 수 있습니다.");
+          setError(cause instanceof Error ? cause.message : "제출을 불러오지 못했습니다.");
       });
     return () => {
       active = false;
     };
-  }, [item]);
-  if (!item)
+  }, [works, userId]);
+  return (
+    <Page
+      title="확인된 프로젝트의 제출"
+      subtitle="이 브라우저에서 연 프로젝트만 조회합니다. 전체 프로젝트 간 제출 목록 API는 없습니다."
+    >
+      {error && <p role="alert">{error}</p>}
+      {!items.length && (
+        <Empty>확인된 제출이 없습니다. 프로젝트를 열어 방문 이력에 추가해주세요.</Empty>
+      )}
+      {items.map((item) => (
+        <button
+          className={workspaceStyles.workspaceCard}
+          key={`${item.projectId}:${item.contributionId}`}
+          onClick={() => onSelect(item.contributionId, item.projectId)}
+        >
+          <strong>
+            #{item.contributionId} · {labels[item.approvalStatus]}
+          </strong>
+          <p>{item.description}</p>
+          <small>{item.createdAt}</small>
+        </button>
+      ))}
+    </Page>
+  );
+}
+
+export function ReviewInboxScreen({
+  onSelect,
+}: {
+  onSelect: (id: number, projectId: number) => void;
+}) {
+  const userId = useCurrentUserId();
+  const [result, setResult] = useState<{
+    userId: number | null;
+    items: Awaited<ReturnType<typeof getContributionInbox>>;
+  } | null>(null);
+  const items = result?.userId === userId ? result.items : [];
+  const [error, setError] = useState("");
+  useEffect(() => {
+    let active = true;
+    getContributionInbox()
+      .then((items) => {
+        if (active) setResult({ userId, items });
+      })
+      .catch((cause) => {
+        if (active)
+          setError(cause instanceof Error ? cause.message : "검토 요청을 불러오지 못했습니다.");
+      });
+    return () => {
+      active = false;
+    };
+  }, [userId]);
+  return (
+    <Page title="받은 참여 요청" subtitle="서버의 기여 알림으로 확인한 요청입니다.">
+      {error && <p role="alert">{error}</p>}
+      {!items.length && <Empty>받은 참여 요청이 없습니다.</Empty>}
+      {items.map((item) => (
+        <button
+          className={workspaceStyles.workspaceCard}
+          key={`${item.projectId}:${item.contributionId}`}
+          onClick={() => onSelect(item.contributionId, item.projectId)}
+        >
+          <strong>
+            {item.projectTitle} · #{item.contributionId}
+          </strong>
+          <p>
+            {item.nickname} · {item.description}
+          </p>
+        </button>
+      ))}
+    </Page>
+  );
+}
+
+export function SubmissionDetailScreen({
+  id,
+  projectId,
+  onResume,
+}: {
+  id: number;
+  projectId: number | null;
+  onResume: (id: number, shortId: number | null) => void;
+}) {
+  const userId = useCurrentUserId();
+  const [item, setItem] = useState<ContributionDto | null>(null);
+  const [canReview, setCanReview] = useState(false);
+  const [error, setError] = useState("");
+  const [comment, setComment] = useState("");
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    if (projectId === null) return;
+    let active = true;
+    Promise.all([listContributions(projectId), getComposition(projectId)])
+      .then(([items, composition]) => {
+        if (!active) return;
+        const found = items.find((entry) => entry.contributionId === id) ?? null;
+        setItem(found);
+        setCanReview(composition.viewerPermission.canReviewContribution);
+        if (!found) setError("서버에서 제출을 찾지 못했습니다.");
+      })
+      .catch((cause) => {
+        if (active)
+          setError(cause instanceof Error ? cause.message : "제출을 불러오지 못했습니다.");
+      });
+    return () => {
+      active = false;
+    };
+  }, [id, projectId, userId]);
+  if (projectId === null)
     return (
-      <Page title="참여 내역">
-        <Empty>내역을 찾을 수 없습니다.</Empty>
+      <Page title="제출 상세">
+        <Empty>
+          이전 링크에 프로젝트 ID가 없습니다. 로컬 가짜 ID는 서버 제출 ID로 사용할 수 없습니다.
+          설정의 복구 자료를 확인해주세요.
+        </Empty>
       </Page>
     );
-  const base = item.baseComposition ?? fetchedBase;
-  const canCompare = !item.mine && Boolean(base?.tracks.length);
-  const composition =
-    mix && canCompare && base
-      ? {
-          ...base,
-          tracks: [
-            ...base.tracks.filter(
-              (track) => !item.composition.tracks.some((added) => added.trackId === track.trackId),
-            ),
-            ...item.composition.tracks,
-          ],
-        }
-      : item.composition;
   return (
-    <Page title={item.mine ? "제출 상세" : "참여 요청 검토"}>
-      <span className={workspaceStyles.workspaceStatus}>{labels[item.status]}</span>
-      <h2>{item.title}</h2>
-      <p>
-        {item.author} · {item.description}
-      </p>
-      <div className={workspaceStyles.submissionSongLink}>
-        {item.shortId !== null ? (
-          <button onClick={() => onOpenSong(item.shortId!)}>곡으로 이동 →</button>
-        ) : (
-          <span>아직 공개되지 않은 곡입니다.</span>
-        )}
-      </div>
-      {!item.mine && (
-        <section className={workspaceStyles.submissionReviewActions} aria-label="참여 요청 처리">
-          {item.status === "PENDING" ? (
-            <>
-              <div className={workspaceStyles.workspaceActions}>
-                <button className={workspaceStyles.workspacePrimary} disabled>
-                  승인
+    <Page title="서버 제출 상세">
+      {error && <p role="alert">{error}</p>}
+      {!item ? (
+        <p>제출을 불러오는 중입니다.</p>
+      ) : (
+        <>
+          <h2>
+            제출 #{item.contributionId} · {labels[item.approvalStatus]}
+          </h2>
+          <p>
+            {item.nickname} · {item.description}
+          </p>
+          <p>
+            프로젝트 #{projectId} · 기준 버전 {item.baseProjectVersion.display} · {item.createdAt}
+          </p>
+          <ul>
+            {item.items.map((entry, index) => (
+              <li key={index}>
+                {entry.changeType} {entry.targetType} #{entry.targetId} · {entry.itemStatus}
+              </li>
+            ))}
+          </ul>
+          <p>검토 결과: {item.reviewComment ?? "등록된 검토 의견이 없습니다."}</p>
+          <p>
+            서버는 불변 제출 음원·노트 snapshot을 제공하지 않습니다. 현재 클립을 과거 제출 음원으로
+            재생하지 않습니다.
+          </p>
+          {canReview && item.approvalStatus === "PENDING" && (
+            <div>
+              <label>
+                검토 의견
+                <textarea value={comment} onChange={(event) => setComment(event.target.value)} />
+              </label>
+              {(["APPROVED", "REJECTED"] as const).map((status) => (
+                <button
+                  key={status}
+                  disabled={busy}
+                  onClick={async () => {
+                    setBusy(true);
+                    setError("");
+                    try {
+                      await reviewContribution(projectId, id, status, comment.trim() || null);
+                      setItem(
+                        (await listContributions(projectId)).find(
+                          (entry) => entry.contributionId === id,
+                        ) ?? null,
+                      );
+                    } catch (cause) {
+                      setError(
+                        cause instanceof Error ? cause.message : "검토 결과를 저장하지 못했습니다.",
+                      );
+                    } finally {
+                      setBusy(false);
+                    }
+                  }}
+                >
+                  {status === "APPROVED" ? "승인" : "반려"}
                 </button>
-                <button disabled>반려</button>
-              </div>
-              <p>현재 참여 요청 검토 기능을 사용할 수 없습니다.</p>
-            </>
-          ) : (
-            <p role="status">
-              이미 {item.status === "APPROVED" ? "승인" : "반려"} 처리된 요청입니다.
-            </p>
+              ))}
+            </div>
           )}
-        </section>
-      )}
-      {canCompare && (
-        <div
-          className={cn(workspaceStyles.workspaceTabs, workspaceStyles.submissionPlaybackModes)}
-          role="radiogroup"
-          aria-label="미리듣기 모드"
-        >
-          <button role="radio" aria-checked={!mix} onClick={() => setMix(false)}>
-            추가 레이어만
-          </button>
-          <button role="radio" aria-checked={mix} onClick={() => setMix(true)}>
-            원곡과 함께
-          </button>
-        </div>
-      )}
-      {baseError && !item.mine && <p role="alert">{baseError}</p>}
-      <ClipPlayer key={`${id}:${mix && canCompare}`} composition={composition} />
-      {item.status === "REJECTED" && (
-        <div className={workspaceStyles.workspaceCard}>
-          <h2>반려 사유</h2>
-          <p>{item.reason || "등록된 사유가 없습니다."}</p>
-          <p>내 작업은 삭제되지 않습니다. 보관함에 넣어 다시 사용할 수 있습니다.</p>
-        </div>
-      )}
-      {item.mine && (
-        <div className={workspaceStyles.workspaceActions}>
-          <button
-            className={workspaceStyles.workspacePrimary}
-            onClick={() => onResume(item.projectId, item.shortId)}
-          >
-            곡 편집기로 이동
-          </button>
-          <button
-            onClick={() => {
-              try {
-                preserveSubmission(id);
-                setNotice("오픈소스 보관함에 저장했습니다.");
-              } catch {
-                setNotice("저장 공간을 확인해주세요.");
-              }
-            }}
-          >
-            내 레이어 보관
-          </button>
-        </div>
-      )}
-      {notice && (
-        <p className={workspaceStyles.workspaceNotice} role="status">
-          {notice}
-        </p>
+          <button onClick={() => onResume(projectId, null)}>현재 프로젝트 열기</button>
+        </>
       )}
     </Page>
   );
@@ -351,32 +369,28 @@ export function SubmissionDetailScreen({
 export function SourceLibraryScreen({
   onUse,
   importing = false,
-  go,
+  onStartSong,
+  onOpenSources,
+  onOpenSource,
 }: {
   onUse: (resource: Resource, work?: Work) => Promise<void>;
   importing?: boolean;
-  go: Navigate;
+  onStartSong: () => void;
+  onOpenSources: () => void;
+  onOpenSource: (id: number) => void;
 }) {
-  const { scope: sourceScope, items: savedSources } = useSavedSources();
-  const { resources, works } = useWorkspace();
+  const { resources } = useWorkspace();
+  const { works, error: workError } = useVisitedWorks();
   const [targetResource, setTargetResource] = useState<Resource | null>(null);
-  const [filter, setFilter] = useState("ALL"),
+  const [filter, setFilter] = useState(importing ? "LOCAL" : "SERVER"),
     [query, setQuery] = useState(""),
     [busy, setBusy] = useState<number | null>(null),
     [notice, setNotice] = useState("");
   const items = resources.filter(
     (r) =>
-      (filter === "ALL" || (filter === "OWN" && r.own) || (filter === "SAVED" && r.saved)) &&
+      filter === "LOCAL" &&
       `${r.title} ${r.description}`.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()),
   );
-  const visibleSources =
-    importing || filter === "OWN"
-      ? []
-      : savedSources.filter((source) =>
-          `${source.title} ${source.description}`
-            .toLocaleLowerCase()
-            .includes(query.trim().toLocaleLowerCase()),
-        );
   async function use(resource: Resource, work?: Work) {
     if (!importing && !work) {
       setTargetResource(resource);
@@ -424,7 +438,7 @@ export function SourceLibraryScreen({
           ))
         )}
         {notice && <p role="status">{notice}</p>}
-        <button className={workspaceStyles.workspaceWide} onClick={() => go("studio")}>
+        <button className={workspaceStyles.workspaceWide} onClick={onStartSong}>
           새 곡 만들기
         </button>
       </Page>
@@ -434,10 +448,11 @@ export function SourceLibraryScreen({
       title={importing ? "MIDI 가져오기" : uiLabels.sourceLibrary}
       subtitle={
         importing
-          ? "현재 MIDI에 가져올 노트를 선택하세요."
-          : "내가 만든 레이어와 저장한 리소스를 모아보세요."
+          ? "이 브라우저의 MIDI 원본을 개인 초안으로 가져옵니다."
+          : "서버 보관 목록과 이 브라우저의 MIDI 복구 자료는 별개입니다."
       }
     >
+      {workError && <p role="alert">{workError}</p>}
       <label className={workspaceStyles.workspaceSearch}>
         <Asset name="search-input.svg" />
         <input
@@ -448,11 +463,13 @@ export function SourceLibraryScreen({
         />
       </label>
       <div className={workspaceStyles.workspaceTabs}>
-        {[
-          ["ALL", "전체"],
-          ["OWN", uiLabels.ownLayers],
-          ["SAVED", uiLabels.savedLayers],
-        ].map(([value, label]) => (
+        {(importing
+          ? [["LOCAL", "이 브라우저 MIDI 복구"]]
+          : [
+              ["SERVER", "서버 오픈소스 보관"],
+              ["LOCAL", "이 브라우저 MIDI 복구"],
+            ]
+        ).map(([value, label]) => (
           <button key={value} aria-pressed={filter === value} onClick={() => setFilter(value)}>
             {label}
           </button>
@@ -463,13 +480,16 @@ export function SourceLibraryScreen({
           {notice}
         </p>
       )}
-      {items.length === 0 && visibleSources.length === 0 ? (
-        <Empty>리소스가 없습니다. 작업한 레이어를 보관하거나 오픈소스를 저장해보세요.</Empty>
+      {filter === "LOCAL" && items.length === 0 ? (
+        <Empty>
+          이 브라우저의 MIDI 복구 자료가 없습니다. 이전 작성물은 설정의 데이터 이관·복구에서 내보낼
+          수 있습니다.
+        </Empty>
       ) : (
         items.map((r) => (
           <article className={workspaceStyles.workspaceCard} key={r.id}>
             <span className={workspaceStyles.workspaceStatus}>
-              {r.own ? uiLabels.ownLayers : "MIDI"}
+              이 브라우저의 MIDI 원본 · 서버 보관 자료 아님
             </span>
             <h2>{r.title}</h2>
             <p>{r.description}</p>
@@ -485,28 +505,31 @@ export function SourceLibraryScreen({
                   }
                 }}
               >
-                {r.saved ? "저장됨" : "저장"}
+                {r.saved ? "로컬 즐겨찾기됨" : "로컬 즐겨찾기"}
               </button>
               <button
                 className={workspaceStyles.workspacePrimary}
                 disabled={busy !== null}
                 onClick={() => void use(r)}
               >
-                {busy === r.id ? "가져오는 중…" : importing ? "노트 가져오기" : "내 곡에 사용"}
+                {busy === r.id
+                  ? "가져오는 중…"
+                  : importing
+                    ? "개인 초안으로 가져오기"
+                    : "선택한 곡의 개인 초안으로"}
               </button>
             </div>
           </article>
         ))
       )}
-      {visibleSources.map((source) => (
-        <SavedSourceCard key={source.id} source={source} scope={sourceScope} />
-      ))}
+      {!importing && filter === "SERVER" && (
+        <SavedOpenSources query={query} onOpen={onOpenSource} />
+      )}
       {!importing && (
-        <button className={workspaceStyles.workspaceWide} onClick={() => go("opensource")}>
+        <button className={workspaceStyles.workspaceWide} onClick={onOpenSources}>
           오픈소스 둘러보기
         </button>
       )}
     </Page>
   );
 }
-export type { Submission };
