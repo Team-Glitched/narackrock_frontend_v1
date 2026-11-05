@@ -2,11 +2,10 @@ import { sharedStyles } from "@/styles/shared.styles";
 import { buttonVariants } from "@/styles/variants";
 import { CanvasDialog } from "@/components/canvas-dialog";
 import { useEffect, useEffectEvent, useId, useState } from "react";
-import { ApiError } from "@/lib/api/client";
 import { canonicalInstrumentId } from "./instrument-catalog";
 import {
   instrumentGroups,
-  occupyingTrack,
+  tracksUsingInstrumentFamily,
   partLabel,
   supportsMidi,
   type PartTrack,
@@ -27,17 +26,12 @@ export type InstrumentChoice = {
 };
 
 function choiceError(cause: unknown) {
-  if (cause instanceof ApiError) {
-    if (cause.errorCode === "INSTRUMENT_FAMILY_TAKEN")
-      return "다른 참여자가 이미 이 악기 계열을 쓰고 있습니다.";
-    return cause.message;
-  }
   return cause instanceof Error ? cause.message : "악기를 바꾸지 못했습니다.";
 }
 
 /**
  * Grouped picker following the backend instrument families. Previewing never writes; the track is created
- * or changed on "선택 완료", and the server's 409 family conflict remains authoritative.
+ * or changed on "선택 완료". Team usage is informational and never blocks a choice.
  */
 export function InstrumentDialog({
   choice,
@@ -66,16 +60,17 @@ export function InstrumentDialog({
   return (
     <CanvasDialog className={sharedStyles.instrumentDialog} titleId={titleId} onClose={close}>
       <h2 id={titleId}>악기 선택</h2>
+      <p>같은 악기나 보컬을 여러 명이 함께 선택할 수 있어요.</p>
       <div role="radiogroup" aria-label="악기" className="grid max-h-[260px] gap-2 overflow-y-auto">
         {instrumentGroups.map((group) => {
           const parts = group.instruments.filter(available);
           if (!parts.length) return null;
-          const taken = occupyingTrack(choice.tracks, parts[0], choice.currentTrackId);
+          const using = tracksUsingInstrumentFamily(choice.tracks, parts[0], choice.currentTrackId);
           return (
-            <fieldset key={group.id} disabled={busy || Boolean(taken)}>
+            <fieldset key={group.id} disabled={busy}>
               <legend>
                 {group.label}
-                {taken ? ` · ${taken.name}에서 사용 중` : ""}
+                {using.length ? ` · 다른 레이어 ${using.length}개에서 사용 중 · 함께 선택 가능` : ""}
               </legend>
               {parts.map((id) => (
                 <button

@@ -29,15 +29,15 @@ export function supportsMidi(value: string | null | undefined) {
 
 export type PartTrack = { trackId: number; instrument: string | null; approvalStatus: string; name: string };
 
-/** The track already holding the family of `value` (DRAFT/PENDING included, REJECTED excluded). */
-export function occupyingTrack(tracks: PartTrack[], value: string, currentTrackId?: number) {
+/** Other layers using this family, for display only; sharing an instrument is allowed. */
+export function tracksUsingInstrumentFamily(tracks: PartTrack[], value: string, currentTrackId?: number) {
   const family = partFamily(value);
   return family
-    ? tracks.find(
+    ? tracks.filter(
         (track) =>
           track.trackId !== currentTrackId &&
           track.approvalStatus !== "REJECTED" &&
           partFamily(track.instrument) === family,
       )
-    : undefined;
+    : [];
 }

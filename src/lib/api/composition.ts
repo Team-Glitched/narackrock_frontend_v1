@@ -112,7 +112,7 @@ export async function updateProjectTiming(
   }>(`/api/v1/projects/${projectId}/timing`, { method: "PATCH", body: JSON.stringify(timing) });
 }
 
-/** Owner-only tone change; 409 INSTRUMENT_FAMILY_TAKEN when another track holds the family. */
+/** Owner-only tone change; multiple players may select the same instrument or family. */
 export async function updateTrackInstrument(
   projectId: number,
   trackId: number,
