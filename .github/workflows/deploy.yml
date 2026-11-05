@@ -149,7 +149,7 @@ jobs:
           grep -qF "${IMAGE}@${DIGEST}" "${file}"
           git -C deploy config user.name 'github-actions[bot]'
           git -C deploy config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git -C deploy add kubernetes/frontend-deployment.yaml
+          git -C deploy add kubernetes/deployment.yaml
           if git -C deploy diff --cached --quiet; then
             echo 'Deployment already references this image digest.'
             exit 0
