@@ -708,7 +708,7 @@ export const sharedStyles = {
   ].join(" "),
   instrumentDialog: [
     "instrument-dialog",
-    "h-[83px] w-[350px] rounded-[20px] p-5 bg-app-bg bg-none text-app-fg",
+    "h-auto w-[350px] rounded-[20px] p-5 bg-app-bg bg-none text-app-fg",
     "[&_h2]:m-[0_0_10px] [&_h2]:text-label [&_h2]:font-bold [&_h2]:leading-[19px]",
     "[&_button]:p-0 [&_button]:text-left [&_button]:text-caption [&_button]:font-normal [&_button]:text-app-fg [&_button]:leading-[14px]",
   ].join(" "),

@@ -64,7 +64,7 @@ export function useInstrumentPrompt(projectId: number | null) {
     dialog,
     async ask(next: InstrumentPromptRequest) {
       if (projectId === null) throw new Error("대상 프로젝트를 먼저 선택해주세요.");
-      // A failed permission/occupancy fetch is an error, not an invented empty track list.
+      // Fetch current project access and team usage before showing the chooser.
       const composition = await getComposition(projectId);
       if (!mounted.current) throw new InstrumentPromptCancelled();
       pending.current?.reject(new InstrumentPromptCancelled());
