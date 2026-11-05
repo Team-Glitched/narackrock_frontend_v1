@@ -29,7 +29,7 @@ export const socialStyles = {
   ].join(" "),
   friendsView: [
     "friends-view",
-    "flex flex-col gap-8 px-0 py-6 [&>p]:mx-5 [&>[role=alert]]:mx-5",
+    "flex flex-col gap-8 px-0 py-6",
     "[.design-canvas_.social-screen>&]:min-h-0 [.design-canvas_.social-screen>&]:flex-1 [.design-canvas_.social-screen>&]:overflow-y-auto",
     "[.design-canvas_.social-screen>&]:[scrollbar-width:none]",
     "[.design-canvas_.social-screen>&::-webkit-scrollbar]:hidden",
