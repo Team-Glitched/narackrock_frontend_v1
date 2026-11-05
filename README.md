@@ -75,7 +75,7 @@ docker run --rm --name narackrock-frontend \
 
 `GET /healthz`는 `200`을 반환합니다. `/communities/7`, `/studio/42` 같은 SPA 직접 접근은 `index.html`로 전달하지만, 없는 `/assets/`, `/audio/`, `/fonts/`, `/figma/` 리소스와 정적 파일은 HTML 대신 `404`를 반환합니다. Vite의 해시가 붙은 `/assets/` 파일만 1년 `immutable` 캐시를 사용하고, `index.html`과 해시 없는 리소스는 재검증하도록 `Cache-Control: no-cache`를 사용합니다.
 
-운영 GitOps 매니페스트는 `~/Desktop/projects/home-server/narackrock-deploy/kubernetes/`에 있습니다. `.github/workflows/deploy.yml`은 `dev`/`main` 대상 PR에서 검사와 게시하지 않는 테스트 빌드를 수행하고, `main` push에서만 `ghcr.io/team-glitched/narackrock_frontend_v2`에 이미지를 게시한 뒤 배포 저장소의 `frontend-deployment.yaml`을 digest로 갱신합니다. 기존 `dev` → `main` PR 정책은 유지합니다.
+운영 GitOps 매니페스트는 `~/Desktop/projects/home-server/narackrock-deploy/kubernetes/`에 있습니다. `.github/workflows/deploy.yml`은 `dev`/`main` 대상 PR에서 검사와 게시하지 않는 테스트 빌드를 수행하고, `main` push에서만 `ghcr.io/team-glitched/narackrock_frontend_v1`에 이미지를 게시한 뒤 배포 저장소의 `deployment.yaml`에서 `web` 컨테이너 이미지를 digest로 갱신합니다. 이 Deployment는 백엔드 `api` 컨테이너와 공유합니다. 기존 `dev` → `main` PR 정책은 유지합니다.
 
 GitHub Actions 저장소 변수 `VITE_API_BASE_URL`, `VITE_GOOGLE_CLIENT_ID`와 배포 저장소 전용 쓰기 키인 secret `NARACKROCK_DEPLOY_KEY`를 사용합니다. GHCR 패키지는 Public으로 설정해야 클러스터가 인증 없이 받을 수 있습니다. 배포 저장소의 프론트 매니페스트가 먼저 원격에 있어야 이미지 갱신 단계가 성공합니다.
 
