@@ -62,10 +62,10 @@ export function SocialCreate({
   const [audio, setAudio] = useState<File | null>(() => initial?.audio ?? null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [sourceVisibility, setSourceVisibility] = useState<"PRIVATE" | "PUBLIC">("PUBLIC");
+  const [sourceVisibility, setSourceVisibility] = useState<"PRIVATE" | "PUBLIC">(() => initial?.sourceVisibility === "PRIVATE" ? "PRIVATE" : "PUBLIC");
   const draftValue = useMemo(
-    () => ({ title, content, image: image?.file ?? null, audio, notes: pianoNotes, bpm: pianoBpm }),
-    [title, content, image, audio, pianoNotes, pianoBpm],
+    () => ({ title, content, image: image?.file ?? null, audio, notes: pianoNotes, bpm: pianoBpm, sourceVisibility }),
+    [title, content, image, audio, pianoNotes, pianoBpm, sourceVisibility],
   );
   const [savedDraft, setSavedDraft] = useState<typeof draftValue | null>(null);
   const draftSaving = !restoring && !discarding && !storageError && savedDraft !== draftValue;
@@ -76,6 +76,7 @@ export function SocialCreate({
         if (!active || !draft) return;
         if ("restorationWarning" in draft && typeof draft.restorationWarning === "string")
           setRestoreError(draft.restorationWarning);
+        setSourceVisibility(draft.sourceVisibility === "PRIVATE" ? "PRIVATE" : "PUBLIC");
         setTitle(draft.title);
         setContent(draft.content);
         setAudio(draft.audio);
