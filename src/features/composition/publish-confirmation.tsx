@@ -1,5 +1,5 @@
 import { sharedStyles } from "@/styles/shared.styles";
-import { CanvasDialog } from "@/components/ui/canvas-dialog";
+import { CanvasDialog } from "@/components/canvas-dialog";
 import { useId } from "react";
 
 /** Figma V3 Dialog / Publish Confirmation (13488:31624). */

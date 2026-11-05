@@ -2,7 +2,7 @@ import { communityStyles } from "@/styles/community.styles";
 import { buttonVariants } from "@/styles/variants";
 import { sharedStyles } from "@/styles/shared.styles";
 import { useId, useState } from "react";
-import { CanvasDialog } from "@/components/ui/canvas-dialog";
+import { CanvasDialog } from "@/components/canvas-dialog";
 export function MemberActionDialog({
   member,
   action,

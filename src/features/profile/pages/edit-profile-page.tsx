@@ -1,6 +1,6 @@
 import { EditProfileScreen } from "@/features/profile/profile-screens";
 import { useAuthSession } from "@/features/auth/auth-session";
-import { DesignViewport } from "@/components/ui/design-viewport";
+import { DesignViewport } from "@/components/design-viewport";
 import { Header } from "@/features/navigation/header";
 import { Footer } from "@/features/navigation/footer";
 import { NotificationsOverlay } from "@/features/notifications/notifications-overlay";

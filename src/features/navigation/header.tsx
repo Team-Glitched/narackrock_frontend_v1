@@ -3,8 +3,8 @@ import { useAuthSession } from "@/features/auth/auth-session";
 import { useUrlNavigation } from "./use-url-navigation";
 import { useNotificationsNavigation } from "@/features/notifications/use-notifications-navigation";
 import { cn } from "@/lib/utils";
-import { Asset } from "@/components/ui/asset";
-import { Avatar } from "@/components/ui/avatar";
+import { Asset } from "@/components/asset";
+import { Avatar } from "@/components/avatar";
 function Logo() {
   return (
     <Asset name="auth-logo.svg" alt="Narackrock" className={"h-[43px] w-17 flex-[0_0_68px]"} />

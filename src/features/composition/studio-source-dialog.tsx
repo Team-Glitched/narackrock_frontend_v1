@@ -1,8 +1,8 @@
 import { studioStyles } from "@/styles/studio.styles";
 import { buttonVariants } from "@/styles/variants";
 import { useId, useState } from "react";
-import { CanvasDialog } from "@/components/ui/canvas-dialog";
-import { Asset } from "@/components/ui/asset";
+import { CanvasDialog } from "@/components/canvas-dialog";
+import { Asset } from "@/components/asset";
 import { useWorkspace, type Resource } from "@/features/workspace/workspace-store";
 
 export function StudioSourceDialog({

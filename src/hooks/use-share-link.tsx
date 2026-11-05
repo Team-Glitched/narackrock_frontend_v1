@@ -1,5 +1,5 @@
-import { useEffect, useId, useRef, useState, type ReactNode } from "react";
-import { CanvasDialog } from "@/components/ui/canvas-dialog";
+import { useId, useLayoutEffect, useRef, useState, type ReactNode } from "react";
+import { CanvasDialog } from "@/components/canvas-dialog";
 import { useCurrentUserId } from "@/features/auth/use-current-user";
 import { apiOrigin } from "@/lib/api/client";
 import { shareLink } from "@/lib/share-link";
@@ -8,14 +8,19 @@ export function useShareLink(): { share: (title: string, url: string) => Promise
   const userId = useCurrentUserId();
   const scope = JSON.stringify([apiOrigin(), userId]);
   const currentScope = useRef(scope);
-  currentScope.current = scope;
   const [manual, setManual] = useState<{ title: string; url: string; scope: string } | null>(null);
   const [notice, setNotice] = useState("");
+  // Another account/backend must never see the previous one's manual-copy dialog.
+  const [renderedScope, setRenderedScope] = useState(scope);
+  if (renderedScope !== scope) {
+    setRenderedScope(scope);
+    setManual(null);
+    setNotice("");
+  }
   const input = useRef<HTMLInputElement>(null);
   const titleId = useId();
-  useEffect(() => {
+  useLayoutEffect(() => {
     currentScope.current = scope;
-    setManual(null); setNotice("");
     return () => { currentScope.current = ""; };
   }, [scope]);
   function select() { input.current?.focus(); input.current?.select(); }

@@ -6,8 +6,8 @@ import { PublishConfirmation } from "@/features/composition/publish-confirmation
 import { VolumeDialog } from "@/features/composition/volume-dialog";
 import { InstrumentDialog } from "@/features/composition/instrument-dialog";
 import { findInstrument, invalidPitchesFor } from "@/features/composition/instrument-catalog";
-import { Asset } from "@/components/ui/asset";
-import { Avatar } from "@/components/ui/avatar";
+import { Asset } from "@/components/asset";
+import { Avatar } from "@/components/avatar";
 import { rememberWork } from "@/features/workspace/workspace-store";
 import { useCompositionPlayback } from "@/features/composition/use-composition-playback";
 import { prepareAudioFile } from "@/features/composition/prepare-audio-file";
@@ -37,6 +37,7 @@ import {
   updateProjectMetadata,
   updateTrackInstrument,
   uploadMedia,
+  type ClipDto,
   type CompositionDto,
 } from "@/lib/api/composition";
 import { errorText } from "./studio-helpers";
@@ -130,15 +131,21 @@ export function StudioScreen({
     [pendingAudio],
   );
 
-  useEffect(() => {
-    if (shortId == null && projectId == null) return;
-    let cancelled = false;
+  // A different route/account/backend starts from an empty screen before its own response arrives.
+  const loadKey = JSON.stringify([shortId, projectId, userId, origin]);
+  const [loadedKey, setLoadedKey] = useState(loadKey);
+  if (loadedKey !== loadKey) {
+    setLoadedKey(loadKey);
     setComposition(null);
     setPersonalDrafts([]);
     setTrackSettingsId(null);
     setInstrumentTrackId(null);
-    originalAudio.current.clear();
     setError(null);
+  }
+  useEffect(() => {
+    if (shortId == null && projectId == null) return;
+    let cancelled = false;
+    originalAudio.current.clear();
     (async () => {
       const id = shortId == null ? projectId! : (await enterComposition(shortId)).projectId;
       const [result, drafts] = await Promise.all([getComposition(id), getEditorDrafts(id)]);
@@ -160,6 +167,25 @@ export function StudioScreen({
       cancelled = true;
     };
   }, [shortId, projectId, onProjectSelected, userId, origin]);
+
+  /** Plays the layer's own trimmed server audio; the media is fetched once per URL in this scope. */
+  async function previewOriginal(clip: ClipDto | undefined) {
+    if (!clip?.mediaUrl) throw new Error("미리 들을 원본 오디오가 없습니다.");
+    const url = clip.mediaUrl;
+    let file = originalAudio.current.get(url);
+    if (!file) {
+      file = fetch(url).then(async (response) => {
+        if (!response.ok) throw new Error(`원본 오디오를 불러오지 못했습니다. (${response.status})`);
+        return new File([await response.blob()], "original");
+      });
+      originalAudio.current.set(url, file);
+      file.catch(() => originalAudio.current.delete(url));
+    }
+    await playback.previewAudio({
+      file: await file,
+      selection: { startMs: clip.clipOffsetMs, endMs: clip.clipOffsetMs + clip.durationMs },
+    });
+  }
 
   async function refresh() {
     if (composition) {
@@ -558,27 +584,7 @@ export function StudioScreen({
                 currentTrackId: selected.trackId,
                 onPreview: midi
                   ? playback.previewInstrument
-                  : async () => {
-                      if (!audioClip?.mediaUrl) throw new Error("미리 들을 원본 오디오가 없습니다.");
-                      const url = audioClip.mediaUrl;
-                      let file = originalAudio.current.get(url);
-                      if (!file) {
-                        file = fetch(url).then(async (response) => {
-                          if (!response.ok)
-                            throw new Error(`원본 오디오를 불러오지 못했습니다. (${response.status})`);
-                          return new File([await response.blob()], "original");
-                        });
-                        originalAudio.current.set(url, file);
-                        file.catch(() => originalAudio.current.delete(url));
-                      }
-                      await playback.previewAudio({
-                        file: await file,
-                        selection: {
-                          startMs: audioClip.clipOffsetMs,
-                          endMs: audioClip.clipOffsetMs + audioClip.durationMs,
-                        },
-                      });
-                    },
+                  : () => previewOriginal(audioClip),
                 onStopPreview: playback.stopPreview,
                 onConfirm: async (instrument) => {
                   if (midi) {

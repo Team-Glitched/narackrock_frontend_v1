@@ -38,7 +38,6 @@ export function LikedPostsScreen({ onOpenPost }: { onOpenPost: (postId: number) 
     if (userId === null) return;
     const request = { scope, cancelled: false, busy: true };
     active.current = request;
-    setState({ scope, ids: null, loaded: 0, results: new Map(), loading: true, error: null });
     getLikedPostIds().then(async (response) => {
       if (request.cancelled || active.current !== request) return;
       const ids = [...new Set(response)];
@@ -70,7 +69,7 @@ export function LikedPostsScreen({ onOpenPost }: { onOpenPost: (postId: number) 
     <section className={cn(sharedStyles.listView, sharedStyles.scrollContent)}>
       <h1 className={sharedStyles.postsListTitle}>좋아요한 게시글</h1>
       {!visible || (visible.loading && visible.ids === null) ? <p role="status">목록을 불러오는 중...</p> : null}
-      {visible?.error && <div role="alert"><p>{visible.error}</p><button onClick={() => setRevision((value) => value + 1)}>다시 시도</button></div>}
+      {visible?.error && <div role="alert"><p>{visible.error}</p><button onClick={() => { setState(null); setRevision((value) => value + 1); }}>다시 시도</button></div>}
       {forbidden && <p role="status">일부 게시글은 접근 권한이 없어 표시할 수 없습니다.</p>}
       <div className={communityStyles.miniPostList}>
         {posts.map((post) => <MiniPost key={post.postId} post={post} onOpen={onOpenPost} />)}

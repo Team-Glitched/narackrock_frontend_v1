@@ -5,7 +5,7 @@ import { workspaceStyles } from "@/styles/workspace.styles";
 import { buttonVariants } from "@/styles/variants";
 import { socialStyles } from "@/styles/social.styles";
 import { useCallback, useEffect, useState } from "react";
-import { Asset } from "@/components/ui/asset";
+import { Asset } from "@/components/asset";
 import { CommunityDetailScreen } from "@/features/community/community-detail";
 import { galleryToCommunity, type Community } from "@/features/community/community-card";
 import { useGalleries } from "@/features/community/use-galleries";

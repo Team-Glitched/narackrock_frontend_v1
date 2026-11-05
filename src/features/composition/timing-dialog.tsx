@@ -1,7 +1,7 @@
 import { sharedStyles } from "@/styles/shared.styles";
 import { buttonVariants } from "@/styles/variants";
 import { cn } from "@/lib/utils";
-import { CanvasDialog } from "@/components/ui/canvas-dialog";
+import { CanvasDialog } from "@/components/canvas-dialog";
 import { DialogNumberInput } from "@/features/composition/dialog-number-input";
 import type { TimeSignature } from "@/features/composition/time-signature";
 import { useId, useState } from "react";

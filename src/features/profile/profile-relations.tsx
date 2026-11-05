@@ -37,18 +37,17 @@ function ScopedProfileRelationActions({ profile, onChanged, onChat, authenticate
   const [revision, setRevision] = useState(0);
   const generation = useRef(0);
   useEffect(() => {
-    const epoch = ++generation.current;
-    setPending(null);
-    setOutgoingError("");
+    const counter = generation;
+    const epoch = ++counter.current;
     if (!authenticated) return;
     getOutgoingFollowRequests()
       .then((requests) => {
-        if (generation.current === epoch) setPending(requests.some((request) => request.targetId === profile.userId));
+        if (counter.current === epoch) setPending(requests.some((request) => request.targetId === profile.userId));
       })
       .catch((cause) => {
-        if (generation.current === epoch) setOutgoingError(relationError(cause, "보낸 팔로우 요청을 확인하지 못했습니다."));
+        if (counter.current === epoch) setOutgoingError(relationError(cause, "보낸 팔로우 요청을 확인하지 못했습니다."));
       });
-    return () => { generation.current++; };
+    return () => { counter.current++; };
   }, [authenticated, profile.userId, revision]);
   const state = override !== undefined ? override : profile.relations.isFollowing ? "FOLLOWING" : pending ? "PENDING" : null;
   const known = pending !== null;
@@ -84,7 +83,7 @@ function ScopedProfileRelationActions({ profile, onChanged, onChat, authenticate
       <button className={buttonVariants({ tone: state ? "secondary" : "primary" })} disabled={busy || !known} aria-pressed={known ? state !== null : undefined} onClick={() => void change()}>
         {label}
       </button>
-      {outgoingError && <div role="alert"><p>{outgoingError}</p><button onClick={() => setRevision((value) => value + 1)}>다시 확인</button></div>}
+      {outgoingError && <div role="alert"><p>{outgoingError}</p><button onClick={() => { setPending(null); setOutgoingError(""); setRevision((value) => value + 1); }}>다시 확인</button></div>}
       {canSendChatTo(profile) && (
         <button className={buttonVariants({ tone: "secondary" })} onClick={() => onChat(profile.userId)}>
           채팅

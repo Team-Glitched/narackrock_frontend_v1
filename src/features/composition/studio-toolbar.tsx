@@ -5,7 +5,7 @@ import { useState } from "react";
 import { VolumeDialog } from "@/features/composition/volume-dialog";
 import { InstrumentDialog, type InstrumentChoice } from "@/features/composition/instrument-dialog";
 import { TimingDialog, type ProjectTiming } from "@/features/composition/timing-dialog";
-import { Asset } from "@/components/ui/asset";
+import { Asset } from "@/components/asset";
 import { defaultSignature, type TimeSignature } from "@/features/composition/time-signature";
 import { clockTime } from "./studio-helpers";
 

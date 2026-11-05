@@ -19,7 +19,7 @@ import {
   rememberCreationDraft,
   clearCreationDraft,
 } from "@/features/community/creation-draft";
-import { CanvasDialog } from "@/components/ui/canvas-dialog";
+import { CanvasDialog } from "@/components/canvas-dialog";
 import { createPost, proposeGallery } from "@/lib/api/community";
 import { uploadMedia } from "@/lib/api/media";
 import { validatePostImage } from "@/features/community/post-image";

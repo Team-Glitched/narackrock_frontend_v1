@@ -1,5 +1,5 @@
-import { DesignViewport } from "@/components/ui/design-viewport";
-import { PageState } from "@/components/ui/page-state";
+import { DesignViewport } from "@/components/design-viewport";
+import { PageState } from "@/components/page-state";
 import { NoteEditorScreen } from "@/features/composition/note-editor-screen";
 import { useRouteComposition } from "@/features/composition/use-route-composition";
 import { readId } from "@/features/navigation/paths";

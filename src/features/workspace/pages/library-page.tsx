@@ -1,7 +1,7 @@
 import { SourceLibraryContent } from "@/features/workspace/source-library-content";
 import { useUrlNavigation } from "@/features/navigation/use-url-navigation";
 import { readId, withQuery } from "@/features/navigation/paths";
-import { DesignViewport } from "@/components/ui/design-viewport";
+import { DesignViewport } from "@/components/design-viewport";
 import { Header } from "@/features/navigation/header";
 import { Footer } from "@/features/navigation/footer";
 import { NotificationsOverlay } from "@/features/notifications/notifications-overlay";

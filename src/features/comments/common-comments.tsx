@@ -2,10 +2,10 @@ import { communityStyles } from "@/styles/community.styles";
 import { sharedStyles } from "@/styles/shared.styles";
 import { cn } from "@/lib/utils";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
-import { Asset } from "@/components/ui/asset";
-import { Avatar } from "@/components/ui/avatar";
+import { Asset } from "@/components/asset";
+import { Avatar } from "@/components/avatar";
 import { PostUserActionsMenu } from "@/features/posts/post-user-actions-menu";
-import { FigmaSheet } from "@/components/ui/figma-sheet";
+import { FigmaSheet } from "@/components/figma-sheet";
 import { ReportReasons } from "@/features/comments/report-reasons";
 import type { CommentAdapter, CommentItem, CommentPage, CommentReaction } from "./comment-model";
 

@@ -1,6 +1,6 @@
 import { sharedStyles } from "@/styles/shared.styles";
 import { buttonVariants } from "@/styles/variants";
-import { CanvasDialog } from "@/components/ui/canvas-dialog";
+import { CanvasDialog } from "@/components/canvas-dialog";
 import { useEffect, useEffectEvent, useId, useState } from "react";
 import { ApiError } from "@/lib/api/client";
 import { canonicalInstrumentId } from "./instrument-catalog";

@@ -1,8 +1,8 @@
 import { sharedStyles } from "@/styles/shared.styles";
 import { cn } from "@/lib/utils";
 import { useUrlNavigation } from "./use-url-navigation";
-import { Asset } from "@/components/ui/asset";
-import { IconSlot } from "@/components/ui/icon-slot";
+import { Asset } from "@/components/asset";
+import { IconSlot } from "@/components/icon-slot";
 // The five footer tabs. `studio` is the center action button, not a real tab.
 type FooterTab = "home" | "abyss" | "studio" | "social" | "opensource";
 const nav: { id: FooterTab; label: string; path: string }[] = [

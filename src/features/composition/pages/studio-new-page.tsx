@@ -2,7 +2,7 @@ import { NewProject } from "@/features/composition/new-project-screen";
 import { safeReturnPath, readId, withQuery } from "@/features/navigation/paths";
 import { useUrlNavigation } from "@/features/navigation/use-url-navigation";
 import type { StudioLocationState } from "@/features/composition/studio-location-state";
-import { DesignViewport } from "@/components/ui/design-viewport";
+import { DesignViewport } from "@/components/design-viewport";
 import { Header } from "@/features/navigation/header";
 import { NotificationsOverlay } from "@/features/notifications/notifications-overlay";
 import { resolveSearchScope } from "@/features/search/search-scope";

@@ -1,6 +1,6 @@
 import { useLocation, useNavigate } from "react-router";
 import { buttonVariants } from "@/styles/variants";
-import { PageState } from "@/components/ui/page-state";
+import { PageState } from "@/components/page-state";
 
 /** In-page notice for server features that need a session; returns to the current local URL after login. */
 export function SignInRequired({ children }: { children: React.ReactNode }) {

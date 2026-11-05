@@ -1,5 +1,5 @@
 import { buttonVariants } from "@/styles/variants";
-import { SectionTitle } from "@/components/ui/section-title";
+import { SectionTitle } from "@/components/section-title";
 import { ArrowUpRight } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { ko } from "date-fns/locale";

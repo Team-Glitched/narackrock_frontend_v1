@@ -1,7 +1,7 @@
 import { useLocation, useSearchParams } from "react-router";
 import { ScopedSearch } from "@/features/search/search-screen";
 import { useRouteCommunity } from "@/features/community/use-route-community";
-import { DesignViewport } from "@/components/ui/design-viewport";
+import { DesignViewport } from "@/components/design-viewport";
 import { Footer } from "@/features/navigation/footer";
 import { NotificationsOverlay } from "@/features/notifications/notifications-overlay";
 import { useUrlNavigation } from "@/features/navigation/use-url-navigation";

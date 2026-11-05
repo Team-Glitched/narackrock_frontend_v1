@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from "react";
-import { AnchoredActionsMenu } from "@/components/ui/anchored-actions-menu";
-import { FigmaSheet } from "@/components/ui/figma-sheet";
+import { useLayoutEffect, useRef, useState } from "react";
+import { AnchoredActionsMenu } from "@/components/anchored-actions-menu";
+import { FigmaSheet } from "@/components/figma-sheet";
 import { ReportReasons } from "@/features/comments/report-reasons";
 import { useCurrentUserId } from "@/features/auth/use-current-user";
 import { useShareLink } from "@/hooks/use-share-link";
@@ -14,14 +14,25 @@ import { postError } from "@/features/posts/post-utils";
 export function PopularContentActions({ kind, id, title, ownerId }: { kind: "post" | "short"; id: number; title: string; ownerId: number }) {
   const userId = useCurrentUserId();
   const scope = JSON.stringify([apiOrigin(), userId, kind, id]);
-  const latest = useRef(scope); latest.current = scope;
+  const latest = useRef(scope);
+  useLayoutEffect(() => {
+    latest.current = scope;
+  });
   const [menu, setMenu] = useState(false);
   const [report, setReport] = useState(false);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  // Another account/target closes this row's menu, report sheet and notice.
+  const [renderedScope, setRenderedScope] = useState(scope);
+  if (renderedScope !== scope) {
+    setRenderedScope(scope);
+    setMenu(false);
+    setReport(false);
+    setNotice(null);
+    setBusy(false);
+  }
   const anchor = useRef<HTMLButtonElement>(null);
   const sharing = useShareLink();
-  useEffect(() => { setMenu(false); setReport(false); setNotice(null); setBusy(false); }, [scope]);
   function authorized() {
     if (userId !== null) return true;
     setNotice("로그인 후 이용할 수 있습니다."); return false;

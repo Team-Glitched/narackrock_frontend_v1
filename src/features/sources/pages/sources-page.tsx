@@ -1,5 +1,5 @@
 import { OpensourceScreen } from "@/features/sources/source-screens";
-import { DesignViewport } from "@/components/ui/design-viewport";
+import { DesignViewport } from "@/components/design-viewport";
 import { Header } from "@/features/navigation/header";
 import { Footer } from "@/features/navigation/footer";
 import { NotificationsOverlay } from "@/features/notifications/notifications-overlay";

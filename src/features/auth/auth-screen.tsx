@@ -2,7 +2,7 @@ import { profileStyles } from "@/styles/profile.styles";
 import { cn } from "@/lib/utils";
 import { sharedStyles } from "@/styles/shared.styles";
 import { useEffect, useRef, useState } from "react";
-import { Asset } from "@/components/ui/asset";
+import { Asset } from "@/components/asset";
 import {
   decodeGoogleCredential,
   loadGoogleAccounts,

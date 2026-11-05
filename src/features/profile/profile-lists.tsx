@@ -2,8 +2,8 @@ import { profileStyles } from "@/styles/profile.styles";
 import { communityStyles } from "@/styles/community.styles";
 import { buttonVariants } from "@/styles/variants";
 import { useEffect, useState } from "react";
-import { FigmaSheet } from "@/components/ui/figma-sheet";
-import { Avatar } from "@/components/ui/avatar";
+import { FigmaSheet } from "@/components/figma-sheet";
+import { Avatar } from "@/components/avatar";
 import { MiniPost } from "@/features/posts/post-list";
 import { fetchPost } from "@/lib/api/community";
 import type { UserProfile, PostListItem } from "@/lib/api/contracts";
@@ -31,8 +31,6 @@ function ScopedProfileListSheet({ kind, profile, onClose, onProfile, onPost, own
   const [mutualRevision, setMutualRevision] = useState(0);
   useEffect(() => {
     let active = true;
-    setState("loading");
-    setError("");
     (async () => {
       if (kind === "articles") {
         const results = await Promise.allSettled(profile.activities.posts.map((post) => fetchPost(post.postId)));
@@ -56,8 +54,6 @@ function ScopedProfileListSheet({ kind, profile, onClose, onProfile, onPost, own
   useEffect(() => {
     if (!ownFollowers) return;
     let active = true;
-    setMutualIds(null);
-    setMutualError("");
     getMutualFollowers().then((result) => {
       if (active) setMutualIds(new Set(result.map((person) => person.userId)));
     }).catch(() => {
@@ -77,10 +73,10 @@ function ScopedProfileListSheet({ kind, profile, onClose, onProfile, onPost, own
         <h1>{title}</h1>
         {ownFollowers && <div role="group" aria-label="팔로워 필터"><button className={buttonVariants({ tone: filter === "all" ? "primary" : "secondary", size: "compact" })} aria-pressed={filter === "all"} onClick={() => setFilter("all")}>전체</button><button className={buttonVariants({ tone: filter === "mutual" ? "primary" : "secondary", size: "compact" })} aria-pressed={filter === "mutual"} disabled={mutualIds === null} onClick={() => setFilter("mutual")}>맞팔로우</button></div>}
         {ownFollowers && mutualIds === null && !mutualError && <p role="status">맞팔로우 확인 중...</p>}
-        {ownFollowers && mutualError && <div role="alert"><p>{mutualError}</p><button onClick={() => setMutualRevision((value) => value + 1)}>다시 확인</button></div>}
+        {ownFollowers && mutualError && <div role="alert"><p>{mutualError}</p><button onClick={() => { setMutualIds(null); setMutualError(""); setMutualRevision((value) => value + 1); }}>다시 확인</button></div>}
         {state === "loading" && <p role="status">불러오는 중...</p>}
         {error && <p role="alert">{error}</p>}
-        {state === "error" && <button onClick={() => setRevision((value) => value + 1)}>다시 시도</button>}
+        {state === "error" && <button onClick={() => { setState("loading"); setError(""); setRevision((value) => value + 1); }}>다시 시도</button>}
         {state === "ready" && (kind === "articles" ? <div className={communityStyles.miniPostList}>{posts.map((post) => <MiniPost key={post.postId} post={post} onOpen={(id) => { onClose(); onPost(id); }} />)}</div> : <ul className={profileStyles.profilePeopleList}>{shownPeople.map((person) => <li key={person.userId}><button onClick={() => { onClose(); onProfile(person.userId); }}><Avatar src={person.profileImageUrl} /><span><strong>{person.nickname}</strong><small>{person.primaryInstrument || ""}</small></span></button></li>)}</ul>)}
         {state === "ready" && (kind === "articles" ? posts : shownPeople).length === 0 && <p className={profileStyles.profileListEmpty}>{kind === "articles" ? "작성한 게시글이 없습니다." : filter === "mutual" ? "맞팔로우한 팔로워가 없습니다." : `${title}가 없습니다.`}</p>}
       </section>

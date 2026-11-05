@@ -6,12 +6,12 @@ import { canSanction, useGalleryRole, type ModerationScope } from "@/features/co
 import { PostMemberModeration } from "@/features/admin/post-member-moderation";
 import { useHiddenPosts } from "@/features/community/hidden-posts";
 import { PostUserActionsMenu } from "@/features/posts/post-user-actions-menu";
-import { FigmaSheet } from "@/components/ui/figma-sheet";
+import { FigmaSheet } from "@/components/figma-sheet";
 import { ReportReasons } from "@/features/comments/report-reasons";
 import { formatDistanceToNow } from "date-fns";
 import { ko } from "date-fns/locale";
-import { Asset } from "@/components/ui/asset";
-import { Avatar } from "@/components/ui/avatar";
+import { Asset } from "@/components/asset";
+import { Avatar } from "@/components/avatar";
 import {
   createPostComment,
   deletePostComment,

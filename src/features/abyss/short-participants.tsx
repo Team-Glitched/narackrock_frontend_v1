@@ -1,7 +1,7 @@
 import { sharedStyles } from "@/styles/shared.styles";
 import { abyssStyles } from "@/styles/abyss.styles";
 import { useEffect, useState } from "react";
-import { Avatar } from "@/components/ui/avatar";
+import { Avatar } from "@/components/avatar";
 import { useCurrentUserId } from "@/features/auth/use-current-user";
 import { ApiError, apiOrigin } from "@/lib/api/client";
 import type { ShortItemDto } from "@/lib/api/contracts";

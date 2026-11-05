@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from "react";
-import { Avatar } from "@/components/ui/avatar";
-import { SectionTitle } from "@/components/ui/section-title";
+import { useEffect, useEffectEvent, useRef, useState } from "react";
+import { Avatar } from "@/components/avatar";
+import { SectionTitle } from "@/components/section-title";
 import { relationError } from "@/features/profile/profile-relations";
 import { followPerson, getOutgoingFollowRequests, getRecommendations, unfollowPerson, type OutgoingRequest } from "@/lib/api/social";
 import { profileStyles } from "@/styles/profile.styles";
@@ -24,42 +24,43 @@ export function RecommendedPeopleList({ full, onProfile, onAll }: { full: boolea
   const [requests] = useState(() => new RecommendationRequests());
   const locked = useRef(false);
 
-  async function checkOutgoing() {
-    const isCurrent = requests.capture();
-    setChecking(true);
-    setOutgoingError("");
-    try {
-      const result = await getOutgoingFollowRequests();
-      if (isCurrent()) setOutgoing(result);
-    } catch (cause) {
-      if (isCurrent()) {
+  function fetchOutgoing(isCurrent: () => boolean) {
+    return getOutgoingFollowRequests().then(
+      (result) => { if (isCurrent()) setOutgoing(result); },
+      (cause) => {
+        if (!isCurrent()) return;
         setOutgoing(null);
         setOutgoingError(relationError(cause, "보낸 팔로우 요청 확인에 실패했습니다."));
-      }
-    } finally {
-      if (isCurrent()) setChecking(false);
-    }
+      },
+    ).finally(() => { if (isCurrent()) setChecking(false); });
+  }
+  function checkOutgoing() {
+    setChecking(true);
+    setOutgoingError("");
+    void fetchOutgoing(requests.capture());
   }
 
-  async function loadFirst() {
-    const isCurrent = requests.capture();
+  function fetchFirst(isCurrent: () => boolean) {
+    return getRecommendations(0, RECOMMENDATION_PAGE_SIZE).then(
+      (result) => { if (isCurrent()) setPages([result]); },
+      (cause) => { if (isCurrent()) setError(relationError(cause, "추천을 불러오지 못했습니다.")); },
+    ).finally(() => { if (isCurrent()) setLoading(false); });
+  }
+  function loadFirst() {
     setLoading(true);
     setError("");
-    try {
-      const result = await getRecommendations(0, RECOMMENDATION_PAGE_SIZE);
-      if (isCurrent()) setPages([result]);
-    } catch (cause) {
-      if (isCurrent()) setError(relationError(cause, "추천을 불러오지 못했습니다."));
-    } finally {
-      if (isCurrent()) setLoading(false);
-    }
+    void fetchFirst(requests.capture());
   }
 
+  // Mount-only start; both requests begin in their initial loading state.
+  const startInitialLoad = useEffectEvent((isCurrent: () => boolean) => {
+    void fetchFirst(isCurrent);
+    void fetchOutgoing(isCurrent);
+  });
   useEffect(() => {
-    void loadFirst();
-    void checkOutgoing();
+    startInitialLoad(requests.capture());
     return () => { requests.invalidate(); };
-  }, []);
+  }, [requests]);
 
   async function synchronize() {
     const isCurrent = requests.capture();

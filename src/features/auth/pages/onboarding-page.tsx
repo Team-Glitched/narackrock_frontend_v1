@@ -4,7 +4,7 @@ import { useAuthSession } from "@/features/auth/auth-session";
 import { useUrlNavigation } from "@/features/navigation/use-url-navigation";
 import type { AuthLocationState } from "../auth-location-state";
 import { safeReturnPath } from "@/features/navigation/paths";
-import { DesignViewport } from "@/components/ui/design-viewport";
+import { DesignViewport } from "@/components/design-viewport";
 import { NotificationsOverlay } from "@/features/notifications/notifications-overlay";
 import { sharedStyles } from "@/styles/shared.styles";
 export default function OnboardingPage() {

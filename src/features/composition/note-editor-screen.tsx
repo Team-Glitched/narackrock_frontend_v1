@@ -3,11 +3,10 @@ import { cn } from "@/lib/utils";
 import {
   useCallback,
   useEffect,
-  useLayoutEffect,
   useMemo,
   useState,
 } from "react";
-import { CanvasDialog } from "@/components/ui/canvas-dialog";
+import { CanvasDialog } from "@/components/canvas-dialog";
 import { NoteSettingsDialog } from "./note-settings-dialog";
 import { useCompositionPlayback } from "./use-composition-playback";
 import { StudioSourceDialog } from "./studio-source-dialog";
@@ -51,11 +50,17 @@ export function NoteEditorScreen({
   const [composition, setComposition] = useState<CompositionDto | null>(null);
   const [compositionOrigin, setCompositionOrigin] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // A different project/account/backend starts from an empty screen before its own response arrives.
+  const loadKey = JSON.stringify([projectId, currentUserId, origin]);
+  const [loadedKey, setLoadedKey] = useState(loadKey);
+  if (loadedKey !== loadKey) {
+    setLoadedKey(loadKey);
+    setComposition(null);
+    setError(null);
+  }
   useEffect(() => {
     if (projectId === null) return;
     let active = true;
-    setComposition(null);
-    setError(null);
     getComposition(projectId)
       .then((result) => {
         if (active) {
@@ -265,20 +270,25 @@ function LoadedNoteEditor({
     editable: editable && Boolean(draft.session) && !busy && draft.state?.status !== "conflict",
     onCommit: commitNotes,
   });
-  useLayoutEffect(() => {
+  // Settings follow their note through accepted edits and close on delete/undo/redo/reset.
+  const [seenChange, setSeenChange] = useState(editor.lastChange);
+  if (seenChange !== editor.lastChange) {
+    setSeenChange(editor.lastChange);
     const change = editor.lastChange;
-    if (!change) return;
-    setNoteSettingsIndex((index) => index === null ? null :
-      change.type !== "edit" || change.commandType === "delete"
-        ? null : change.indexMap[index] ?? null);
-  }, [editor.lastChange]);
-  useEffect(() => {
+    if (change)
+      setNoteSettingsIndex((index) => index === null ? null :
+        change.type !== "edit" || change.commandType === "delete"
+          ? null : change.indexMap[index] ?? null);
+  }
+  const [wasEditable, setWasEditable] = useState(editor.editable);
+  if (wasEditable !== editor.editable) {
+    setWasEditable(editor.editable);
     if (!editor.editable) {
       setNoteSettingsIndex(null);
       setShowChords(false);
       setShowSources(false);
     }
-  }, [editor.editable]);
+  }
   function play() {
     if (playback.positionMs < timing.clipStartMs ||
         (preview && playback.positionMs >= compositionEndMs(preview, preview.tracks)))

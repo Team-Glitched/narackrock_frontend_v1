@@ -4,8 +4,8 @@ import { communityStyles } from "@/styles/community.styles";
 import { profileStyles } from "@/styles/profile.styles";
 import { cn } from "@/lib/utils";
 import { useEffect, useRef, useState } from "react";
-import { Asset } from "@/components/ui/asset";
-import { Avatar } from "@/components/ui/avatar";
+import { Asset } from "@/components/asset";
+import { Avatar } from "@/components/avatar";
 import { useCurrentUserId } from "@/features/auth/use-current-user";
 import { SignInRequired } from "@/features/auth/sign-in-required";
 import { relationError } from "@/features/profile/profile-relations";
@@ -29,7 +29,12 @@ function Inbox({ me, query, searchOpen, focusRequest, onQueryChange, onSelect }:
   const inbox = useChatInbox(me);
   const input = useRef<HTMLInputElement>(null);
   const [searchText, setSearchText] = useState(query);
-  useEffect(() => setSearchText(query), [query]);
+  // Back/forward or an external query change replaces the typed text.
+  const [syncedQuery, setSyncedQuery] = useState(query);
+  if (syncedQuery !== query) {
+    setSyncedQuery(query);
+    setSearchText(query);
+  }
   useEffect(() => {
     if (searchText === query) return;
     // Keep typing local; replacing the URL for every key can race controlled input updates.

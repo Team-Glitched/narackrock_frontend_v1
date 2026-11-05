@@ -1,4 +1,4 @@
-import { DesignViewport } from "@/components/ui/design-viewport";
+import { DesignViewport } from "@/components/design-viewport";
 import { Header } from "@/features/navigation/header";
 import { Footer } from "@/features/navigation/footer";
 import { NotificationsOverlay } from "@/features/notifications/notifications-overlay";
@@ -8,7 +8,7 @@ import { resolveSearchScope } from "@/features/search/search-scope";
 import { creationTarget } from "@/features/navigation/creation-target";
 import { sharedStyles } from "@/styles/shared.styles";
 import { CommunityManagementContent } from "@/features/community/community-management-content";
-import { PageState } from "@/components/ui/page-state";
+import { PageState } from "@/components/page-state";
 
 export default function CommunityAdminPage() {
   const { to, back, params, query, currentPath } = useUrlNavigation();

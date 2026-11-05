@@ -27,7 +27,6 @@ export function useMySongs(size = 20, enabled = true) {
     if (userId === null || !enabled) return;
     const request = { scope, controller: new AbortController(), busy: true };
     active.current = request;
-    setState({ scope, status: "loading", items: [], cursor: null, hasMore: false, appending: false, error: null });
     getMyShorts({ size }, request.controller.signal).then((page) => {
       if (active.current !== request || request.controller.signal.aborted) return;
       setState({ scope, status: "ready", items: appendUniqueSongs([], page.items), cursor: page.page.nextCursor,
@@ -63,6 +62,6 @@ export function useMySongs(size = 20, enabled = true) {
     status: userId === null || !enabled ? "signed-out" as const : visible?.status ?? "loading" as const,
     items: visible?.items ?? [], hasMore: visible?.hasMore ?? false,
     appending: visible?.appending ?? false, error: visible?.error ?? null,
-    loadMore, retry: () => setRevision((value) => value + 1),
+    loadMore, retry: () => { setState(null); setRevision((value) => value + 1); },
   };
 }

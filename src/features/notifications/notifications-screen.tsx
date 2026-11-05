@@ -2,7 +2,7 @@ import { badgeVariants, filterChipVariants, type BadgeStatus } from "@/styles/va
 import { socialStyles } from "@/styles/social.styles";
 import { profileStyles } from "@/styles/profile.styles";
 import { useEffect, useRef, useState } from "react";
-import { Avatar } from "@/components/ui/avatar";
+import { Avatar } from "@/components/avatar";
 import { useCurrentUserId } from "@/features/auth/use-current-user";
 import { ApiError } from "@/lib/api/client";
 import {

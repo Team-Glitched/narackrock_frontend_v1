@@ -1,8 +1,8 @@
 import { SourceLibraryContent } from "@/features/workspace/source-library-content";
-import { PageState } from "@/components/ui/page-state";
+import { PageState } from "@/components/page-state";
 import { useRouteComposition } from "@/features/composition/use-route-composition";
 import { readId, withQuery } from "@/features/navigation/paths";
-import { DesignViewport } from "@/components/ui/design-viewport";
+import { DesignViewport } from "@/components/design-viewport";
 import { Header } from "@/features/navigation/header";
 import { Footer } from "@/features/navigation/footer";
 import { NotificationsOverlay } from "@/features/notifications/notifications-overlay";

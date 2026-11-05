@@ -1,7 +1,7 @@
 import { useCallback } from "react";
 import { useNavigate } from "react-router";
-import { DesignViewport } from "@/components/ui/design-viewport";
-import { PageState } from "@/components/ui/page-state";
+import { DesignViewport } from "@/components/design-viewport";
+import { PageState } from "@/components/page-state";
 import { StudioScreen } from "@/features/composition/studio-screen";
 import { useRouteComposition } from "@/features/composition/use-route-composition";
 import { readId, safeReturnPath, studioPath } from "@/features/navigation/paths";

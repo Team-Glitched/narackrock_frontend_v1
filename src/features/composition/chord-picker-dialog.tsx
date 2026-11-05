@@ -1,5 +1,5 @@
 import { useId, useState } from "react";
-import { CanvasDialog } from "@/components/ui/canvas-dialog";
+import { CanvasDialog } from "@/components/canvas-dialog";
 import { sharedStyles } from "@/styles/shared.styles";
 import { chordRoots, chordQualities, chordPitches, insertChord, type ChordQuality } from "./chord-input";
 import type { NoteEditorController } from "./use-note-editor";

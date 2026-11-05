@@ -55,7 +55,6 @@ export function useCompositionPlayback(
   const [playing, setPlaying] = useState(false);
   const [metronome, setMetronome] = useState(false);
   const metronomeRef = useRef(false);
-  metronomeRef.current = metronome;
   const [positionMs, setPositionMs] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [trackVolumes, setTrackVolumes] = useState<Record<number, number>>({});
@@ -65,14 +64,19 @@ export function useCompositionPlayback(
   const [volume, setVolumeState] = useState(level(options?.initialVolume ?? 20));
   const volumeRef = useRef(volume);
   const optionsRef = useRef(options);
-  optionsRef.current = options;
   const compositionRef = useRef(composition);
-  compositionRef.current = composition;
   const mounted = useRef(false);
   const masterRef = useRef<GainNode | null>(null);
   const resourcesRef = useRef<PlaybackResources | null>(null);
   const mainRef = useRef<PlaybackGeneration | null>(null);
   const previewRef = useRef<PlaybackGeneration | null>(null);
+  // Event handlers and clock callbacks read the latest render's inputs; declared first so later layout
+  // effects in this hook observe the committed values.
+  useLayoutEffect(() => {
+    metronomeRef.current = metronome;
+    optionsRef.current = options;
+    compositionRef.current = composition;
+  });
   const mainRequest = useRef(0);
   const previewRequest = useRef(0);
   const positionRef = useRef(0);

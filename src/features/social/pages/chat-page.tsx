@@ -1,4 +1,4 @@
-import { DesignViewport } from "@/components/ui/design-viewport";
+import { DesignViewport } from "@/components/design-viewport";
 import { NotificationsOverlay } from "@/features/notifications/notifications-overlay";
 import { useUrlNavigation } from "@/features/navigation/use-url-navigation";
 import { useNotificationsNavigation } from "@/features/notifications/use-notifications-navigation";

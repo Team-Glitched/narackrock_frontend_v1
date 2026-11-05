@@ -2,7 +2,7 @@ import { communityStyles } from "@/styles/community.styles";
 import { sharedStyles } from "@/styles/shared.styles";
 import { cn } from "@/lib/utils";
 import { useCurrentUserId } from "@/features/auth/use-current-user";
-import { Avatar } from "@/components/ui/avatar";
+import { Avatar } from "@/components/avatar";
 import type { GalleryListItem } from "@/lib/api/contracts";
 import { useCommunityMembership } from "./community-membership";
 

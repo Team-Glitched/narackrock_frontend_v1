@@ -8,11 +8,12 @@ export type {
 /** One editor per mounted draft/source; autosave acknowledgements do not replace its history. */
 export function useNoteEditor(options: NoteEditorOptions): NoteEditorController {
   const latest = useRef(options);
-  latest.current = options;
-  const [session] = useState(() => new NoteEditorSession({
-    ...options, onCommit: (notes) => latest.current.onCommit(notes),
-  }));
+  // Commits are wired to the latest caller in the layout effect below, before any user input can occur.
+  const [session] = useState(() => new NoteEditorSession({ ...options, onCommit: () => false }));
   const state = useSyncExternalStore(session.subscribe, session.getSnapshot, session.getSnapshot);
+  useLayoutEffect(() => {
+    latest.current = options;
+  });
   useLayoutEffect(() => {
     session.configure({ ...latest.current, onCommit: (notes) => latest.current.onCommit(notes) });
   }, [session, options.contextKey, options.notes, options.ppq,

@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { FigmaSheet } from "@/components/ui/figma-sheet";
+import { FigmaSheet } from "@/components/figma-sheet";
 import { CommonComments } from "@/features/comments/common-comments";
 import type { CommentAdapter, CommentItem } from "@/features/comments/comment-model";
 import { useCurrentUserId } from "@/features/auth/use-current-user";

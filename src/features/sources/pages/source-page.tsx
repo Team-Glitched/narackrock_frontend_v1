@@ -1,6 +1,6 @@
 import { OpensourceDetailScreen } from "@/features/sources/source-screens";
-import { DesignViewport } from "@/components/ui/design-viewport";
-import { PageState } from "@/components/ui/page-state";
+import { DesignViewport } from "@/components/design-viewport";
+import { PageState } from "@/components/page-state";
 import { Header } from "@/features/navigation/header";
 import { Footer } from "@/features/navigation/footer";
 import { NotificationsOverlay } from "@/features/notifications/notifications-overlay";

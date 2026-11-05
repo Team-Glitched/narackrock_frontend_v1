@@ -1,4 +1,4 @@
-import { DesignViewport } from "@/components/ui/design-viewport";
+import { DesignViewport } from "@/components/design-viewport";
 import { Header } from "@/features/navigation/header";
 import { useUrlNavigation } from "@/features/navigation/use-url-navigation";
 import { LikedPostsScreen } from "../liked-posts-screen";

@@ -1,6 +1,6 @@
 import { communityStyles } from "@/styles/community.styles";
-import { Asset } from "@/components/ui/asset";
-import { AnchoredActionsMenu } from "@/components/ui/anchored-actions-menu";
+import { Asset } from "@/components/asset";
+import { AnchoredActionsMenu } from "@/components/anchored-actions-menu";
 import type { RefObject } from "react";
 
 /** Figma Menu / Post User Actions and Post Admin Actions. */

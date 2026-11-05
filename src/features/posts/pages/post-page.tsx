@@ -1,4 +1,4 @@
-import { DesignViewport } from "@/components/ui/design-viewport";
+import { DesignViewport } from "@/components/design-viewport";
 import { Header } from "@/features/navigation/header";
 import { NotificationsOverlay } from "@/features/notifications/notifications-overlay";
 import { useUrlNavigation } from "@/features/navigation/use-url-navigation";
@@ -6,7 +6,7 @@ import { readId, withQuery } from "@/features/navigation/paths";
 import { resolveSearchScope } from "@/features/search/search-scope";
 import { sharedStyles } from "@/styles/shared.styles";
 import { PostCommentsScreen } from "@/features/posts/post-comments";
-import { PageState } from "@/components/ui/page-state";
+import { PageState } from "@/components/page-state";
 
 export default function PostPage() {
   const { to, back, params, query } = useUrlNavigation();

@@ -1,7 +1,7 @@
 import { communityStyles } from "@/styles/community.styles";
 import { buttonVariants } from "@/styles/variants";
 import { useState } from "react";
-import { Asset } from "@/components/ui/asset";
+import { Asset } from "@/components/asset";
 import { ApiError } from "@/lib/api/client";
 
 const reasons = ["스팸", "욕설·괴롭힘", "부적절한 콘텐츠", "권리 침해", "기타"] as const;

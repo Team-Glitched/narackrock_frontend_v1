@@ -232,10 +232,13 @@ function DraftPointerRecovery({ item, userId }: { item: LegacyItem; userId: numb
     mounted.current = true;
     return () => { mounted.current = false; };
   }, []);
-  useEffect(() => {
+  // A changed destination pointer invalidates any consent given for the previous one.
+  const [consentedFor, setConsentedFor] = useState(savedId);
+  if (consentedFor !== savedId) {
+    setConsentedFor(savedId);
     setConsent(false);
     setReplaceExisting(false);
-  }, [savedId]);
+  }
   const current = () => mounted.current && getCurrentUserId() === userId && apiOrigin() === origin;
   const replacing = savedId !== null && savedId !== item.id;
   return (

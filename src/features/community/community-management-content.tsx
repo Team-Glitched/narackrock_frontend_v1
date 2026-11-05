@@ -1,7 +1,7 @@
 import { CommunityAdminScreen } from "@/features/admin/admin-screens";
 import { useRouteCommunity } from "@/features/community/use-route-community";
 import { useUrlNavigation } from "@/features/navigation/use-url-navigation";
-import { PageState } from "@/components/ui/page-state";
+import { PageState } from "@/components/page-state";
 
 export function CommunityManagementContent({ galleryId, members }: {
   galleryId: number | null;

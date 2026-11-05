@@ -1,4 +1,4 @@
-import { DesignViewport } from "@/components/ui/design-viewport";
+import { DesignViewport } from "@/components/design-viewport";
 import { Header } from "@/features/navigation/header";
 import { Footer } from "@/features/navigation/footer";
 import { NotificationsOverlay } from "@/features/notifications/notifications-overlay";
@@ -9,7 +9,7 @@ import { creationTarget } from "@/features/navigation/creation-target";
 import { sharedStyles } from "@/styles/shared.styles";
 import { CommunityDetailScreen } from "@/features/community/community-detail";
 import { useRouteCommunity } from "@/features/community/use-route-community";
-import { PageState } from "@/components/ui/page-state";
+import { PageState } from "@/components/page-state";
 import { parsePostSort, postSortQuery } from "@/features/posts/post-sort";
 
 function CommunityContent({ galleryId }: { galleryId: number }) {

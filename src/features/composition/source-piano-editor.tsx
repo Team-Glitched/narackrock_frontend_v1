@@ -1,6 +1,6 @@
 import { studioStyles } from "@/styles/studio.styles";
 import { cn } from "@/lib/utils";
-import { useEffect, useId, useLayoutEffect, useMemo, useState, type Dispatch, type SetStateAction } from "react";
+import { useId, useMemo, useState, type Dispatch, type SetStateAction } from "react";
 import type { MidiNoteDto } from "@/lib/api/composition";
 import { StudioToolbar } from "@/features/composition/studio-toolbar";
 import { NoteSettingsDialog } from "@/features/composition/note-settings-dialog";
@@ -98,19 +98,24 @@ export function SourcePianoEditor({
       return true;
     },
   });
-  useLayoutEffect(() => {
+  // Settings follow their note through accepted edits and close on delete/undo/redo/reset.
+  const [seenChange, setSeenChange] = useState(editor.lastChange);
+  if (seenChange !== editor.lastChange) {
+    setSeenChange(editor.lastChange);
     const change = editor.lastChange;
-    if (!change) return;
-    setSettings((index) => index === null ? null :
-      change.type !== "edit" || change.commandType === "delete"
-        ? null : change.indexMap[index] ?? null);
-  }, [editor.lastChange]);
-  useEffect(() => {
+    if (change)
+      setSettings((index) => index === null ? null :
+        change.type !== "edit" || change.commandType === "delete"
+          ? null : change.indexMap[index] ?? null);
+  }
+  const [wasPending, setWasPending] = useState(pending);
+  if (wasPending !== pending) {
+    setWasPending(pending);
     if (pending) {
       setSettings(null);
       setShowChords(false);
     }
-  }, [pending]);
+  }
   function play() {
     void player.play().catch(() => setError("재생하지 못했습니다."));
   }

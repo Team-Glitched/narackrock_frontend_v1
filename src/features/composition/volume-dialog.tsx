@@ -1,9 +1,9 @@
 import { sharedStyles } from "@/styles/shared.styles";
 import { studioStyles } from "@/styles/studio.styles";
 import { cn } from "@/lib/utils";
-import { Asset } from "@/components/ui/asset";
-import { Avatar } from "@/components/ui/avatar";
-import { CanvasDialog } from "@/components/ui/canvas-dialog";
+import { Asset } from "@/components/asset";
+import { Avatar } from "@/components/avatar";
+import { CanvasDialog } from "@/components/canvas-dialog";
 import { DialogNumberInput } from "@/features/composition/dialog-number-input";
 import { partLabel } from "@/features/composition/instrument-parts";
 import { buttonVariants } from "@/styles/variants";

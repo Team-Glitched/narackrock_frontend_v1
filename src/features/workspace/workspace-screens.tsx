@@ -2,7 +2,7 @@ import { workspaceStyles } from "@/styles/workspace.styles";
 import { sharedStyles } from "@/styles/shared.styles";
 import { cn } from "@/lib/utils";
 import { SavedOpenSources } from "@/features/sources/saved-open-sources";
-import { AudioPlaybackBar } from "@/components/ui/audio-playback-bar";
+import { AudioPlaybackBar } from "@/components/audio-playback-bar";
 import { uiLabels } from "@/lib/ui-labels";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import {
@@ -16,7 +16,7 @@ import {
 import { useCurrentUserId } from "@/features/auth/use-current-user";
 import { compositionDurationMs } from "@/features/composition/playback-duration";
 import { useCompositionPlayback } from "@/features/composition/use-composition-playback";
-import { Asset } from "@/components/ui/asset";
+import { Asset } from "@/components/asset";
 import { toggleResource, useWorkspace, type Resource, type Work } from "./workspace-store";
 import { useVisitedWorks } from "./use-visited-works";
 import { apiOrigin } from "@/lib/api/client";

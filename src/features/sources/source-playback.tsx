@@ -1,6 +1,6 @@
 import { sourceStyles } from "@/styles/source.styles";
 import { useRef, useState } from "react";
-import { AudioPlaybackBar } from "@/components/ui/audio-playback-bar";
+import { AudioPlaybackBar } from "@/components/audio-playback-bar";
 import { ApiError } from "@/lib/api/client";
 import { getOpenSourcePlayback, type OpenSourcePlayback } from "@/lib/api/open-sources";
 

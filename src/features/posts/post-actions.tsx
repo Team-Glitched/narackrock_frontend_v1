@@ -1,7 +1,7 @@
 import { reactionControlVariants } from "@/styles/variants";
 import { communityStyles } from "@/styles/community.styles";
 import { cn } from "@/lib/utils";
-import { IconSlot } from "@/components/ui/icon-slot";
+import { IconSlot } from "@/components/icon-slot";
 
 const actionControl = reactionControlVariants();
 

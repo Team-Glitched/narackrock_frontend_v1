@@ -5,10 +5,10 @@ import { useEffect, useEffectEvent, useLayoutEffect, useRef, useState } from "re
 import { AlbumCarousel } from "@/features/abyss/album-carousel";
 import { ShortParticipants } from "@/features/abyss/short-participants";
 import { AbyssComments } from "./abyss-comments";
-import { FigmaSheet } from "@/components/ui/figma-sheet";
+import { FigmaSheet } from "@/components/figma-sheet";
 import { ReportReasons } from "@/features/comments/report-reasons";
-import { Asset } from "@/components/ui/asset";
-import { IconSlot } from "@/components/ui/icon-slot";
+import { Asset } from "@/components/asset";
+import { IconSlot } from "@/components/icon-slot";
 import { canonicalShareLink } from "@/lib/api/content-link";
 import { initialShortIndex } from "@/features/abyss/initial-short";
 import { useShareLink } from "@/hooks/use-share-link";

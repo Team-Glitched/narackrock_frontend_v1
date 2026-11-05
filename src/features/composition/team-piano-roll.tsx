@@ -1,7 +1,7 @@
 import { studioStyles } from "@/styles/studio.styles";
 import { sharedStyles } from "@/styles/shared.styles";
 import { cn } from "@/lib/utils";
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import { useEffect, useEffectEvent, useLayoutEffect, useMemo, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import type { MidiNoteDto } from "@/lib/api/composition";
 import { MusicalRuler } from "./musical-ruler";
 import type { TimeSignature } from "./time-signature";
@@ -76,7 +76,9 @@ export function TeamPianoRoll({
   const rollRef = useRef<HTMLDivElement>(null);
   const gesture = useRef<Gesture | null>(null);
   const latestEditor = useRef(editor);
-  latestEditor.current = editor;
+  useLayoutEffect(() => {
+    latestEditor.current = editor;
+  });
   const [viewportWidth, setViewportWidth] = useState(0);
   const [marquee, setMarquee] = useState<Marquee | null>(null);
   const rows = editor.bounds.rows;
@@ -99,16 +101,22 @@ export function TeamPianoRoll({
     const workspace = workspaceRef.current;
     if (workspace?.hasPointerCapture(pointerId)) workspace.releasePointerCapture(pointerId);
   }
-  function cancel() {
+  /** Drops the active gesture's ref, preview and pointer capture; restores a marquee's prior selection. */
+  function abandonGesture() {
     const active = gesture.current;
     gesture.current = null;
     if (active?.kind === "marquee" && active.notes === latestEditor.current.snapshot.notes) {
       latestEditor.current.select(active.selected);
     }
     latestEditor.current.cancelGesture();
-    setMarquee(null);
     if (active) releaseCapture(active.pointerId);
   }
+  function cancel() {
+    abandonGesture();
+    setMarquee(null);
+  }
+  const discardGesture = useEffectEvent(cancel);
+  const abandonGestureFromEffect = useEffectEvent(abandonGesture);
 
   useLayoutEffect(() => {
     const workspace = workspaceRef.current;
@@ -137,37 +145,50 @@ export function TeamPianoRoll({
   }, [startTick, pixelsPerTick]);
 
   const rowKey = rows.join(",");
-  useLayoutEffect(() => {
+  const scrollToInitialRow = useEffectEvent(() => {
     const workspace = workspaceRef.current;
     if (!workspace) return;
     const pitch = rows.includes(initialPitch) ? initialPitch : drum ? 36 : initialPitch;
     const row = Math.max(0, rows.indexOf(pitch));
     workspace.scrollTop = Math.max(0, row * rowHeight - (workspace.clientHeight - rulerHeight - rowHeight) / 2);
-  }, [initialPitch, drum, rowKey]);
+  });
+  // Re-centre only when the visible row set or the requested pitch changes, not on every bounds object.
+  useLayoutEffect(() => scrollToInitialRow(), [initialPitch, drum, rowKey]);
 
+  const setViewStartTick = editor.setViewStartTick;
   useEffect(() => {
     if (!playing || pixelsPerTick <= 0) return;
     if (playheadTick < startTick || playheadTick >= startTick + windowTicks) {
-      editor.setViewStartTick(Math.floor(playheadTick / windowTicks) * windowTicks);
+      setViewStartTick(Math.floor(playheadTick / windowTicks) * windowTicks);
     }
-  }, [playing, playheadTick, startTick, windowTicks, pixelsPerTick, editor.setViewStartTick]);
+  }, [playing, playheadTick, startTick, windowTicks, pixelsPerTick, setViewStartTick]);
 
+  // Tool, snap, window, row set, size or permission changes invalidate an in-flight gesture.
+  const gestureConfig = JSON.stringify([editor.editable, editor.view.tool, editor.view.snapDenominator,
+    editor.view.visibleBars, rowKey, viewportWidth, windowTicks, stepTick, maxTick, instrument]);
+  const [seenGestureConfig, setSeenGestureConfig] = useState(gestureConfig);
+  if (seenGestureConfig !== gestureConfig) {
+    setSeenGestureConfig(gestureConfig);
+    setMarquee(null);
+  }
   useEffect(() => {
-    cancel();
-  }, [editor.editable, editor.view.tool, editor.view.snapDenominator, editor.view.visibleBars,
-    rowKey, viewportWidth, windowTicks, stepTick, maxTick, instrument]);
+    abandonGestureFromEffect();
+  }, [gestureConfig]);
 
-  useEffect(() => {
+  const dropStaleGesture = useEffectEvent(() => {
     const active = gesture.current;
     if (active && (active.notes !== editor.snapshot.notes || (!editor.gestureActive &&
         ["draw", "move", "resize", "erase"].includes(active.kind)))) cancel();
+  });
+  useEffect(() => {
+    dropStaleGesture();
   }, [editor.gestureActive, editor.lastChange]);
 
   useEffect(() => {
     const escape = (event: KeyboardEvent) => {
       if (event.key === "Escape" && gesture.current) {
         event.preventDefault();
-        cancel();
+        discardGesture();
       }
     };
     window.addEventListener("keydown", escape, true);

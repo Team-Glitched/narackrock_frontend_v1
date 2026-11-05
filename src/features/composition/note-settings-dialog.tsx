@@ -1,6 +1,6 @@
 import { sharedStyles } from "@/styles/shared.styles";
 import { studioStyles } from "@/styles/studio.styles";
-import { CanvasDialog } from "@/components/ui/canvas-dialog";
+import { CanvasDialog } from "@/components/canvas-dialog";
 import { DialogNumberInput } from "@/features/composition/dialog-number-input";
 import { partLabel } from "./instrument-parts";
 import type { MidiNoteDto } from "@/lib/api/composition";
