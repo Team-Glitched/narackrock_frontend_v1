@@ -3,7 +3,7 @@ import { sharedStyles } from "@/styles/shared.styles";
 import { communityStyles } from "@/styles/community.styles";
 import { buttonVariants } from "@/styles/variants";
 import { cn } from "@/lib/utils";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { SectionTitle } from "@/components/section-title";
 import { Avatar } from "@/components/avatar";
 import { PageState } from "@/components/page-state";
@@ -27,6 +27,7 @@ import {
   reactToOpenSourceComment,
   setOpenSourceSaved,
   type OpenSourceDetail,
+  type OpenSourceReaction,
   type OpenSourceSummary,
 } from "@/lib/api/open-sources";
 
@@ -38,6 +39,35 @@ export function sourceError(cause: unknown, fallback = "오픈소스를 불러�
     return cause.message || fallback;
   }
   return cause instanceof TypeError ? "서버에 연결하지 못했습니다. 네트워크를 확인해주세요." : fallback;
+}
+
+/** List cards and detail use the same server-authoritative reaction state and in-flight lock. */
+function useSourceReaction(source: OpenSourceSummary) {
+  const [value, setValue] = useState<OpenSourceReaction | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const locked = useRef(false);
+  const generation = useRef(0);
+  useEffect(() => () => { generation.current++; }, []);
+  async function vote(kind: "like" | "dislike") {
+    if (locked.current) return;
+    const epoch = generation.current;
+    locked.current = true;
+    setBusy(true);
+    setError("");
+    try {
+      const result = await reactToOpenSource(source.openSourceId, kind);
+      if (generation.current === epoch) setValue(result);
+    } catch (cause) {
+      if (generation.current === epoch) setError(sourceError(cause, "반응을 반영하지 못했습니다."));
+    } finally {
+      if (generation.current === epoch) {
+        locked.current = false;
+        setBusy(false);
+      }
+    }
+  }
+  return { current: value ?? source, busy, error, vote };
 }
 
 /** Server save state of one source, updated only from the PUT/DELETE response. */
@@ -85,6 +115,8 @@ function OpenSourceCard({
   onProfile: (id: number) => void;
 }) {
   const save = useSourceSave(source);
+  const reaction = useSourceReaction(source);
+  const current = reaction.current;
   return (
     <article className={sourceStyles.osCard}>
       <div className={sourceStyles.osHead}>
@@ -108,15 +140,16 @@ function OpenSourceCard({
         </button>
         <PostActions
           compact
-          readOnly
-          likeCount={source.likeCount}
-          dislikeCount={source.dislikeCount}
+          likeCount={current.likeCount}
+          dislikeCount={current.dislikeCount}
           commentCount={source.commentCount}
-          vote={source.isLiked ? "like" : source.isDisliked ? "dislike" : null}
-          onVote={() => undefined}
+          vote={current.isLiked ? "like" : current.isDisliked ? "dislike" : null}
+          onVote={(kind) => void reaction.vote(kind)}
+          busy={reaction.busy || save.busy}
           onComments={() => onOpen(source.openSourceId, true)}
         />
       </div>
+      {reaction.error && <p role="alert">{reaction.error}</p>}
     </article>
   );
 }
@@ -227,22 +260,9 @@ function SourceDetail({
 }) {
   const save = useSourceSave(source);
   const sharing = useShareLink();
-  const [reaction, setReaction] = useState<Pick<OpenSourceDetail, "isLiked" | "isDisliked" | "likeCount" | "dislikeCount"> | null>(null);
-  const [busy, setBusy] = useState(false);
+  const reaction = useSourceReaction(source);
   const [notice, setNotice] = useState("");
-  const current = reaction ?? source;
-  async function vote(kind: "like" | "dislike") {
-    if (busy) return;
-    setBusy(true);
-    setNotice("");
-    try {
-      setReaction(await reactToOpenSource(source.openSourceId, kind));
-    } catch (cause) {
-      setNotice(sourceError(cause, "반응을 반영하지 못했습니다."));
-    } finally {
-      setBusy(false);
-    }
-  }
+  const current = reaction.current;
   async function share() {
     setNotice("");
     try {
@@ -286,13 +306,14 @@ function SourceDetail({
           dislikeCount={current.dislikeCount}
           commentCount={source.commentCount}
           vote={current.isLiked ? "like" : current.isDisliked ? "dislike" : null}
-          onVote={(kind) => void vote(kind)}
-          busy={busy || save.busy}
+          onVote={(kind) => void reaction.vote(kind)}
+          busy={reaction.busy || save.busy}
           onComments={onComments}
           saved={save.saved}
           onSave={() => void save.toggle()}
           onShare={() => void share()}
         />
+        {reaction.error && <p role="alert">{reaction.error}</p>}
         {notice && <p role="status">{notice}</p>}
       </section>
       <div className={communityStyles.nrPostCommentDivider} />
