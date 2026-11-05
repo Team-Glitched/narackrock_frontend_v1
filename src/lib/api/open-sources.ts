@@ -193,3 +193,7 @@ export function getMyOpenSourcePublication(id: number): Promise<OpenSourcePublic
 export function listMyOpenSourcePublications(page: number): Promise<OpenSourcePage<OpenSourcePublication>> {
   return data(`/api/v1/users/me/open-source-publications${query({ page, size: 50 })}`);
 }
+
+export function deleteOpenSource(id: number): Promise<{ openSourceId: number; isDeleted: boolean }> {
+  return data(`/api/v1/open-sources/${id}`, { method: "DELETE" });
+}

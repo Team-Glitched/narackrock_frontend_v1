@@ -62,6 +62,7 @@ export function SocialCreate({
   const [audio, setAudio] = useState<File | null>(() => initial?.audio ?? null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [sourceVisibility, setSourceVisibility] = useState<"PRIVATE" | "PUBLIC">("PUBLIC");
   const draftValue = useMemo(
     () => ({ title, content, image: image?.file ?? null, audio, notes: pianoNotes, bpm: pianoBpm }),
     [title, content, image, audio, pianoNotes, pianoBpm],
@@ -136,7 +137,7 @@ export function SocialCreate({
     if (
       busy ||
       !title.trim() ||
-      !content.trim() ||
+      (kind !== "source" && !content.trim()) ||
       (kind === "post" && postTargetStatus !== "ready")
     )
       return;
@@ -153,13 +154,15 @@ export function SocialCreate({
         const userId = getCurrentUserId();
         if (userId === null) throw new Error("로그인 후 오픈소스를 등록할 수 있습니다.");
         if (!audio) throw new Error("오디오를 먼저 선택해주세요.");
+        if ([...title.trim()].length > 100 || [...content].length > 2000)
+          throw new Error("오픈소스 이름은 100자, 설명은 2000자 이내로 입력해주세요.");
         try {
-          await publishSource({ userId, draftKey, title: title.trim(), description: content.trim(), audio, image: image?.file ?? null });
+          await publishSource({ userId, draftKey, title: title.trim(), description: content.trim() || null, audio, image: image?.file ?? null, visibility: sourceVisibility });
         } catch (cause) {
           const message = sourceError(cause, "오픈소스를 등록하지 못했습니다.");
           throw new Error(
             hasPendingPublication({ userId, draftKey })
-              ? `오픈소스가 비공개로 등록됐지만 공개하지 못했습니다. 다시 시도하면 공개 단계만 이어서 진행합니다. (${message})`
+              ? `오픈소스 등록 기록이 있습니다. 다시 시도하면 같은 등록에서 선택한 공개 설정으로 이어서 저장합니다. (${message})`
               : message,
           );
         }
@@ -244,7 +247,7 @@ export function SocialCreate({
             disabled={busy}
             value={title}
             onChange={(event) => setTitle(event.target.value)}
-            maxLength={100}
+            maxLength={kind === "source" ? undefined : 100}
             required
           />
         </label>
@@ -255,7 +258,7 @@ export function SocialCreate({
             disabled={busy}
             value={content}
             onChange={(event) => setContent(event.target.value)}
-            required
+            required={kind !== "source"}
             rows={1}
           />
         </label>
@@ -324,6 +327,20 @@ export function SocialCreate({
         </label>
         )}
       </div>
+      {kind === "source" && (
+        <fieldset className="m-0 flex w-full max-w-[350px] min-w-0 shrink-0 flex-wrap gap-4 border-0 p-0 text-body [&_input]:h-4 [&_input]:w-4 [&_input]:shrink-0" disabled={busy}>
+          <legend className="mb-2">등록 공개 설정</legend>
+          <label className="flex items-center gap-2">
+            <input type="radio" name="source-visibility" value="PUBLIC" checked={sourceVisibility === "PUBLIC"} onChange={() => setSourceVisibility("PUBLIC")} />
+            공개 등록
+          </label>
+          <label className="flex items-center gap-2">
+            <input type="radio" name="source-visibility" value="PRIVATE" checked={sourceVisibility === "PRIVATE"} onChange={() => setSourceVisibility("PRIVATE")} />
+            비공개 등록
+          </label>
+          <p className="w-full text-caption text-app-muted">비공개 등록은 내 등록에서만 관리하며, 나중에 공개할 수 있습니다.</p>
+        </fieldset>
+      )}
       <p className={sharedStyles.creationSaveStatus} role="status">
         {draftSaving
           ? "초안을 저장하는 중..."
@@ -353,11 +370,11 @@ export function SocialCreate({
           busy ||
           (kind === "post" && postTargetStatus !== "ready") ||
           !title.trim() ||
-          !content.trim() ||
+          (kind !== "source" && !content.trim()) ||
           (kind === "source" && !audio)
         }
       >
-        {busy ? "저장 중..." : kind === "community" ? "개설 신청" : "입력 완료"}
+        {busy ? "저장 중..." : kind === "community" ? "개설 신청" : kind === "source" ? `${sourceVisibility === "PUBLIC" ? "공개" : "비공개"} 등록` : "입력 완료"}
       </button>
       <button
         type="button"
