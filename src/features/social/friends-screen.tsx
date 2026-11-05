@@ -63,16 +63,16 @@ function ScopedFriendsScreen({ onProfile, onChat, view = "summary", onRecommenda
         {!loaded && <p role="status">친구 정보를 불러오는 중...</p>}
         {loaded?.error && <div role="alert"><p>{loaded.error}</p><button onClick={() => setRevision((value) => value + 1)}>다시 시도</button></div>}
         {notice && <p role="status">{notice}</p>}
-        <section className="mutual-friends">
+        <section className={cn("mutual-friends", socialStyles.friendsSection)} aria-label="맞팔로우">
           <SectionTitle>맞팔로우</SectionTitle>
-          {loaded && !loaded.error && loaded.mutual.length === 0 && <p>아직 맞팔로우한 친구가 없습니다.</p>}
+          {loaded && !loaded.error && loaded.mutual.length === 0 && <p className={socialStyles.friendsEmpty}>아직 맞팔로우한 친구가 없습니다.</p>}
           <div className={socialStyles.mutualFriendRail}>{loaded?.mutual.map((person) => <article className={socialStyles.mutualFriendCard} key={person.userId}><button className={socialStyles.mutualFriendIdentity} aria-label={`${person.nickname} 프로필`} onClick={() => onProfile(person.userId)}><Avatar src={person.profileImageUrl} /><strong>{person.nickname}</strong><small>{person.primaryInstrument ?? ""}</small></button><button className={buttonVariants({ tone: "primary" })} onClick={() => onChat(person.userId)}>채팅</button></article>)}</div>
         </section>
       </>}
       <RecommendedPeopleList full={view === "recommendations"} onProfile={onProfile} onAll={onRecommendations} />
-      {view === "summary" && <section>
+      {view === "summary" && <section className={socialStyles.friendsSection} aria-label="팔로우 요청">
         <SectionTitle>팔로우 요청</SectionTitle>
-        {loaded && !loaded.error && loaded.requests.length === 0 && <p>받은 팔로우 요청이 없습니다.</p>}
+        {loaded && !loaded.error && loaded.requests.length === 0 && <p className={socialStyles.friendsEmpty}>받은 팔로우 요청이 없습니다.</p>}
         <div className={profileStyles.peopleList}>{loaded?.requests.map((request) => <div className={socialStyles.person} key={request.requestId}><PersonLink person={{ ...request, userId: request.requesterId }} onProfile={onProfile} /><button className={buttonVariants({ tone: "primary", size: "compact" })} disabled={busy} onClick={() => void review(request.requestId, "accept")}>수락</button><button className={buttonVariants({ tone: "secondary" })} disabled={busy} onClick={() => void review(request.requestId, "reject")}>거절</button></div>)}</div>
       </section>}
     </div>

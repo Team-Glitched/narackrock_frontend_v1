@@ -8,7 +8,7 @@ export const profileStyles = {
   peopleList: [
     "people-list",
     "flex flex-col gap-[18px]",
-    "[.design-canvas_.friends-view_&]:gap-[30px] [.design-canvas_.friends-view_&]:px-5",
+    "[.design-canvas_.friends-view_&]:gap-5 [.design-canvas_.friends-view_&]:px-0",
   ].join(" "),
   profileView: [
     "profile-view",

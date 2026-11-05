@@ -133,16 +133,18 @@ export function RecommendedPeopleList({ full, onProfile, onAll }: { full: boolea
   const visible = full ? people : people.slice(0, 6);
   const last = pages.at(-1);
   const hasMore = Boolean(last && recommendationsHaveMore(pages.length - 1, last.totalCount));
+  // The summary already shows everything when six or fewer recommendations are available.
+  const showAll = !full && people.length > 0 && !loading && !syncing && !stale && !error &&
+    (people.length > visible.length || hasMore);
   return (
-    <section>
-      <SectionTitle>팔로우 추천</SectionTitle>
-      {!full && onAll && <button className={buttonVariants({ tone: "secondary", size: "compact" })} onClick={onAll}>모두보기</button>}
-      {checking && <p role="status">보낸 팔로우 요청 확인 중...</p>}
+    <section className={socialStyles.friendsSection} aria-label="팔로우 추천">
+      <SectionTitle onAll={showAll ? onAll : undefined}>팔로우 추천</SectionTitle>
+      {checking && <p className={socialStyles.friendsEmpty} role="status">보낸 팔로우 요청 확인 중...</p>}
       {outgoingError && <div role="alert"><p>확인 실패: {outgoingError}</p><button disabled={checking} onClick={() => void checkOutgoing()}>다시 확인</button></div>}
       {error && <div role="alert"><p>{error}</p>{stale && <p>목록이 최신 상태가 아닙니다. 동기화 후 더 불러올 수 있습니다.</p>}<button disabled={loading || syncing || busy !== null} onClick={() => void (stale ? synchronize() : pages.length ? more() : loadFirst())}>{stale ? "다시 동기화" : "다시 시도"}</button></div>}
       {notice && <p role="status">{notice}</p>}
-      {(loading || syncing) && <p role="status">{syncing ? "추천 목록 동기화 중..." : "추천을 불러오는 중..."}</p>}
-      {!loading && !error && people.length === 0 && <p>추천할 사용자가 없습니다.</p>}
+      {(loading || syncing) && <p className={socialStyles.friendsEmpty} role="status">{syncing ? "추천 목록 동기화 중..." : "추천을 불러오는 중..."}</p>}
+      {!loading && !error && people.length === 0 && <p className={socialStyles.friendsEmpty}>추천할 사용자가 없습니다.</p>}
       <div className={profileStyles.peopleList}>
         {visible.map((person) => {
           const state = recommendationFollowState(person, outgoing ?? [], overrides);

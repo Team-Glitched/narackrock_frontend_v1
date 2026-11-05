@@ -29,13 +29,14 @@ export const socialStyles = {
   ].join(" "),
   friendsView: [
     "friends-view",
-    "flex flex-col gap-7 p-[10px_20px]",
-    "[@media(max-width:389px)]:pl-4 [@media(max-width:389px)]:pr-4",
+    "flex flex-col gap-8 px-0 py-6 [&>p]:mx-5 [&>[role=alert]]:mx-5",
     "[.design-canvas_.social-screen>&]:min-h-0 [.design-canvas_.social-screen>&]:flex-1 [.design-canvas_.social-screen>&]:overflow-y-auto",
     "[.design-canvas_.social-screen>&]:[scrollbar-width:none]",
     "[.design-canvas_.social-screen>&::-webkit-scrollbar]:hidden",
-    "[.design-canvas_&]:gap-20 [.design-canvas_&]:p-[40px_0_30px] [.design-canvas_&]:pt-[30px]",
+    "[.design-canvas_&]:gap-8 [.design-canvas_&]:p-[24px_0_32px]",
   ].join(" "),
+  friendsSection: ["friends-section", "min-w-0 shrink-0 px-5"].join(" "),
+  friendsEmpty: ["friends-empty", "m-0 text-body leading-6 text-app-muted"].join(" "),
   person: [
     "person",
     "flex h-11 items-center gap-[10px]",
@@ -80,7 +81,7 @@ export const socialStyles = {
   ].join(" "),
   mutualFriendRail: [
     "mutual-friend-rail",
-    "flex gap-5 overflow-x-auto px-5 [scrollbar-width:none]",
+    "flex gap-5 overflow-x-auto [scrollbar-width:none]",
   ].join(" "),
   mutualFriendCard: [
     "mutual-friend-card",
