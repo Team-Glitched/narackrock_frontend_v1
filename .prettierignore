@@ -1,0 +1,10 @@
+node_modules/
+dist/
+coverage/
+public/
+backups/
+.git/
+.thinkrail/
+.env*
+package-lock.json
+CONTEXT.md

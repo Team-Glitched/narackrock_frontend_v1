@@ -1,5 +1,3 @@
-"use client";
-
 import { useEffect, useRef } from "react";
 import type { RefObject } from "react";
 
@@ -16,7 +14,12 @@ import type { RefObject } from "react";
  * 감시는 `enabled`가 false면 아예 걸지 않는다. 더 받을 게 없거나 이미 받는 중일 때
  * 옵저버가 계속 살아 있으면 같은 페이지를 반복해서 부른다.
  */
-export function useInfiniteScroll({ enabled, onLoadMore, rootRef, rootMargin = "200px" }: {
+export function useInfiniteScroll({
+  enabled,
+  onLoadMore,
+  rootRef,
+  rootMargin = "200px",
+}: {
   enabled: boolean;
   onLoadMore: () => void;
   rootRef: RefObject<HTMLElement | null>;
@@ -26,7 +29,9 @@ export function useInfiniteScroll({ enabled, onLoadMore, rootRef, rootMargin = "
   // 콜백 신원이 바뀔 때마다 옵저버를 다시 걸지 않도록 최신 값만 담아 둔다.
   // 렌더 중에 ref를 쓰면 안 되므로(react-hooks/refs) 갱신도 effect에서 한다.
   const latest = useRef(onLoadMore);
-  useEffect(() => { latest.current = onLoadMore; }, [onLoadMore]);
+  useEffect(() => {
+    latest.current = onLoadMore;
+  }, [onLoadMore]);
 
   useEffect(() => {
     const sentinel = sentinelRef.current;
@@ -35,7 +40,9 @@ export function useInfiniteScroll({ enabled, onLoadMore, rootRef, rootMargin = "
     if (typeof IntersectionObserver === "undefined") return;
 
     const observer = new IntersectionObserver(
-      entries => { if (entries.some(entry => entry.isIntersecting)) latest.current(); },
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) latest.current();
+      },
       { root: rootRef.current, rootMargin },
     );
     observer.observe(sentinel);

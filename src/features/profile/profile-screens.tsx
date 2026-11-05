@@ -1,23 +1,29 @@
-"use client";
-
+import { profileStyles } from "@/styles/profile.styles";
+import { sharedStyles } from "@/styles/shared.styles";
+import { cn } from "@/lib/utils";
+import { uiLabels } from "@/lib/ui-labels";
 import { useEffect, useState } from "react";
-import Link from "next/link";
-import { Asset, Avatar, SectionTitle } from "@/components/app/shared";
-import type { Navigate } from "@/features/navigation/types";
-import { useCurrentUserId } from "@/hooks/use-current-user";
-import { logout } from "@/lib/api/auth";
+import { ProfileListSheet, type ProfileListKind } from "./profile-lists";
+import { ProfilePrivacyToggle, ProfileRelationActions } from "./profile-relations";
+import { Asset } from "@/components/asset";
+import { Avatar } from "@/components/avatar";
+import { SectionTitle } from "@/components/section-title";
+import { useCurrentUserId } from "@/features/auth/use-current-user";
 import { ApiError } from "@/lib/api/client";
 import { getProfile, updateProfile, updateProfileImage } from "@/lib/api/profile";
 import type { UserProfile } from "@/lib/api/contracts";
+import { Link } from "react-router";
+import { useMySongs } from "@/features/home/use-my-songs";
+import { songsForTab } from "@/features/home/my-songs";
 
 function profileErrorMessage(error: unknown): string {
-  return error instanceof Error
-    ? error.message
-    : "프로필을 불러오지 못했습니다.";
+  return error instanceof Error ? error.message : "프로필을 불러오지 못했습니다.";
 }
 
-function useOwnProfile() {
-  const userId = useCurrentUserId();
+function useOwnProfile(targetUserId?: number) {
+  const currentUserId = useCurrentUserId();
+  const userId = targetUserId ?? currentUserId;
+  const [revision, setRevision] = useState(0);
   const [result, setResult] = useState<{
     userId: number;
     profile: UserProfile | null;
@@ -48,7 +54,8 @@ function useOwnProfile() {
     return () => {
       cancelled = true;
     };
-  }, [userId]);
+  }, [userId, revision]);
+  const reload = () => setRevision((value) => value + 1);
 
   const setProfile = (profile: UserProfile) => {
     if (userId != null) {
@@ -62,6 +69,7 @@ function useOwnProfile() {
       loading: false,
       error: "로그인이 필요합니다.",
       setProfile,
+      reload,
     };
   }
 
@@ -71,6 +79,7 @@ function useOwnProfile() {
       loading: true,
       error: null,
       setProfile,
+      reload,
     };
   }
 
@@ -79,15 +88,119 @@ function useOwnProfile() {
     loading: false,
     error: result.error,
     setProfile,
+    reload,
   };
 }
 
-export function ProfileScreen({ go }: { go: Navigate }) {
-  const { profile, loading, error } = useOwnProfile();
+function compactCount(count: number) {
+  return count >= 1000 ? `${Number((count / 1000).toFixed(1))}k` : String(count);
+}
+function ProfileWorks({
+  title,
+  songs,
+  onOpen,
+}: {
+  title: string;
+  songs: UserProfile["activities"]["participatedShorts"];
+  onOpen: (id: number) => void;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  return (
+    <section className={profileStyles.profileWorks}>
+      <SectionTitle
+        allLabel={expanded ? "접기" : "펼치기"}
+        onAll={songs.length ? () => setExpanded((current) => !current) : undefined}
+      >
+        {title}
+      </SectionTitle>
+      {songs.length ? (
+        <div
+          className={cn(sharedStyles.songRail, expanded ? profileStyles.profileWorksExpanded : "")}
+        >
+          {songs.map((song) => (
+            <button
+              className={sharedStyles.songCard}
+              key={song.shortId}
+              onClick={() => onOpen(song.shortId)}
+              aria-label={`${song.title} 열기`}
+            >
+              <span className={sharedStyles.songArt}>
+                {song.albumImageUrl ? (
+                  <img src={song.albumImageUrl} alt={`${song.title} 앨범 커버`} />
+                ) : (
+                  <span className={sharedStyles.emptyArtwork} />
+                )}
+              </span>
+              <strong>{song.title}</strong>
+            </button>
+          ))}
+        </div>
+      ) : (
+        <p className={profileStyles.profileEmptyWork}>아직 등록한 곡이 없습니다.</p>
+      )}
+    </section>
+  );
+}
+
+function OwnWorks({ onOpen }: { onOpen: (id: number) => void }) {
+  const userId = useCurrentUserId();
+  const songs = useMySongs(10);
+  return (
+    <>
+      {(["authored", "participated"] as const).map((tab) => {
+        const items = userId === null ? [] : songsForTab(songs.items, userId, tab);
+        return (
+          <section className={profileStyles.profileWorks} key={tab}>
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <h2 className="text-label font-semibold">{tab === "authored" ? "내 작업물" : "내 참가작"}</h2>
+              <Link className="shrink-0 text-caption text-app-muted" to={`/charts?kind=mine&tab=${tab}`}>모두보기</Link>
+            </div>
+            {songs.status === "loading" && <p role="status">음악을 불러오는 중...</p>}
+            {songs.status === "error" && <div role="alert"><p>{songs.error}</p><button onClick={songs.retry}>다시 시도</button></div>}
+            <div className={sharedStyles.songRail}>
+              {items.slice(0, 6).map((song) => (
+                <button key={song.shortId} className={sharedStyles.songCard} onClick={() => onOpen(song.shortId)}>
+                  <span className={sharedStyles.songArt}>
+                    {song.albumImageUrl ? <img src={song.albumImageUrl} alt={`${song.title} 앨범 커버`} />
+                      : <span className={sharedStyles.emptyArtwork} />}
+                  </span>
+                  <strong>{song.title}</strong>
+                </button>
+              ))}
+            </div>
+            {songs.status === "ready" && items.length === 0 && <p className={profileStyles.profileEmptyWork}>
+              {songs.hasMore ? "전체 목록에서 더 많은 곡을 확인해 주세요." : tab === "authored" ? "아직 작성한 곡이 없습니다." : "아직 참가한 곡이 없습니다."}
+            </p>}
+          </section>
+        );
+      })}
+    </>
+  );
+}
+
+export function ProfileScreen({
+  onEdit,
+  onProfile,
+  onOpenShort,
+  userId,
+  onOpenPost,
+  onChat,
+}: {
+  userId?: number;
+  onEdit: () => void;
+  onProfile: (id: number) => void;
+  onOpenShort: (id: number) => void;
+  onOpenPost: (id: number) => void;
+  onChat: (id: number) => void;
+}) {
+  const currentUserId = useCurrentUserId();
+  const [list, setList] = useState<ProfileListKind | null>(null);
+  const own = userId === undefined || userId === currentUserId;
+  const { profile, loading, error, reload } = useOwnProfile(userId);
 
   if (loading) {
     return (
-      <div className="profile-state" role="status">
+      <div className={profileStyles.profileState} role="status">
         프로필을 불러오는 중...
       </div>
     );
@@ -95,7 +208,7 @@ export function ProfileScreen({ go }: { go: Navigate }) {
 
   if (error || !profile) {
     return (
-      <div className="profile-state" role="alert">
+      <div className={profileStyles.profileState} role="alert">
         {error ?? "프로필이 없습니다."}
       </div>
     );
@@ -108,71 +221,81 @@ export function ProfileScreen({ go }: { go: Navigate }) {
       .filter(Boolean) ?? [];
 
   return (
-    <div className="profile-view scroll-content">
+    <div className={cn(profileStyles.profileView, sharedStyles.scrollContent)}>
       <button
-        className="profile-edit-trigger"
-        onClick={() => go("edit")}
-        aria-label="프로필 편집"
+        className={profileStyles.profileEditTrigger}
+        onClick={own ? onEdit : undefined}
+        disabled={!own}
+        aria-label={own ? "프로필 편집" : "사용자 프로필 사진"}
       >
         <Avatar large src={profile.profileImageUrl} />
       </button>
 
       <h1>{profile.nickname}</h1>
+      {!own && currentUserId !== null && (
+        <ProfileRelationActions profile={profile} onChanged={reload} onChat={onChat} />
+      )}
 
-      <div className="stats">
-        <span>
-          <strong>Follower</strong>
-          <small>{profile.relations.followerCount}</small>
-        </span>
-        <span>
-          <strong>Following</strong>
-          <small>{profile.relations.followingCount}</small>
-        </span>
-        <span>
-          <strong>Articles</strong>
-          <small>{profile.activities.postCount}</small>
-        </span>
+      <div className={sharedStyles.stats}>
+        <button aria-label="팔로워 목록" onClick={() => setList("followers")}>
+          <strong>팔로워</strong>
+          <small>{compactCount(profile.relations.followerCount)}</small>
+        </button>
+        <button aria-label="팔로잉 목록" onClick={() => setList("following")}>
+          <strong>팔로잉</strong>
+          <small>{compactCount(profile.relations.followingCount)}</small>
+        </button>
+        <button aria-label="작성한 게시글 목록" onClick={() => setList("articles")}>
+          <strong>게시글</strong>
+          <small>{compactCount(profile.activities.postCount)}</small>
+        </button>
       </div>
+      {own && <Link className="my-4 inline-block text-label text-app-fg underline" to="/profile/likes">좋아요한 게시글</Link>}
 
       {instruments.length > 0 && (
-        <div className="tags">
+        <div className={sharedStyles.tags}>
           {instruments.map((instrument) => (
             <span key={instrument}>{instrument}</span>
           ))}
         </div>
       )}
 
-      <section className="description">
-        <h2>Description</h2>
+      <section className={sharedStyles.description}>
+        <h2>소개</h2>
         <p>{profile.explanation || "아직 소개가 없습니다."}</p>
       </section>
 
-      <section>
-        <SectionTitle>내 작업물</SectionTitle>
-        <p className="profile-empty-work">
-          게시글 {profile.activities.posts.length}개 · 참여한 숏폼{" "}
-          {profile.activities.participatedShorts.length}개
-        </p>
-      </section>
-
-      <button type="button" className="profile-logout" onClick={logout}>
-        로그아웃
-      </button>
+      <ProfileWorks
+        title={uiLabels.featuredMusic}
+        songs={[...profile.activities.pinnedShorts].sort((a, b) => a.displayOrder - b.displayOrder)}
+        onOpen={onOpenShort}
+      />
+      {own ? <OwnWorks onOpen={onOpenShort} /> : (
+        <ProfileWorks
+          title={uiLabels.participatedMusic}
+          songs={profile.activities.participatedShorts}
+          onOpen={onOpenShort}
+        />
+      )}
+      {list && (
+        <ProfileListSheet
+          kind={list}
+          profile={profile}
+          onClose={() => setList(null)}
+          onProfile={onProfile}
+          onPost={onOpenPost}
+        />
+      )}
     </div>
   );
 }
 
 export function EditProfileScreen({ onSaved }: { onSaved: () => void }) {
-  const {
-    profile,
-    loading,
-    error: loadError,
-    setProfile,
-  } = useOwnProfile();
+  const { profile, loading, error: loadError, setProfile } = useOwnProfile();
 
   if (loading) {
     return (
-      <div className="profile-state" role="status">
+      <div className={profileStyles.profileState} role="status">
         프로필을 불러오는 중...
       </div>
     );
@@ -180,13 +303,15 @@ export function EditProfileScreen({ onSaved }: { onSaved: () => void }) {
 
   if (loadError || !profile) {
     return (
-      <div className="profile-state" role="alert">
+      <div className={profileStyles.profileState} role="alert">
         {loadError ?? "프로필이 없습니다."}
       </div>
     );
   }
 
   return (
+    <>
+    <ProfilePrivacyToggle isPrivate={profile.isPrivate} onChanged={(isPrivate) => setProfile({ ...profile, isPrivate })} />
     <ProfileForm
       initial={{
         nickname: profile.nickname,
@@ -195,12 +320,7 @@ export function EditProfileScreen({ onSaved }: { onSaved: () => void }) {
         imageUrl: profile.profileImageUrl,
       }}
       submitLabel="프로필 저장"
-      onSubmit={async ({
-        nickname,
-        instrument,
-        explanation,
-        image,
-      }) => {
+      onSubmit={async ({ nickname, instrument, explanation, image }) => {
         const updated = await updateProfile({
           nickname,
           primaryInstrument: instrument,
@@ -212,13 +332,13 @@ export function EditProfileScreen({ onSaved }: { onSaved: () => void }) {
         setProfile({
           ...profile,
           ...updated,
-          profileImageUrl:
-            uploaded?.profileImageUrl ?? profile.profileImageUrl,
+          profileImageUrl: uploaded?.profileImageUrl ?? profile.profileImageUrl,
         });
 
         onSaved();
       }}
     />
+    </>
   );
 }
 
@@ -277,10 +397,7 @@ export function InitialProfileSetupScreen({
 
       onSaved();
     } catch (cause) {
-      if (
-        cause instanceof ApiError &&
-        cause.errorCode === "DUPLICATE_NICKNAME"
-      ) {
+      if (cause instanceof ApiError && cause.errorCode === "DUPLICATE_NICKNAME") {
         setStep(0);
       }
 
@@ -292,16 +409,16 @@ export function InitialProfileSetupScreen({
 
   return (
     <form
-      className="profile-onboarding"
+      className={profileStyles.profileOnboarding}
       onSubmit={(event) => {
         void advance(event);
       }}
     >
-      <header className="auth-header">
+      <header className={profileStyles.authHeader}>
         <Asset name="auth-logo.svg" alt="Narackrock" />
       </header>
 
-      <div className="profile-onboarding-content" key={step}>
+      <div className={profileStyles.profileOnboardingContent} key={step}>
         {step === 0 && (
           <>
             <h1>당신의 이름은 무엇인가요?</h1>
@@ -353,16 +470,12 @@ export function InitialProfileSetupScreen({
         )}
 
         {error && (
-          <p className="profile-form-error" role="alert">
+          <p className={profileStyles.profileFormError} role="alert">
             {error}
           </p>
         )}
 
-        <button
-          type="submit"
-          className="profile-onboarding-next"
-          disabled={saving}
-        >
+        <button type="submit" className={profileStyles.profileOnboardingNext} disabled={saving}>
           {saving ? "저장 중..." : step === 2 ? "시작하기" : "다음"}
         </button>
       </div>
@@ -378,14 +491,7 @@ type ProfileDraft = {
 };
 
 function validateProfileImage(file: File): void {
-  if (
-    !new Set([
-      "image/jpeg",
-      "image/png",
-      "image/webp",
-      "image/gif",
-    ]).has(file.type)
-  ) {
+  if (!new Set(["image/jpeg", "image/png", "image/webp", "image/gif"]).has(file.type)) {
     throw new Error("JPG, PNG, WEBP 또는 GIF 이미지를 선택해 주세요.");
   }
 
@@ -394,7 +500,7 @@ function validateProfileImage(file: File): void {
   }
 }
 
-function ProfileForm({
+export function ProfileForm({
   initial,
   submitLabel,
   onSubmit,
@@ -451,30 +557,14 @@ function ProfileForm({
   }
 
   return (
-    <div className="edit-view scroll-content">
-      <label className="edit-avatar">
-        <span className="edit-avatar-visual">
-          <Avatar
-            large
-            src={image?.previewUrl ?? initial.imageUrl}
-          />
+    <div className={cn(profileStyles.editView, sharedStyles.scrollContent)}>
+      <label className={profileStyles.editAvatar}>
+        <span className={profileStyles.editAvatarVisual}>
+          <Avatar large src={image?.previewUrl ?? initial.imageUrl} />
 
-          <span className="edit-avatar-overlay" aria-hidden>
-            <svg viewBox="0 0 48 48" fill="none">
-              <path
-                d="M9 16.5h7l3-4h10l3 4h7a3 3 0 0 1 3 3v18a3 3 0 0 1-3 3H9a3 3 0 0 1-3-3v-18a3 3 0 0 1 3-3Z"
-                stroke="currentColor"
-                strokeWidth="3"
-                strokeLinejoin="round"
-              />
-              <path
-                d="m12 36 8-8 6 6 5-5 11 10M31 9h10M36 4v10"
-                stroke="currentColor"
-                strokeWidth="3"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
+          <span className={profileStyles.editAvatarOverlay} aria-hidden>
+            <Asset name="profile-photo-shade.svg" className={profileStyles.profilePhotoShade} />
+            <Asset name="profile-photo-add.svg" className={profileStyles.profilePhotoAdd} />
           </span>
         </span>
 
@@ -540,22 +630,19 @@ function ProfileForm({
       </label>
 
       {error && (
-        <p className="profile-form-error" role="alert">
+        <p className={profileStyles.profileFormError} role="alert">
           {error}
         </p>
       )}
 
       <button
-        className="profile-save-button"
+        className={profileStyles.profileSaveButton}
         disabled={saving}
         onClick={() => void save()}
       >
         {saving ? "저장 중..." : submitLabel}
       </button>
-
-      <Link className="profile-privacy-link" href="/privacy">
-        개인정보처리방침
-      </Link>
+      <Link className="mt-4 block text-center text-caption text-app-muted underline" to="/privacy">개인정보처리방침</Link>
     </div>
   );
 }

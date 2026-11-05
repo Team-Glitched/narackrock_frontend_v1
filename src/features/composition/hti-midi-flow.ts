@@ -13,7 +13,11 @@ export type HtiMidiResult = {
 };
 
 export function createHtiMidiLayerPlan(result: HtiMidiResult, trackCount: number, maxTick: number) {
-  if (!Number.isSafeInteger(result.durationTick) || result.durationTick <= 0 || result.durationTick > maxTick) {
+  if (
+    !Number.isSafeInteger(result.durationTick) ||
+    result.durationTick <= 0 ||
+    result.durationTick > maxTick
+  ) {
     throw new Error("변환된 녹음이 곡의 최대 길이를 초과했습니다.");
   }
   if (result.midiNotes.length === 0) {
@@ -21,7 +25,6 @@ export function createHtiMidiLayerPlan(result: HtiMidiResult, trackCount: number
   }
   return {
     name: `HTI MIDI ${trackCount + 1}`,
-    instrument: "piano",
     sortOrder: trackCount,
     durationTick: result.durationTick,
     midiNotes: result.midiNotes,
