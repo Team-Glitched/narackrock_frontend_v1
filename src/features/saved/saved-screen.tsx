@@ -131,13 +131,13 @@ function SavedLibrary({
             setMenu(null);
           }}
         >
-          음악
+          어비스
         </button>
       </div>
       {error && <p role="alert">{error}</p>}
       {visible.length === 0 ? (
         <p className="my-[70px] text-center text-body leading-[1.8] text-app-muted">
-          저장한 {kind === "post" ? "게시글" : "음악"}이 없습니다.
+          저장한 {kind === "post" ? "게시글이" : "어비스가"} 없습니다.
           <br />
           마음에 드는 콘텐츠의 저장 버튼을 눌러보세요.
         </p>

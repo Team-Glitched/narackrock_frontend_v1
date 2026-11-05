@@ -29,7 +29,7 @@ const groups = [
   {
     title: "보관함",
     items: [
-      { path: "/saved", label: uiLabels.saved, description: "저장한 게시글과 음악" },
+      { path: "/saved", label: uiLabels.saved, description: "저장한 게시글과 어비스" },
       { path: "/profile/likes", label: "좋아요한 게시글", description: "좋아요를 누른 게시글 전체 목록" },
       {
         path: "/library",
