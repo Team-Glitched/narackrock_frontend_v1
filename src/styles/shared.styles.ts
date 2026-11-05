@@ -144,7 +144,8 @@ export const sharedStyles = {
     "[.design-canvas_.profile-works_&]:mb-[10px]",
     "[.design-canvas_&_h2]:text-title [.design-canvas_&_h2]:font-bold [.design-canvas_&_h2]:leading-[18px]",
     "[.design-canvas_&_button]:text-label [.design-canvas_&_button]:font-medium [.design-canvas_&_button]:leading-[18px]",
-    "[.design-canvas_.friends-view_&]:mb-[10px] [.design-canvas_.friends-view_&]:px-5",
+    "[.design-canvas_.friends-view_&]:mb-4 [.design-canvas_.friends-view_&]:h-auto [.design-canvas_.friends-view_&]:min-h-6 [.design-canvas_.friends-view_&]:px-0",
+    "[.design-canvas_.friends-view_&_h2]:min-w-0 [.design-canvas_.friends-view_&_h2]:w-auto [.design-canvas_.friends-view_&_h2]:flex-1 [.design-canvas_.friends-view_&_h2]:leading-6",
   ].join(" "),
   memberSuspensionDuration: [
     "member-suspension-duration",
