@@ -77,8 +77,8 @@ export async function enterComposition(shortId: number): Promise<{ projectId: nu
   return data(`/api/v1/shorts/${shortId}/composition`);
 }
 
-export async function getComposition(projectId: number): Promise<CompositionDto> {
-  return data(`/api/v1/projects/${projectId}/tracks`);
+export async function getComposition(projectId: number, signal?: AbortSignal): Promise<CompositionDto> {
+  return data(`/api/v1/projects/${projectId}/tracks`, { signal });
 }
 
 /** Creates a track. `instrument` must be a sampled instrument or a recorded role; the server rejects others. */

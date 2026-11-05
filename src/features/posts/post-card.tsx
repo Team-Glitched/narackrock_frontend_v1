@@ -17,21 +17,28 @@ import { useCurrentUserId } from "@/features/auth/use-current-user";
 import { postError, relativeTime } from "@/features/posts/post-utils";
 import { reportPost } from "@/lib/api/reports";
 
-/** A post card. `moderation` (from the gallery role) enables moderator deletion and member sanctions. */
-export function CommunityPost({
-  post,
-  onChanged,
-  onComments,
-  onProfile,
-  moderation,
-}: {
+type CommunityPostProps = {
   moderation?: ModerationScope;
   post: PostListItem;
   onChanged: () => void;
   onComments: (postId: number) => void;
   onProfile?: (userId: number) => void;
-}) {
+};
+
+/** A post card. `moderation` (from the gallery role) enables moderator deletion and member sanctions. */
+export function CommunityPost(props: CommunityPostProps) {
   const currentUserId = useCurrentUserId();
+  return <ScopedCommunityPost key={`${currentUserId}:${props.post.postId}`} {...props} currentUserId={currentUserId} />;
+}
+
+function ScopedCommunityPost({
+  post,
+  onChanged,
+  onComments,
+  onProfile,
+  moderation,
+  currentUserId,
+}: CommunityPostProps & { currentUserId: number | null }) {
   const owner = currentUserId === post.writer.userId;
   const canModerate = Boolean(moderation?.canManage);
   const canModerateMember = canSanction(moderation, currentUserId, post.writer.userId);
@@ -40,6 +47,7 @@ export function CommunityPost({
   const [moderationNotice, setModerationNotice] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
   const optionButton = useRef<HTMLButtonElement>(null);
+  const articleRef = useRef<HTMLElement>(null);
   const hiddenPosts = useHiddenPosts();
   const [reportOpen, setReportOpen] = useState(false);
   const detailKey = `${currentUserId}:${post.postId}`;
@@ -63,24 +71,38 @@ export function CommunityPost({
   const moderating = canModerate && !owner;
 
   useEffect(() => {
-    if (currentUserId === null) return;
-    let cancelled = false;
-    fetchPost(post.postId)
-      .then((detail) => {
-        if (!cancelled) {
+    const article = articleRef.current;
+    if (currentUserId === null || !article) return;
+    const controller = new AbortController();
+    const { signal } = controller;
+    function loadDetail() {
+      void fetchPost(post.postId, signal)
+        .then((detail) => {
+          if (signal.aborted) return;
           setDetailResult({ key: detailKey, detail });
           setPreview(detail.content);
           setImageUrl(detail.imageUrl);
-        }
-      })
-      .catch((error) => {
-        if (!cancelled) {
-          setDetailResult({ key: detailKey, detail: null });
-          setError(postError(error));
-        }
-      });
+        })
+        .catch((error) => {
+          if (!signal.aborted) {
+            setDetailResult({ key: detailKey, detail: null });
+            setError(postError(error));
+          }
+        });
+    }
+    if (typeof IntersectionObserver === "undefined") {
+      loadDetail();
+      return () => controller.abort();
+    }
+    const observer = new IntersectionObserver((entries) => {
+      if (signal.aborted || !entries.some((entry) => entry.isIntersecting)) return;
+      observer.disconnect();
+      loadDetail();
+    }, { rootMargin: "300px 0px" });
+    observer.observe(article);
     return () => {
-      cancelled = true;
+      observer.disconnect();
+      controller.abort();
     };
   }, [currentUserId, detailKey, post.postId, post.imageUrl]);
 
@@ -143,7 +165,7 @@ export function CommunityPost({
 
   if (editing) {
     return (
-      <article className={communityStyles.communityPost} data-post-id={post.postId}>
+      <article ref={articleRef} className={communityStyles.communityPost} data-post-id={post.postId}>
         <div className={communityStyles.postForm}>
           <input
             aria-label="게시글 제목 수정"
@@ -188,7 +210,7 @@ export function CommunityPost({
   }
 
   return (
-    <article className={communityStyles.communityPost} data-post-id={post.postId}>
+    <article ref={articleRef} className={communityStyles.communityPost} data-post-id={post.postId}>
       {interactions.shareDialog}
       <div className={communityStyles.communityAuthor}>
         <button
@@ -295,13 +317,13 @@ export function CommunityPost({
           {post.title}
         </button>
       </h2>
-      {preview !== "" && (
+      {(currentUserId === null || preview) && (
         <button
           className={communityStyles.postPreview}
           onClick={() => onComments(post.postId)}
           disabled={submitting}
         >
-          {preview ?? "로그인 후 게시글 내용을 확인할 수 있어요."}
+          {currentUserId === null ? "로그인 후 게시글 내용을 확인할 수 있어요." : preview}
         </button>
       )}
       {error && (

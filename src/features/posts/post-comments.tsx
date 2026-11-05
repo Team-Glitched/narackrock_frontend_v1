@@ -62,7 +62,7 @@ export function PostCommentsScreen({
   const [post, setPost] = useState<PostDetailResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [revision, setRevision] = useState(0);
-  const role = useGalleryRole(post?.gallery.galleryId ?? null);
+  const { role } = useGalleryRole(post?.gallery.galleryId ?? null);
   const postGalleryId = post?.gallery.galleryId ?? null;
   const roleCanManage = role?.canManage === true;
   const moderationGalleryId = roleCanManage ? postGalleryId : null;

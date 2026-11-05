@@ -90,8 +90,13 @@ export const DEFAULT_GALLERY_ID = 1;
 
 // 전체 갤러리 목록. 비로그인도 호출할 수 있고, 페이지네이션 없이 전량이 온다.
 // 정렬은 서버가 구독자 수 내림차순 → id 오름차순으로 고정한다.
-export function fetchGalleries(): Promise<GalleryListItem[]> {
-  return apiRequest<ApiResponse<GalleryListItem[]>>("/api/v1/galleries").then((r) => r.data);
+export function fetchGalleries(signal?: AbortSignal): Promise<GalleryListItem[]> {
+  return apiRequest<ApiResponse<GalleryListItem[]>>("/api/v1/galleries", { signal }).then((r) => r.data);
+}
+
+export function fetchManageableGalleries(signal?: AbortSignal): Promise<GalleryListItem[]> {
+  return apiRequest<ApiResponse<GalleryListItem[]>>("/api/v1/galleries/manageable", { signal })
+    .then((response) => response.data);
 }
 
 // 요청자가 구독한 갤러리만. 인증 필수 — 비로그인으로 부르면 401(빈 본문)이다.
@@ -155,19 +160,20 @@ export type PostListQuery = {
 export function fetchPosts(
   galleryId: number,
   query: PostListQuery = {},
+  signal?: AbortSignal,
 ): Promise<PostListResponse> {
   const { page = 0, size = 20, sort = "LATEST", keyword } = query;
   const params = new URLSearchParams({ page: String(page), size: String(size), sort });
   const trimmed = keyword?.trim();
   if (trimmed) params.set("keyword", trimmed);
   return apiRequest<ApiResponse<PostListResponse>>(
-    `/api/v1/galleries/${galleryId}/posts?${params}`,
+    `/api/v1/galleries/${galleryId}/posts?${params}`, { signal },
   ).then((response) => response.data);
 }
 
 // 상세 조회는 로그인(Authorization 헤더)이 필요하다 — 백엔드가 isLiked/isDisliked를 계산하려면 요청자 식별이 필요하기 때문.
-export function fetchPost(postId: number): Promise<PostDetailResponse> {
-  return apiRequest<ApiResponse<PostDetailResponse>>(`/api/v1/posts/${postId}`).then(
+export function fetchPost(postId: number, signal?: AbortSignal): Promise<PostDetailResponse> {
+  return apiRequest<ApiResponse<PostDetailResponse>>(`/api/v1/posts/${postId}`, { signal }).then(
     (response) => response.data,
   );
 }

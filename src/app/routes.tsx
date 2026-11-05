@@ -16,9 +16,6 @@ import FriendsPage from "@/features/social/pages/friends-page";
 import JoinedPage from "@/features/community/pages/joined-page";
 import CreateCommunityPage from "@/features/community/pages/create-community-page";
 import CommunityPage from "@/features/community/pages/community-page";
-import CommunityAdminPage from "@/features/community/pages/community-admin-page";
-import CommunityMembersPage from "@/features/community/pages/community-members-page";
-import OwnedCommunitiesPage from "@/features/community/pages/owned-communities-page";
 import SourcesPage from "@/features/sources/pages/sources-page";
 import SourcePage from "@/features/sources/pages/source-page";
 import CreateSourcePage from "@/features/sources/pages/create-source-page";
@@ -34,21 +31,13 @@ import SubmissionsPage from "@/features/workspace/pages/submissions-page";
 import SubmissionPage from "@/features/workspace/pages/submission-page";
 import ReviewsPage from "@/features/workspace/pages/reviews-page";
 import LibraryPage from "@/features/workspace/pages/library-page";
-import StudioNewPage from "@/features/composition/pages/studio-new-page";
-import StudioPage from "@/features/composition/pages/studio-page";
-import LayerChoicePage from "@/features/composition/pages/layer-choice-page";
-import UploadPage from "@/features/composition/pages/upload-page";
-import RecordPage from "@/features/composition/pages/record-page";
-import NoteEditorPage from "@/features/composition/pages/note-editor-page";
-import ImportSourcePage from "@/features/composition/pages/import-source-page";
-import ChatPage from "@/features/social/pages/chat-page";
 import NotificationsPage from "@/features/notifications/pages/notifications-page";
-import AdminPage from "@/features/admin/pages/admin-page";
 import LikedPostsPage from "@/features/profile/pages/liked-posts-page";
 import PrivacyPage from "@/features/settings/pages/privacy-page";
 
 export const appRoutes: RouteObject[] = [{
   path: "/",
+  HydrateFallback: () => <p role="status">화면을 불러오는 중...</p>,
   element: <AppProviders><AppRuntime /></AppProviders>,
   children: [
     { index: true, element: <HomePage /> },
@@ -66,9 +55,9 @@ export const appRoutes: RouteObject[] = [{
     { path: "communities/new", element: <CreateCommunityPage /> },
     { path: "communities/:galleryId", element: <CommunityPage /> },
     { path: "communities/:galleryId/posts/:postId", element: <PostPage /> },
-    { path: "communities/:galleryId/manage", element: <CommunityAdminPage /> },
-    { path: "communities/:galleryId/members", element: <CommunityMembersPage /> },
-    { path: "communities/manage", element: <OwnedCommunitiesPage /> },
+    { path: "communities/:galleryId/manage", lazy: async () => ({ Component: (await import("@/features/community/pages/community-admin-page")).default }) },
+    { path: "communities/:galleryId/members", lazy: async () => ({ Component: (await import("@/features/community/pages/community-members-page")).default }) },
+    { path: "communities/manage", lazy: async () => ({ Component: (await import("@/features/community/pages/owned-communities-page")).default }) },
     { path: "sources", element: <SourcesPage /> },
     { path: "sources/:sourceId", element: <SourcePage /> },
     { path: "sources/:sourceId/comments", element: <SourcePage /> },
@@ -88,17 +77,17 @@ export const appRoutes: RouteObject[] = [{
     { path: "submissions/:submissionId", element: <SubmissionPage /> },
     { path: "reviews", element: <ReviewsPage /> },
     { path: "library", element: <LibraryPage /> },
-    { path: "studio/new", element: <StudioNewPage /> },
-    { path: "studio/:projectId", element: <StudioPage /> },
-    { path: "studio/shorts/:shortId", element: <StudioPage /> },
-    { path: "studio/:projectId/layers/new", element: <LayerChoicePage /> },
-    { path: "studio/:projectId/upload", element: <UploadPage /> },
-    { path: "studio/:projectId/record", element: <RecordPage /> },
-    { path: "studio/:projectId/tracks/:trackId/notes", element: <NoteEditorPage /> },
-    { path: "studio/:projectId/import", element: <ImportSourcePage /> },
-    { path: "chat", element: <ChatPage /> },
+    { path: "studio/new", lazy: async () => ({ Component: (await import("@/features/composition/pages/studio-new-page")).default }) },
+    { path: "studio/:projectId", lazy: async () => ({ Component: (await import("@/features/composition/pages/studio-page")).default }) },
+    { path: "studio/shorts/:shortId", lazy: async () => ({ Component: (await import("@/features/composition/pages/studio-page")).default }) },
+    { path: "studio/:projectId/layers/new", lazy: async () => ({ Component: (await import("@/features/composition/pages/layer-choice-page")).default }) },
+    { path: "studio/:projectId/upload", lazy: async () => ({ Component: (await import("@/features/composition/pages/upload-page")).default }) },
+    { path: "studio/:projectId/record", lazy: async () => ({ Component: (await import("@/features/composition/pages/record-page")).default }) },
+    { path: "studio/:projectId/tracks/:trackId/notes", lazy: async () => ({ Component: (await import("@/features/composition/pages/note-editor-page")).default }) },
+    { path: "studio/:projectId/import", lazy: async () => ({ Component: (await import("@/features/composition/pages/import-source-page")).default }) },
+    { path: "chat", lazy: async () => ({ Component: (await import("@/features/social/pages/chat-page")).default }) },
     { path: "notifications", element: <NotificationsPage /> },
-    { path: "admin", element: <AdminPage /> },
+    { path: "admin", lazy: async () => ({ Component: (await import("@/features/admin/pages/admin-page")).default }) },
     { path: "*", element: <NotFoundPage /> },
   ],
 }];

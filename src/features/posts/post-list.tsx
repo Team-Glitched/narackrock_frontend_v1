@@ -3,12 +3,11 @@ import { communityStyles } from "@/styles/community.styles";
 import { cn } from "@/lib/utils";
 import { uiLabels } from "@/lib/ui-labels";
 import { useHiddenPosts } from "@/features/community/hidden-posts";
-import { useEffect, useRef, useState } from "react";
+import { useRef } from "react";
 import { Avatar } from "@/components/avatar";
 import { IconSlot } from "@/components/icon-slot";
 import { useInfiniteScroll } from "@/hooks/use-infinite-scroll";
 import { useGalleryPosts } from "@/features/community/use-gallery-posts";
-import { fetchPost } from "@/lib/api/community";
 import type { PostListItem } from "@/lib/api/contracts";
 import { relativeTime } from "@/features/posts/post-utils";
 import { PopularContentActions } from "@/features/posts/popular-content-actions";
@@ -33,22 +32,11 @@ export function MiniPost({
   onOpen,
 }: {
   tall?: boolean;
-  post: PostListItem;
+  post: PostListItem & { content?: string };
   onOpen: (postId: number) => void;
 }) {
   const hiddenPosts = useHiddenPosts();
-  const [excerpt, setExcerpt] = useState(post.title);
-  useEffect(() => {
-    let active = true;
-    fetchPost(post.postId)
-      .then((detail) => {
-        if (active) setExcerpt(detail.content || detail.title);
-      })
-      .catch(() => {});
-    return () => {
-      active = false;
-    };
-  }, [post.postId]);
+  const excerpt = post.content || post.contentPreview || post.title;
   if (hiddenPosts.ids.has(post.postId)) return null;
   return (
     <div className={cn(communityStyles.miniPost, tall ? communityStyles.miniPostTall : "")} data-post-id={post.postId}>
