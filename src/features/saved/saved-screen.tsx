@@ -131,7 +131,7 @@ function SavedLibrary({
             setMenu(null);
           }}
         >
-          음악
+          어비스
         </button>
       </div>
       {error && <p role="alert">{error}</p>}
