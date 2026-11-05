@@ -13,7 +13,7 @@ import { Asset } from "@/components/asset";
 import { Avatar } from "@/components/avatar";
 import { deletePost, fetchPost, moderateGalleryContent, updatePost } from "@/lib/api/community";
 import type { PostDetailResponse, PostListItem } from "@/lib/api/contracts";
-import { getAccessToken, getCurrentUserId } from "@/lib/api/client";
+import { useCurrentUserId } from "@/features/auth/use-current-user";
 import { postError, relativeTime } from "@/features/posts/post-utils";
 import { reportPost } from "@/lib/api/reports";
 
@@ -31,7 +31,7 @@ export function CommunityPost({
   onComments: (postId: number) => void;
   onProfile?: (userId: number) => void;
 }) {
-  const currentUserId = getCurrentUserId();
+  const currentUserId = useCurrentUserId();
   const owner = currentUserId === post.writer.userId;
   const canModerate = Boolean(moderation?.canManage);
   const canModerateMember = canSanction(moderation, currentUserId, post.writer.userId);
@@ -42,8 +42,13 @@ export function CommunityPost({
   const optionButton = useRef<HTMLButtonElement>(null);
   const hiddenPosts = useHiddenPosts();
   const [reportOpen, setReportOpen] = useState(false);
-  const [detail, setDetail] = useState<PostDetailResponse | null>(null);
-  const interactions = usePostInteractions(post.postId, detail);
+  const detailKey = `${currentUserId}:${post.postId}`;
+  const [detailResult, setDetailResult] = useState<{ key: string; detail: PostDetailResponse | null } | null>(null);
+  const currentDetail = detailResult?.key === detailKey ? detailResult : null;
+  const interactions = usePostInteractions(post.postId, currentDetail?.detail ?? null);
+  const saveStatus = currentUserId === null || interactions.bookmarked !== undefined
+    ? "ready"
+    : currentDetail ? "unavailable" : "loading";
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState(post.title);
   const [content, setContent] = useState("");
@@ -56,23 +61,26 @@ export function CommunityPost({
   const moderating = canModerate && !owner;
 
   useEffect(() => {
-    if (!getAccessToken()) return;
+    if (currentUserId === null) return;
     let cancelled = false;
     fetchPost(post.postId)
       .then((detail) => {
         if (!cancelled) {
-          setDetail(detail);
+          setDetailResult({ key: detailKey, detail });
           setPreview(detail.content);
           setImageUrl(detail.imageUrl);
         }
       })
       .catch((error) => {
-        if (!cancelled) setError(postError(error));
+        if (!cancelled) {
+          setDetailResult({ key: detailKey, detail: null });
+          setError(postError(error));
+        }
       });
     return () => {
       cancelled = true;
     };
-  }, [post.postId, post.imageUrl]);
+  }, [currentUserId, detailKey, post.postId, post.imageUrl]);
 
   async function startEdit() {
     setMenuOpen(false);
@@ -352,13 +360,14 @@ export function CommunityPost({
       )}
       <PostActions
         likeCount={interactions.reaction?.likeCount ?? post.likeCount}
-        dislikeCount={interactions.reaction?.dislikeCount ?? 0}
+        dislikeCount={interactions.reaction?.dislikeCount}
         commentCount={post.commentCount}
         vote={interactions.reaction?.isLiked ? "like" : interactions.reaction?.isDisliked ? "dislike" : null}
         busy={interactions.busy}
         onVote={(kind) => void interactions.vote(kind)}
         onComments={() => onComments(post.postId)}
         saved={interactions.bookmarked}
+        saveStatus={saveStatus}
         onSave={() => void interactions.toggleBookmark()}
         onShare={() => void interactions.share(post.title)}
       />

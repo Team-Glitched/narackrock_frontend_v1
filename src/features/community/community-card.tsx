@@ -1,3 +1,4 @@
+import { LoaderCircle } from "lucide-react";
 import { communityStyles } from "@/styles/community.styles";
 import { sharedStyles } from "@/styles/shared.styles";
 import { cn } from "@/lib/utils";
@@ -58,6 +59,15 @@ export function CommunityJoinButton({
   const membership = useCommunityMembership();
   const joined = membership.isJoined(community.id);
   const pending = membership.isPending(community.id);
+  const { loading, loadFailed } = membership;
+  const statusUnknown = loading || loadFailed;
+  const label = loading
+    ? "가입 상태 확인 중"
+    : loadFailed
+      ? "가입 상태를 불러오지 못했습니다"
+      : joined
+        ? "가입됨 — 누르면 탈퇴"
+        : "가입하기";
   // The creator cannot leave their own gallery, so the join control shows a fixed badge (display only).
   if (userId !== null && community.ownerId === userId)
     return (
@@ -78,16 +88,25 @@ export function CommunityJoinButton({
     <button
       className={cn(
         communityStyles.communityJoin,
-        joined ? sharedStyles.isJoined : "",
+        joined && !statusUnknown ? sharedStyles.isJoined : "",
         block ? communityStyles.communityJoinBlock : "",
       )}
-      aria-pressed={joined}
-      aria-busy={pending}
-      disabled={pending || membership.loading || membership.loadFailed}
-      aria-label={`${community.name} ${joined ? "가입됨 — 누르면 탈퇴" : "가입하기"}`}
+      aria-pressed={statusUnknown ? undefined : joined}
+      aria-busy={pending || loading}
+      disabled={pending || statusUnknown}
+      aria-label={`${community.name} ${label}`}
       onClick={() => membership.toggle(community.id)}
     >
-      {joined ? "가입됨" : "가입"}
+      <span aria-hidden="true" className="grid place-items-center">
+        <span className="invisible col-start-1 row-start-1">가입됨</span>
+        {loading ? (
+          <LoaderCircle className="col-start-1 row-start-1 size-4 motion-safe:animate-spin" />
+        ) : (
+          <span className="col-start-1 row-start-1">
+            {loadFailed ? "‒" : joined ? "가입됨" : "가입"}
+          </span>
+        )}
+      </span>
     </button>
   );
 }

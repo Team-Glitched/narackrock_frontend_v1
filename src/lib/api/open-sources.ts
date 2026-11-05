@@ -8,14 +8,14 @@ async function data<T>(path: string, init?: RequestInit): Promise<T> {
 
 export type OpenSourceWriter = { userId: number; nickname: string; profileImageUrl: string | null };
 
-/** `GET /api/v1/open-sources` item. usageCount stays 0 until the backend supports project insertion. */
+/** `GET /api/v1/open-sources` item. A null usageCount means usage is not tracked. */
 export type OpenSourceSummary = {
   openSourceId: number;
   title: string;
   description: string | null;
   thumbnailUrl: string | null;
   writer: OpenSourceWriter;
-  usageCount: number;
+  usageCount: number | null;
   isSaved: boolean;
   isLiked: boolean;
   isDisliked: boolean;
