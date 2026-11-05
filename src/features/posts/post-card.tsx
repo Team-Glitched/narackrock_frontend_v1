@@ -46,9 +46,11 @@ export function CommunityPost({
   const [detailResult, setDetailResult] = useState<{ key: string; detail: PostDetailResponse | null } | null>(null);
   const currentDetail = detailResult?.key === detailKey ? detailResult : null;
   const interactions = usePostInteractions(post.postId, currentDetail?.detail ?? null);
+  const detailStatus = currentDetail ? "unavailable" : "loading";
   const saveStatus = currentUserId === null || interactions.bookmarked !== undefined
     ? "ready"
-    : currentDetail ? "unavailable" : "loading";
+    : detailStatus;
+  const voteStatus = currentUserId === null || interactions.reaction ? "ready" : detailStatus;
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState(post.title);
   const [content, setContent] = useState("");
@@ -363,6 +365,7 @@ export function CommunityPost({
         dislikeCount={interactions.reaction?.dislikeCount}
         commentCount={post.commentCount}
         vote={interactions.reaction?.isLiked ? "like" : interactions.reaction?.isDisliked ? "dislike" : null}
+        voteStatus={voteStatus}
         busy={interactions.busy}
         onVote={(kind) => void interactions.vote(kind)}
         onComments={() => onComments(post.postId)}

@@ -65,7 +65,7 @@ export function HomeWorkSection({
   onStartSong: () => void;
   onResume: (projectId: number, shortId: number | null) => void;
 }) {
-  const { works, error } = useVisitedWorks();
+  const { works, error, loading } = useVisitedWorks();
   const items = workingMusic(works);
   return (
     <section className="home-working-music">
@@ -73,6 +73,7 @@ export function HomeWorkSection({
         이 브라우저에서 연 작업
       </SectionTitle>
       {error && <p role="alert">{error}</p>}
+      {loading && <p role="status">방문한 작업을 불러오는 중입니다.</p>}
       {items.length ? (
         <div
           className="scrollbar-none flex snap-x snap-mandatory gap-3 overflow-x-auto px-5 pb-1 [scroll-padding-inline:20px]"
@@ -108,7 +109,7 @@ export function HomeWorkSection({
             );
           })}
         </div>
-      ) : (
+      ) : !loading && !error ? (
         <div className="mx-5 rounded-[14px] border border-solid border-app-border bg-app-panel p-5 [&>p]:m-0 [&>p]:mb-4 [&>p]:text-body [&>p]:leading-5 [&>p]:font-normal [&>p]:text-app-muted">
           <p>새 곡을 만들거나 음악에 참여해 보세요.</p>
           <button
@@ -120,7 +121,7 @@ export function HomeWorkSection({
             작곡 시작하기
           </button>
         </div>
-      )}
+      ) : null}
     </section>
   );
 }

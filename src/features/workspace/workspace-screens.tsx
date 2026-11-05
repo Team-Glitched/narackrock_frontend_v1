@@ -165,34 +165,61 @@ export function SubmissionsScreen({
 }) {
   const { works } = useWorkspace();
   const userId = useCurrentUserId();
-  const [result, setResult] = useState<{ userId: number | null; items: ContributionDto[] } | null>(
-    null,
-  );
-  const items = result?.userId === userId ? result.items : [];
-  const [error, setError] = useState("");
+  const [attempt, setAttempt] = useState(0);
+  const [result, setResult] = useState<{
+    userId: number;
+    works: typeof works;
+    attempt: number;
+    items: ContributionDto[];
+    failed: number;
+  } | null>(null);
+  const current = result?.userId === userId && result.works === works ? result : null;
+  const loading = userId !== null && works.length > 0 && current?.attempt !== attempt;
+  const items = current?.items ?? [];
   useEffect(() => {
+    if (userId === null || !works.length) return;
     let active = true;
-    Promise.all(works.map((work) => listContributions(work.id)))
-      .then((lists) => {
-        if (active)
-          setResult({ userId, items: lists.flat().filter((item) => item.userId === userId) });
-      })
-      .catch((cause) => {
-        if (active)
-          setError(cause instanceof Error ? cause.message : "제출을 불러오지 못했습니다.");
+    void Promise.allSettled(works.map((work) => listContributions(work.id))).then((lists) => {
+      if (!active) return;
+      setResult({
+        userId,
+        works,
+        attempt,
+        items: lists.flatMap((list) =>
+          list.status === "fulfilled" ? list.value.filter((item) => item.userId === userId) : [],
+        ),
+        failed: lists.filter((list) => list.status === "rejected").length,
       });
+    });
     return () => {
       active = false;
     };
-  }, [works, userId]);
+  }, [works, userId, attempt]);
   return (
     <Page
       title="확인된 프로젝트의 제출"
       subtitle="이 브라우저에서 연 프로젝트만 조회합니다. 전체 프로젝트 간 제출 목록 API는 없습니다."
     >
-      {error && <p role="alert">{error}</p>}
-      {!items.length && (
-        <Empty>확인된 제출이 없습니다. 프로젝트를 열어 방문 이력에 추가해주세요.</Empty>
+      {userId === null && <Empty>로그인 후 내 제출을 확인할 수 있습니다.</Empty>}
+      {loading && <p role="status">제출 목록을 불러오는 중입니다.</p>}
+      {!loading && !!current?.failed && (
+        <div>
+          <p role="alert">
+            {current.failed === works.length
+              ? "제출 목록을 불러오지 못했습니다."
+              : `${current.failed}개 프로젝트의 제출을 불러오지 못했습니다.`}
+          </p>
+          <button type="button" onClick={() => setAttempt((value) => value + 1)}>
+            다시 시도
+          </button>
+        </div>
+      )}
+      {userId !== null && !loading && !current?.failed && !items.length && (
+        <Empty>
+          {works.length
+            ? "이 브라우저에서 연 프로젝트에 내 제출이 없습니다."
+            : "이 브라우저에서 연 프로젝트가 없습니다."}
+        </Empty>
       )}
       {items.map((item) => (
         <button

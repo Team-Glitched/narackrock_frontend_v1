@@ -10,9 +10,11 @@ import { MiniPost } from "@/features/posts/post-list";
 import { CommunityCard, galleryToCommunity, type Community } from "../community/community-card";
 import { fetchGalleries, fetchPosts } from "@/lib/api/community";
 import { getShorts } from "@/lib/api/shorts";
-import type { GalleryListItem, PostListItem, PostWriter, ShortItemDto } from "@/lib/api/contracts";
+import type { GalleryListItem, PostListItem, ShortItemDto } from "@/lib/api/contracts";
+import { searchPeople, type SearchedPerson } from "@/lib/api/social";
 import { listOpenSources, type OpenSourceSummary } from "@/lib/api/open-sources";
 import { useCurrentUserId } from "@/features/auth/use-current-user";
+import { SignInRequired } from "@/features/auth/sign-in-required";
 import { sourceError } from "@/features/sources/source-screens";
 import type { SearchScope } from "@/features/search/search-scope";
 import { searchCommunityPosts } from "@/features/community/post-search";
@@ -27,7 +29,7 @@ type Results = {
   posts: PostListItem[];
   communities: GalleryListItem[];
   songs: ShortItemDto[];
-  people: PostWriter[];
+  people: SearchedPerson[];
   sources: OpenSourceSummary[];
 };
 const empty = (): Results => ({ posts: [], communities: [], songs: [], people: [], sources: [] });
@@ -74,14 +76,16 @@ export function ScopedSearch({
   const inputRef = useRef<HTMLInputElement>(null);
   const galleryId = community?.galleryId;
   const userId = useCurrentUserId();
+  const peopleSignInRequired = scope === "people" && userId === null;
   const key = `${userId}:${galleryId ?? "all"}:${scope}:${query.trim()}:${retry}`;
   const [loaded, setLoaded] = useState<{ key: string; results: Results; error?: string } | null>(
     null,
   );
   useEffect(() => {
     const keyword = query.trim();
-    if (!keyword) return;
+    if (!keyword || peopleSignInRequired) return;
     let active = true;
+    const controller = new AbortController();
     const timer = window.setTimeout(() => {
       void (async () => {
         const results = empty();
@@ -97,22 +101,24 @@ export function ScopedSearch({
           results.songs = (await getShorts()).items.filter((item) =>
             matches(`${item.title} ${item.author.nickname}`),
           );
-        else if (scope === "posts" || scope === "people") {
+        else if (scope === "people") {
+          const size = 20;
+          const users = new Map<number, SearchedPerson>();
+          for (let page = 0; ; page++) {
+            const result = await searchPeople(keyword, page, size, controller.signal);
+            if (!active) return;
+            for (const person of result.users) users.set(person.userId, person);
+            if (result.users.length === 0 || (page + 1) * size >= result.totalResultCount) break;
+          }
+          results.people = [...users.values()];
+        } else if (scope === "posts") {
           const galleries = await fetchGalleries();
           const pages = await Promise.all(
-            galleries.map(async (gallery) =>
-              scope === "posts"
-                ? searchCommunityPosts(fetchPosts, gallery.galleryId, keyword)
-                : (await fetchPosts(gallery.galleryId, { size: 100 })).posts,
+            galleries.map((gallery) =>
+              searchCommunityPosts(fetchPosts, gallery.galleryId, keyword),
             ),
           );
-          const posts = [...new Map(pages.flat().map((post) => [post.postId, post])).values()];
-          if (scope === "posts") results.posts = posts;
-          else {
-            results.people = [
-              ...new Map(posts.map((post) => [post.writer.userId, post.writer])).values(),
-            ].filter((person) => matches(person.nickname));
-          }
+          results.posts = [...new Map(pages.flat().map((post) => [post.postId, post])).values()];
         } else {
           if (userId === null) throw new Error("오픈소스 검색은 로그인 후 사용할 수 있습니다.");
           for (let page = 0; ; page++) {
@@ -135,9 +141,10 @@ export function ScopedSearch({
     }, 200);
     return () => {
       active = false;
+      controller.abort();
       window.clearTimeout(timer);
     };
-  }, [scope, query, key, galleryId, userId]);
+  }, [scope, query, key, galleryId, userId, peopleSignInRequired]);
   const results = loaded?.key === key ? loaded.results : null;
   return (
     <div className={cn(socialStyles.searchView, sharedStyles.scopedSearch)}>
@@ -198,7 +205,8 @@ export function ScopedSearch({
             : `${scopes.find((item) => item.id === scope)?.label} 검색 결과`
         }
       >
-        {query.trim() && !results && <p role="status">검색 중...</p>}
+        {peopleSignInRequired && <SignInRequired>사용자 검색은 로그인 후 사용할 수 있습니다.</SignInRequired>}
+        {!peopleSignInRequired && query.trim() && !results && <p role="status">검색 중...</p>}
         {loaded?.key === key && loaded.error && (
           <div role="alert">
             <p>{loaded.error}</p>

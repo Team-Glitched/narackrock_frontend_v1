@@ -21,7 +21,7 @@ export function AudioPlaybackBar({
   playing: boolean;
   muted: boolean;
   positionMs: number;
-  durationMs: number;
+  durationMs: number | null;
   onToggle: () => void;
   onSeek: (ms: number) => void;
   onMute: () => void;
@@ -29,7 +29,9 @@ export function AudioPlaybackBar({
   loading?: boolean;
   label?: string;
 }) {
-  const position = Math.max(0, Math.min(positionMs, durationMs));
+  const position = Math.max(0, durationMs === null ? positionMs : Math.min(positionMs, durationMs));
+  const elapsed = playbackClock(position);
+  const duration = durationMs === null ? "‒:‒" : playbackClock(durationMs);
   return (
     <div
       className={cn(
@@ -52,7 +54,7 @@ export function AudioPlaybackBar({
         {playing ? <Pause aria-hidden="true" size={18} /> : <Asset name="play.svg" />}
       </button>
       <span className={"flex-none text-body"}>
-        {playbackClock(position)} / {playbackClock(durationMs)}
+        {elapsed} / {duration}
       </span>
       <input
         className={
@@ -60,12 +62,12 @@ export function AudioPlaybackBar({
         }
         type="range"
         aria-label={`${label} 재생 위치`}
-        aria-valuetext={`${playbackClock(position)} / ${playbackClock(durationMs)}`}
+        aria-valuetext={`${elapsed} / ${durationMs === null ? "재생 시간 정보 없음" : duration}`}
         min={0}
         max={durationMs || 0}
         step={100}
-        value={position}
-        disabled={disabled || loading || durationMs === 0}
+        value={durationMs === null ? 0 : position}
+        disabled={disabled || loading || !durationMs}
         onChange={(event) => onSeek(Number(event.target.value))}
         style={{
           background: `linear-gradient(to right,var(--purple) ${durationMs ? (position / durationMs) * 100 : 0}%,var(--line-strong) 0)`,
