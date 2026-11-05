@@ -26,6 +26,7 @@ export type PublishSourceInput = {
   description: string | null;
   audio: File;
   image: File | null;
+  visibility: "PRIVATE" | "PUBLIC";
 };
 
 export type PublishSourceDeps = {
@@ -58,7 +59,7 @@ function readPending(storage: PublishSourceDeps["storage"], key: string): Pendin
   }
 }
 
-/** True when an earlier attempt already created the PRIVATE publication and only publishing remains. */
+/** True when an earlier attempt already created a publication and only its final updates remain. */
 export function hasPendingPublication(input: Pick<PublishSourceInput, "userId" | "draftKey">, storage: PublishSourceDeps["storage"] = localStorage) {
   return readPending(storage, pendingKey(input))?.openSourceId != null;
 }
@@ -75,13 +76,14 @@ async function findCreated(deps: PublishSourceDeps, mediaFileId: number): Promis
 }
 
 /**
- * Uploads the audio/thumbnail, creates the PRIVATE publication, then makes it PUBLIC. A failure at any step keeps
- * the progress so the next call resumes at the failed step; the pending entry is removed only after PUBLIC succeeds.
+ * Uploads the audio/thumbnail and creates a PRIVATE publication; publishes only when explicitly requested.
+ * Failed attempts keep progress so retry continues from the failed step without duplicating a publication.
  */
 export async function publishSource(input: PublishSourceInput, deps: PublishSourceDeps = browserDeps()): Promise<number> {
   const key = pendingKey(input);
   const save = (value: PendingPublication) => deps.storage.setItem(key, JSON.stringify(value));
   let pending = readPending(deps.storage, key);
+  const recovering = pending !== null;
   if (!pending) {
     const mediaFileId = await deps.uploadMedia(input.audio, "AUDIO");
     const thumbnailMediaFileId = input.image ? await deps.uploadMedia(input.image, "IMAGE") : null;
@@ -110,7 +112,10 @@ export async function publishSource(input: PublishSourceInput, deps: PublishSour
     pending = { ...pending, title: input.title, description: input.description };
     save(pending);
   }
-  await deps.setOpenSourceVisibility(openSourceId, "PUBLIC");
+  // A lost visibility response may already have published a recovered entry. Honour a new private
+  // choice explicitly on retries; a freshly created entry is already private on the server.
+  if (input.visibility === "PUBLIC" || recovering)
+    await deps.setOpenSourceVisibility(openSourceId, input.visibility);
   deps.storage.removeItem(key);
   return openSourceId;
 }

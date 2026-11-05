@@ -3,7 +3,7 @@ import { sharedStyles } from "@/styles/shared.styles";
 import { cn } from "@/lib/utils";
 import { communityStyles } from "@/styles/community.styles";
 import { buttonVariants } from "@/styles/variants";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { Asset } from "@/components/asset";
 import { Avatar } from "@/components/avatar";
 import { MiniPost } from "@/features/posts/post-list";
@@ -57,6 +57,19 @@ export function ScopedSearch({
   onProfile: (id: number) => void;
 }) {
   const [retry, setRetry] = useState(0);
+  // Keep the native input stable while React Router commits query replacements.
+  const [searchText, setSearchText] = useState(query);
+  const [syncedQuery, setSyncedQuery] = useState(query);
+  if (syncedQuery !== query) {
+    setSyncedQuery(query);
+    setSearchText(query);
+  }
+  const commitQuery = useEffectEvent(onQuery);
+  useEffect(() => {
+    if (searchText === query) return;
+    const timer = window.setTimeout(() => commitQuery(searchText), 150);
+    return () => window.clearTimeout(timer);
+  }, [searchText, query]);
   const scope = community ? "posts" : requestedScope;
   const inputRef = useRef<HTMLInputElement>(null);
   const galleryId = community?.galleryId;
@@ -142,12 +155,13 @@ export function ScopedSearch({
                 ? `${community.name} 내부 게시글 검색`
                 : `${scopes.find((item) => item.id === scope)?.label} 검색`
             }
-            value={query}
-            onChange={(event) => onQuery(event.target.value)}
+            value={searchText}
+            onChange={(event) => setSearchText(event.target.value)}
             placeholder={community ? "커뮤니티 내 게시글 검색" : "검색"}
           />
           <button
             onClick={() => {
+              setSearchText("");
               onQuery("");
               inputRef.current?.focus();
             }}

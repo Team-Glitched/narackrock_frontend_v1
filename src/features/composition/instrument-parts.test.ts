@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { instruments } from "./instrument-catalog.ts";
-import { instrumentGroups, partFamily, partLabel, supportsMidi, occupyingTrack } from "./instrument-parts.ts";
+import { instrumentGroups, partFamily, partLabel, supportsMidi, tracksUsingInstrumentFamily } from "./instrument-parts.ts";
 
 test("every sampled tone has exactly one instrument family", () => {
   for(const instrument of instruments) assert.equal(instrumentGroups.filter(group=>group.instruments.includes(instrument.id)).length,1,instrument.id);
@@ -19,10 +19,21 @@ test("recorded vocal roles retain their labels and never become a piano", () => 
   assert.equal(partLabel("legacy-custom"),"legacy-custom");
   assert.equal(supportsMidi("vocal"),false); assert.equal(supportsMidi("PIANO"),true);
 });
-test("a teammate reserves the entire family, excluding the current track and rejected tracks", () => {
-  const tracks=[{trackId:1,instrument:"electric-guitar",approvalStatus:"PENDING",name:"기타"}];
-  assert.equal(occupyingTrack(tracks,"distortion-guitar")?.trackId,1);
-  assert.equal(occupyingTrack(tracks,"acoustic-guitar"),undefined);
-  assert.equal(occupyingTrack(tracks,"overdrive-guitar",1),undefined);
-  assert.equal(occupyingTrack([{...tracks[0],approvalStatus:"REJECTED"}],"overdrive-guitar"),undefined);
+test("shared instrument families list all other active layers for information", () => {
+  const tracks = [
+    { trackId: 1, instrument: "electric-guitar", approvalStatus: "PENDING", name: "리듬 기타" },
+    { trackId: 2, instrument: "distortion-guitar", approvalStatus: "APPROVED", name: "리드 기타" },
+    { trackId: 3, instrument: "overdrive-guitar", approvalStatus: "REJECTED", name: "반려 기타" },
+  ];
+  assert.deepEqual(tracksUsingInstrumentFamily(tracks, "overdrive-guitar").map(track => track.trackId), [1, 2]);
+  assert.deepEqual(tracksUsingInstrumentFamily(tracks, "electric-guitar", 1).map(track => track.trackId), [2]);
+  assert.deepEqual(tracksUsingInstrumentFamily(tracks, "acoustic-guitar"), []);
+  assert.deepEqual(tracksUsingInstrumentFamily(tracks, "unknown"), []);
+});
+test("duet vocals and chorus share the same usage group", () => {
+  const tracks = [
+    { trackId: 1, instrument: "vocal", approvalStatus: "DRAFT", name: "보컬 1" },
+    { trackId: 2, instrument: "backing-vocal", approvalStatus: "APPROVED", name: "코러스" },
+  ];
+  assert.deepEqual(tracksUsingInstrumentFamily(tracks, "vocal").map(track => track.trackId), [1, 2]);
 });
