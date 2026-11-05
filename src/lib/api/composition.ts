@@ -34,6 +34,7 @@ export type TrackDto = {
   name: string;
   instrument: string | null;
   volume: number;
+  pan: number;
   isMuted: boolean;
   isSolo: boolean;
   approvalStatus: string;

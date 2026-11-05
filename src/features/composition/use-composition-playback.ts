@@ -1,437 +1,393 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
 import * as Tone from "tone";
-import type { CompositionDto } from "@/lib/api/composition";
+import type { TrackDto } from "@/lib/api/composition";
+import type { AudioSelection } from "./prepare-audio-file";
 import { signatureTiming, type TimeSignature } from "./time-signature";
-import { findInstrument, sampleUrls, type InstrumentDefinition } from "./instrument-catalog";
-import { compositionEndMs, drumTailMs } from "./composition-playback-timeline";
+import { findInstrument, type InstrumentDefinition } from "./instrument-catalog";
+import {
+  audioPlaybackWindow,
+  buildPlaybackEvents,
+  playbackEndMs,
+  playbackEventIsDue,
+  playbackHasEnded,
+  type PlaybackEvent,
+} from "./composition-playback-timeline";
+import { PlaybackGeneration, PlaybackResources } from "./composition-playback-runtime";
 import { partLabel } from "./instrument-parts";
 
-type TrackChain = { gain: Tone.Gain; sampler: Tone.Sampler | null; instrumentId: string | null };
+export type PlaybackComposition = {
+  project: {
+    bpm: number;
+    ppq: number;
+    maxDurationMs: number;
+    timeSignatureNumerator?: number;
+    timeSignatureDenominator?: number;
+  };
+  tracks: TrackDto[];
+};
 
-/** The project's shared time signature; the server composition is the only source. */
-export function projectSignature(composition: CompositionDto | null): TimeSignature {
+export type CompositionPlaybackOptions = {
+  scopeKey?: string;
+  durationMs?: number;
+  initialVolume?: number;
+  muted?: boolean;
+  onEnded?: () => void;
+};
+
+export type AudioAudition = { file: File; selection?: AudioSelection };
+
+export function projectSignature(composition: PlaybackComposition | null): TimeSignature {
   return {
     numerator: composition?.project.timeSignatureNumerator ?? 4,
     denominator: composition?.project.timeSignatureDenominator ?? 4,
   };
 }
 
-/**
- * Plays a composition: MIDI notes through each track's sampled instrument (`/audio/instruments/<id>/`), audio
- * clips through media elements. An unknown instrument or a sample that fails to load is reported, never replaced
- * with another sound. Per-track volume/mute are local mixer settings.
- */
-export function useCompositionPlayback(composition: CompositionDto | null) {
+const level = (value: number) => Math.max(0, Math.min(100, value));
+const message = (cause: unknown) => cause instanceof Error ? cause.message : "오디오를 재생하지 못했습니다.";
+
+/** Instance-local clocks and disposable voice graphs share only decoded resources within this scope. */
+export function useCompositionPlayback(
+  composition: PlaybackComposition | null,
+  options?: CompositionPlaybackOptions,
+) {
   const signature = useMemo(() => projectSignature(composition), [composition]);
   const [playing, setPlaying] = useState(false);
   const [metronome, setMetronome] = useState(false);
+  const metronomeRef = useRef(false);
+  metronomeRef.current = metronome;
   const [positionMs, setPositionMs] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [trackVolumes, setTrackVolumes] = useState<Record<number, number>>({});
   const trackVolumesRef = useRef<Record<number, number>>({});
   const [mutedTrackIds, setMutedTrackIds] = useState<Set<number>>(() => new Set());
   const mutedTrackIdsRef = useRef(new Set<number>());
-  const [volume, setVolumeState] = useState(20);
-  const volumeRef = useRef(20);
-  const masterRef = useRef<Tone.Gain | null>(null);
-  const chainsRef = useRef(new Map<number, TrackChain>());
-  const previewRef = useRef(new Map<string, Promise<Tone.Sampler>>());
+  const [volume, setVolumeState] = useState(level(options?.initialVolume ?? 20));
+  const volumeRef = useRef(volume);
+  const optionsRef = useRef(options);
+  optionsRef.current = options;
+  const compositionRef = useRef(composition);
+  compositionRef.current = composition;
+  const mounted = useRef(false);
+  const masterRef = useRef<GainNode | null>(null);
+  const resourcesRef = useRef<PlaybackResources | null>(null);
+  const mainRef = useRef<PlaybackGeneration | null>(null);
+  const previewRef = useRef<PlaybackGeneration | null>(null);
+  const mainRequest = useRef(0);
+  const previewRequest = useRef(0);
   const positionRef = useRef(0);
-  const playRequestRef = useRef(0);
-  const audioRef = useRef<HTMLAudioElement[]>([]);
-  const timersRef = useRef<number[]>([]);
-  const intervalRef = useRef<number | null>(null);
 
+  const resources = useCallback(() => resourcesRef.current ??= new PlaybackResources(), []);
   const master = useCallback(() => {
-    masterRef.current ??= new Tone.Gain(volumeRef.current / 100).toDestination();
+    if (!masterRef.current) {
+      const context = Tone.getContext().rawContext;
+      masterRef.current = context.createGain();
+      masterRef.current.connect(context.destination);
+    }
+    masterRef.current.gain.value = optionsRef.current?.muted ? 0 : volumeRef.current / 100;
     return masterRef.current;
   }, []);
 
-  const trackLevel = useCallback(
-    (trackId: number) =>
-      mutedTrackIdsRef.current.has(trackId)
-        ? 0
-        : (trackVolumesRef.current[trackId] ??
-            composition?.tracks.find((track) => track.trackId === trackId)?.volume ??
-            100) / 100,
-    [composition],
-  );
-
-  const applyTrackLevel = useCallback(
-    (trackId: number) => {
-      const level = trackLevel(trackId);
-      const chain = chainsRef.current.get(trackId);
-      if (chain) chain.gain.gain.value = level;
-      audioRef.current
-        .filter((audio) => Number(audio.dataset.trackId) === trackId)
-        .forEach((audio) => {
-          audio.dataset.trackVolume = String(level);
-          audio.volume = (level * volumeRef.current) / 100;
-        });
-    },
-    [trackLevel],
-  );
-
-  const setTrackVolume = useCallback(
-    (trackId: number, next: number) => {
-      trackVolumesRef.current = {
-        ...trackVolumesRef.current,
-        [trackId]: Math.max(0, Math.min(100, next)),
-      };
-      setTrackVolumes(trackVolumesRef.current);
-      applyTrackLevel(trackId);
-    },
-    [applyTrackLevel],
-  );
-
-  const toggleTrackMute = useCallback(
-    (trackId: number) => {
-      const next = new Set(mutedTrackIdsRef.current);
-      if (next.has(trackId)) next.delete(trackId);
-      else next.add(trackId);
-      mutedTrackIdsRef.current = next;
-      setMutedTrackIds(next);
-      applyTrackLevel(trackId);
-    },
-    [applyTrackLevel],
-  );
-
-  const setVolume = useCallback((next: number) => {
-    const value = Math.max(0, Math.min(100, next));
-    volumeRef.current = value;
-    setVolumeState(value);
-    if (masterRef.current) masterRef.current.gain.value = value / 100;
-    audioRef.current.forEach((audio) => {
-      audio.volume = (Number(audio.dataset.trackVolume ?? 1) * value) / 100;
-    });
-  }, []);
-
-  const stopSources = useCallback(() => {
-    if (intervalRef.current !== null) window.clearInterval(intervalRef.current);
-    intervalRef.current = null;
-    timersRef.current.forEach(window.clearTimeout);
-    timersRef.current = [];
-    const transport = Tone.getTransport();
-    transport.stop();
-    transport.cancel(0);
-    chainsRef.current.forEach((chain) => chain.sampler?.releaseAll());
-    audioRef.current.forEach((audio) => {
-      audio.pause();
-      audio.src = "";
-    });
-    audioRef.current = [];
+  const stopPreview = useCallback(() => {
+    previewRequest.current++;
+    previewRef.current?.stop();
+    previewRef.current = null;
   }, []);
 
   const pause = useCallback(() => {
-    playRequestRef.current++;
-    stopSources();
-    setPlaying(false);
-  }, [stopSources]);
-
-  const seek = useCallback(
-    (nextMs: number) => {
-      pause();
-      positionRef.current = Math.max(0, nextMs);
+    mainRequest.current++;
+    const generation = mainRef.current;
+    if (generation?.epoch) {
+      positionRef.current = Math.max(generation.positionMs, Math.min(generation.endMs,
+        generation.positionMs + (generation.context.currentTime - generation.epoch) * 1000));
+    }
+    generation?.stop();
+    mainRef.current = null;
+    if (mounted.current) {
       setPositionMs(positionRef.current);
-    },
-    [pause],
-  );
-
-  const loadSampler = useCallback(
-    (instrument: InstrumentDefinition, output: Tone.ToneAudioNode) => {
-      const { promise, resolve, reject } = Promise.withResolvers<Tone.Sampler>();
-      const sampler = new Tone.Sampler({
-        urls: sampleUrls(instrument),
-        baseUrl: `/audio/instruments/${instrument.id}/`,
-        release: 0.08,
-        onload: () => resolve(sampler),
-        onerror: () => {
-          sampler.dispose();
-          reject(new Error(`${instrument.label} 샘플을 불러오지 못했습니다.`));
-        },
-      }).connect(output);
-      return promise;
-    },
-    [],
-  );
-
-  /** One sampler per track, so per-track volume and mute apply to MIDI as well as audio. */
-  const chainFor = useCallback(
-    async (
-      track: CompositionDto["tracks"][number],
-      instrument: InstrumentDefinition | undefined,
-    ) => {
-      let chain = chainsRef.current.get(track.trackId);
-      if (!chain) {
-        chain = {
-          gain: new Tone.Gain(trackLevel(track.trackId)).connect(master()),
-          sampler: null,
-          instrumentId: null,
-        };
-        chainsRef.current.set(track.trackId, chain);
-      }
-      if (instrument && (!chain.sampler || chain.instrumentId !== instrument.id)) {
-        chain.sampler?.dispose();
-        chain.sampler = null;
-        const sampler = await loadSampler(instrument, chain.gain);
-        chain.instrumentId = instrument.id;
-        chain.sampler = sampler;
-      }
-      return chain;
-    },
-    [loadSampler, master, trackLevel],
-  );
-
-  const play = useCallback(async () => {
-    if (!composition) return;
-    const request = ++playRequestRef.current;
-    stopSources();
-    setError(null);
-    const tickMs = 60_000 / (composition.project.bpm * composition.project.ppq);
-    const hasSolo = composition.tracks.some((track) => track.isSolo && !track.isMuted);
-    const tracks = composition.tracks.filter(
-      (track) => !track.isMuted && (!hasSolo || track.isSolo),
-    );
-    const endMs = compositionEndMs(composition, tracks);
-    if (endMs <= 0) {
-      positionRef.current = 0;
-      setPositionMs(0);
       setPlaying(false);
-      return;
     }
-    const position = positionRef.current >= endMs ? 0 : positionRef.current;
-    positionRef.current = position;
-    setPositionMs(position);
-    const problems: string[] = [];
-    try {
-      await Tone.start();
-      const chains = await Promise.all(
-        tracks.map(async (track) => {
-          const hasMidi = track.clips.some(
-            (clip) => clip.clipType === "MIDI" && clip.midiNotes?.length,
-          );
-          const instrument = hasMidi ? findInstrument(track.instrument) : undefined;
-          if (hasMidi && !instrument) {
-            problems.push(
-              `${track.name}: ${partLabel(track.instrument)} 소리는 재생할 수 없습니다.`,
-            );
-            return null;
-          }
-          try {
-            return { track, instrument, chain: await chainFor(track, instrument) };
-          } catch (cause) {
-            problems.push(
-              `${track.name}: ${cause instanceof Error ? cause.message : "샘플을 불러오지 못했습니다."}`,
-            );
-            return null;
-          }
-        }),
-      );
-      if (request !== playRequestRef.current) return;
-      const transport = Tone.getTransport();
-      for (const entry of chains) {
-        if (!entry) continue;
-        const { track, instrument, chain } = entry;
-        for (const clip of track.clips) {
-          if (clip.clipType === "MIDI" && instrument && chain.sampler) {
-            const sampler = chain.sampler;
-            for (const note of clip.midiNotes ?? []) {
-              const noteStartMs = (clip.startTick + note.startTick) * tickMs;
-              const noteEndMs = noteStartMs + note.durationTick * tickMs;
-              const tail = instrument.kind === "drum" ? drumTailMs : note.durationTick * tickMs;
-              if (noteStartMs + tail <= position) continue;
-              if (
-                instrument.kind === "drum" &&
-                (note.pitch < (instrument.minPitch ?? 35) ||
-                  note.pitch > (instrument.maxPitch ?? 81))
-              )
-                continue;
-              const delay = Math.max(0, noteStartMs - position) / 1000;
-              const duration =
-                instrument.kind === "drum"
-                  ? 1.45
-                  : Math.max(0.01, (noteEndMs - Math.max(position, noteStartMs)) / 1000);
-              const pitch = Tone.Frequency(note.pitch, "midi").toNote();
-              const velocity = Math.max(0, Math.min(1, note.velocity / 127));
-              transport.scheduleOnce(
-                (time) => sampler.triggerAttackRelease(pitch, duration, time, velocity),
-                delay,
-              );
-            }
-          } else if (clip.clipType === "AUDIO" && clip.mediaUrl) {
-            const startMs = clip.startTimeMs;
-            const clipEndMs = startMs + clip.durationMs;
-            if (clipEndMs <= position) continue;
-            const level = trackLevel(track.trackId);
-            const audio = new Audio(clip.mediaUrl);
-            audio.dataset.trackId = String(track.trackId);
-            audio.dataset.trackVolume = String(level);
-            audio.volume = (level * volumeRef.current) / 100;
-            audio.preload = "auto";
-            audioRef.current.push(audio);
-            const begin = () => {
-              audio.currentTime = (clip.clipOffsetMs + Math.max(0, position - startMs)) / 1000;
-              void audio
-                .play()
-                .catch((cause) =>
-                  setError(
-                    cause instanceof Error ? cause.message : "오디오를 재생하지 못했습니다.",
-                  ),
-                );
-            };
-            if (startMs <= position) begin();
-            else timersRef.current.push(window.setTimeout(begin, startMs - position));
-            timersRef.current.push(window.setTimeout(() => audio.pause(), clipEndMs - position));
-          }
-        }
-      }
-      if (problems.length) setError(problems.join(" "));
-      transport.start();
-      setPlaying(true);
-      const startedAt = performance.now();
-      intervalRef.current = window.setInterval(() => {
-        const next = Math.min(endMs, position + performance.now() - startedAt);
-        positionRef.current = next;
-        setPositionMs(next);
-        if (next >= endMs) {
-          stopSources();
-          setPlaying(false);
-        }
-      }, 50);
-    } catch (cause) {
-      if (request !== playRequestRef.current) return;
-      stopSources();
-      setPlaying(false);
-      setError(cause instanceof Error ? cause.message : "재생을 시작하지 못했습니다.");
-    }
-  }, [chainFor, composition, stopSources, trackLevel]);
+  }, []);
 
-  const previewSampler = useCallback(
-    (instrument: InstrumentDefinition): Promise<Tone.Sampler> => {
-      const cached = previewRef.current.get(instrument.id);
-      if (cached) return cached;
-      const loading = loadSampler(instrument, master());
-      previewRef.current.set(instrument.id, loading);
-      loading.catch(() => previewRef.current.delete(instrument.id));
-      return loading;
-    },
-    [loadSampler, master],
-  );
+  const seek = useCallback((nextMs: number) => {
+    pause();
+    const end = compositionRef.current ? playbackEndMs(compositionRef.current, optionsRef.current?.durationMs) : Infinity;
+    positionRef.current = Math.max(0, Math.min(end, nextMs));
+    setPositionMs(positionRef.current);
+  }, [pause]);
 
-  /** Plays one note of an instrument (note entry feedback). */
-  const audition = useCallback(
-    async (pitch: number, instrumentId: string | null) => {
-      const instrument = findInstrument(instrumentId);
-      if (!instrument) {
-        setError(`${partLabel(instrumentId)} 소리는 재생할 수 없습니다.`);
+  const trackLevel = useCallback((track: TrackDto) => {
+    const tracks = compositionRef.current?.tracks ?? [];
+    const hasSolo = tracks.some((candidate) => candidate.isSolo && !candidate.isMuted);
+    return track.isMuted || mutedTrackIdsRef.current.has(track.trackId) || (hasSolo && !track.isSolo)
+      ? 0 : trackVolumesRef.current[track.trackId] ?? track.volume;
+  }, []);
+
+  const updateMixer = useCallback((trackId: number) => {
+    const track = compositionRef.current?.tracks.find((candidate) => candidate.trackId === trackId);
+    if (track) mainRef.current?.track(trackId, trackLevel(track), track.pan);
+  }, [trackLevel]);
+
+  const setTrackVolume = useCallback((trackId: number, next: number) => {
+    trackVolumesRef.current = { ...trackVolumesRef.current, [trackId]: level(next) };
+    setTrackVolumes(trackVolumesRef.current);
+    updateMixer(trackId);
+  }, [updateMixer]);
+
+  const toggleTrackMute = useCallback((trackId: number) => {
+    const next = new Set(mutedTrackIdsRef.current);
+    if (next.has(trackId)) next.delete(trackId);
+    else next.add(trackId);
+    mutedTrackIdsRef.current = next;
+    setMutedTrackIds(next);
+    updateMixer(trackId);
+  }, [updateMixer]);
+
+  const setVolume = useCallback((next: number) => {
+    volumeRef.current = level(next);
+    setVolumeState(volumeRef.current);
+    if (masterRef.current) masterRef.current.gain.value = optionsRef.current?.muted ? 0 : volumeRef.current / 100;
+  }, []);
+
+  const schedule = useCallback((generation: PlaybackGeneration, events: PlaybackEvent[], ended: () => void, update?: () => void,
+    onTick?: (time: number) => void) => {
+    const attacks = events.filter((event) => event.type === "attack");
+    const releases = events.filter((event) => event.type === "release");
+    let attackIndex = 0;
+    let releaseIndex = 0;
+    const at = (event: PlaybackEvent) => generation.epoch + (event.atMs - generation.positionMs) / 1000;
+    const end = generation.epoch + (generation.endMs - generation.positionMs) / 1000;
+    generation.output.gain.setValueAtTime(0, end);
+    generation.startClock((time) => {
+      const raw = generation.context.currentTime;
+      if (playbackHasEnded(generation.epoch, generation.positionMs, generation.endMs, raw)) {
+        ended();
         return;
       }
-      try {
-        await Tone.start();
-        const sampler = await previewSampler(instrument);
-        sampler.triggerAttackRelease(Tone.Frequency(pitch, "midi").toNote(), 0.35, Tone.now(), 0.8);
-      } catch (cause) {
-        setError(cause instanceof Error ? cause.message : "악기 샘플을 불러오지 못했습니다.");
+      while (attackIndex < attacks.length && playbackEventIsDue(attacks[attackIndex], generation.epoch, generation.positionMs, time, raw)) {
+        const event = attacks[attackIndex++];
+        generation.attack(event, Math.max(raw, at(event)));
       }
-    },
-    [previewSampler],
-  );
+      // A lookahead release would remove Tone's active sources before pause can release them.
+      while (releaseIndex < releases.length && playbackEventIsDue(releases[releaseIndex], generation.epoch, generation.positionMs, time, raw)) {
+        generation.release(releases[releaseIndex], raw);
+        releaseIndex++;
+      }
+      onTick?.(time);
+    }, update);
+  }, []);
 
-  /** A short phrase of an instrument for the picker; it never creates or changes a track. */
-  const previewInstrument = useCallback(
-    async (instrumentId: string) => {
-      const instrument = findInstrument(instrumentId);
-      if (!instrument)
-        throw new Error(`${partLabel(instrumentId)}은(는) 녹음 역할이라 미리듣기 소리가 없습니다.`);
-      pause();
+  const play = useCallback(async () => {
+    const input = compositionRef.current;
+    if (!input) return;
+    pause();
+    stopPreview();
+    const request = ++mainRequest.current;
+    const live = () => mounted.current && request === mainRequest.current;
+    setError(null);
+    const endMs = playbackEndMs(input, optionsRef.current?.durationMs);
+    if (endMs <= 0) return;
+    const position = positionRef.current >= endMs ? 0 : positionRef.current;
+    try {
       await Tone.start();
-      const sampler = await previewSampler(instrument);
-      const pitches =
-        instrument.kind === "drum"
-          ? [36, 42, 38, 42]
-          : instrument.program >= 32 && instrument.program <= 38
-            ? [36, 40, 43]
-            : instrument.program >= 24 && instrument.program <= 30
-              ? [52, 55, 59]
-              : [60, 64, 67];
-      const now = Tone.now();
-      pitches.forEach((pitch, index) =>
-        sampler.triggerAttackRelease(
-          Tone.Frequency(pitch, "midi").toNote(),
-          instrument.kind === "drum" ? 1.45 : 0.25,
-          now + index * 0.24,
-          0.8,
-        ),
-      );
-    },
-    [pause, previewSampler],
-  );
-
-  useEffect(() => {
-    const chains = chainsRef.current;
-    const previews = previewRef.current;
-    const requestState = playRequestRef;
-    return () => {
-      requestState.current++;
-      stopSources();
-      chains.forEach((chain) => {
-        chain.sampler?.dispose();
-        chain.gain.dispose();
+      if (!live()) return;
+      const cache = resources();
+      const tracks = input.tracks.filter((track) => !track.isMuted &&
+        (!input.tracks.some((candidate) => candidate.isSolo && !candidate.isMuted) || track.isSolo));
+      const entries = await Promise.all(tracks.map(async (track) => {
+        const hasMidi = track.clips.some((clip) => clip.clipType === "MIDI" && clip.midiNotes?.length);
+        const instrument = hasMidi ? findInstrument(track.instrument) : undefined;
+        if (hasMidi && !instrument) throw new Error(`${track.name}: ${partLabel(track.instrument)} 소리는 재생할 수 없습니다.`);
+        const [bank, audio] = await Promise.all([
+          instrument ? cache.instruments(instrument) : undefined,
+          Promise.all(track.clips.filter((clip) => clip.clipType === "AUDIO").map(async (clip) => {
+            if (!clip.mediaUrl) throw new Error(`${track.name}: 오디오 파일 주소가 없습니다.`);
+            return { clip, buffer: await cache.buffer(clip.mediaUrl) };
+          })),
+        ]);
+        return { track, bank, audio };
+      }));
+      if (!live()) return;
+      const generation = new PlaybackGeneration(master());
+      mainRef.current = generation;
+      generation.positionMs = position;
+      generation.endMs = endMs;
+      generation.epoch = generation.context.currentTime + 0.05;
+      for (const { track, bank, audio } of entries) {
+        const output = generation.track(track.trackId, trackLevel(track), track.pan);
+        if (bank) generation.instrument(track.trackId, bank);
+        for (const { clip, buffer } of audio) {
+          const window = audioPlaybackWindow(clip, position, buffer.duration);
+          if (!window) continue;
+          const duration = Math.min(window.durationSeconds, (endMs - position) / 1000 - window.delaySeconds);
+          generation.audio(buffer, output, generation.epoch + window.delaySeconds, window.offsetSeconds, duration);
+        }
+      }
+      let beat = Math.ceil(position / signatureTiming(projectSignature(input), input.project.bpm).beatMs);
+      const { beatMs } = signatureTiming(projectSignature(input), input.project.bpm);
+      let click: AudioBuffer | null = null;
+      schedule(generation, buildPlaybackEvents(input, position, endMs), () => {
+        if (!live()) return;
+        generation.stop();
+        mainRef.current = null;
+        mainRequest.current++;
+        positionRef.current = endMs;
+        setPositionMs(endMs);
+        setPlaying(false);
+        optionsRef.current?.onEnded?.();
+      }, () => {
+        if (!live()) return;
+        positionRef.current = Math.max(position, Math.min(endMs, position + (generation.context.currentTime - generation.epoch) * 1000));
+        setPositionMs(positionRef.current);
+      }, (time) => {
+        const nextBeat = generation.epoch + (beat * beatMs - position) / 1000;
+        if (time < nextBeat) return;
+        beat++;
+        if (!metronomeRef.current || nextBeat >= generation.epoch + (endMs - position) / 1000) return;
+        if (!click) {
+          click = generation.context.createBuffer(1, Math.ceil(generation.context.sampleRate * 0.04), generation.context.sampleRate);
+          const data = click.getChannelData(0);
+          for (let i = 0; i < data.length; i++) data[i] = Math.sin(i * 2 * Math.PI * 1000 / click.sampleRate) * 0.15 * (1 - i / data.length);
+        }
+        generation.audio(click, generation.output, Math.max(generation.context.currentTime, nextBeat), 0, click.duration);
       });
-      chains.clear();
-      previews.forEach(
-        (loading) => void loading.then((sampler) => sampler.dispose()).catch(() => {}),
-      );
-      previews.clear();
-      masterRef.current?.dispose();
+      positionRef.current = position;
+      setPositionMs(position);
+      setPlaying(true);
+    } catch (cause) {
+      if (!live()) return;
+      mainRef.current?.stop();
+      mainRef.current = null;
+      setPlaying(false);
+      setError(message(cause));
+    }
+  }, [master, pause, resources, schedule, stopPreview, trackLevel]);
+
+  const previewNotes = useCallback(async (instrument: InstrumentDefinition, pitches: number[], spacing: number, duration: number) => {
+    stopPreview();
+    const request = ++previewRequest.current;
+    const live = () => mounted.current && request === previewRequest.current;
+    setError(null);
+    try {
+      await Tone.start();
+      if (!live()) return;
+      const bank = await resources().instruments(instrument);
+      if (!live()) return;
+      const generation = new PlaybackGeneration(master());
+      previewRef.current = generation;
+      generation.epoch = generation.context.currentTime + 0.03;
+      generation.endMs = (pitches.length - 1) * spacing + duration + 80;
+      generation.track(0, 100, 0);
+      generation.instrument(0, bank);
+      const events: PlaybackEvent[] = pitches.flatMap((pitch, index) => {
+        const base = { trackId: 0, voiceId: String(index), pitch, velocity: 102 };
+        return [{ ...base, type: "attack" as const, atMs: index * spacing },
+          { ...base, type: "release" as const, atMs: index * spacing + duration }];
+      });
+      schedule(generation, events, () => {
+        generation.stop();
+        if (previewRef.current === generation) previewRef.current = null;
+      });
+    } catch (cause) {
+      if (!live()) return;
+      setError(message(cause));
+      throw cause;
+    }
+  }, [master, resources, schedule, stopPreview]);
+
+  const audition = useCallback(async (pitch: number, instrumentId: string | null) => {
+    const instrument = findInstrument(instrumentId);
+    if (!instrument) {
+      stopPreview();
+      setError(`${partLabel(instrumentId)} 소리는 재생할 수 없습니다.`);
+      return;
+    }
+    try { await previewNotes(instrument, [pitch], 0, instrument.kind === "drum" ? 1450 : 350); }
+    catch { /* The preview reports the sample error without an unhandled event-handler rejection. */ }
+  }, [previewNotes, stopPreview]);
+
+  const previewInstrument = useCallback(async (instrumentId: string) => {
+    pause();
+    const instrument = findInstrument(instrumentId);
+    if (!instrument) {
+      stopPreview();
+      const cause = new Error(`${partLabel(instrumentId)} 소리는 재생할 수 없습니다.`);
+      setError(cause.message);
+      throw cause;
+    }
+    const pitches = instrument.kind === "drum" ? [36, 42, 38, 42]
+      : instrument.program >= 32 && instrument.program <= 38 ? [36, 40, 43]
+      : instrument.program >= 24 && instrument.program <= 30 ? [52, 55, 59] : [60, 64, 67];
+    await previewNotes(instrument, pitches, 240, instrument.kind === "drum" ? 1450 : 250);
+  }, [pause, previewNotes, stopPreview]);
+
+  const previewAudio = useCallback(async (audition: AudioAudition) => {
+    pause();
+    stopPreview();
+    const request = ++previewRequest.current;
+    const live = () => mounted.current && request === previewRequest.current;
+    setError(null);
+    try {
+      await Tone.start();
+      if (!live()) return;
+      const buffer = await resources().file(audition.file);
+      if (!live()) return;
+      const start = (audition.selection?.startMs ?? 0) / 1000;
+      const end = (audition.selection?.endMs ?? buffer.duration * 1000) / 1000;
+      if (!Number.isFinite(start) || !Number.isFinite(end) || start < 0 || start >= buffer.duration || end <= start || end > buffer.duration + 0.1) {
+        throw new Error("선택한 오디오 구간이 올바르지 않습니다.");
+      }
+      const generation = new PlaybackGeneration(master());
+      previewRef.current = generation;
+      generation.epoch = generation.context.currentTime + 0.03;
+      generation.endMs = (Math.min(end, buffer.duration) - start) * 1000;
+      generation.audio(buffer, generation.output, generation.epoch, start, generation.endMs / 1000);
+      schedule(generation, [], () => {
+        generation.stop();
+        if (previewRef.current === generation) previewRef.current = null;
+      });
+    } catch (cause) {
+      if (!live()) return;
+      setError(message(cause));
+      throw cause;
+    }
+  }, [master, pause, resources, schedule, stopPreview]);
+
+  useLayoutEffect(() => {
+    mounted.current = true;
+    volumeRef.current = level(optionsRef.current?.initialVolume ?? 20);
+    setVolumeState(volumeRef.current);
+    trackVolumesRef.current = {};
+    mutedTrackIdsRef.current = new Set();
+    setTrackVolumes({});
+    setMutedTrackIds(new Set());
+    positionRef.current = 0;
+    setPositionMs(0);
+    setError(null);
+    setPlaying(false);
+    return () => {
+      mounted.current = false;
+      pause();
+      stopPreview();
+      resourcesRef.current?.dispose();
+      resourcesRef.current = null;
+      masterRef.current?.disconnect();
       masterRef.current = null;
     };
-  }, [stopSources]);
+  }, [options?.scopeKey, pause, stopPreview]);
 
-  useEffect(() => {
-    if (!playing || !metronome || !composition) return;
-    const context = Tone.getContext().rawContext;
-    const output = masterRef.current;
-    if (!output) return;
-    const { beatMs } = signatureTiming(signature, composition.project.bpm);
-    let lastBeat = -1;
-    const tick = () => {
-      const beat = Math.floor(positionRef.current / beatMs);
-      if (beat === lastBeat) return;
-      lastBeat = beat;
-      const click = new Tone.Oscillator(beat % signature.numerator === 0 ? 1200 : 800, "sine");
-      const envelope = new Tone.Gain(0.15).connect(output);
-      click.connect(envelope);
-      click.start();
-      envelope.gain.exponentialRampToValueAtTime(0.001, context.currentTime + 0.04);
-      click.stop(`+0.04`);
-      window.setTimeout(() => {
-        click.dispose();
-        envelope.dispose();
-      }, 200);
-    };
-    tick();
-    const timer = window.setInterval(tick, 25);
-    return () => window.clearInterval(timer);
-  }, [playing, metronome, composition, signature]);
+  useLayoutEffect(() => {
+    pause();
+    stopPreview();
+  }, [composition, options?.durationMs, pause, stopPreview]);
+
+  useLayoutEffect(() => {
+    if (masterRef.current) masterRef.current.gain.value = options?.muted ? 0 : volumeRef.current / 100;
+  }, [options?.muted]);
 
   return {
-    signature,
-    metronome,
-    setMetronome,
-    trackVolumes,
-    setTrackVolume,
-    mutedTrackIds,
-    toggleTrackMute,
-    playing,
-    positionMs,
-    volume,
-    setVolume,
-    error,
-    play,
-    pause,
-    seek,
-    audition,
-    previewInstrument,
+    signature, metronome, setMetronome, trackVolumes, setTrackVolume, mutedTrackIds, toggleTrackMute,
+    playing, positionMs, volume, setVolume, error, play, pause, seek, audition, previewInstrument,
+    previewAudio, stopPreview,
   };
 }

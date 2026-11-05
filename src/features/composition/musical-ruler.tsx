@@ -1,22 +1,63 @@
 import { studioStyles } from "@/styles/studio.styles";
 import { musicalGridBackground, rulerLabels, type TimeSignature } from "./time-signature";
-export function MusicalRuler({ signature, width }: { signature: TimeSignature; width: number }) {
+
+export type RulerTickWindow = {
+  ppq: number;
+  startTick: number;
+  endTick: number;
+  pixelsPerTick: number;
+};
+
+export function MusicalRuler({ signature, width, tickWindow }: {
+  signature: TimeSignature;
+  width: number;
+  tickWindow?: RulerTickWindow;
+}) {
+  if (tickWindow) {
+    const { ppq, startTick, endTick, pixelsPerTick } = tickWindow;
+    const beatTicks = ppq * 4 / signature.denominator;
+    if (!(beatTicks > 0) || !(pixelsPerTick > 0) || endTick <= startTick) return null;
+    const firstBeat = Math.ceil(startTick / beatTicks - 1e-9);
+    const lastBeat = Math.floor(endTick / beatTicks + 1e-9);
+    return (
+      <div
+        className={studioStyles.musicalRulerMarks}
+        aria-hidden="true"
+        style={{ left: startTick * pixelsPerTick, width: (endTick - startTick) * pixelsPerTick, backgroundImage: "none" }}
+      >
+        {Array.from({ length: Math.max(0, lastBeat - firstBeat + 1) }, (_, offset) => {
+          const beat = firstBeat + offset;
+          const bar = beat % signature.numerator === 0;
+          return (
+            <span
+              key={beat}
+              style={{
+                left: (beat * beatTicks - startTick) * pixelsPerTick,
+                height: bar ? "100%" : "40%",
+                top: bar ? 0 : "60%",
+                borderLeft: `1px solid ${bar ? "var(--grid-bar)" : "var(--grid-beat)"}`,
+                paddingLeft: 3,
+              }}
+            >
+              {bar ? Math.floor(beat / signature.numerator) + 1 : ""}
+            </span>
+          );
+        })}
+      </div>
+    );
+  }
   return (
     <div
       className={studioStyles.musicalRulerMarks}
       aria-hidden="true"
       style={{
         backgroundImage: musicalGridBackground(signature, {
-          bar: "var(--muted)",
-          beat: "var(--grid-bar)",
-          cell: "var(--grid-beat)",
+          bar: "var(--muted)", beat: "var(--grid-bar)", cell: "var(--grid-beat)",
         }),
       }}
     >
       {rulerLabels(signature, width).map((label) => (
-        <span key={label.bar} style={{ left: label.left }}>
-          {label.bar}
-        </span>
+        <span key={label.bar} style={{ left: label.left }}>{label.bar}</span>
       ))}
     </div>
   );

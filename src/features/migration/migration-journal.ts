@@ -1,10 +1,12 @@
 export type MigrationJournal = {
-  phase: "sending" | "uploaded" | "creating" | "done" | "failed" | "uncertain";
+  phase: "sending" | "uploaded" | "creating" | "adopting" | "done" | "failed" | "uncertain";
   message?: string;
   mediaFileId?: number;
   publicationId?: number;
   beforeIds?: number[];
   payload?: unknown;
+  projectId?: number;
+  destinationKey?: string;
 };
 export const migrationKey = (origin: string, userId: number, kind: string, sourceId: string) =>
   `narackrock.migration.v1:${origin}:${userId}:${kind}:${sourceId}`;
@@ -117,5 +119,45 @@ export async function migratePrivateAudio(options: {
       message: "등록 결과 미확정 · 다시 확인만 가능",
     });
     throw cause;
+  }
+}
+
+export type DraftPointerConsent = {
+  origin: string;
+  projectId: number;
+  title: string;
+  replaceExisting: boolean;
+};
+
+/** Pointer adoption is local only; validation must re-read the live project inside the lock. */
+export async function migrateDraftPointer(options: {
+  origin: string;
+  projectId: number;
+  destinationKey: string;
+  consent: DraftPointerConsent | undefined;
+  validate: () => Promise<{ projectId: number; title: string }>;
+  read: () => number | null;
+  write: (projectId: number) => void;
+  journal: (entry: MigrationJournal) => void;
+}) {
+  const consent = options.consent;
+  if (!consent || consent.origin !== options.origin || consent.projectId !== options.projectId)
+    throw new Error("현재 서버의 프로젝트를 확인하고 연결에 동의해주세요.");
+  const project = await options.validate();
+  if (project.projectId !== consent.projectId || project.title !== consent.title)
+    throw new Error("프로젝트 정보가 변경되었습니다. 다시 확인하고 동의해주세요.");
+  const existing = options.read();
+  if (existing !== null && existing !== project.projectId && !consent.replaceExisting)
+    throw new Error("기존 이어하기 프로젝트를 교체하려면 별도로 동의해주세요.");
+  const entry = { projectId: project.projectId, destinationKey: options.destinationKey };
+  if (existing !== project.projectId) {
+    // A failed journal must prevent the pointer write.
+    options.journal({ ...entry, phase: "adopting", message: "이어하기 연결 중" });
+    options.write(project.projectId);
+  }
+  try {
+    options.journal({ ...entry, phase: "done", message: "이어하기 연결됨 · 원본 유지" });
+  } catch {
+    throw new Error("연결됨, 기록 저장 실패. 프로젝트를 열 수 있으며 다시 확인하면 기록을 복구합니다.");
   }
 }

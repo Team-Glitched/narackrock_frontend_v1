@@ -21,6 +21,19 @@ export function FigmaSheet({
       if (previous?.isConnected) previous.focus();
     };
   }, [host]);
+  useEffect(() => {
+    if (!host) return;
+    const escape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape" || event.defaultPrevented) return;
+      const dialogs = document.querySelectorAll('[role="dialog"][aria-modal="true"]');
+      if (dialogs[dialogs.length - 1] !== panel.current) return;
+      event.preventDefault();
+      event.stopPropagation();
+      onClose();
+    };
+    document.addEventListener("keydown", escape);
+    return () => document.removeEventListener("keydown", escape);
+  }, [host, onClose]);
   if (!host) return null;
   return createPortal(
     <div className={sharedStyles.figmaSheetOverlay}>
@@ -37,10 +50,6 @@ export function FigmaSheet({
         aria-label={title}
         tabIndex={-1}
         onKeyDown={(event) => {
-          if (event.key === "Escape") {
-            event.stopPropagation();
-            onClose();
-          }
           if (event.key !== "Tab") return;
           const controls = [
             ...event.currentTarget.querySelectorAll<HTMLElement>(

@@ -1,13 +1,18 @@
 import { studioStyles } from "@/styles/studio.styles";
 import { cn } from "@/lib/utils";
-import { useMemo, useState, type Dispatch, type SetStateAction } from "react";
-import type { CompositionDto, MidiNoteDto } from "@/lib/api/composition";
+import { useEffect, useId, useLayoutEffect, useMemo, useState, type Dispatch, type SetStateAction } from "react";
+import type { MidiNoteDto } from "@/lib/api/composition";
 import { StudioToolbar } from "@/features/composition/studio-toolbar";
 import { NoteSettingsDialog } from "@/features/composition/note-settings-dialog";
 import { TeamPianoRoll } from "./team-piano-roll";
-import { useCompositionPlayback } from "./use-composition-playback";
+import { useCompositionPlayback, type PlaybackComposition } from "./use-composition-playback";
 import { renderPianoAudio } from "./source-piano-render";
 import { defaultSignature } from "./time-signature";
+import { useNoteEditor } from "./use-note-editor";
+import { NoteEditorControls } from "./note-editor-controls";
+import { ChordPickerDialog } from "./chord-picker-dialog";
+import { useNoteEditorShortcuts } from "./use-note-editor-shortcuts";
+import { clipLocalTiming, clipPositionTick, projectPositionMs } from "./clip-local-timing";
 
 export function SourcePianoEditor({
   notes,
@@ -27,29 +32,15 @@ export function SourcePianoEditor({
   const maxTick = bpm * 480; // One minute, matching upload/record limits.
   // A source sketch is not a project; its time signature is only for this editor's grid.
   const [signature, setSignature] = useState(defaultSignature);
-  const composition = useMemo<CompositionDto>(
+  const sourceScopeId = useId();
+  const composition = useMemo<PlaybackComposition>(
     () => ({
-      viewerPermission: {
-        userId: 0,
-        canEdit: true,
-        canContribute: true,
-        canReviewContribution: false,
-        canExport: true,
-      },
       project: {
-        projectId: 0,
-        title: "오픈소스",
-        ownerId: 0,
-        albumImageFileId: null,
         timeSignatureNumerator: signature.numerator,
         timeSignatureDenominator: signature.denominator,
         bpm,
         ppq: 480,
-        maxTick,
         maxDurationMs: 60000,
-        status: "DRAFT",
-        isPublic: false,
-        version: { major: 1, minor: 0, display: "1.0" },
       },
       tracks: [
         {
@@ -58,6 +49,7 @@ export function SourcePianoEditor({
           name: "피아노",
           instrument: "piano",
           volume: 100,
+          pan: 0,
           isMuted: false,
           isSolo: false,
           approvalStatus: "DRAFT",
@@ -83,10 +75,48 @@ export function SourcePianoEditor({
     }),
     [notes, bpm, maxTick, signature],
   );
-  const player = useCompositionPlayback(composition);
+  const player = useCompositionPlayback(composition, {
+    scopeKey: JSON.stringify(["source", sourceScopeId]),
+  });
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [settings, setSettings] = useState<number | null>(null);
+  const [showChords, setShowChords] = useState(false);
+  const timing = clipLocalTiming(bpm, 480, maxTick, 0);
+  const positionTick = clipPositionTick(player.positionMs, timing);
+  const editor = useNoteEditor({
+    contextKey: JSON.stringify(["source", sourceScopeId]),
+    notes,
+    ppq: 480,
+    signature,
+    instrument: "piano",
+    bounds: { maxTick, minPitch: 0, maxPitch: 127 },
+    editable: !pending,
+    onCommit: (next) => {
+      if (pending) return false;
+      setNotes(next);
+      return true;
+    },
+  });
+  useLayoutEffect(() => {
+    const change = editor.lastChange;
+    if (!change) return;
+    setSettings((index) => index === null ? null :
+      change.type !== "edit" || change.commandType === "delete"
+        ? null : change.indexMap[index] ?? null);
+  }, [editor.lastChange]);
+  useEffect(() => {
+    if (pending) {
+      setSettings(null);
+      setShowChords(false);
+    }
+  }, [pending]);
+  function play() {
+    void player.play().catch(() => setError("재생하지 못했습니다."));
+  }
+  useNoteEditorShortcuts({
+    editor, positionTick, playing: player.playing, onPlay: play, onPause: player.pause,
+  });
   async function save() {
     if (pending) return;
     if (!notes.length) {
@@ -108,7 +138,7 @@ export function SourcePianoEditor({
     <div className={cn(studioStyles.studio, "note-editor")}>
       <StudioToolbar
         signature={player.signature}
-        onTiming={async (timing) => {
+        onTiming={pending ? undefined : async (timing) => {
           if (notes.some((note) => note.startTick + note.durationTick > timing.bpm * 480))
             throw new Error("현재 노트가 1분을 초과하는 BPM입니다.");
           player.pause();
@@ -121,10 +151,9 @@ export function SourcePianoEditor({
         bpm={bpm}
         playing={player.playing}
         positionMs={player.positionMs}
-        onPlay={() => {
-          void player.play().catch(() => setError("재생하지 못했습니다."));
-        }}
+        onPlay={play}
         onPause={player.pause}
+        onRewind={() => player.seek(projectPositionMs(0, timing))}
         onBack={() => {
           if (!pending) onBack();
         }}
@@ -135,9 +164,20 @@ export function SourcePianoEditor({
         addLabel="오디오 선택 완료"
         onAdd={pending ? undefined : () => void save()}
       />
-      {error && (
+      <NoteEditorControls
+        editor={editor}
+        positionTick={positionTick}
+        onSettings={() => {
+          if (editor.selection.length === 1) setSettings(editor.selection[0]);
+        }}
+        onChord={() => {
+          player.pause();
+          setShowChords(true);
+        }}
+      />
+      {(error || player.error || editor.error) && (
         <p className={studioStyles.studioError} role="alert">
-          {error}
+          {error ?? player.error ?? editor.error}
         </p>
       )}
       {pending && (
@@ -145,41 +185,38 @@ export function SourcePianoEditor({
           오디오를 만드는 중...
         </p>
       )}
-      {settings !== null && notes[settings] && (
+      {showChords && editor.editable && (
+        <ChordPickerDialog
+          editor={editor}
+          ppq={480}
+          signature={signature}
+          positionTick={positionTick}
+          onClose={() => setShowChords(false)}
+        />
+      )}
+      {settings !== null && editor.editable && editor.snapshot.notes[settings] && (
         <NoteSettingsDialog
-          note={notes[settings]}
-          stepTick={960 / player.signature.denominator}
+          key={`${settings}:${editor.lastChange?.revision ?? 0}`}
+          note={editor.snapshot.notes[settings]}
+          stepTick={editor.bounds.stepTick}
           maxTick={maxTick}
           instrument="piano"
           onClose={() => setSettings(null)}
-          onChange={(note) =>
-            setNotes((current) =>
-              current.some(
-                (item, index) =>
-                  index !== settings &&
-                  item.pitch === note.pitch &&
-                  note.startTick < item.startTick + item.durationTick &&
-                  note.startTick + note.durationTick > item.startTick,
-              )
-                ? current
-                : current.map((item, index) => (index === settings ? note : item)),
-            )
-          }
+          onApply={(note) => editor.execute({ type: "replace", index: settings, note })}
         />
       )}
       <TeamPianoRoll
-        signature={player.signature}
-        notes={notes}
-        setNotes={setNotes}
-        stepTick={960 / player.signature.denominator}
+        editor={editor}
+        signature={signature}
+        ppq={480}
         maxTick={maxTick}
-        lengthCells={1}
-        editable={!pending}
-        positionMs={player.positionMs}
-        maxDurationMs={60000}
-        onSeek={player.seek}
+        positionTick={positionTick}
+        onSeekTick={(tick) => player.seek(projectPositionMs(tick, timing))}
+        playing={player.playing}
+        instrument="piano"
+        onAudition={(pitch) => void player.audition(pitch, "piano")}
         initialPitch={60}
-        onSettings={setSettings}
+        onSettings={editor.editable ? setSettings : undefined}
       />
     </div>
   );

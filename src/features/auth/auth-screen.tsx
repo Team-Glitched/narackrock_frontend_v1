@@ -12,6 +12,7 @@ import { profileSetupRequired } from "@/features/auth/profile-setup-required";
 import { loginWithGoogle } from "@/lib/api/auth";
 import { ApiError } from "@/lib/api/client";
 import { getProfile } from "@/lib/api/profile";
+import { Link } from "react-router";
 
 import type { PendingProfileSetup } from "./profile-setup";
 
@@ -139,6 +140,9 @@ export function AuthScreen({ onAuthenticated, onFirstLogin }: AuthScreenProps) {
           ref={googleButtonRef}
           aria-label="Google로 계속하기"
         />
+        <Link className="mt-5 block text-center text-caption text-app-muted underline" to="/privacy">
+          개인정보처리방침
+        </Link>
       </div>
       <button className={profileStyles.authSwitch} onClick={() => setSignup((current) => !current)}>
         {signup ? "이미 계정이 있나요? 로그인" : "처음 오셨나요? 회원가입"}

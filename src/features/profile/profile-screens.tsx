@@ -12,6 +12,9 @@ import { useCurrentUserId } from "@/features/auth/use-current-user";
 import { ApiError } from "@/lib/api/client";
 import { getProfile, updateProfile, updateProfileImage } from "@/lib/api/profile";
 import type { UserProfile } from "@/lib/api/contracts";
+import { Link } from "react-router";
+import { useMySongs } from "@/features/home/use-my-songs";
+import { songsForTab } from "@/features/home/my-songs";
 
 function profileErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : "프로필을 불러오지 못했습니다.";
@@ -105,7 +108,7 @@ function ProfileWorks({
   return (
     <section className={profileStyles.profileWorks}>
       <SectionTitle
-        allLabel={expanded ? "접기" : "모두보기"}
+        allLabel={expanded ? "접기" : "펼치기"}
         onAll={songs.length ? () => setExpanded((current) => !current) : undefined}
       >
         {title}
@@ -136,6 +139,42 @@ function ProfileWorks({
         <p className={profileStyles.profileEmptyWork}>아직 등록한 곡이 없습니다.</p>
       )}
     </section>
+  );
+}
+
+function OwnWorks({ onOpen }: { onOpen: (id: number) => void }) {
+  const userId = useCurrentUserId();
+  const songs = useMySongs(10);
+  return (
+    <>
+      {(["authored", "participated"] as const).map((tab) => {
+        const items = userId === null ? [] : songsForTab(songs.items, userId, tab);
+        return (
+          <section className={profileStyles.profileWorks} key={tab}>
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <h2 className="text-label font-semibold">{tab === "authored" ? "내 작업물" : "내 참가작"}</h2>
+              <Link className="shrink-0 text-caption text-app-muted" to={`/charts?kind=mine&tab=${tab}`}>모두보기</Link>
+            </div>
+            {songs.status === "loading" && <p role="status">음악을 불러오는 중...</p>}
+            {songs.status === "error" && <div role="alert"><p>{songs.error}</p><button onClick={songs.retry}>다시 시도</button></div>}
+            <div className={sharedStyles.songRail}>
+              {items.slice(0, 6).map((song) => (
+                <button key={song.shortId} className={sharedStyles.songCard} onClick={() => onOpen(song.shortId)}>
+                  <span className={sharedStyles.songArt}>
+                    {song.albumImageUrl ? <img src={song.albumImageUrl} alt={`${song.title} 앨범 커버`} />
+                      : <span className={sharedStyles.emptyArtwork} />}
+                  </span>
+                  <strong>{song.title}</strong>
+                </button>
+              ))}
+            </div>
+            {songs.status === "ready" && items.length === 0 && <p className={profileStyles.profileEmptyWork}>
+              {songs.hasMore ? "전체 목록에서 더 많은 곡을 확인해 주세요." : tab === "authored" ? "아직 작성한 곡이 없습니다." : "아직 참가한 곡이 없습니다."}
+            </p>}
+          </section>
+        );
+      })}
+    </>
   );
 }
 
@@ -211,6 +250,7 @@ export function ProfileScreen({
           <small>{compactCount(profile.activities.postCount)}</small>
         </button>
       </div>
+      {own && <Link className="my-4 inline-block text-label text-app-fg underline" to="/profile/likes">좋아요한 게시글</Link>}
 
       {instruments.length > 0 && (
         <div className={sharedStyles.tags}>
@@ -230,11 +270,13 @@ export function ProfileScreen({
         songs={[...profile.activities.pinnedShorts].sort((a, b) => a.displayOrder - b.displayOrder)}
         onOpen={onOpenShort}
       />
-      <ProfileWorks
-        title={uiLabels.participatedMusic}
-        songs={profile.activities.participatedShorts}
-        onOpen={onOpenShort}
-      />
+      {own ? <OwnWorks onOpen={onOpenShort} /> : (
+        <ProfileWorks
+          title={uiLabels.participatedMusic}
+          songs={profile.activities.participatedShorts}
+          onOpen={onOpenShort}
+        />
+      )}
       {list && (
         <ProfileListSheet
           kind={list}
@@ -600,6 +642,7 @@ export function ProfileForm({
       >
         {saving ? "저장 중..." : submitLabel}
       </button>
+      <Link className="mt-4 block text-center text-caption text-app-muted underline" to="/privacy">개인정보처리방침</Link>
     </div>
   );
 }

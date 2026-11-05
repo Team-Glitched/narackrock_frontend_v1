@@ -20,10 +20,21 @@ export default function ChatPage() {
         <div className={sharedStyles.screenBody}>
           <ChatScreen
             friendId={friendId}
+            query={query.get("q") ?? ""}
+            onQueryChange={(value) => {
+              const next = new URLSearchParams(query);
+              if (value) next.set("q", value);
+              else next.delete("q");
+              to(`/chat${next.size ? `?${next}` : ""}`, { replace: true });
+            }}
             onBack={() => back(friendId === null ? "/friends" : "/chat")}
             onSearch={() => to(withQuery("/search", { scope, galleryId }))}
             onNotifications={openNotifications}
-            onSelect={(id) => to(`/chat?userId=${id}`)}
+            onSelect={(id) => {
+              const next = new URLSearchParams(query);
+              next.set("userId", String(id));
+              to(`/chat?${next}`);
+            }}
             onProfile={(id) => to(`/users/${id}`)}
           />
         </div>

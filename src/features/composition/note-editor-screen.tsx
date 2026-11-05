@@ -3,10 +3,9 @@ import { cn } from "@/lib/utils";
 import {
   useCallback,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useState,
-  type Dispatch,
-  type SetStateAction,
 } from "react";
 import { CanvasDialog } from "@/components/ui/canvas-dialog";
 import { NoteSettingsDialog } from "./note-settings-dialog";
@@ -28,6 +27,13 @@ import { resourceNotes } from "./composition-actions";
 import { findInstrument, invalidPitchesFor } from "./instrument-catalog";
 import { supportsMidi } from "./instrument-parts";
 import { useCurrentUserId } from "@/features/auth/use-current-user";
+import { useNoteEditor } from "./use-note-editor";
+import { NoteEditorControls } from "./note-editor-controls";
+import { ChordPickerDialog } from "./chord-picker-dialog";
+import { useNoteEditorShortcuts } from "./use-note-editor-shortcuts";
+import { clipLocalTiming, clipPositionTick, projectPositionMs } from "./clip-local-timing";
+import { sameNotes } from "./note-editing";
+import { compositionEndMs } from "./composition-playback-timeline";
 
 export function NoteEditorScreen({
   projectId,
@@ -41,14 +47,21 @@ export function NoteEditorScreen({
   onBack: () => void;
 }) {
   const currentUserId = useCurrentUserId();
+  const origin = apiOrigin();
   const [composition, setComposition] = useState<CompositionDto | null>(null);
+  const [compositionOrigin, setCompositionOrigin] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
     if (projectId === null) return;
     let active = true;
+    setComposition(null);
+    setError(null);
     getComposition(projectId)
       .then((result) => {
-        if (active) setComposition(result);
+        if (active) {
+          setComposition(result);
+          setCompositionOrigin(origin);
+        }
       })
       .catch((cause) => {
         if (active) setError(errorText(cause));
@@ -56,21 +69,31 @@ export function NoteEditorScreen({
     return () => {
       active = false;
     };
-  }, [projectId, currentUserId]);
+  }, [projectId, currentUserId, origin]);
   const track = composition?.tracks.find((item) => item.trackId === trackId);
-  if (!composition || !track || composition.viewerPermission.userId !== currentUserId)
+  const requestedClip = track?.clips.find((item) => item.clipId === clipId && item.clipType === "MIDI");
+  const canCreateClip = track && composition && track.ownerId === currentUserId &&
+    supportsMidi(track.instrument) && ["DRAFT", "IN_PROGRESS"].includes(composition.project.status) &&
+    ["DRAFT", "APPROVED"].includes(track.approvalStatus) &&
+    (composition.viewerPermission.canContribute || composition.viewerPermission.canEdit);
+  const missingClip = composition !== null && (
+    (clipId !== null && !requestedClip) ||
+    (clipId === null && !canCreateClip)
+  );
+  if (!composition || compositionOrigin !== origin || composition.project.projectId !== projectId || !track ||
+      composition.viewerPermission.userId !== currentUserId || missingClip)
     return (
       <div className={cn(studioStyles.studio, studioStyles.studioState)}>
         <p role={error ? "alert" : "status"}>
           {error ??
-            (composition ? "선택한 레이어를 찾을 수 없습니다." : "피아노롤을 불러오는 중입니다.")}
+            (composition ? "선택한 MIDI 클립 또는 레이어를 찾을 수 없습니다." : "피아노롤을 불러오는 중입니다.")}
         </p>
         <button onClick={onBack}>돌아가기</button>
       </div>
     );
   return (
     <LoadedNoteEditor
-      key={`${projectId}:${trackId}:${currentUserId}`}
+      key={`${apiOrigin()}:${projectId}:${trackId}:${clipId}:${currentUserId}`}
       initial={composition}
       trackId={track.trackId}
       requestedClipId={clipId}
@@ -90,20 +113,24 @@ function LoadedNoteEditor({
   requestedClipId: number | null;
   onBack: () => void;
 }) {
+  const currentUserId = useCurrentUserId();
   const [composition, setComposition] = useState(initial);
   const [baseline, setBaseline] = useState(initial);
   const [targetClipId, setTargetClipId] = useState(requestedClipId);
   const [showSources, setShowSources] = useState(false);
+  const [showChords, setShowChords] = useState(false);
   const [leaving, setLeaving] = useState(false);
   const [noteSettingsIndex, setNoteSettingsIndex] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const track = composition.tracks.find((item) => item.trackId === trackId)!;
   const clip = track.clips.find((item) => item.clipId === targetClipId && item.clipType === "MIDI");
-  const editable =
+  const clipUnavailable = targetClipId !== null && !clip;
+  const editable = !clipUnavailable &&
     track.ownerId === composition.viewerPermission.userId &&
     supportsMidi(track.instrument) &&
     ["DRAFT", "IN_PROGRESS"].includes(composition.project.status) &&
+    ["DRAFT", "APPROVED"].includes(track.approvalStatus) &&
     (composition.viewerPermission.canContribute || composition.viewerPermission.canEdit);
   const context = useMemo(
     () => ({
@@ -153,11 +180,15 @@ function LoadedNoteEditor({
   });
   const working = draft.state?.content ?? content;
   const notes = working.midiNotes;
-  const maxTick = composition.project.maxTick - working.startTick;
-  const setNotes: Dispatch<SetStateAction<MidiNoteDto[]>> = (action) => {
-    if (!draft.session || !editable) return;
-    const current = draft.session.getSnapshot().content;
-    const next = typeof action === "function" ? action(current.midiNotes) : action;
+  const timing = clipLocalTiming(
+    composition.project.bpm, composition.project.ppq, composition.project.maxTick, working.startTick,
+  );
+  const maxTick = timing.maxTick;
+  function commitNotes(next: MidiNoteDto[]): boolean {
+    const session = draft.session;
+    if (!session || session.isDisposed() || !editable || busy ||
+        session.getSnapshot().status === "conflict") return false;
+    const current = session.getSnapshot().content;
     const instrument = findInstrument(track.instrument);
     if (
       !instrument ||
@@ -167,21 +198,26 @@ function LoadedNoteEditor({
       ).length
     ) {
       setError("이 악기에서 지원하지 않는 음입니다. 드럼은 35~81번을 사용해주세요.");
-      return;
+      return false;
     }
     const durationTick = Math.max(
       content.durationTick,
-      composition.project.ppq / 4,
+      current.durationTick,
+      Math.ceil(composition.project.ppq / 4),
       ...next.map((note) => note.startTick + note.durationTick),
     );
     if (current.startTick + durationTick > composition.project.maxTick) {
       setError("노트가 곡의 최대 길이를 초과합니다.");
-      return;
+      return false;
     }
-    draft.session.edit({ ...current, durationTick, midiNotes: next });
-  };
-  const preview = useMemo<CompositionDto>(
-    () => ({
+    session.edit({ ...current, durationTick, midiNotes: next });
+    const accepted = session.getSnapshot().content;
+    const success = accepted.durationTick === durationTick && sameNotes(accepted.midiNotes, next);
+    if (success) setError(null);
+    return success;
+  }
+  const preview = useMemo<CompositionDto | null>(
+    () => clipUnavailable ? null : ({
       ...composition,
       tracks: [
         {
@@ -210,13 +246,50 @@ function LoadedNoteEditor({
         },
       ],
     }),
-    [composition, track, clip, context.userId, working],
+    [composition, track, clip, clipUnavailable, context.userId, working],
   );
-  const playback = useCompositionPlayback(preview);
-  const stepTick = (composition.project.ppq * 2) / playback.signature.denominator;
-  const canTime =
-    composition.project.ownerId === context.userId &&
-    ["DRAFT", "IN_PROGRESS"].includes(composition.project.status);
+  const playback = useCompositionPlayback(preview, {
+    scopeKey: JSON.stringify([apiOrigin(), currentUserId, context.projectId, trackId, targetClipId]),
+  });
+  const positionTick = clipPositionTick(playback.positionMs, timing);
+  const editor = useNoteEditor({
+    contextKey: JSON.stringify([
+      context.origin, context.userId, context.projectId, trackId, targetClipId,
+      draft.state?.draftId ?? (editable ? "loading" : "readonly"),
+    ]),
+    notes,
+    ppq: composition.project.ppq,
+    signature: playback.signature,
+    instrument: track.instrument,
+    bounds: { maxTick, minPitch: 0, maxPitch: 127 },
+    editable: editable && Boolean(draft.session) && !busy && draft.state?.status !== "conflict",
+    onCommit: commitNotes,
+  });
+  useLayoutEffect(() => {
+    const change = editor.lastChange;
+    if (!change) return;
+    setNoteSettingsIndex((index) => index === null ? null :
+      change.type !== "edit" || change.commandType === "delete"
+        ? null : change.indexMap[index] ?? null);
+  }, [editor.lastChange]);
+  useEffect(() => {
+    if (!editor.editable) {
+      setNoteSettingsIndex(null);
+      setShowChords(false);
+      setShowSources(false);
+    }
+  }, [editor.editable]);
+  function play() {
+    if (playback.positionMs < timing.clipStartMs ||
+        (preview && playback.positionMs >= compositionEndMs(preview, preview.tracks)))
+      playback.seek(timing.clipStartMs);
+    void playback.play().catch((cause) => setError(errorText(cause)));
+  }
+  useNoteEditorShortcuts({
+    editor, positionTick, playing: playback.playing, onPlay: play, onPause: playback.pause,
+  });
+  const canTime = editable && !busy && Boolean(draft.session) &&
+    draft.state?.status !== "conflict" && composition.project.ownerId === context.userId;
   async function action(run: () => Promise<unknown>, leave = false) {
     if (busy) return;
     setBusy(true);
@@ -243,6 +316,12 @@ function LoadedNoteEditor({
     link.click();
     URL.revokeObjectURL(url);
   }
+  if (clipUnavailable) return (
+    <div className={cn(studioStyles.studio, studioStyles.studioState)}>
+      <p role="alert">선택한 MIDI 클립을 찾을 수 없습니다.</p>
+      <button onClick={onBack}>돌아가기</button>
+    </div>
+  );
   const draftLabels = {
     idle: "변경 없음",
     dirty: "변경됨",
@@ -272,13 +351,14 @@ function LoadedNoteEditor({
             : undefined
         }
         instrument={
-          editable
+          editor.editable
             ? {
                 value: track.instrument,
                 mode: "midi",
                 tracks: composition.tracks,
                 currentTrackId: trackId,
                 onPreview: playback.previewInstrument,
+                onStopPreview: playback.stopPreview,
                 onConfirm: async (instrument) => {
                   const definition = findInstrument(instrument);
                   if (
@@ -297,27 +377,41 @@ function LoadedNoteEditor({
             : undefined
         }
         playing={playback.playing}
-        positionMs={playback.positionMs}
-        onPlay={() => void playback.play()}
+        positionMs={positionTick * timing.tickMs}
+        onPlay={play}
         onPause={playback.pause}
+        onRewind={() => playback.seek(projectPositionMs(0, timing))}
         onBack={() => (editable ? setLeaving(true) : onBack())}
         piano
         volume={playback.volume}
         onVolume={playback.setVolume}
         metronome={playback.metronome}
         onMetronome={() => playback.setMetronome((value) => !value)}
-        onImportSource={editable && draft.session ? () => setShowSources(true) : undefined}
-        onAdd={() => (editable ? setLeaving(true) : onBack())}
+        onImportSource={editor.editable ? () => setShowSources(true) : undefined}
+        onAdd={editable ? () => setLeaving(true) : undefined}
         addLabel="저장 및 나가기"
       />
+      {editable && (
+        <NoteEditorControls
+          editor={editor}
+          positionTick={positionTick}
+          onSettings={() => {
+            if (editor.selection.length === 1) setNoteSettingsIndex(editor.selection[0]);
+          }}
+          onChord={() => {
+            playback.pause();
+            setShowChords(true);
+          }}
+        />
+      )}
       {editable && (
         <p role="status">
           {draft.state ? draftLabels[draft.state.status] : "개인 초안 불러오는 중"}
         </p>
       )}
-      {(error || playback.error || draft.loadError || draft.state?.error) && (
+      {(error || playback.error || editor.error || draft.loadError || draft.state?.error) && (
         <p className={studioStyles.studioError} role="alert">
-          {error ?? playback.error ?? draft.loadError ?? draft.state?.error}
+          {error ?? playback.error ?? editor.error ?? draft.loadError ?? draft.state?.error}
         </p>
       )}
       {draft.loadError && !draft.session && (
@@ -335,25 +429,15 @@ function LoadedNoteEditor({
         </div>
       )}
       {!editable && <p>내 MIDI 레이어만 수정할 수 있습니다.</p>}
-      {showSources && (
+      {showSources && editor.editable && (
         <StudioSourceDialog
           midiOnly
           onClose={() => setShowSources(false)}
           onResource={async (resource) => {
             const after = Math.max(0, ...notes.map((note) => note.startTick + note.durationTick));
             const imported = resourceNotes(resource, composition.project.ppq, after);
-            if (imported.some((note) => note.startTick + note.durationTick > maxTick))
-              throw new Error("가져올 노트가 곡의 최대 길이를 초과합니다.");
-            const definition = findInstrument(track.instrument);
-            if (
-              !definition ||
-              invalidPitchesFor(
-                definition,
-                imported.map((note) => note.pitch),
-              ).length
-            )
-              throw new Error("가져올 노트에 이 악기에서 지원하지 않는 음이 있습니다.");
-            setNotes([...notes, ...imported]);
+            if (!editor.execute({ type: "insert", notes: imported }))
+              throw new Error("가져올 노트를 추가하지 못했습니다. 음역, 겹침, 곡의 최대 길이를 확인해주세요.");
             setShowSources(false);
           }}
         />
@@ -400,42 +484,37 @@ function LoadedNoteEditor({
           </button>
         </CanvasDialog>
       )}
-      {noteSettingsIndex !== null && notes[noteSettingsIndex] && (
+      {showChords && editor.editable && (
+        <ChordPickerDialog
+          editor={editor}
+          ppq={composition.project.ppq}
+          signature={playback.signature}
+          positionTick={positionTick}
+          onClose={() => setShowChords(false)}
+        />
+      )}
+      {noteSettingsIndex !== null && editor.editable && editor.snapshot.notes[noteSettingsIndex] && (
         <NoteSettingsDialog
-          note={notes[noteSettingsIndex]}
+          key={`${noteSettingsIndex}:${editor.lastChange?.revision ?? 0}`}
+          note={editor.snapshot.notes[noteSettingsIndex]}
           instrument={track.instrument}
-          stepTick={stepTick}
+          stepTick={editor.bounds.stepTick}
           maxTick={maxTick}
           onClose={() => setNoteSettingsIndex(null)}
-          onChange={(updated) =>
-            setNotes((current) => {
-              if (
-                current.some(
-                  (note, index) =>
-                    index !== noteSettingsIndex &&
-                    note.pitch === updated.pitch &&
-                    updated.startTick < note.startTick + note.durationTick &&
-                    updated.startTick + updated.durationTick > note.startTick,
-                )
-              )
-                return current;
-              return current.map((note, index) => (index === noteSettingsIndex ? updated : note));
-            })
-          }
+          onApply={(note) => editor.execute({ type: "replace", index: noteSettingsIndex, note })}
         />
       )}
       <TeamPianoRoll
+        editor={editor}
         signature={playback.signature}
-        onSettings={setNoteSettingsIndex}
-        notes={notes}
-        setNotes={setNotes}
-        stepTick={stepTick}
+        ppq={composition.project.ppq}
         maxTick={maxTick}
-        lengthCells={1}
-        editable={editable && Boolean(draft.session) && !busy && draft.state?.status !== "conflict"}
-        positionMs={playback.positionMs}
-        maxDurationMs={composition.project.maxDurationMs}
-        onSeek={playback.seek}
+        positionTick={positionTick}
+        onSeekTick={(tick) => playback.seek(projectPositionMs(tick, timing))}
+        playing={playback.playing}
+        instrument={track.instrument}
+        onAudition={(pitch) => void playback.audition(pitch, track.instrument)}
+        onSettings={editor.editable ? setNoteSettingsIndex : undefined}
         initialPitch={notes[0]?.pitch ?? 60}
       />
     </div>

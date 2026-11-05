@@ -172,6 +172,12 @@ export function fetchPost(postId: number): Promise<PostDetailResponse> {
   );
 }
 
+export function getLikedPostIds(): Promise<number[]> {
+  return apiRequest<ApiResponse<number[]>>("/api/v1/users/me/liked-posts").then(
+    (response) => response.data,
+  );
+}
+
 // 아래 3개도 로그인(Authorization 헤더)이 필요하다 — auth.ts의 loginWithGoogle()로 먼저 토큰을 발급받아야 한다.
 
 export function createPost(

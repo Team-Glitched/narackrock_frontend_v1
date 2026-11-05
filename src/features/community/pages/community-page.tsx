@@ -10,9 +10,10 @@ import { sharedStyles } from "@/styles/shared.styles";
 import { CommunityDetailScreen } from "@/features/community/community-detail";
 import { useRouteCommunity } from "@/features/community/use-route-community";
 import { PageState } from "@/components/ui/page-state";
+import { parsePostSort, postSortQuery } from "@/features/posts/post-sort";
 
 function CommunityContent({ galleryId }: { galleryId: number }) {
-  const { to } = useUrlNavigation();
+  const { to, query } = useUrlNavigation();
   const result = useRouteCommunity(galleryId);
   if (result.status !== "ready")
     return (
@@ -25,6 +26,8 @@ function CommunityContent({ galleryId }: { galleryId: number }) {
     <CommunityDetailScreen
       key={community.galleryId}
       community={community}
+      sort={parsePostSort(query.get("sort"))}
+      onSortChange={(sort) => to(`/communities/${community.galleryId}?${postSortQuery(query, sort)}`)}
       onManage={() => to(`/communities/${community.galleryId}/members`)}
       onProfile={(id) => to(`/users/${id}`)}
       onComments={(id) => to(`/communities/${community.galleryId}/posts/${id}`)}

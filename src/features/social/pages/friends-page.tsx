@@ -21,6 +21,8 @@ export default function FriendsPage() {
         <div className={sharedStyles.screenBody}>
           <CommunityScreen
             tab="friends"
+            friendsView={query.get("view") === "recommendations" ? "recommendations" : "summary"}
+            onRecommendations={() => to(withQuery("/friends", { view: "recommendations" }))}
             onProfile={(id) => to(`/users/${id}`)}
             onChat={(id) => to(`/chat?userId=${id}`)}
             onJoined={() => to("/communities/joined")}

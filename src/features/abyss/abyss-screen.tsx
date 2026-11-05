@@ -1,7 +1,7 @@
 import { abyssStyles } from "@/styles/abyss.styles";
 import { cn } from "@/lib/utils";
 import { sharedStyles } from "@/styles/shared.styles";
-import { useEffect, useEffectEvent, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useLayoutEffect, useRef, useState } from "react";
 import { AlbumCarousel } from "@/features/abyss/album-carousel";
 import { ShortParticipants } from "@/features/abyss/short-participants";
 import { AbyssComments } from "./abyss-comments";
@@ -11,10 +11,12 @@ import { Asset } from "@/components/ui/asset";
 import { IconSlot } from "@/components/ui/icon-slot";
 import { canonicalShareLink } from "@/lib/api/content-link";
 import { initialShortIndex } from "@/features/abyss/initial-short";
-import { shareLink } from "@/lib/share-link";
+import { useShareLink } from "@/hooks/use-share-link";
 import { ApiError } from "@/lib/api/client";
 import { canJoinShort } from "@/features/abyss/short-participation";
 import { useCurrentUserId } from "@/features/auth/use-current-user";
+import { useShortPlayback } from "@/features/abyss/use-short-playback";
+import type { PlaybackMode } from "@/features/abyss/short-playback-state";
 import {
   getShort,
   getShortShareLink,
@@ -22,7 +24,6 @@ import {
   reactToShort,
   recordShortView,
   toggleShortBookmark,
-  toggleShortPlayback,
 } from "@/lib/api/shorts";
 import { reportShort } from "@/lib/api/reports";
 import type { ShortItemDto, ShortsPageDto } from "@/lib/api/contracts";
@@ -42,6 +43,7 @@ export function AbyssScreen({
   onJoin,
   initialShortId,
   muted = false,
+  mode = "repeat",
   onRememberShort,
 }: {
   onRememberShort?: (id: number) => void;
@@ -49,8 +51,10 @@ export function AbyssScreen({
   onJoin: (shortId: number) => void;
   initialShortId?: number | null;
   muted?: boolean;
+  mode?: PlaybackMode;
 }) {
   const currentUserId = useCurrentUserId();
+  const sharing = useShareLink();
   const [busy, setBusy] = useState(false);
   const [sheet, setSheet] = useState<"participants" | "comments" | "report" | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
@@ -60,12 +64,13 @@ export function AbyssScreen({
   const [feedState, setFeedState] = useState<FeedState>("loading");
   const [reloadKey, setReloadKey] = useState(0);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [playing, setPlaying] = useState(false);
-  const [currentTime, setCurrentTime] = useState(0);
-  const [duration, setDuration] = useState(0);
-  const [playbackError, setPlaybackError] = useState<string | null>(null);
+  const [nextFailed, setNextFailed] = useState(false);
+  const [mediaFailedShortId, setMediaFailedShortId] = useState<number | null>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
   const loadingMoreRef = useRef(false);
+  const feedGeneration = useRef(0);
+  const moreRequest = useRef<AbortController | null>(null);
+  const currentShortIdRef = useRef<number | undefined>(undefined);
 
   // The feed (with its cursor) loads once per account; the URL's short is read when it loads. A shared/saved
   // deep link outside the first page is read directly instead of scanning the feed for it.
@@ -73,6 +78,9 @@ export function AbyssScreen({
   useEffect(() => {
     const controller = new AbortController();
     const target = linkedShortId();
+    // A reloaded feed (account change or new link) invalidates any in-flight next-page request.
+    feedGeneration.current++;
+    moreRequest.current?.abort();
     (async () => {
       const result = await getShorts(undefined, controller.signal);
       let items = result.items;
@@ -91,7 +99,10 @@ export function AbyssScreen({
     })().catch(() => {
       if (!controller.signal.aborted) setFeedState("error");
     });
-    return () => controller.abort();
+    return () => {
+      controller.abort();
+      moreRequest.current?.abort();
+    };
   }, [reloadKey, currentUserId]);
 
   // Selecting a short rewrites the URL to it; only a URL change to a short that is not loaded needs a reload.
@@ -117,22 +128,16 @@ export function AbyssScreen({
   };
   const mediaUrl = current?.mediaUrl?.trim() || null;
   const hasNext = index < shorts.length - 1 || Boolean(page?.hasMore && page.nextCursor != null);
-  const progress = duration > 0 ? Math.min(100, (currentTime / duration) * 100) : 0;
-
-  useEffect(() => {
-    if (!mediaUrl || !audioRef.current) return;
-    void audioRef.current.play().catch(() => {
-      // Browsers may block unmuted autoplay until the user interacts with the page.
-    });
-  }, [mediaUrl]);
+  const playback = useShortPlayback({ short: current ?? null, audioRef, muted, mode, onNext: selectNext });
+  const progress = playback.totalMs > 0 ? Math.min(100, (playback.positionMs / playback.totalMs) * 100) : 0;
+  useLayoutEffect(() => {
+    currentShortIdRef.current = current?.shortId;
+  });
 
   function selectShort(nextIndex: number) {
     if (nextIndex < 0 || nextIndex >= shorts.length) return;
     audioRef.current?.pause();
-    setPlaying(false);
-    setCurrentTime(0);
-    setDuration(0);
-    setPlaybackError(null);
+    setNextFailed(false);
     setFeedback(null);
     setSheet(null);
     setIndex(nextIndex);
@@ -146,47 +151,46 @@ export function AbyssScreen({
     }
     if (!page?.hasMore || page.nextCursor == null || loadingMoreRef.current) return;
 
+    const generation = feedGeneration.current;
+    const requestedFrom = current?.shortId;
+    const loadedCount = shorts.length;
+    const controller = new AbortController();
+    moreRequest.current = controller;
     loadingMoreRef.current = true;
     setLoadingMore(true);
+    setNextFailed(false);
     try {
-      const next = await getShorts(page.nextCursor);
+      const next = await getShorts(page.nextCursor, controller.signal);
+      if (controller.signal.aborted || generation !== feedGeneration.current) return;
       setPage(next.items.length ? next.page : { ...next.page, hasMore: false });
-      if (next.items.length) {
-        audioRef.current?.pause();
-        setPlaying(false);
-        setCurrentTime(0);
-        setDuration(0);
-        setPlaybackError(null);
-        setFeedback(null);
-        setIndex(shorts.length);
-        setShorts((previous) => [...previous, ...next.items]);
-        onRememberShort?.(next.items[0].shortId);
-      }
+      // A deep-linked short is prepended to the first page, so its own page must not add it twice: the URL sync
+      // would jump back to the first copy and loop the feed.
+      const fresh = next.items.filter((item) => !shorts.some((loaded) => loaded.shortId === item.shortId));
+      if (!fresh.length) return;
+      setShorts((previous) => [...previous, ...fresh]);
+      // Only move on when the listener is still on the short that asked for the next page.
+      if (currentShortIdRef.current !== requestedFrom) return;
+      audioRef.current?.pause();
+      setFeedback(null);
+      setSheet(null);
+      setIndex(loadedCount);
+      onRememberShort?.(fresh[0].shortId);
     } catch {
-      setPlaybackError("다음 숏폼을 불러오지 못했습니다.");
+      if (!controller.signal.aborted && generation === feedGeneration.current) setNextFailed(true);
     } finally {
-      loadingMoreRef.current = false;
-      setLoadingMore(false);
+      if (moreRequest.current === controller) {
+        moreRequest.current = null;
+        loadingMoreRef.current = false;
+        setLoadingMore(false);
+      }
     }
   }
 
-  async function togglePlayback() {
-    const audio = audioRef.current;
-    if (!audio || !mediaUrl) return;
-    const willPlay = audio.paused;
-    if (!willPlay) audio.pause();
-    else {
-      setPlaybackError(null);
-      try {
-        await audio.play();
-      } catch {
-        setPlaybackError("음원을 재생하지 못했습니다.");
-        return;
-      }
-    }
-    if (currentUserId !== null)
-      void toggleShortPlayback(current.shortId, willPlay, audio.currentTime).catch(() => {});
-  }
+  // Confirm, backdrop, grip and Escape all apply the sheet's selection the same way.
+  const closeParticipants = () => {
+    playback.applyDraft();
+    setSheet(null);
+  };
 
   const replaceCurrent = (next: ShortItemDto) =>
     setShorts((items) => items.map((item) => (item.shortId === next.shortId ? next : item)));
@@ -216,7 +220,7 @@ export function AbyssScreen({
   const share = () =>
     run(async () => {
       const { shareUrl } = await getShortShareLink(current.shortId);
-      setFeedback(await shareLink(current.title, canonicalShareLink("short", current.shortId, shareUrl, window.location.origin)));
+      setFeedback(await sharing.share(current.title, canonicalShareLink("short", current.shortId, shareUrl, window.location.origin)));
     });
 
   if (feedState === "loading") {
@@ -251,6 +255,7 @@ export function AbyssScreen({
 
   return (
     <div className={abyssStyles.abyssView}>
+      {sharing.dialog}
       <div className={abyssStyles.abyssSong}>
         <AlbumCarousel
           items={shorts}
@@ -266,7 +271,15 @@ export function AbyssScreen({
             <button onClick={() => openProfile(current.author.userId)}>
               {current.author.nickname}
             </button>{" "}
-            <i /> <button onClick={() => setSheet("participants")}>작곡 참여자 보기</button>
+            <i />{" "}
+            <button
+              onClick={() => {
+                playback.openSelection();
+                setSheet("participants");
+              }}
+            >
+              작곡 참여자 보기
+            </button>
           </p>
         </div>
       </div>
@@ -338,36 +351,24 @@ export function AbyssScreen({
             preload="metadata"
             autoPlay
             muted={muted}
-            onLoadedMetadata={(event) =>
-              setDuration(
-                Number.isFinite(event.currentTarget.duration) ? event.currentTarget.duration : 0,
-              )
-            }
-            onTimeUpdate={(event) => setCurrentTime(event.currentTarget.currentTime)}
-            onPlay={() => setPlaying(true)}
-            onPause={() => setPlaying(false)}
-            onEnded={() => setPlaying(false)}
+            {...playback.nativeHandlers}
             onError={() => {
-              if (mediaUrl) setPlaybackError("음원 파일을 불러오지 못했습니다.");
+              if (mediaUrl) setMediaFailedShortId(current.shortId);
             }}
           />
           <input
             className={abyssStyles.abyssProgress}
             type="range"
             min={0}
-            max={duration || 1}
+            max={playback.totalMs / 1000 || 1}
             step="0.1"
-            value={Math.min(currentTime, duration || 1)}
+            value={Math.min(playback.positionMs / 1000, playback.totalMs / 1000 || 1)}
             style={{
               background: `linear-gradient(to right, #f2f4f6 ${progress}%, #303030 ${progress}%)`,
             }}
-            onChange={(event) => {
-              const time = Number(event.target.value);
-              if (audioRef.current) audioRef.current.currentTime = time;
-              setCurrentTime(time);
-            }}
+            onChange={(event) => playback.seek(Number(event.target.value) * 1000)}
             aria-label="재생 위치"
-            disabled={!mediaUrl || duration === 0}
+            disabled={playback.totalMs === 0}
           />
           <div className={abyssStyles.abyssPlayerControls}>
             <Asset name="abyss-player.svg" />
@@ -378,24 +379,44 @@ export function AbyssScreen({
               aria-label="이전 숏폼"
             />
             <button
-              className={cn(abyssStyles.abyssToggle, playing ? sharedStyles.isPlaying : "")}
-              onClick={togglePlayback}
-              disabled={!mediaUrl}
-              aria-label={playing ? "일시정지" : "재생"}
+              className={cn(abyssStyles.abyssToggle, playback.playing ? sharedStyles.isPlaying : "")}
+              onClick={() => void playback.toggle()}
+              disabled={!playback.canPlay}
+              aria-label={playback.playing ? "일시정지" : "재생"}
             />
             <button
               className={abyssStyles.abyssNext}
-              onClick={selectNext}
+              onClick={() => void selectNext()}
               disabled={!hasNext || loadingMore}
               aria-label="다음 숏폼"
             />
           </div>
-          {!mediaUrl && (
+          {playback.selection !== null && (
+            <p className={abyssStyles.abyssPlaybackMessage} role="status">
+              {playback.selection.size === 0
+                ? "선택한 참여자가 없어 재생을 멈췄습니다."
+                : `선택한 참여자 ${playback.selection.size}명의 트랙만 재생합니다.`}
+            </p>
+          )}
+          {playback.selection === null && !mediaUrl && (
             <p className={abyssStyles.abyssPlaybackMessage}>재생 가능한 음원 파일이 없습니다.</p>
           )}
-          {playbackError && (
+          {playback.selection === null && mediaFailedShortId === current.shortId && (
             <p className={abyssStyles.abyssPlaybackMessage} role="alert">
-              {playbackError}
+              음원 파일을 불러오지 못했습니다.
+            </p>
+          )}
+          {playback.error && (
+            <p className={abyssStyles.abyssPlaybackMessage} role="alert">
+              {playback.error}
+            </p>
+          )}
+          {nextFailed && (
+            <p className={abyssStyles.abyssPlaybackMessage} role="alert">
+              다음 숏폼을 불러오지 못했습니다.
+              <button className={abyssStyles.abyssPlaybackRetry} disabled={loadingMore} onClick={() => void selectNext()}>
+                다시 시도
+              </button>
             </p>
           )}
         </div>
@@ -413,8 +434,16 @@ export function AbyssScreen({
           </p>
         )}
         {sheet === "participants" && (
-          <FigmaSheet title="작곡 참여자" onClose={() => setSheet(null)}>
-            <ShortParticipants short={current} onBeforePlay={() => audioRef.current?.pause()} />
+          <FigmaSheet title="작곡 참여자" onClose={closeParticipants}>
+            <ShortParticipants
+              short={current}
+              playback={playback}
+              onClose={closeParticipants}
+              onListenAll={() => {
+                playback.listenAll();
+                setSheet(null);
+              }}
+            />
           </FigmaSheet>
         )}
         <AbyssComments

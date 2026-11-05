@@ -17,17 +17,23 @@ import {
 } from "./community-card";
 import { useCommunityMembership } from "./community-membership";
 import { CommunityPost } from "@/features/posts/post-card";
+import { PostListControls } from "@/features/posts/post-list-controls";
+import type { PostSort } from "@/lib/api/contracts";
 
 export function CommunityDetailScreen({
   community: selected,
   onComments,
   onProfile,
   onManage,
+  sort = "LATEST",
+  onSortChange,
 }: {
   onManage?: () => void;
   onProfile?: (userId: number) => void;
   community: Community;
   onComments: (postId: number) => void;
+  sort?: PostSort;
+  onSortChange?: (sort: PostSort) => void;
 }) {
   const role = useGalleryRole(selected.galleryId);
   const canManage = Boolean(role?.canManage);
@@ -41,7 +47,7 @@ export function CommunityDetailScreen({
     return fresh ? galleryToCommunity(fresh) : selected;
   }, [galleries, selected]);
 
-  const posts = useGalleryPosts(community.galleryId);
+  const posts = useGalleryPosts(community.galleryId, { sort });
 
   // 스크롤되는 것은 window가 아니라 이 요소(.scroll-content)다. 옵저버의 기준으로 넘긴다.
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -102,6 +108,7 @@ export function CommunityDetailScreen({
           </div>
         )}
       </section>
+      {onSortChange && <PostListControls sort={sort} onSortChange={onSortChange} />}
       {posts.status === "loading" && (
         <p className={communityStyles.communityDetailStatus} role="status">
           게시글을 불러오는 중...

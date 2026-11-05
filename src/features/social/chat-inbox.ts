@@ -17,3 +17,9 @@ export function buildChatInbox(threads: ChatThread[], mutual: Person[]): ChatInb
   }
   return rows;
 }
+
+/** Inbox search intentionally filters only loaded conversations, not the people directory. */
+export function filterChatInbox(rows: ChatInboxRow[], query: string): ChatInboxRow[] {
+  const keyword = query.trim().toLocaleLowerCase();
+  return keyword ? rows.filter((row) => row.nickname.toLocaleLowerCase().includes(keyword)) : rows;
+}

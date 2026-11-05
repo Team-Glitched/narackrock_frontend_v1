@@ -1,5 +1,12 @@
 import type { ChatMessage } from "../../lib/api/social.ts";
 
+export const CHAT_MESSAGE_MAX_LENGTH = 2000;
+
+/** Java String.length and HTML maxlength both count UTF-16 code units. */
+export function chatMessageContent(draft: string): string | null {
+  const content = draft.trim();
+  return content.length > 0 && content.length <= CHAT_MESSAGE_MAX_LENGTH ? content : null;
+}
 /**
  * Merges REST pages, send responses and STOMP deliveries for one conversation. The same message arrives through
  * several paths (send response + socket, reconnect backfill, polling), so messages are keyed by server ID and kept

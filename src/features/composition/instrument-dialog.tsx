@@ -1,7 +1,7 @@
 import { sharedStyles } from "@/styles/shared.styles";
 import { buttonVariants } from "@/styles/variants";
 import { CanvasDialog } from "@/components/ui/canvas-dialog";
-import { useId, useState } from "react";
+import { useEffect, useEffectEvent, useId, useState } from "react";
 import { ApiError } from "@/lib/api/client";
 import { canonicalInstrumentId } from "./instrument-catalog";
 import {
@@ -19,7 +19,10 @@ export type InstrumentChoice = {
   mode: "midi" | "audio";
   tracks: PartTrack[];
   currentTrackId?: number;
+  /** MIDI mode plays the candidate's sample phrase; audio mode plays the layer's own original audio. */
   onPreview: (id: string) => Promise<void>;
+  /** Stops only this chooser's preview. Called on candidate change, close, confirm and unmount. */
+  onStopPreview: () => void;
   onConfirm: (id: string) => Promise<void>;
 };
 
@@ -27,14 +30,13 @@ function choiceError(cause: unknown) {
   if (cause instanceof ApiError) {
     if (cause.errorCode === "INSTRUMENT_FAMILY_TAKEN")
       return "다른 참여자가 이미 이 악기 계열을 쓰고 있습니다.";
-    if (cause.status === 403) return "내 레이어의 악기만 바꿀 수 있습니다.";
     return cause.message;
   }
   return cause instanceof Error ? cause.message : "악기를 바꾸지 못했습니다.";
 }
 
 /**
- * Grouped picker following the backend instrument families. Previewing only plays a sample; the track is created
+ * Grouped picker following the backend instrument families. Previewing never writes; the track is created
  * or changed on "선택 완료", and the server's 409 family conflict remains authoritative.
  */
 export function InstrumentDialog({
@@ -51,8 +53,18 @@ export function InstrumentDialog({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const available = (id: string) => choice.mode === "audio" || supportsMidi(id);
+  const stopPreview = useEffectEvent(choice.onStopPreview);
+  useEffect(() => () => stopPreview(), []);
+  const preview = (id: string) => {
+    setError(null);
+    void choice.onPreview(id).catch((cause) => setError(choiceError(cause)));
+  };
+  const close = () => {
+    choice.onStopPreview();
+    onClose();
+  };
   return (
-    <CanvasDialog className={sharedStyles.instrumentDialog} titleId={titleId} onClose={onClose}>
+    <CanvasDialog className={sharedStyles.instrumentDialog} titleId={titleId} onClose={close}>
       <h2 id={titleId}>악기 선택</h2>
       <div role="radiogroup" aria-label="악기" className="grid max-h-[260px] gap-2 overflow-y-auto">
         {instrumentGroups.map((group) => {
@@ -73,9 +85,7 @@ export function InstrumentDialog({
                   aria-checked={selected === id}
                   onClick={() => {
                     setSelected(id);
-                    setError(null);
-                    if (supportsMidi(id))
-                      void choice.onPreview(id).catch((cause) => setError(choiceError(cause)));
+                    preview(id);
                   }}
                 >
                   {partLabel(id)}
@@ -85,13 +95,32 @@ export function InstrumentDialog({
           );
         })}
       </div>
-      {selected && !supportsMidi(selected) && <p>녹음 역할은 미리듣기 소리가 없습니다.</p>}
+      {choice.mode === "audio" && (
+        <div className="flex gap-2">
+          <button
+            type="button"
+            className={buttonVariants({ tone: "secondary", size: "compact" })}
+            disabled={busy}
+            onClick={() => preview(selected ?? "")}
+          >
+            원본 듣기
+          </button>
+          <button
+            type="button"
+            className={buttonVariants({ tone: "secondary", size: "compact" })}
+            onClick={choice.onStopPreview}
+          >
+            정지
+          </button>
+        </div>
+      )}
       {error && <p role="alert">{error}</p>}
       <button
         className={buttonVariants({ tone: "primary", size: "compact" })}
         disabled={busy || !selected || selected === canonicalInstrumentId(choice.value)}
         onClick={async () => {
           if (!selected) return;
+          choice.onStopPreview();
           setBusy(true);
           setError(null);
           try {

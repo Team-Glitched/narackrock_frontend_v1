@@ -17,8 +17,13 @@ export function getPopularShorts(size = 10, signal?: AbortSignal): Promise<Short
   return data(`/api/v1/shorts/popular?size=${encodeURIComponent(size)}`, { signal });
 }
 
-export function getMyShorts(size = 10, signal?: AbortSignal): Promise<ShortsPageDto> {
-  return data(`/api/v1/shorts/mine?size=${encodeURIComponent(size)}`, { signal });
+export function getMyShorts(
+  query: { cursor?: number; size?: number } = {},
+  signal?: AbortSignal,
+): Promise<ShortsPageDto> {
+  const params = new URLSearchParams({ size: String(query.size ?? 20) });
+  if (query.cursor !== undefined) params.set("cursor", String(query.cursor));
+  return data(`/api/v1/shorts/mine?${params}`, { signal });
 }
 
 /** One short by ID, so shared/saved deep links never scan the feed. */

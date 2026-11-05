@@ -33,6 +33,7 @@ const track: TrackDto = {
   name: "피아노",
   instrument: "piano",
   volume: 100,
+  pan: 0,
   isMuted: false,
   isSolo: false,
   approvalStatus: "APPROVED",

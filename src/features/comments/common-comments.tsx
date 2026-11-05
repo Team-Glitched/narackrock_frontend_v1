@@ -1,13 +1,26 @@
 import { communityStyles } from "@/styles/community.styles";
 import { sharedStyles } from "@/styles/shared.styles";
 import { cn } from "@/lib/utils";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Asset } from "@/components/ui/asset";
 import { Avatar } from "@/components/ui/avatar";
 import { PostUserActionsMenu } from "@/features/posts/post-user-actions-menu";
 import { FigmaSheet } from "@/components/ui/figma-sheet";
 import { ReportReasons } from "@/features/comments/report-reasons";
 import type { CommentAdapter, CommentItem, CommentPage, CommentReaction } from "./comment-model";
+
+function resizeComposer(input: HTMLTextAreaElement) {
+  const style = getComputedStyle(input);
+  const lineHeight = parseFloat(style.lineHeight);
+  const padding = parseFloat(style.paddingTop) + parseFloat(style.paddingBottom);
+  const border = parseFloat(style.borderTopWidth) + parseFloat(style.borderBottomWidth);
+  const minHeight = lineHeight + padding + border;
+  const maxHeight = lineHeight * 5 + padding + border;
+  input.style.height = "auto";
+  const contentHeight = input.scrollHeight + border;
+  input.style.height = `${Math.max(minHeight, Math.min(contentHeight, maxHeight))}px`;
+  input.style.overflowY = contentHeight > maxHeight ? "auto" : "hidden";
+}
 
 function useCommentPage(adapter: CommentAdapter, parentId: number | null, revision: number) {
   const [reload, setReload] = useState(0);
@@ -102,7 +115,22 @@ export function CommonComments({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [reportTarget, setReportTarget] = useState<number | null>(null);
-  const input = useRef<HTMLInputElement>(null);
+  const input = useRef<HTMLTextAreaElement>(null);
+  useLayoutEffect(() => {
+    if (input.current) resizeComposer(input.current);
+  }, [draft]);
+  useEffect(() => {
+    const element = input.current;
+    if (!element) return;
+    let width = -1;
+    const observer = new ResizeObserver(([entry]) => {
+      if (entry.contentRect.width === width) return;
+      width = entry.contentRect.width;
+      resizeComposer(element);
+    });
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
   useEffect(() => {
     if (focus) input.current?.focus();
   }, [focus]);
@@ -223,8 +251,9 @@ export function CommonComments({
             <i />
             <i />
           </span>
-          <input
+          <textarea
             ref={input}
+            rows={1}
             aria-label="댓글 내용"
             placeholder={
               currentUserId === null

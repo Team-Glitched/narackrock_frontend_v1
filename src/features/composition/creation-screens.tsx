@@ -132,6 +132,7 @@ export function CompositionRecordScreen({
 }) {
   const recorder = useRef<MediaRecorder | null>(null);
   const stream = useRef<MediaStream | null>(null);
+  const playback = useRef<HTMLAudioElement>(null);
   const [recording, setRecording] = useState(false);
   const [pending, setPending] = useState(false);
   const [pendingLabel, setPendingLabel] = useState("처리 중");
@@ -194,6 +195,8 @@ export function CompositionRecordScreen({
     setPendingLabel("저장 중");
     setPending(true);
     setError("");
+    // The chooser auditions the recording itself; the native player must not play over it.
+    playback.current?.pause();
     try {
       await onSave(file);
     } catch (cause) {
@@ -207,6 +210,7 @@ export function CompositionRecordScreen({
     setPendingLabel("HTI 변환 중");
     setPending(true);
     setError("");
+    playback.current?.pause();
     try {
       await onTransform(file);
     } catch (cause) {
@@ -220,7 +224,7 @@ export function CompositionRecordScreen({
       <Asset name="metronome-large.svg" className={studioStyles.recordSymbol} />
       <div className={studioStyles.recordOutput}>
         {error && <p role="alert">{error}</p>}
-        {url && <audio controls src={url} />}
+        {url && <audio ref={playback} controls src={url} />}
         <p role="status">
           {recording ? "녹음 중" : pending ? pendingLabel : file ? "녹음 완료" : ""}
         </p>

@@ -17,6 +17,7 @@ export function StudioToolbar({
   onPlay,
   onPause,
   onBack,
+  onRewind,
   children,
   piano,
   volume,
@@ -44,6 +45,7 @@ export function StudioToolbar({
   onPlay: () => void;
   onPause: () => void;
   onBack: () => void;
+  onRewind?: () => void;
   children?: React.ReactNode;
   metronome?: boolean;
   onMetronome?: () => void;
@@ -74,6 +76,7 @@ export function StudioToolbar({
         <button onClick={onBack} aria-label="뒤로">
           <Asset name="return.svg" />
         </button>
+        {onRewind && <button onClick={onRewind} aria-label="처음으로">|&lt;</button>}
         <button onClick={playing ? onPause : onPlay} aria-label={playing ? "일시정지" : "재생"}>
           {playing ? <span className={sharedStyles.pauseSymbol} /> : <Asset name="play.svg" />}
         </button>
@@ -88,6 +91,7 @@ export function StudioToolbar({
       </div>
       <strong className={"sr-only"}>{title}</strong>
       <div className={studioStyles.studioReadouts}>
+        {onTiming ? <>
         <button
           className={studioStyles.studioTiming}
           onClick={() => setTiming("bpm")}
@@ -104,6 +108,10 @@ export function StudioToolbar({
           <small>beat</small>
           {signature.numerator}/{signature.denominator}
         </button>
+        </> : <>
+          <span className={studioStyles.studioTiming}><small>bpm</small>{bpm}</span>
+          <span className={studioStyles.studioTiming}><small>beat</small>{signature.numerator}/{signature.denominator}</span>
+        </>}
         <span>
           <small>time</small>
           {`00:${clockTime(positionMs)}`}
@@ -158,7 +166,7 @@ export function StudioToolbar({
         />
       )}
       {!piano && children}
-      {piano && (
+      {piano && onAdd && (
         <>
           <button
             className={studioStyles.studioAdd}

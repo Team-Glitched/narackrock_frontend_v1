@@ -15,7 +15,7 @@ import { useCurrentUserId } from "@/features/auth/use-current-user";
 import { SourcePlayback } from "@/features/sources/source-playback";
 import { ApiError } from "@/lib/api/client";
 import { canonicalShareLink } from "@/lib/api/content-link";
-import { shareLink } from "@/lib/share-link";
+import { useShareLink } from "@/hooks/use-share-link";
 import { relativeTime } from "@/features/posts/post-utils";
 import {
   createOpenSourceComment,
@@ -226,6 +226,7 @@ function SourceDetail({
   onProfile: (id: number) => void;
 }) {
   const save = useSourceSave(source);
+  const sharing = useShareLink();
   const [reaction, setReaction] = useState<Pick<OpenSourceDetail, "isLiked" | "isDisliked" | "likeCount" | "dislikeCount"> | null>(null);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("");
@@ -247,7 +248,7 @@ function SourceDetail({
     try {
       const { shareUrl } = await getOpenSourceShare(source.openSourceId);
       const link = canonicalShareLink("source", source.openSourceId, shareUrl, window.location.origin);
-      setNotice((await shareLink(source.title, link)) ?? "");
+      setNotice((await sharing.share(source.title, link)) ?? "");
     } catch (cause) {
       setNotice(
         cause instanceof DOMException
@@ -260,6 +261,7 @@ function SourceDetail({
   }
   return (
     <div className={sourceStyles.opensourceDetail}>
+      {sharing.dialog}
       <section className={sourceStyles.osDetailArticle}>
         <div className={sourceStyles.osDetailTitleRow}>
           <div className={sourceStyles.osDetailTitle}>

@@ -290,6 +290,7 @@ export const sharedStyles = {
     "chart-row",
     "flex h-16 w-full items-center text-left",
     "[&>span:nth-child(2)]:flex [&>span:nth-child(2)]:flex-col",
+    "[&>button>span:nth-child(2)]:flex [&>button>span:nth-child(2)]:min-w-0 [&>button>span:nth-child(2)]:flex-col",
     "[&_strong]:text-label [&_strong]:font-medium [&_strong]:leading-[18px]",
     "[&_small]:text-caption [&_small]:text-app-muted",
     "[&>img]:ml-auto [&>img]:h-6 [&>img]:w-[18px]",
@@ -299,6 +300,7 @@ export const sharedStyles = {
     "[.design-canvas_&>img]:h-auto [.design-canvas_&>img]:w-auto",
     "[.design-canvas_.scoped-search-results_&]:p-0",
     "[.design-canvas_&>span:nth-child(2)]:gap-[var(--supporting-copy-gap)]",
+    "[.design-canvas_&>button>span:nth-child(2)]:gap-[var(--supporting-copy-gap)]",
   ].join(" "),
   postsList: [
     "posts-list",

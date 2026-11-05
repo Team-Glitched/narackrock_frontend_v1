@@ -185,4 +185,20 @@ export const abyssStyles = {
     "[.design-canvas_&]:w-auto [.design-canvas_&]:min-w-0 [.design-canvas_&]:flex-[0_0_auto] [.design-canvas_&]:text-left",
     "[.design-canvas_&]:[font-variant-numeric:normal]",
   ].join(" "),
+  participantSelection: ["participant-selection", "flex flex-col gap-4 pb-6"].join(" "),
+  participantSelectionActions: [
+    "participant-selection-actions",
+    "flex flex-wrap gap-2",
+    "[&_button]:min-h-9 [&_button]:rounded-[20px] [&_button]:px-4 [&_button]:bg-app-surface [&_button]:bg-none",
+    "[&_button]:text-caption [&_button]:font-semibold [&_button]:text-app-fg",
+    "[&_button:last-child]:ml-auto [&_button:last-child]:bg-app-primary [&_button:last-child]:text-[white]",
+    "[&_button:disabled]:opacity-40",
+  ].join(" "),
+  participantSelectionStatus: [
+    "participant-selection-status",
+    "m-0 text-caption leading-[18px] text-app-muted",
+    "[&_button]:ml-2 [&_button]:text-app-fg [&_button]:underline",
+  ].join(" "),
+  participantCheck: ["participant-check", "ml-auto size-6 flex-none accent-app-primary"].join(" "),
+  abyssPlaybackRetry: ["abyss-playback-retry", "ml-2 text-app-fg underline"].join(" "),
 } as const;

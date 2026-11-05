@@ -44,6 +44,8 @@ import ImportSourcePage from "@/features/composition/pages/import-source-page";
 import ChatPage from "@/features/social/pages/chat-page";
 import NotificationsPage from "@/features/notifications/pages/notifications-page";
 import AdminPage from "@/features/admin/pages/admin-page";
+import LikedPostsPage from "@/features/profile/pages/liked-posts-page";
+import PrivacyPage from "@/features/settings/pages/privacy-page";
 
 export const appRoutes: RouteObject[] = [{
   path: "/",
@@ -75,9 +77,11 @@ export const appRoutes: RouteObject[] = [{
     { path: "profile", element: <RequireAuth><ProfilePage /></RequireAuth> },
     { path: "users/:userId", element: <ProfilePage /> },
     { path: "profile/edit", element: <RequireAuth><EditProfilePage /></RequireAuth> },
+    { path: "profile/likes", element: <RequireAuth><LikedPostsPage /></RequireAuth> },
     { path: "login", element: <LoginPage /> },
     { path: "onboarding", element: <OnboardingPage /> },
     { path: "settings", element: <SettingsPage /> },
+    { path: "privacy", element: <PrivacyPage /> },
     { path: "saved", element: <SavedPage /> },
     { path: "workspace", element: <WorkspacePage /> },
     { path: "submissions", element: <SubmissionsPage /> },

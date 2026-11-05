@@ -4,7 +4,7 @@ import {
   type CreationMethod,
 } from "@/features/composition/creation-screens";
 import { createMidiLayer } from "@/features/composition/composition-actions";
-import { useInstrumentPrompt } from "../use-instrument-prompt";
+import { InstrumentPromptCancelled, useInstrumentPrompt } from "../use-instrument-prompt";
 import { useRouteComposition } from "@/features/composition/use-route-composition";
 import { PageState } from "@/components/ui/page-state";
 import { readId, withQuery } from "@/features/navigation/paths";
@@ -40,10 +40,11 @@ export default function LayerChoicePage() {
     setBusy(true);
     setError(null);
     try {
-      const editor = await createMidiLayer(route.projectId, await instrument.ask("midi"));
+      const editor = await createMidiLayer(route.projectId, await instrument.ask({ mode: "midi" }));
       to(route.notesUrl(editor), { state: route.studioState });
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "레이어를 만들지 못했습니다.");
+      if (!(cause instanceof InstrumentPromptCancelled))
+        setError(cause instanceof Error ? cause.message : "레이어를 만들지 못했습니다.");
     } finally {
       setBusy(false);
     }

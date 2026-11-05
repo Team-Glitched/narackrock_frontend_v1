@@ -3,12 +3,14 @@ import { buttonVariants } from "@/styles/variants";
 import { useEffect, useState, useSyncExternalStore } from "react";
 import {
   createDraftProject,
-  getComposition,
   updateProjectMetadata,
   uploadMedia,
 } from "@/lib/api/composition";
-import { getCurrentUserId } from "@/lib/api/client";
-import { errorText, projectDraftKey, storedDraftId, subscribeToDraft } from "./studio-helpers";
+import { apiOrigin, getCurrentUserId } from "@/lib/api/client";
+import { Link } from "react-router";
+import {
+  errorText, getResumableProject, setStoredDraftId, storedDraftId, subscribeToDraft,
+} from "./studio-helpers";
 
 export function NewProject({
   onCreated,
@@ -36,8 +38,11 @@ export function NewProject({
     setBusy(true);
     setError(null);
     try {
+      const userId = getCurrentUserId();
+      if (userId === null) throw new Error("로그인이 필요합니다.");
+      const scope = { origin: apiOrigin(), userId };
       const { projectId } = await createDraftProject();
-      window.localStorage.setItem(projectDraftKey(), String(projectId));
+      setStoredDraftId(projectId, scope);
       const imageId = image ? await uploadMedia(image, "IMAGE") : null;
       await updateProjectMetadata(projectId, title.trim(), imageId);
       onCreated(projectId);
@@ -107,14 +112,19 @@ export function NewProject({
           <button
             className={sharedStyles.resumeDraft}
             type="button"
+            disabled={busy}
             onClick={async () => {
               try {
-                const composition = await getComposition(savedDraftId);
-                if (composition.project.ownerId !== getCurrentUserId())
-                  throw new Error("현재 계정의 초안이 아닙니다.");
+                const userId = getCurrentUserId();
+                if (userId === null) throw new Error("로그인이 필요합니다.");
+                setBusy(true);
+                setError(null);
+                await getResumableProject(savedDraftId, { origin: apiOrigin(), userId });
                 onResume(savedDraftId);
               } catch (cause) {
                 setError(errorText(cause));
+              } finally {
+                setBusy(false);
               }
             }}
           >
@@ -122,6 +132,7 @@ export function NewProject({
           </button>
         )}
       </div>
+      <Link to="/settings?migration=1">이전 브라우저 작업 확인·복구</Link>
     </form>
   );
 }

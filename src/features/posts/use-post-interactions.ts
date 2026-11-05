@@ -4,13 +4,14 @@ import { canonicalShareLink } from "@/lib/api/content-link";
 import { getCurrentUserId } from "@/lib/api/client";
 import { postError } from "@/features/posts/post-utils";
 import type { PostDetailResponse } from "@/lib/api/contracts";
-import { shareLink } from "@/lib/share-link";
+import { useShareLink } from "@/hooks/use-share-link";
 
 /**
  * Server-owned post reaction/bookmark/share state. Values come from the post detail and are replaced only by
  * server responses; a pending change blocks further clicks and a failure leaves the previous server state.
  */
 export function usePostInteractions(postId: number, detail: PostDetailResponse | null) {
+  const sharing = useShareLink();
   const [override, setOverride] = useState<{ postId: number; reaction?: PostReaction; bookmarked?: boolean } | null>(null);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
@@ -34,6 +35,7 @@ export function usePostInteractions(postId: number, detail: PostDetailResponse |
     }
   }
   return {
+    shareDialog: sharing.dialog,
     reaction,
     bookmarked,
     busy,
@@ -51,7 +53,7 @@ export function usePostInteractions(postId: number, detail: PostDetailResponse |
     share: (title: string) =>
       run(async () => {
         const { shareUrl } = await getPostShareLink(postId);
-        setNotice(await shareLink(title, canonicalShareLink("post", postId, shareUrl, window.location.origin)));
+        setNotice(await sharing.share(title, canonicalShareLink("post", postId, shareUrl, window.location.origin)));
       }),
   };
 }

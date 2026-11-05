@@ -11,6 +11,8 @@ import { PostListStatus } from "@/features/posts/post-list";
 import { CommunityPost } from "@/features/posts/post-card";
 import { FriendsScreen } from "@/features/social/friends-screen";
 
+import { PostListControls } from "@/features/posts/post-list-controls";
+import type { PostSort } from "@/lib/api/contracts";
 export type CommunityTab = "posts" | "community" | "friends";
 
 // tab은 page.tsx가 들고 있다 — "모두보기"로 전체 목록에 다녀와도 커뮤니티 탭이 유지되도록.
@@ -22,6 +24,10 @@ export function CommunityScreen({
   onTabChange,
   onComments,
   onOpenCommunity,
+  sort = "LATEST",
+  onSortChange,
+  friendsView,
+  onRecommendations,
 }: {
   onProfile: (id: number) => void;
   onChat: (userId: number) => void;
@@ -30,8 +36,12 @@ export function CommunityScreen({
   onTabChange: (tab: CommunityTab) => void;
   onComments: (postId: number) => void;
   onOpenCommunity: (community: Community) => void;
+  sort?: PostSort;
+  onSortChange?: (sort: PostSort) => void;
+  friendsView?: "summary" | "recommendations";
+  onRecommendations?: () => void;
 }) {
-  const posts = useGalleryPosts(DEFAULT_GALLERY_ID);
+  const posts = useGalleryPosts(DEFAULT_GALLERY_ID, { sort });
   const role = useGalleryRole(DEFAULT_GALLERY_ID);
 
   return (
@@ -61,6 +71,7 @@ export function CommunityScreen({
       </div>
       {tab === "posts" ? (
         <div className={cn(sharedStyles.socialPostFeed, sharedStyles.scrollContent)}>
+          {onSortChange && <PostListControls sort={sort} onSortChange={onSortChange} />}
           {posts.status !== "ready" ? (
             <div role="status">
               <PostListStatus state={posts.status} />
@@ -92,9 +103,21 @@ export function CommunityScreen({
               />
             ))
           )}
+          {posts.hasMore && (
+            <div className={communityStyles.postFeedEnd} role="status">
+              {posts.appendFailed && <p role="alert">게시글을 더 불러오지 못했습니다.</p>}
+              <button
+                className={buttonVariants({ tone: "secondary", size: "compact" })}
+                disabled={posts.appending}
+                onClick={posts.loadMore}
+              >
+                {posts.appending ? "불러오는 중..." : posts.appendFailed ? "다시 시도" : "더보기"}
+              </button>
+            </div>
+          )}
         </div>
       ) : tab === "friends" ? (
-        <FriendsScreen onProfile={onProfile} onChat={onChat} />
+        <FriendsScreen view={friendsView} onRecommendations={onRecommendations} onProfile={onProfile} onChat={onChat} />
       ) : (
         <CommunityDirectory onJoined={onJoined} onOpen={onOpenCommunity} />
       )}

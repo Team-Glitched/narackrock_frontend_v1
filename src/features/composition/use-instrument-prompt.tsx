@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { getComposition } from "@/lib/api/composition";
 import { InstrumentDialog } from "./instrument-dialog";
-import { useCompositionPlayback } from "./use-composition-playback";
+import { useCompositionPlayback, type AudioAudition } from "./use-composition-playback";
 import type { PartTrack } from "./instrument-parts";
+import { apiOrigin } from "@/lib/api/client";
+import { useCurrentUserId } from "@/features/auth/use-current-user";
 
 export class InstrumentPromptCancelled extends Error {
   constructor() {
@@ -10,11 +12,16 @@ export class InstrumentPromptCancelled extends Error {
   }
 }
 
+export type InstrumentPromptRequest = { mode: "midi" } | { mode: "audio"; audio: AudioAudition };
+
 /** No layer is created until the caller receives an explicitly confirmed choice. */
 export function useInstrumentPrompt(projectId: number | null) {
-  const preview = useCompositionPlayback(null);
+  const userId = useCurrentUserId();
+  const preview = useCompositionPlayback(null, {
+    scopeKey: JSON.stringify([apiOrigin(), userId, projectId, "instrument"]),
+  });
   const [tracks, setTracks] = useState<PartTrack[]>([]);
-  const [mode, setMode] = useState<"midi" | "audio" | null>(null);
+  const [request, setRequest] = useState<InstrumentPromptRequest | null>(null);
   const pending = useRef<{ resolve: (id: string) => void; reject: (error: Error) => void } | null>(
     null,
   );
@@ -30,20 +37,24 @@ export function useInstrumentPrompt(projectId: number | null) {
   const close = () => {
     pending.current?.reject(new InstrumentPromptCancelled());
     pending.current = null;
-    setMode(null);
+    setRequest(null);
   };
   const dialog: ReactNode =
-    mode === null ? null : (
+    request === null ? null : (
       <InstrumentDialog
         choice={{
           value: null,
-          mode,
+          mode: request.mode,
           tracks,
-          onPreview: preview.previewInstrument,
+          onPreview:
+            request.mode === "audio"
+              ? () => preview.previewAudio(request.audio)
+              : preview.previewInstrument,
+          onStopPreview: preview.stopPreview,
           onConfirm: async (id) => {
             pending.current?.resolve(id);
             pending.current = null;
-            setMode(null);
+            setRequest(null);
           },
         }}
         onClose={close}
@@ -51,7 +62,7 @@ export function useInstrumentPrompt(projectId: number | null) {
     );
   return {
     dialog,
-    async ask(nextMode: "midi" | "audio") {
+    async ask(next: InstrumentPromptRequest) {
       if (projectId === null) throw new Error("대상 프로젝트를 먼저 선택해주세요.");
       // A failed permission/occupancy fetch is an error, not an invented empty track list.
       const composition = await getComposition(projectId);
@@ -60,7 +71,7 @@ export function useInstrumentPrompt(projectId: number | null) {
       setTracks(composition.tracks);
       const { promise, resolve, reject } = Promise.withResolvers<string>();
       pending.current = { resolve, reject };
-      setMode(nextMode);
+      setRequest(next);
       return promise;
     },
   };

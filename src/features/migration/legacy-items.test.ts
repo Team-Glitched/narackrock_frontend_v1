@@ -33,3 +33,28 @@ test("the same numeric id with different metadata requires a separate confirmati
   )[0];
   assert.notEqual(original.key, changed.key);
 });
+
+function pointerStorage(value: unknown): Storage {
+  return { ...storage([]), key: () => "glitched-composition-draft-id", getItem: () => JSON.stringify(value) };
+}
+
+test("only positive safe numeric or decimal-string global pointers can be adopted", () => {
+  for (const value of [42, "42"]) {
+    const [item] = collectLegacyItems(pointerStorage(value));
+    assert.equal(item.kind, "draft-pointer");
+    assert.equal(item.id, 42);
+    assert.equal(item.originalScope, "global");
+    assert.equal(item.raw, value);
+  }
+  for (const value of [0, -1, 1.5, Number.MAX_SAFE_INTEGER + 1, "0", "-1", "1.5", "01", "1e2", " 2", {}, { id: 42 }, null]) {
+    const [item] = collectLegacyItems(pointerStorage(value));
+    assert.equal(item.kind, "recovery", JSON.stringify(value));
+  }
+});
+
+test("a changed global pointer cannot reuse a prior confirmation or receipt", () => {
+  const [first] = collectLegacyItems(pointerStorage(42));
+  const [changed] = collectLegacyItems(pointerStorage(43));
+  assert.notEqual(first.key, changed.key);
+  assert.equal(first.key, collectLegacyItems(pointerStorage("42"))[0].key);
+});

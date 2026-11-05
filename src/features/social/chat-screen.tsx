@@ -9,47 +9,82 @@ import { Avatar } from "@/components/ui/avatar";
 import { useCurrentUserId } from "@/features/auth/use-current-user";
 import { SignInRequired } from "@/features/auth/sign-in-required";
 import { relationError } from "@/features/profile/profile-relations";
-import { buildChatInbox, type ChatInboxRow } from "@/features/social/chat-inbox";
+import { filterChatInbox } from "@/features/social/chat-inbox";
+import { useChatInbox } from "@/features/social/use-chat-inbox";
 import { canSendChatTo } from "@/features/social/chat-access";
 import { useConversation } from "@/features/social/use-conversation";
 import { getProfile } from "@/lib/api/profile";
-import { getChatThreads, getMutualFollowers } from "@/lib/api/social";
+import { apiOrigin } from "@/lib/api/client";
 import type { UserProfile } from "@/lib/api/contracts";
+import { CHAT_MESSAGE_MAX_LENGTH, chatMessageContent } from "@/features/social/chat-messages";
 
-function Inbox({ onSelect }: { onSelect: (id: number) => void }) {
-  const userId = useCurrentUserId();
-  const [loaded, setLoaded] = useState<{ userId: number | null; rows: ChatInboxRow[]; error?: string } | null>(null);
+function Inbox({ me, query, searchOpen, focusRequest, onQueryChange, onSelect }: {
+  me: number;
+  query: string;
+  searchOpen: boolean;
+  focusRequest: number;
+  onQueryChange: (query: string) => void;
+  onSelect: (id: number) => void;
+}) {
+  const inbox = useChatInbox(me);
+  const input = useRef<HTMLInputElement>(null);
+  const [searchText, setSearchText] = useState(query);
+  useEffect(() => setSearchText(query), [query]);
   useEffect(() => {
-    let active = true;
-    Promise.all([getChatThreads(), getMutualFollowers()])
-      .then(([threads, mutual]) => {
-        if (active) setLoaded({ userId, rows: buildChatInbox(threads, mutual) });
-      })
-      .catch((cause) => {
-        if (active) setLoaded({ userId, rows: [], error: relationError(cause, "대화 목록을 불러오지 못했습니다.") });
-      });
-    return () => {
-      active = false;
-    };
-  }, [userId]);
-  const current = loaded?.userId === userId ? loaded : null;
-  if (!current) return <p role="status">대화 목록을 불러오는 중...</p>;
-  if (current.error) return <p role="alert">{current.error}</p>;
-  if (current.rows.length === 0) return <p>아직 대화가 없습니다. 맞팔로우한 친구와 대화를 시작해보세요.</p>;
+    if (searchText === query) return;
+    // Keep typing local; replacing the URL for every key can race controlled input updates.
+    const timer = window.setTimeout(() => onQueryChange(searchText), 150);
+    return () => window.clearTimeout(timer);
+  }, [searchText, query, onQueryChange]);
+  useEffect(() => {
+    if (searchOpen) input.current?.focus();
+  }, [searchOpen, focusRequest]);
+  const rows = filterChatInbox(inbox.rows, searchText);
   return (
-    <ul className={profileStyles.profilePeopleList} aria-label="대화 목록">
-      {current.rows.map((row) => (
-        <li key={row.userId}>
-          <button onClick={() => onSelect(row.userId)}>
-            <Avatar src={row.profileImageUrl} />
-            <span>
-              <strong>{row.nickname}</strong>
-              <small>{row.latest ? `${row.latest.outgoing ? "나: " : ""}${row.latest.lastMessage}` : "새 대화 시작하기"}</small>
-            </span>
-          </button>
-        </li>
-      ))}
-    </ul>
+    <>
+      {searchOpen && (
+        <div className="flex items-center gap-2 p-3">
+          <input
+            ref={input}
+            type="search"
+            aria-label="대화 상대 검색"
+            placeholder="대화 상대 검색"
+            value={searchText}
+            className="min-w-0 flex-1 rounded border border-current px-3 py-2"
+            onChange={(event) => setSearchText(event.target.value)}
+          />
+          <button type="button" disabled={!searchText} onClick={() => {
+            setSearchText("");
+            onQueryChange("");
+            input.current?.focus();
+          }}>지우기</button>
+        </div>
+      )}
+      {inbox.error && (
+        <div role="alert">
+          <p>{inbox.loaded ? `목록을 갱신하지 못했습니다. 이전 목록을 표시합니다. ${inbox.error}` : inbox.error}</p>
+          <button type="button" onClick={inbox.refresh}>다시 시도</button>
+        </div>
+      )}
+      {!inbox.loaded && !inbox.error && <p role="status">대화 목록을 불러오는 중...</p>}
+      {inbox.loaded && !inbox.connected && <p role="status">실시간 연결이 끊겨 3초마다 대화 목록을 확인합니다.</p>}
+      {inbox.loaded && rows.length === 0 && (
+        <p>{searchText.trim() ? "검색한 대화 상대가 없습니다." : "아직 대화가 없습니다. 맞팔로우한 친구와 대화를 시작해보세요."}</p>
+      )}
+      <ul className={profileStyles.profilePeopleList} aria-label="대화 목록">
+        {rows.map((row) => (
+          <li key={row.userId}>
+            <button onClick={() => onSelect(row.userId)}>
+              <Avatar src={row.profileImageUrl} />
+              <span>
+                <strong>{row.nickname}</strong>
+                <small>{row.latest ? `${row.latest.outgoing ? "나: " : ""}${row.latest.lastMessage}` : "새 대화 시작하기"}</small>
+              </span>
+            </button>
+          </li>
+        ))}
+      </ul>
+    </>
   );
 }
 
@@ -59,6 +94,7 @@ function Conversation({ me, friend }: { me: number; friend: UserProfile }) {
   const [busy, setBusy] = useState(false);
   const [sendError, setSendError] = useState("");
   const end = useRef<HTMLDivElement>(null);
+  const sending = useRef(false);
   const canSend = canSendChatTo(friend);
   const lastId = chat.messages.at(-1)?.id;
   useEffect(() => {
@@ -68,7 +104,7 @@ function Conversation({ me, friend }: { me: number; friend: UserProfile }) {
     <>
       <div className={socialStyles.chatMessages} aria-label="대화 내용" aria-live="polite">
         {!chat.connected && chat.loaded && <p role="status">실시간 연결이 끊겨 3초마다 새 메시지를 확인합니다.</p>}
-        {chat.error && <p role="alert">{chat.error}</p>}
+        {chat.error && <p role="alert">{chat.error} <button onClick={chat.refresh}>다시 시도</button></p>}
         {chat.loaded && chat.hasOlder && chat.messages.length >= 50 && (
           <button className={communityStyles.nrCommentsMore} onClick={() => void chat.loadOlder()}>
             이전 메시지 더보기
@@ -77,13 +113,13 @@ function Conversation({ me, friend }: { me: number; friend: UserProfile }) {
         {!chat.loaded && <p role="status">대화를 불러오는 중...</p>}
         {chat.messages.map((message) =>
           message.senderId === me ? (
-            <p className={cn(socialStyles.chatBubble, sharedStyles.outgoing)} key={message.id} data-message-id={message.id}>
+            <p className={cn(socialStyles.chatBubble, sharedStyles.outgoing, "whitespace-pre-wrap break-words")} key={message.id} data-message-id={message.id}>
               {message.content}
             </p>
           ) : (
             <div className={socialStyles.chatIncoming} key={message.id} data-message-id={message.id}>
               <Avatar src={friend.profileImageUrl} />
-              <p className={socialStyles.chatBubble}>{message.content}</p>
+              <p className={cn(socialStyles.chatBubble, "whitespace-pre-wrap break-words")}>{message.content}</p>
             </div>
           ),
         )}
@@ -93,8 +129,9 @@ function Conversation({ me, friend }: { me: number; friend: UserProfile }) {
         className={communityStyles.commentComposer}
         onSubmit={async (event) => {
           event.preventDefault();
-          const content = draft.trim();
-          if (!content || busy || !canSend) return;
+          const content = chatMessageContent(draft);
+          if (!content || sending.current || !canSend) return;
+          sending.current = true;
           setBusy(true);
           setSendError("");
           try {
@@ -103,6 +140,7 @@ function Conversation({ me, friend }: { me: number; friend: UserProfile }) {
           } catch (cause) {
             setSendError(relationError(cause, "메시지를 보내지 못했습니다."));
           } finally {
+            sending.current = false;
             setBusy(false);
           }
         }}
@@ -120,11 +158,11 @@ function Conversation({ me, friend }: { me: number; friend: UserProfile }) {
             aria-label="메시지"
             placeholder="입력"
             value={draft}
-            maxLength={1000}
+            maxLength={CHAT_MESSAGE_MAX_LENGTH}
             disabled={!canSend}
             onChange={(event) => setDraft(event.target.value)}
           />
-          <button aria-label="메시지 보내기" disabled={!draft.trim() || busy || !canSend}>
+          <button aria-label="메시지 보내기" disabled={!chatMessageContent(draft) || busy || !canSend}>
             <Asset name="comment-send.svg" />
           </button>
         </div>
@@ -140,6 +178,8 @@ export function ChatScreen({
   onNotifications,
   onSelect,
   onProfile,
+  query,
+  onQueryChange,
 }: {
   friendId: number | null;
   onBack: () => void;
@@ -147,10 +187,13 @@ export function ChatScreen({
   onNotifications: () => void;
   onSelect: (id: number) => void;
   onProfile: (id: number) => void;
+  query: string;
+  onQueryChange: (query: string) => void;
 }) {
   const me = useCurrentUserId();
   const [friend, setFriend] = useState<{ key: string; profile?: UserProfile; error?: string } | null>(null);
-  const key = `${me}:${friendId}`;
+  const [search, setSearch] = useState({ open: false, request: 0 });
+  const key = JSON.stringify([apiOrigin(), me, friendId]);
   useEffect(() => {
     if (me === null || friendId === null) return;
     let active = true;
@@ -186,7 +229,9 @@ export function ChatScreen({
         <button aria-label="알림" onClick={onNotifications}>
           <Asset name="bell.svg" />
         </button>
-        <button aria-label="검색" onClick={onSearch}>
+        <button aria-label={friendId === null ? "대화 상대 검색" : "검색"} onClick={friendId === null ? () => {
+          setSearch((previous) => ({ open: true, request: previous.request + 1 }));
+        } : onSearch}>
           <Asset name="search.svg" />
         </button>
       </header>
@@ -194,7 +239,7 @@ export function ChatScreen({
         <SignInRequired>채팅은 로그인 후 사용할 수 있습니다.</SignInRequired>
       ) : friendId === null ? (
         <div className={cn(socialStyles.chatMessages, sharedStyles.scrollContent)}>
-          <Inbox onSelect={onSelect} />
+          <Inbox key={key} me={me} query={query} searchOpen={search.open || Boolean(query)} focusRequest={search.request} onQueryChange={onQueryChange} onSelect={onSelect} />
         </div>
       ) : !current ? (
         <p role="status">대화를 여는 중...</p>

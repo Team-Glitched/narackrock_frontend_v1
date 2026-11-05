@@ -157,6 +157,7 @@ export function PostCommentsScreen({
   const interactions = usePostInteractions(postId, post);
   return (
     <div className={cn(communityStyles.commentsScreen, communityStyles.communityView)}>
+      {interactions.shareDialog}
       <CommonComments
         canWrite={post !== null && !deleting}
         adapter={adapter}

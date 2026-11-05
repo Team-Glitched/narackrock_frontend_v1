@@ -1,9 +1,11 @@
 import { studioStyles } from "@/styles/studio.styles";
 import { cn } from "@/lib/utils";
 import { sharedStyles } from "@/styles/shared.styles";
-import { useEffect, useMemo, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { PublishConfirmation } from "@/features/composition/publish-confirmation";
 import { VolumeDialog } from "@/features/composition/volume-dialog";
+import { InstrumentDialog } from "@/features/composition/instrument-dialog";
+import { findInstrument, invalidPitchesFor } from "@/features/composition/instrument-catalog";
 import { Asset } from "@/components/ui/asset";
 import { Avatar } from "@/components/ui/avatar";
 import { rememberWork } from "@/features/workspace/workspace-store";
@@ -33,6 +35,7 @@ import {
   publishComposition,
   reviewContribution,
   updateProjectMetadata,
+  updateTrackInstrument,
   uploadMedia,
   type CompositionDto,
 } from "@/lib/api/composition";
@@ -50,6 +53,7 @@ import { syncProjectEditorDrafts, clearCommittedRecovery } from "./project-edito
 import { browserDraftStorage } from "./use-editor-draft";
 import { listLocalDrafts, readLocalDraft, DraftSession, type ServerDraft } from "./editor-draft";
 import { withPersonalDrafts } from "./draft-preview";
+import { useCurrentUserId } from "@/features/auth/use-current-user";
 
 export function StudioScreen({
   onSubmitted,
@@ -72,9 +76,15 @@ export function StudioScreen({
   onAddLayer: () => void;
   onEditTrack: (trackId: number, clipId: number | null) => void;
 }) {
+  const userId = useCurrentUserId();
+  const origin = apiOrigin();
   const [showSources, setShowSources] = useState(false);
   const [trackSettingsId, setTrackSettingsId] = useState<number | null>(null);
+  const [instrumentTrackId, setInstrumentTrackId] = useState<number | null>(null);
+  // Original audio of a layer, fetched once per media URL for the role chooser's audition.
+  const originalAudio = useRef(new Map<string, Promise<File>>());
   const [composition, setComposition] = useState<CompositionDto | null>(null);
+  const [compositionOrigin, setCompositionOrigin] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
@@ -91,7 +101,7 @@ export function StudioScreen({
   } | null>(null);
   const [personalDrafts, setPersonalDrafts] = useState<ServerDraft[]>([]);
   const preview = useMemo(() => {
-    if (!composition) return null;
+    if (!composition || composition.viewerPermission.userId !== userId || compositionOrigin !== origin) return null;
     const local = listLocalDrafts(
       browserDraftStorage(),
       apiOrigin(),
@@ -108,8 +118,10 @@ export function StudioScreen({
       ...local,
     ];
     return withPersonalDrafts(composition, merged);
-  }, [composition, personalDrafts]);
-  const playback = useCompositionPlayback(preview);
+  }, [composition, personalDrafts, userId, origin, compositionOrigin]);
+  const playback = useCompositionPlayback(preview, {
+    scopeKey: JSON.stringify([origin, userId, projectId ?? composition?.project.projectId ?? null]),
+  });
 
   useEffect(
     () => () => {
@@ -121,11 +133,18 @@ export function StudioScreen({
   useEffect(() => {
     if (shortId == null && projectId == null) return;
     let cancelled = false;
+    setComposition(null);
+    setPersonalDrafts([]);
+    setTrackSettingsId(null);
+    setInstrumentTrackId(null);
+    originalAudio.current.clear();
+    setError(null);
     (async () => {
       const id = shortId == null ? projectId! : (await enterComposition(shortId)).projectId;
       const [result, drafts] = await Promise.all([getComposition(id), getEditorDrafts(id)]);
       if (!cancelled) {
         setComposition(result);
+        setCompositionOrigin(origin);
         setPersonalDrafts(drafts);
         try {
           rememberWork(result, shortId);
@@ -140,7 +159,7 @@ export function StudioScreen({
     return () => {
       cancelled = true;
     };
-  }, [shortId, projectId, onProjectSelected]);
+  }, [shortId, projectId, onProjectSelected, userId, origin]);
 
   async function refresh() {
     if (composition) {
@@ -298,7 +317,7 @@ export function StudioScreen({
     }
   }
 
-  if (!composition)
+  if (!composition || composition.viewerPermission.userId !== userId || compositionOrigin !== origin)
     return (
       <div
         className={cn(studioStyles.studio, studioStyles.studioState)}
@@ -499,14 +518,86 @@ export function StudioScreen({
       {trackSettingsId !== null &&
         (() => {
           const selected = tracks.find((track) => track.trackId === trackSettingsId);
+          const roleEditable =
+            selected?.ownerId === viewerPermission.userId &&
+            ["DRAFT", "IN_PROGRESS"].includes(project.status) &&
+            ["DRAFT", "APPROVED"].includes(selected.approvalStatus);
           return selected ? (
             <VolumeDialog
               track={selected}
               value={playback.trackVolumes[selected.trackId] ?? selected.volume}
               onChange={(value) => playback.setTrackVolume(selected.trackId, value)}
               onClose={() => setTrackSettingsId(null)}
+              onChangeInstrument={
+                roleEditable
+                  ? () => {
+                      playback.pause();
+                      setTrackSettingsId(null);
+                      setInstrumentTrackId(selected.trackId);
+                    }
+                  : undefined
+              }
             />
           ) : null;
+        })()}
+      {instrumentTrackId !== null &&
+        (() => {
+          const selected = tracks.find((track) => track.trackId === instrumentTrackId);
+          if (!selected) return null;
+          // Personal MIDI drafts are already merged into `tracks`, so they also force MIDI mode.
+          const midi = selected.clips.some((clip) => clip.clipType === "MIDI");
+          const audioClip = selected.clips.find(
+            (clip) => clip.clipType === "AUDIO" && clip.mediaUrl,
+          );
+          return (
+            <InstrumentDialog
+              choice={{
+                value: selected.instrument,
+                mode: midi ? "midi" : "audio",
+                tracks: composition.tracks,
+                currentTrackId: selected.trackId,
+                onPreview: midi
+                  ? playback.previewInstrument
+                  : async () => {
+                      if (!audioClip?.mediaUrl) throw new Error("미리 들을 원본 오디오가 없습니다.");
+                      const url = audioClip.mediaUrl;
+                      let file = originalAudio.current.get(url);
+                      if (!file) {
+                        file = fetch(url).then(async (response) => {
+                          if (!response.ok)
+                            throw new Error(`원본 오디오를 불러오지 못했습니다. (${response.status})`);
+                          return new File([await response.blob()], "original");
+                        });
+                        originalAudio.current.set(url, file);
+                        file.catch(() => originalAudio.current.delete(url));
+                      }
+                      await playback.previewAudio({
+                        file: await file,
+                        selection: {
+                          startMs: audioClip.clipOffsetMs,
+                          endMs: audioClip.clipOffsetMs + audioClip.durationMs,
+                        },
+                      });
+                    },
+                onStopPreview: playback.stopPreview,
+                onConfirm: async (instrument) => {
+                  if (midi) {
+                    const definition = findInstrument(instrument);
+                    const pitches = selected.clips.flatMap((clip) =>
+                      (clip.midiNotes ?? []).map((note) => note.pitch),
+                    );
+                    if (!definition || invalidPitchesFor(definition, pitches).length)
+                      throw new Error("현재 노트에 이 악기에서 지원하지 않는 음이 있습니다.");
+                  }
+                  playback.pause();
+                  await updateTrackInstrument(project.projectId, selected.trackId, instrument);
+                  // Only metadata/occupancy is re-read; personal drafts and their history stay as they are.
+                  setComposition(await getComposition(project.projectId));
+                },
+              }}
+              onClose={() => setInstrumentTrackId(null)}
+            />
+          );
         })()}
       {showSources && (
         <StudioSourceDialog
@@ -626,7 +717,8 @@ export function StudioScreen({
                     onError={setError}
                     onSelect={() => setTrackSettingsId(track.trackId)}
                     onEdit={
-                      clip.clipType === "MIDI" && clip.ownerId === viewerPermission.userId
+                      // Other participants' MIDI opens read-only; the editor never creates their drafts.
+                      clip.clipType === "MIDI"
                         ? () => onEditTrack(track.trackId, clip.clipId > 0 ? clip.clipId : null)
                         : undefined
                     }

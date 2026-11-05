@@ -1,6 +1,7 @@
 import { buttonVariants } from "@/styles/variants";
-import { useEffect, useState } from "react";
-import { ApiError } from "@/lib/api/client";
+import { useEffect, useRef, useState } from "react";
+import { ApiError, apiOrigin } from "@/lib/api/client";
+import { useCurrentUserId } from "@/features/auth/use-current-user";
 import type { UserProfile } from "@/lib/api/contracts";
 import { followPerson, getOutgoingFollowRequests, unfollowPerson, updateProfilePrivacy } from "@/lib/api/social";
 import { canSendChatTo } from "@/features/social/chat-access";
@@ -23,51 +24,67 @@ export function ProfileRelationActions({
   onChanged: () => void;
   onChat: (userId: number) => void;
 }) {
-  const [pending, setPending] = useState<{ userId: number; value: boolean } | null>(null);
+  const userId = useCurrentUserId();
+  return <ScopedProfileRelationActions key={JSON.stringify([apiOrigin(), userId, profile.userId])} profile={profile} onChanged={onChanged} onChat={onChat} authenticated={userId !== null} />;
+}
+
+function ScopedProfileRelationActions({ profile, onChanged, onChat, authenticated }: { profile: UserProfile; onChanged: () => void; onChat: (userId: number) => void; authenticated: boolean }) {
+  const [pending, setPending] = useState<boolean | null>(null);
+  const [override, setOverride] = useState<"FOLLOWING" | "PENDING" | null | undefined>(undefined);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("");
+  const [outgoingError, setOutgoingError] = useState("");
+  const [revision, setRevision] = useState(0);
+  const generation = useRef(0);
   useEffect(() => {
-    let active = true;
+    const epoch = ++generation.current;
+    setPending(null);
+    setOutgoingError("");
+    if (!authenticated) return;
     getOutgoingFollowRequests()
       .then((requests) => {
-        if (active) setPending({ userId: profile.userId, value: requests.some((request) => request.targetId === profile.userId) });
+        if (generation.current === epoch) setPending(requests.some((request) => request.targetId === profile.userId));
       })
-      .catch(() => {
-        if (active) setPending({ userId: profile.userId, value: false });
+      .catch((cause) => {
+        if (generation.current === epoch) setOutgoingError(relationError(cause, "보낸 팔로우 요청을 확인하지 못했습니다."));
       });
-    return () => {
-      active = false;
-    };
-  }, [profile.userId]);
-  const requested = pending?.userId === profile.userId && pending.value;
+    return () => { generation.current++; };
+  }, [authenticated, profile.userId, revision]);
+  const state = override !== undefined ? override : profile.relations.isFollowing ? "FOLLOWING" : pending ? "PENDING" : null;
+  const known = pending !== null;
   async function change() {
-    if (busy) return;
+    if (busy || !known) return;
+    const epoch = generation.current;
     setBusy(true);
     setNotice("");
     try {
-      if (profile.relations.isFollowing || requested) {
+      if (state) {
         await unfollowPerson(profile.userId);
-        setPending({ userId: profile.userId, value: false });
-        setNotice(requested ? "팔로우 요청을 취소했습니다." : "");
+        if (generation.current !== epoch) return;
+        setPending(false);
+        setOverride(null);
+        setNotice(state === "PENDING" ? "팔로우 요청을 취소했습니다." : "");
       } else {
         const result = await followPerson(profile.userId);
-        const waiting = result.status === "PENDING";
-        setPending({ userId: profile.userId, value: waiting });
-        if (waiting) setNotice("비공개 계정이라 상대가 수락하면 팔로우됩니다.");
+        if (generation.current !== epoch) return;
+        setOverride(result.status);
+        setPending(result.status === "PENDING");
+        if (result.status === "PENDING") setNotice("비공개 계정이라 상대가 수락하면 팔로우됩니다.");
       }
       onChanged();
     } catch (cause) {
-      setNotice(relationError(cause, "팔로우 상태를 바꾸지 못했습니다."));
+      if (generation.current === epoch) setNotice(relationError(cause, "팔로우 상태를 바꾸지 못했습니다."));
     } finally {
-      setBusy(false);
+      if (generation.current === epoch) setBusy(false);
     }
   }
-  const label = profile.relations.isFollowing ? "팔로잉" : requested ? "요청됨" : profile.relations.isFollowedBy ? "맞팔로우" : "팔로우";
+  const label = !authenticated ? "로그인 필요" : !known ? outgoingError ? "확인 실패" : "확인 중" : state === "FOLLOWING" ? "팔로잉" : state === "PENDING" ? "요청됨" : profile.relations.isFollowedBy ? "맞팔로우" : "팔로우";
   return (
-    <div className="flex items-center justify-center gap-2">
-      <button className={buttonVariants({ tone: profile.relations.isFollowing || requested ? "secondary" : "primary" })} disabled={busy || pending === null} aria-pressed={profile.relations.isFollowing || requested} onClick={() => void change()}>
+    <div className="flex flex-wrap items-center justify-center gap-2">
+      <button className={buttonVariants({ tone: state ? "secondary" : "primary" })} disabled={busy || !known} aria-pressed={known ? state !== null : undefined} onClick={() => void change()}>
         {label}
       </button>
+      {outgoingError && <div role="alert"><p>{outgoingError}</p><button onClick={() => setRevision((value) => value + 1)}>다시 확인</button></div>}
       {canSendChatTo(profile) && (
         <button className={buttonVariants({ tone: "secondary" })} onClick={() => onChat(profile.userId)}>
           채팅

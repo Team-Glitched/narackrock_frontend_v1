@@ -17,10 +17,15 @@ import {
   migrationKey,
   migrateBookmark,
   migratePrivateAudio,
+  migrateDraftPointer,
+  type DraftPointerConsent,
   type MigrationJournal,
 } from "./migration-journal";
 import { restoreCreationDraft } from "@/features/community/creation-draft";
-import { type LegacyItem, recoveryComposition } from "./legacy-items";
+import { collectLegacyItems, type LegacyItem, recoveryComposition } from "./legacy-items";
+import {
+  getResumableProject, projectDraftKey, setStoredDraftId, storedDraftId,
+} from "@/features/composition/studio-helpers";
 
 export function migrationEntry(item: LegacyItem, userId: number): MigrationJournal | null {
   try {
@@ -53,13 +58,16 @@ const sameMetadata = (item: LegacyItem, title: string, author: string | null, ow
     );
 };
 
+export type MigrationOptions = {
+  userId: number;
+  ownsAudio: boolean;
+  target?: { projectId: number; trackId: number };
+  draftPointerConsent?: DraftPointerConsent;
+};
+
 /** Called only for one checked item. A browser/account lock serializes all read-before-write decisions. */
-export async function migrateItem(
-  item: LegacyItem,
-  userId: number,
-  ownsAudio: boolean,
-  target?: { projectId: number; trackId: number },
-) {
+export async function migrateItem(item: LegacyItem, options: MigrationOptions) {
+  const { userId, ownsAudio, target, draftPointerConsent } = options;
   if (!navigator.locks)
     throw new Error("Web Lock을 지원하는 브라우저에서만 안전하게 이관할 수 있습니다.");
   const origin = apiOrigin();
@@ -75,7 +83,30 @@ export async function migrateItem(
   try {
     return await navigator.locks.request(`narackrock.migration:${origin}:${userId}`, async () => {
       assertAccount();
-      if (item.kind === "post" || item.kind === "song") {
+      if (item.kind === "draft-pointer") {
+        if (item.id === null) throw new Error("유효한 원본 프로젝트 ID가 없습니다.");
+        const scope = { origin, userId };
+        const assertOriginal = () => {
+          assertAccount();
+          if (!collectLegacyItems(localStorage).some((current) => current.key === item.key))
+            throw new Error("원본 포인터가 변경되었습니다. 목록을 다시 열고 확인해주세요.");
+        };
+        await migrateDraftPointer({
+          origin,
+          projectId: item.id,
+          destinationKey: projectDraftKey(scope),
+          consent: draftPointerConsent,
+          validate: async () => {
+            assertOriginal();
+            const composition = await getResumableProject(item.id!, scope);
+            assertOriginal();
+            return composition.project;
+          },
+          read: () => storedDraftId(scope),
+          write: (projectId) => setStoredDraftId(projectId, scope),
+          journal,
+        });
+      } else if (item.kind === "post" || item.kind === "song") {
         if (item.id === null) throw new Error("유효한 원본 ID가 없습니다.");
         const id = item.id;
         await migrateBookmark({
@@ -262,12 +293,17 @@ export async function migrateItem(
   } catch (cause) {
     if (getCurrentUserId() === userId && apiOrigin() === origin) {
       const previous = migrationEntry(item, userId);
-      if (!previous || !["sending", "creating", "uncertain", "done"].includes(previous.phase))
-        journal({
-          ...previous,
-          phase: "failed",
-          message: cause instanceof Error ? cause.message : "이관 실패",
-        });
+      if (!previous || !["sending", "creating", "adopting", "uncertain", "done"].includes(previous.phase)) {
+        try {
+          journal({
+            ...previous,
+            phase: "failed",
+            message: cause instanceof Error ? cause.message : "이관 실패",
+          });
+        } catch {
+          // Recording a failure must not hide the original error (including storage quota errors).
+        }
+      }
     }
     throw cause;
   }

@@ -179,6 +179,7 @@ export function CommunityPost({
 
   return (
     <article className={communityStyles.communityPost} data-post-id={post.postId}>
+      {interactions.shareDialog}
       <div className={communityStyles.communityAuthor}>
         <button
           className={communityStyles.postAuthorLink}

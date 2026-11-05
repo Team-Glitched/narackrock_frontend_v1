@@ -21,7 +21,13 @@ export default function ChartsPage() {
       <div className={sharedStyles.phoneFrame}>
         <Header onBack={() => back("/")} onSearch={() => to(withQuery("/search", { scope, galleryId }))} />
         <div className={sharedStyles.screenBody}>
-          <ChartsScreen kind={kind} onOpenShort={(id) => to(`/abyss/${id}`)} />
+          <ChartsScreen kind={kind} tab={query.get("tab") === "participated" ? "participated" : "authored"}
+            onTabChange={(tab) => {
+              const next = new URLSearchParams(query);
+              next.set("tab", tab);
+              to(`/charts?${next}`, { replace: true });
+            }}
+            onOpenShort={(id) => to(`/abyss/${id}`)} />
         </div>
         <Footer activeTab={null} createLabel={target.label} onCreate={() => to(target.path, target.path === "/studio/new" ? {
           state: { studioFrom: currentPath, studioIndex: window.history.state?.idx },

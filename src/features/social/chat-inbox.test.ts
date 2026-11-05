@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { buildChatInbox } from "./chat-inbox.ts";
+import { buildChatInbox, filterChatInbox } from "./chat-inbox.ts";
 import type { ChatThread, Person } from "../../lib/api/social.ts";
 
 const person = (userId: number): Person => ({ userId, nickname: `user${userId}`, profileImageUrl: null, primaryInstrument: null });
@@ -18,4 +18,14 @@ test("recent conversations precede mutual followers without messages", () => {
 
 test("keeps a recent public conversation even without mutual follow", () => {
   assert.deepEqual(buildChatInbox([thread(7, 4)], []).map(row => row.userId), [7]);
+});
+
+test("nickname search trims and ignores case without changing loaded ordering", () => {
+  const rows = buildChatInbox([{ ...thread(2, 8), nickname: "Jazz PLAYER" }, thread(3, 9)], [
+    { ...person(4), nickname: "jazz friend" },
+  ]);
+  assert.deepEqual(filterChatInbox(rows, "  JaZz ").map((row) => row.userId), [2, 4]);
+  assert.equal(filterChatInbox(rows, " "), rows);
+  assert.deepEqual(filterChatInbox(rows, "missing"), []);
+  assert.deepEqual(rows.map((row) => row.userId), [3, 2, 4]);
 });

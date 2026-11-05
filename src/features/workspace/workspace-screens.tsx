@@ -19,6 +19,7 @@ import { useCompositionPlayback } from "@/features/composition/use-composition-p
 import { Asset } from "@/components/ui/asset";
 import { toggleResource, useWorkspace, type Resource, type Work } from "./workspace-store";
 import { useVisitedWorks } from "./use-visited-works";
+import { apiOrigin } from "@/lib/api/client";
 const labels = { PENDING: "승인 대기", APPROVED: "승인됨", REJECTED: "반려됨" };
 function Page({
   title,
@@ -47,7 +48,10 @@ export function ClipPlayer({
   composition: CompositionDto;
   label?: string;
 }) {
-  const player = useCompositionPlayback(composition);
+  const userId = useCurrentUserId();
+  const player = useCompositionPlayback(composition, {
+    scopeKey: JSON.stringify([apiOrigin(), userId, composition?.project.projectId ?? null, "workspace"]),
+  });
   const id = useId();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");

@@ -5,6 +5,8 @@ import { Asset } from "@/components/ui/asset";
 import { Avatar } from "@/components/ui/avatar";
 import { CanvasDialog } from "@/components/ui/canvas-dialog";
 import { DialogNumberInput } from "@/features/composition/dialog-number-input";
+import { partLabel } from "@/features/composition/instrument-parts";
+import { buttonVariants } from "@/styles/variants";
 import { useId } from "react";
 
 /** Figma V3 Dialog / Volume (13488:30828). */
@@ -13,11 +15,14 @@ export function VolumeDialog({
   onChange,
   onClose,
   track,
+  onChangeInstrument,
 }: {
   value: number;
   onChange: (value: number) => void;
   onClose: () => void;
   track?: { name: string; instrument: string | null };
+  /** Present only when the viewer may change this track's instrument/recording role. */
+  onChangeInstrument?: () => void;
 }) {
   const titleId = useId();
   return (
@@ -30,9 +35,7 @@ export function VolumeDialog({
         <div className={studioStyles.trackSettingsIdentity}>
           <span>
             <strong>{track.name}</strong>
-            <small>
-              {track.instrument === "piano" ? "피아노" : (track.instrument ?? "오디오")}
-            </small>
+            <small>{track.instrument ? partLabel(track.instrument) : "오디오"}</small>
           </span>
           <Avatar />
         </div>
@@ -63,6 +66,15 @@ export function VolumeDialog({
           onChange={onChange}
         />
       </div>
+      {onChangeInstrument && (
+        <button
+          type="button"
+          className={cn(buttonVariants({ tone: "secondary", size: "compact" }), "mt-5 w-full")}
+          onClick={onChangeInstrument}
+        >
+          악기/보컬 변경
+        </button>
+      )}
     </CanvasDialog>
   );
 }

@@ -4,25 +4,26 @@ import { CanvasDialog } from "@/components/ui/canvas-dialog";
 import { DialogNumberInput } from "@/features/composition/dialog-number-input";
 import { partLabel } from "./instrument-parts";
 import type { MidiNoteDto } from "@/lib/api/composition";
-import { useId } from "react";
+import { useId, useState } from "react";
 
 /** Figma V3 13507:31697; uncontracted effects remain visible but unavailable. */
 export function NoteSettingsDialog({
-  note,
+  note: initialNote,
   stepTick,
   maxTick,
   instrument,
-  onChange,
+  onApply,
   onClose,
 }: {
   note: MidiNoteDto;
   stepTick: number;
   maxTick: number;
   instrument: string | null;
-  onChange: (note: MidiNoteDto) => void;
+  onApply: (note: MidiNoteDto) => boolean;
   onClose: () => void;
 }) {
   const titleId = useId();
+  const [note, onChange] = useState(() => structuredClone(initialNote));
   const pitch = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"][note.pitch % 12];
   return (
     <CanvasDialog className={studioStyles.noteSettingsDialog} titleId={titleId} onClose={onClose}>
@@ -35,13 +36,14 @@ export function NoteSettingsDialog({
         <input
           aria-label="노트 길이"
           type="number"
-          min={1}
-          max={Math.floor((maxTick - note.startTick) / stepTick)}
-          value={Math.round(note.durationTick / stepTick)}
+          min={Math.min(1, initialNote.durationTick / stepTick)}
+          max={(maxTick - note.startTick) / stepTick}
+          step="any"
+          value={note.durationTick / stepTick}
           onChange={(event) => {
             const durationTick = Math.max(
-              stepTick,
-              Math.min(maxTick - note.startTick, Number(event.target.value) * stepTick),
+              Math.min(stepTick, initialNote.durationTick),
+              Math.round(Math.min(maxTick - note.startTick, Number(event.target.value) * stepTick)),
             );
             onChange({ ...note, durationTick });
           }}
@@ -89,6 +91,10 @@ export function NoteSettingsDialog({
           </div>
         </div>
       ))}
+      <div className="flex justify-end gap-3 pt-3">
+        <button onClick={onClose}>취소</button>
+        <button onClick={() => { if (onApply(note)) onClose(); }}>적용</button>
+      </div>
     </CanvasDialog>
   );
 }

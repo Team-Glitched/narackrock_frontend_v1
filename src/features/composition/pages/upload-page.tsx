@@ -4,7 +4,7 @@ import {
   PartialLayerError,
   cancelEmptyLayer,
 } from "@/features/composition/composition-actions";
-import { useInstrumentPrompt } from "../use-instrument-prompt";
+import { InstrumentPromptCancelled, useInstrumentPrompt } from "../use-instrument-prompt";
 import { useRef, useState } from "react";
 import { useRouteComposition } from "@/features/composition/use-route-composition";
 import { PageState } from "@/components/ui/page-state";
@@ -62,12 +62,14 @@ export default function UploadPage() {
                     await saveAudioLayer(
                       route.projectId!,
                       file,
-                      await instrument.ask("audio"),
+                      await instrument.ask({ mode: "audio", audio: { file, selection } }),
                       "FILE_UPLOAD",
                       selection,
                     );
                   partial.current = null;
                 } catch (cause) {
+                  // Closing the chooser keeps the trim screen as it was; it is not a save failure.
+                  if (cause instanceof InstrumentPromptCancelled) return;
                   if (cause instanceof PartialLayerError) partial.current = cause;
                   throw cause;
                 }

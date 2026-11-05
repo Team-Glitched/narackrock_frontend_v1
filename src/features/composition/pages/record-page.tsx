@@ -5,7 +5,7 @@ import {
   PartialLayerError,
   cancelEmptyLayer,
 } from "@/features/composition/composition-actions";
-import { useInstrumentPrompt } from "../use-instrument-prompt";
+import { InstrumentPromptCancelled, useInstrumentPrompt } from "../use-instrument-prompt";
 import { useRef, useState } from "react";
 import { useRouteComposition } from "@/features/composition/use-route-composition";
 import { PageState } from "@/components/ui/page-state";
@@ -66,11 +66,13 @@ export default function RecordPage() {
                     await saveAudioLayer(
                       route.projectId!,
                       file,
-                      await instrument.ask("audio"),
+                      await instrument.ask({ mode: "audio", audio: { file } }),
                       "RECORDING",
                     );
                   partial.current = null;
                 } catch (cause) {
+                  // Closing the chooser keeps the recording; it is not a save failure.
+                  if (cause instanceof InstrumentPromptCancelled) return;
                   if (cause instanceof PartialLayerError)
                     partial.current = { error: cause, mode: "audio" };
                   throw cause;
@@ -91,11 +93,12 @@ export default function RecordPage() {
                     const editor = await recordingToMidi(
                       route.projectId!,
                       file,
-                      await instrument.ask("midi"),
+                      await instrument.ask({ mode: "midi" }),
                     );
                     to(route.notesUrl(editor), { replace: true, state: route.studioState });
                   }
                 } catch (cause) {
+                  if (cause instanceof InstrumentPromptCancelled) return;
                   if (cause instanceof PartialLayerError)
                     partial.current = { error: cause, mode: "midi" };
                   throw cause;

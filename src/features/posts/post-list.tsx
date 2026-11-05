@@ -11,6 +11,7 @@ import { useGalleryPosts } from "@/features/community/use-gallery-posts";
 import { fetchPost } from "@/lib/api/community";
 import type { PostListItem } from "@/lib/api/contracts";
 import { relativeTime } from "@/features/posts/post-utils";
+import { PopularContentActions } from "@/features/posts/popular-content-actions";
 
 export function PostListStatus({ state }: { state: "loading" | "error" | "empty" }) {
   const message =
@@ -50,13 +51,8 @@ export function MiniPost({
   }, [post.postId]);
   if (hiddenPosts.ids.has(post.postId)) return null;
   return (
-    <button
-      type="button"
-      className={cn(communityStyles.miniPost, tall ? communityStyles.miniPostTall : "")}
-      data-post-id={post.postId}
-      onClick={() => onOpen(post.postId)}
-      aria-label={`${post.title} 게시글 열기`}
-    >
+    <div className={cn(communityStyles.miniPost, tall ? communityStyles.miniPostTall : "")} data-post-id={post.postId}>
+      <button type="button" className="flex min-w-0 flex-1 items-center text-left" onClick={() => onOpen(post.postId)} aria-label={`${post.title} 게시글 열기`}>
       <span className={communityStyles.postThumb}>
         {post.imageUrl && (
           <img src={post.imageUrl} alt="게시글 첨부 이미지" width={90} height={90} />
@@ -80,7 +76,9 @@ export function MiniPost({
           <span>{post.writer.nickname}</span>
         </div>
       </div>
-    </button>
+      </button>
+      <PopularContentActions kind="post" id={post.postId} title={post.title} ownerId={post.writer.userId} />
+    </div>
   );
 }
 

@@ -9,6 +9,10 @@ import { SongRail } from "@/features/home/song-rail";
 import { useGalleryPosts } from "@/features/community/use-gallery-posts";
 import { useHomeSongs } from "@/features/home/use-home-songs";
 import { MiniPost, PostListStatus } from "@/features/posts/post-list";
+import { useMySongs } from "./use-my-songs";
+import { songsForTab, type MySongTab } from "./my-songs";
+import { useCurrentUserId } from "@/features/auth/use-current-user";
+import { PopularContentActions } from "@/features/posts/popular-content-actions";
 
 function SongRailStatus({ state }: { state: "loading" | "error" | "empty" | "signed-out" }) {
   const message =
@@ -53,7 +57,7 @@ export function HomeScreen({
         ) : songs.popular.items.length === 0 ? (
           <SongRailStatus state="empty" />
         ) : (
-          <SongRail songs={songs.popular.items} onOpen={onOpenShort} />
+          <SongRail songs={songs.popular.items} onOpen={onOpenShort} actions />
         )}
       </section>
       <section>
@@ -95,6 +99,71 @@ export function HomeScreen({
 }
 
 export function ChartsScreen({
+  kind, tab, onTabChange, onOpenShort,
+}: {
+  kind: SongChartKind;
+  tab: MySongTab;
+  onTabChange: (tab: MySongTab) => void;
+  onOpenShort: (shortId: number) => void;
+}) {
+  return kind === "mine"
+    ? <MySongsChart tab={tab} onTabChange={onTabChange} onOpenShort={onOpenShort} />
+    : <RankedSongsChart kind={kind} onOpenShort={onOpenShort} />;
+}
+
+function MySongsChart({ tab, onTabChange, onOpenShort }: {
+  tab: MySongTab;
+  onTabChange: (tab: MySongTab) => void;
+  onOpenShort: (shortId: number) => void;
+}) {
+  const userId = useCurrentUserId();
+  const songs = useMySongs();
+  const items = userId === null ? [] : songsForTab(songs.items, userId, tab);
+  return (
+    <div className={cn(sharedStyles.listView, sharedStyles.scrollContent)}>
+      <h1 className={sharedStyles.postsListTitle}>{uiLabels.myMusic}</h1>
+      <div className="mb-5 flex gap-3" role="group" aria-label="내 음악 종류">
+        {(["authored", "participated"] as const).map((value) => (
+          <button key={value} type="button" aria-pressed={tab === value}
+            className="rounded-lg border border-app-muted px-4 py-2 aria-pressed:bg-app-surface"
+            onClick={() => onTabChange(value)}>
+            {value === "authored" ? "내 작업물" : "내 참가작"}
+          </button>
+        ))}
+      </div>
+      {songs.status !== "ready" ? <SongRailStatus state={songs.status} /> : (
+        <>
+          <div className={sharedStyles.chartList}>
+            {items.map((song) => (
+              <button type="button" className={sharedStyles.chartRow} key={song.shortId}
+                onClick={() => onOpenShort(song.shortId)}>
+                <span className={sharedStyles.chartArt}>
+                  {song.albumImageUrl ? <img src={song.albumImageUrl} alt={`${song.title} 앨범 커버`} />
+                    : <span className={sharedStyles.emptyArtwork} />}
+                </span>
+                <span><strong>{song.title}</strong><small>{song.author.nickname}</small></span>
+              </button>
+            ))}
+          </div>
+          {items.length === 0 && <p role="status">
+            {songs.hasMore ? "아직 이 종류의 곡을 찾지 못했습니다. 다음 목록도 확인해 주세요."
+              : tab === "authored" ? "아직 작성한 곡이 없습니다." : "아직 참가한 곡이 없습니다."}
+          </p>}
+        </>
+      )}
+      {songs.error && <p role="alert">{songs.error}</p>}
+      {songs.status === "error" && <button onClick={songs.retry}>다시 시도</button>}
+      {songs.status === "ready" && songs.hasMore && (
+        <button className="my-5 min-h-11 w-full rounded-lg bg-app-surface px-4 py-2"
+          disabled={songs.appending} onClick={songs.loadMore}>
+          {songs.appending ? "불러오는 중..." : songs.error ? "다음 목록 다시 시도" : "더보기"}
+        </button>
+      )}
+    </div>
+  );
+}
+
+function RankedSongsChart({
   kind,
   onOpenShort,
 }: {
@@ -116,12 +185,8 @@ export function ChartsScreen({
           <SongRailStatus state="empty" />
         ) : (
           selected.items.map((song) => (
-            <button
-              type="button"
-              className={sharedStyles.chartRow}
-              key={song.shortId}
-              onClick={() => onOpenShort(song.shortId)}
-            >
+            <div className={sharedStyles.chartRow} key={song.shortId}>
+              <button type="button" className="flex min-w-0 flex-1 items-center text-left" onClick={() => onOpenShort(song.shortId)}>
               <span className={sharedStyles.chartArt}>
                 {song.albumImageUrl ? (
                   <img src={song.albumImageUrl} alt={`${song.title} 앨범 커버`} draggable={false} />
@@ -133,8 +198,9 @@ export function ChartsScreen({
                 <strong>{song.title}</strong>
                 <small>{song.author.nickname}</small>
               </span>
-              <Asset name="post-more.svg" />
-            </button>
+              </button>
+              {kind === "popular" && <PopularContentActions kind="short" id={song.shortId} title={song.title} ownerId={song.author.userId} />}
+            </div>
           ))
         )}
       </div>

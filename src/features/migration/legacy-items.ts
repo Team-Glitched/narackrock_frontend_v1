@@ -1,7 +1,7 @@
 export type LegacyItem = {
   key: string;
   storageKey: string;
-  kind: "post" | "song" | "source" | "audio" | "midi" | "work" | "recovery";
+  kind: "post" | "song" | "source" | "audio" | "midi" | "work" | "recovery" | "draft-pointer";
   id: number | null;
   title: string;
   author: string | null;
@@ -35,9 +35,12 @@ export function collectLegacyItems(storage: Storage): LegacyItem[] {
       value = storage.getItem(key);
     }
     const add = (raw: unknown, kind: LegacyItem["kind"], suffix: string) => {
+      const pointerId = kind === "draft-pointer"
+        ? id(typeof raw === "string" && /^[1-9]\d*$/.test(raw) ? Number(raw) : raw)
+        : null;
       const row = object(raw) ? raw : {};
       const identity = JSON.stringify([
-        id(row.id) ?? suffix,
+        pointerId ?? id(row.id) ?? suffix,
         row.title ?? null,
         row.author ?? null,
         row.userId ?? null,
@@ -47,12 +50,12 @@ export function collectLegacyItems(storage: Storage): LegacyItem[] {
         key: `${key}:${kind}:${encodeURIComponent(identity)}`,
         storageKey: key,
         kind,
-        id: id(row.id),
-        title: text(row.title) ?? key,
+        id: pointerId ?? id(row.id),
+        title: pointerId === null ? text(row.title) ?? key : `이전 작업 프로젝트 #${pointerId}`,
         author: text(row.author),
         ownerId: id(row.userId),
         mediaKey: text(row.mediaKey),
-        originalScope: key.split(".").at(-1) ?? "global",
+        originalScope: key === "glitched-composition-draft-id" ? "global" : key.split(".").at(-1) ?? "global",
         raw,
       });
     };
@@ -84,6 +87,11 @@ export function collectLegacyItems(storage: Storage): LegacyItem[] {
             ),
           );
       }
+    } else if (key === "glitched-composition-draft-id") {
+      const pointerId = typeof value === "string" && /^[1-9]\d*$/.test(value)
+        ? id(Number(value))
+        : id(value);
+      add(value, pointerId === null ? "recovery" : "draft-pointer", "original");
     } else {
       add(value, "recovery", "original");
       if (key.startsWith("narackrock.creation-draft.")) add(value, "audio", "attachment");
