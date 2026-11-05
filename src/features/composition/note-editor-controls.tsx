@@ -1,5 +1,8 @@
 import type { NoteEditorController } from "./use-note-editor";
 
+// Pressed toggles must look different from idle ones; aria-pressed alone is invisible.
+const toggle = "shrink-0 rounded border border-app-line px-2 py-1 text-app-muted aria-pressed:border-app-primary aria-pressed:bg-app-primary aria-pressed:font-bold aria-pressed:text-app-fg";
+
 export function NoteEditorControls({ editor, positionTick = 0, onChord, onSettings }: {
   editor: NoteEditorController;
   positionTick?: number;
@@ -11,7 +14,7 @@ export function NoteEditorControls({ editor, positionTick = 0, onChord, onSettin
   return (
     <div className="flex w-full shrink-0 gap-2 overflow-x-auto border-b border-app-line bg-app-panel p-2 text-label" role="toolbar" aria-label="노트 편집 도구">
       {([['draw', '그리기'], ['select', '선택'], ['erase', '지우개'], ['pan', '이동']] as const).map(([tool, label]) => (
-        <button className="shrink-0 rounded border px-2 py-1" key={tool} aria-pressed={view.tool === tool} onClick={() => editor.setTool(tool)}>{label}</button>
+        <button className={toggle} key={tool} aria-pressed={view.tool === tool} onClick={() => editor.setTool(tool)}>{label}</button>
       ))}
       <button className="shrink-0" disabled={!editor.editable || !editor.canUndo} onClick={editor.undo}>실행 취소</button>
       <button className="shrink-0" disabled={!editor.editable || !editor.canRedo} onClick={editor.redo}>다시 실행</button>
@@ -28,7 +31,7 @@ export function NoteEditorControls({ editor, positionTick = 0, onChord, onSettin
       <button className="shrink-0" disabled={!editor.editable || !selection.length} onClick={() => editor.execute({ type: 'delete', indices: selection })}>삭제</button>
       {onSettings && <button className="shrink-0" disabled={!editor.editable || selection.length !== 1} onClick={onSettings}>노트 설정</button>}
       {onChord && <button className="shrink-0" disabled={!editor.editable || bounds.minPitch === 35 && bounds.maxPitch === 81} onClick={onChord}>코드 입력</button>}
-      {bounds.minPitch === 35 && bounds.maxPitch === 81 && <><button className="shrink-0" aria-pressed={view.expandedDrums} onClick={() => editor.setExpandedDrums(!view.expandedDrums)}>{view.expandedDrums ? '기본 키트' : '전체 키트'}</button><span className="shrink-0">숨은 노트 {hidden}개</span></>}
+      {bounds.minPitch === 35 && bounds.maxPitch === 81 && <><button className={toggle} aria-pressed={view.expandedDrums} onClick={() => editor.setExpandedDrums(!view.expandedDrums)}>{view.expandedDrums ? '기본 키트' : '전체 키트'}</button><span className="shrink-0">숨은 노트 {hidden}개</span></>}
     </div>
   );
 }
