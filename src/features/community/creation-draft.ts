@@ -17,6 +17,7 @@ const matches = (file: File | null | undefined, identity: FileIdentity | null) =
     file.lastModified === identity.lastModified,
   );
 export type CreationDraft = {
+  sourceVisibility?: "PRIVATE" | "PUBLIC";
   title: string;
   content: string;
   image: File | null;
@@ -89,6 +90,7 @@ export function rememberCreationDraft(key: string, draft: CreationDraft): Promis
       localStorage.setItem(
         storageKey(key),
         JSON.stringify({
+          sourceVisibility: draft.sourceVisibility,
           title: draft.title,
           content: draft.content,
           notes: draft.notes,

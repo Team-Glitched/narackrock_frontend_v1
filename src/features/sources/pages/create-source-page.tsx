@@ -10,6 +10,7 @@ import { sharedStyles } from "@/styles/shared.styles";
 import { cn } from "@/lib/utils";
 import { useCurrentUserId } from "@/features/auth/use-current-user";
 import { SignInRequired } from "@/features/auth/sign-in-required";
+import { apiOrigin } from "@/lib/api/client";
 
 export type SourceStage = "details" | "choose" | "upload" | "record" | "note";
 export function sourceStage(value: string | null): SourceStage {
@@ -20,7 +21,8 @@ export function sourceStage(value: string | null): SourceStage {
 
 export default function CreateSourcePage() {
   const { to, back, params, query } = useUrlNavigation();
-  const signedIn = useCurrentUserId() !== null;
+  const userId = useCurrentUserId();
+  const signedIn = userId !== null;
   const stage = sourceStage(query.get("stage"));
   const pianoMode = stage === "note";
   const galleryId = readId(params.galleryId) ?? readId(query.get("galleryId"));
@@ -33,12 +35,13 @@ export default function CreateSourcePage() {
         <div className={sharedStyles.screenBody}>
           {signedIn ? (
             <SocialCreate
+              key={JSON.stringify([apiOrigin(), userId])}
               kind="source"
               galleryId={DEFAULT_GALLERY_ID}
               audioStage={stage}
               onAudioStage={(next) => to(withQuery("/sources/new", { stage: next === "details" ? null : next }))}
               onCancel={() => back("/sources")}
-              onCreated={() => to("/sources", { replace: true })}
+              onCreated={() => to("/sources?tab=mine", { replace: true })}
             />
           ) : (
             <SignInRequired>오픈소스 등록은 로그인 후 사용할 수 있습니다.</SignInRequired>

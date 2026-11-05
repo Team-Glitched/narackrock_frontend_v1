@@ -36,10 +36,10 @@ function backend({ failVisibility = 0, loseCreateResponse = false } = {}) {
       updateOpenSource: async () => {
         calls.push("update");
       },
-      setOpenSourceVisibility: async (id) => {
-        calls.push(`public:${id}`);
+      setOpenSourceVisibility: async (id, visibility) => {
+        calls.push(`${visibility === "PUBLIC" ? "public" : "private"}:${id}`);
         if (failVisibility-- > 0) throw new Error("503");
-        return { openSourceId: id, visibility: "PUBLIC" };
+        return { openSourceId: id, visibility };
       },
       listMyOpenSourcePublications: async () => {
         calls.push("list");
@@ -56,6 +56,7 @@ const input = {
   description: "loop",
   audio: new File(["a"], "a.wav"),
   image: null,
+  visibility: "PUBLIC",
 };
 
 test("a failed publish step is retried alone without uploading or creating again", async () => {
@@ -91,4 +92,28 @@ test("edits made between attempts are applied to the existing publication before
   await publishSource({ ...input, title: "Riff v2" }, server.deps(storage));
 
   assert.deepEqual(server.calls.slice(-2), ["update", "public:70"]);
+});
+
+test("private registration never exposes the source and finishes without a pending entry", async () => {
+  const storage = memoryStorage();
+  const server = backend({ failVisibility: 1 });
+  const id = await publishSource({ ...input, visibility: "PRIVATE" }, server.deps(storage));
+
+  assert.equal(id, 70);
+  assert.equal(server.publications.length, 1);
+  assert.equal(server.calls.some((call) => call.startsWith("public:")), false);
+  assert.equal(storage.size(), 0);
+});
+
+test("a failed public attempt can be completed privately without creating a second source", async () => {
+  const storage = memoryStorage();
+  const server = backend({ failVisibility: 1 });
+  await assert.rejects(() => publishSource(input, server.deps(storage)));
+
+  await publishSource({ ...input, title: "Keep private", visibility: "PRIVATE" }, server.deps(storage));
+
+  assert.equal(server.publications.length, 1);
+  assert.equal(server.calls.filter((call) => call.startsWith("public:")).length, 1);
+  assert.equal(server.calls.at(-1), "private:70");
+  assert.equal(storage.size(), 0);
 });
