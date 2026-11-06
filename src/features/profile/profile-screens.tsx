@@ -10,7 +10,7 @@ import { Avatar } from "@/components/avatar";
 import { SectionTitle } from "@/components/section-title";
 import { useCurrentUserId } from "@/features/auth/use-current-user";
 import { ApiError } from "@/lib/api/client";
-import { getProfile, updateProfile, updateProfileImage } from "@/lib/api/profile";
+import { getProfile, updateFeaturedMusic, updateProfile, updateProfileImage } from "@/lib/api/profile";
 import type { UserProfile } from "@/lib/api/contracts";
 import { Link } from "react-router";
 import { useMySongs } from "@/features/home/use-my-songs";
@@ -142,6 +142,99 @@ function ProfileWorks({
   );
 }
 
+function FeaturedMusicEditor({
+  userId,
+  hasFeaturedMusic,
+  onSaved,
+}: {
+  userId: number;
+  hasFeaturedMusic: boolean;
+  onSaved: () => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [selection, setSelection] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const songs = useMySongs(20, open);
+  const eligible = songsForTab(songs.items, userId, "authored")
+    .filter((song) => song.completionStatus === "COMPLETED");
+
+  async function save(shortId: number | null) {
+    setSaving(true);
+    setSaveError(null);
+    try {
+      await updateFeaturedMusic(shortId);
+      setSelection("");
+      setOpen(false);
+      onSaved();
+    } catch (cause) {
+      setSaveError(cause instanceof Error ? cause.message : "대표 음악을 변경하지 못했습니다.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="mx-5 mb-5 grid gap-3 text-label">
+      <button
+        type="button"
+        aria-expanded={open}
+        disabled={saving}
+        className="justify-self-start rounded-lg border border-app-muted px-3 py-2"
+        onClick={() => {
+          setOpen(!open);
+          setSelection("");
+          setSaveError(null);
+        }}
+      >
+        {open ? "닫기" : "대표 음악 설정"}
+      </button>
+      {open && (
+        <>
+          {songs.status === "loading" && <p role="status">내 작업물을 불러오는 중...</p>}
+          {songs.error && <p role="alert">{songs.error}</p>}
+          {songs.status === "error" && <button type="button" onClick={songs.retry}>다시 시도</button>}
+          {eligible.length > 0 && (
+            <form className="grid gap-2" onSubmit={(event) => {
+              event.preventDefault();
+              if (!saving && selection) void save(Number(selection));
+            }}>
+              <label htmlFor="featured-music-select">내 작업물에서 완성곡 선택</label>
+              <select
+                id="featured-music-select"
+                className="rounded-lg border border-app-muted bg-app-surface p-2"
+                value={selection}
+                disabled={saving}
+                onChange={(event) => setSelection(event.target.value)}
+              >
+                <option value="">곡을 선택해 주세요</option>
+                {eligible.map((song) => <option key={song.shortId} value={song.shortId}>{song.title}</option>)}
+              </select>
+              <button type="submit" className="justify-self-start rounded-lg bg-app-primary px-3 py-2" disabled={!selection || saving}>
+                저장
+              </button>
+            </form>
+          )}
+          {songs.hasMore && (
+            <button type="button" disabled={songs.appending || saving} onClick={songs.loadMore}>
+              {songs.appending ? "불러오는 중..." : "작업물 더 보기"}
+            </button>
+          )}
+          {songs.status === "ready" && !songs.hasMore && eligible.length === 0 && (
+            <p>등록할 완성곡이 없습니다. <Link className="underline" to="/studio/new">곡 만들기</Link></p>
+          )}
+          {hasFeaturedMusic && (
+            <button type="button" className="justify-self-start underline" disabled={saving} onClick={() => void save(null)}>
+              대표 음악 해제
+            </button>
+          )}
+          {saveError && <p role="alert">{saveError}</p>}
+        </>
+      )}
+    </div>
+  );
+}
+
 function OwnWorks({ onOpen }: { onOpen: (id: number) => void }) {
   const userId = useCurrentUserId();
   const songs = useMySongs(10);
@@ -250,10 +343,9 @@ export function ProfileScreen({
           <small>{compactCount(profile.activities.postCount)}</small>
         </button>
       </div>
-      {own && <Link className="my-4 inline-block text-label text-app-fg underline" to="/profile/likes">좋아요한 게시글</Link>}
 
       {instruments.length > 0 && (
-        <div className={sharedStyles.tags}>
+        <div className={cn(sharedStyles.tags, "flex-wrap justify-center")}>
           {instruments.map((instrument) => (
             <span key={instrument}>{instrument}</span>
           ))}
@@ -270,6 +362,14 @@ export function ProfileScreen({
         songs={[...profile.activities.pinnedShorts].sort((a, b) => a.displayOrder - b.displayOrder)}
         onOpen={onOpenShort}
       />
+      {own && currentUserId !== null && (
+        <FeaturedMusicEditor
+          key={currentUserId}
+          userId={currentUserId}
+          hasFeaturedMusic={profile.activities.pinnedShorts.length > 0}
+          onSaved={reload}
+        />
+      )}
       {own ? <OwnWorks onOpen={onOpenShort} /> : (
         <ProfileWorks
           title={uiLabels.participatedMusic}
