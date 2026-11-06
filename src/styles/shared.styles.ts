@@ -709,9 +709,15 @@ export const sharedStyles = {
   ].join(" "),
   instrumentDialog: [
     "instrument-dialog",
-    "h-auto w-[350px] rounded-[20px] p-5 bg-app-bg bg-none text-app-fg",
-    "[&_h2]:m-[0_0_10px] [&_h2]:text-label [&_h2]:font-bold [&_h2]:leading-[19px]",
-    "[&_button]:p-0 [&_button]:text-left [&_button]:text-caption [&_button]:font-normal [&_button]:text-app-fg [&_button]:leading-[14px]",
+    "flex h-auto w-[350px] flex-col gap-4 rounded-[20px] p-5 bg-app-bg bg-none text-app-fg",
+    "[&_h2]:m-0 [&_h2]:text-label [&_h2]:font-bold [&_h2]:leading-[19px]",
+    "[&>p]:m-0 [&>p]:text-caption [&>p]:leading-[18px] [&>p]:text-app-muted",
+    "[&_fieldset]:m-0 [&_fieldset]:min-w-0 [&_fieldset]:border-0 [&_fieldset]:p-0",
+    "[&_legend]:mb-2 [&_legend]:p-0 [&_legend]:text-caption [&_legend]:font-bold [&_legend]:leading-[18px] [&_legend]:text-app-muted",
+    "[&_[role=radio]]:min-h-9 [&_[role=radio]]:rounded-[20px] [&_[role=radio]]:px-3 [&_[role=radio]]:py-2",
+    "[&_[role=radio]]:bg-app-surface [&_[role=radio]]:bg-none [&_[role=radio]]:text-caption [&_[role=radio]]:font-medium",
+    "[&_[role=radio]]:leading-[18px] [&_[role=radio]]:text-app-fg",
+    "[&_[role=radio][aria-checked=true]]:bg-app-primary [&_[role=radio]:disabled]:opacity-50",
   ].join(" "),
   instrumentPickerTrigger: [
     "instrument-picker-trigger",
