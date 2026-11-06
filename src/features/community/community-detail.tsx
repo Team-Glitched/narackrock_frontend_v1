@@ -35,7 +35,7 @@ export function CommunityDetailScreen({
   sort?: PostSort;
   onSortChange?: (sort: PostSort) => void;
 }) {
-  const role = useGalleryRole(selected.galleryId);
+  const { role } = useGalleryRole(selected.galleryId);
   const canManage = Boolean(role?.canManage);
   const membership = useCommunityMembership();
   // 목록에서 넘어올 때 받은 값은 그 시점의 스냅샷이라, 이 화면에서 가입/탈퇴하면 가입자 수가

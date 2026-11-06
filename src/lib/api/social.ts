@@ -36,9 +36,10 @@ export const getRecommendations = (page = 0, size = 20) =>
   data<{ totalCount: number; fallbackTriggered: boolean; recommendedUsers: RecommendedPerson[] }>(
     `/api/v1/users/recommendations?page=${page}&size=${size}`,
   );
-export const searchPeople = (keyword: string, page = 0, size = 20) =>
+export const searchPeople = (keyword: string, page = 0, size = 20, signal?: AbortSignal) =>
   data<{ searchKeyword: string; totalResultCount: number; users: SearchedPerson[] }>(
     `/api/v1/users/search?keyword=${encodeURIComponent(keyword)}&page=${page}&size=${size}`,
+    { signal },
   );
 export const getFollowRequests = () => data<FollowRequest[]>("/api/v1/users/me/follow-requests");
 export const getOutgoingFollowRequests = () => data<OutgoingRequest[]>("/api/v1/users/me/follow-requests/outgoing");

@@ -1,4 +1,5 @@
-import { reactionControlVariants } from "@/styles/variants";
+import { LoaderCircle } from "lucide-react";
+import { iconSlotVariants, reactionControlVariants } from "@/styles/variants";
 import { communityStyles } from "@/styles/community.styles";
 import { cn } from "@/lib/utils";
 import { IconSlot } from "@/components/icon-slot";
@@ -6,6 +7,21 @@ import { IconSlot } from "@/components/icon-slot";
 const actionControl = reactionControlVariants();
 
 export type PostVote = "like" | "dislike" | null;
+type LookupStatus = "ready" | "loading" | "unavailable";
+
+function VoteIcon({ name, status }: { name: string; status: LookupStatus }) {
+  if (status === "ready") return <IconSlot name={name} kind="post" />;
+
+  return (
+    <span className={iconSlotVariants({ kind: "post" })} aria-hidden="true">
+      {status === "loading" ? (
+        <LoaderCircle className="size-4 motion-safe:animate-spin" />
+      ) : (
+        <span className="grid size-4 place-items-center leading-none">‒</span>
+      )}
+    </span>
+  );
+}
 
 /**
  * The same reaction controls for community posts, shorts and open sources. Counts and `vote` are the
@@ -15,22 +31,26 @@ export function PostActions({
   likeCount,
   commentCount,
   vote,
+  voteStatus = "ready",
   onVote,
   onComments,
   saved = false,
+  saveStatus = "ready",
   onSave,
   onShare,
   busy = false,
   compact = false,
   readOnly = false,
-  dislikeCount = 0,
+  dislikeCount,
 }: {
   likeCount: number;
   commentCount: number;
   vote: PostVote;
+  voteStatus?: LookupStatus;
   onVote: (vote: Exclude<PostVote, null>) => void;
   onComments: () => void;
   saved?: boolean;
+  saveStatus?: LookupStatus;
   onSave?: () => void;
   onShare?: () => void;
   busy?: boolean;
@@ -70,16 +90,21 @@ export function PostActions({
           "flex h-[26px] flex-none items-center gap-[10px] rounded-[20px] border-0 bg-app-surface px-[10px]"
         }
         role="group"
-        aria-label="게시글 반응"
+        aria-label={
+          voteStatus === "loading" ? "게시글 반응 · 내 반응 확인 중"
+            : voteStatus === "unavailable" ? "게시글 반응 · 내 반응을 불러오지 못했습니다"
+              : "게시글 반응"
+        }
+        aria-busy={voteStatus === "loading"}
       >
         <button
           className={reactionControlVariants({ kind: "vote" })}
           onClick={() => onVote("like")}
           disabled={busy}
           aria-label="좋아요"
-          aria-pressed={vote === "like"}
+          aria-pressed={voteStatus === "ready" ? vote === "like" : undefined}
         >
-          <IconSlot name={`v3-post-like-${vote === "like" ? "on" : "off"}.svg`} kind="post" />
+          <VoteIcon name={`v3-post-like-${vote === "like" ? "on" : "off"}.svg`} status={voteStatus} />
           {likeCount}
         </button>
         <span className={"h-[22px] w-px flex-none bg-app-fg"} aria-hidden="true" />
@@ -87,10 +112,13 @@ export function PostActions({
           className={reactionControlVariants({ kind: "vote" })}
           onClick={() => onVote("dislike")}
           disabled={busy}
-          aria-label={`싫어요 ${dislikeCount}개`}
-          aria-pressed={vote === "dislike"}
+          aria-label={dislikeCount == null ? "싫어요" : `싫어요 ${dislikeCount}개`}
+          aria-pressed={voteStatus === "ready" ? vote === "dislike" : undefined}
         >
-          <IconSlot name={`v3-post-dislike-${vote === "dislike" ? "on" : "off"}.svg`} kind="post" />
+          <VoteIcon name={`v3-post-dislike-${vote === "dislike" ? "on" : "off"}.svg`} status={voteStatus} />
+          <span aria-hidden="true" className="min-w-[1ch] text-center tabular-nums">
+            {dislikeCount ?? "‒"}
+          </span>
         </button>
       </div>
       <button
@@ -114,12 +142,21 @@ export function PostActions({
           </button>
           <button
             className={reactionControlVariants({ kind: "icon" })}
-            aria-label="저장"
-            aria-pressed={saved}
-            disabled={!onSave || busy}
+            aria-label={saveStatus === "loading" ? "저장 상태 확인 중" : saveStatus === "unavailable" ? "저장 상태를 불러오지 못했습니다" : "저장"}
+            aria-pressed={saveStatus === "ready" ? saved : undefined}
+            aria-busy={saveStatus === "loading"}
+            disabled={!onSave || busy || saveStatus !== "ready"}
             onClick={onSave}
           >
-            <IconSlot name={`v3-post-save-${saved ? "on" : "off"}.svg`} kind="post-save" />
+            {saveStatus === "ready" ? (
+              <IconSlot name={`v3-post-save-${saved ? "on" : "off"}.svg`} kind="post-save" />
+            ) : (
+              <span className={iconSlotVariants({ kind: "post-save" })} aria-hidden="true">
+                {saveStatus === "loading" ? (
+                  <LoaderCircle className="h-full w-3 motion-safe:animate-spin" />
+                ) : "‒"}
+              </span>
+            )}
           </button>
         </>
       )}

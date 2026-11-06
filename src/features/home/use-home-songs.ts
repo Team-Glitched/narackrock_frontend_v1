@@ -10,31 +10,37 @@ type SongListState = {
   items: ShortItemDto[];
 };
 
-export function useHomeSongs(size = 10) {
+export function useHomeSongs(size = 10, kind?: "popular" | "recommended" | "mine") {
   const currentUserId = useCurrentUserId();
   const [popular, setPopular] = useState<SongListState>({ status: "loading", items: [] });
   const [feed, setFeed] = useState<SongListState>({ status: "loading", items: [] });
-  const mine = useMySongs(size);
+  const mine = useMySongs(size, !kind || kind === "mine");
 
   useEffect(() => {
+    if (kind && kind !== "popular") return;
     const controller = new AbortController();
     getPopularShorts(size, controller.signal)
-      .then((page) => setPopular({ status: "ready", items: page.items }))
+      .then((page) => {
+        if (!controller.signal.aborted) setPopular({ status: "ready", items: page.items });
+      })
       .catch(() => {
         if (!controller.signal.aborted) setPopular({ status: "error", items: [] });
       });
     return () => controller.abort();
-  }, [size]);
+  }, [size, kind]);
 
   useEffect(() => {
+    if (kind && kind !== "recommended") return;
     const controller = new AbortController();
     getShorts(undefined, controller.signal)
-      .then((page) => setFeed({ status: "ready", items: page.items }))
+      .then((page) => {
+        if (!controller.signal.aborted) setFeed({ status: "ready", items: page.items });
+      })
       .catch(() => {
         if (!controller.signal.aborted) setFeed({ status: "error", items: [] });
       });
     return () => controller.abort();
-  }, []);
+  }, [kind]);
 
 
   const recommended = {

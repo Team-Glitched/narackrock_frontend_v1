@@ -2,14 +2,15 @@ import { filterChipVariants } from "@/styles/variants";
 import { cn } from "@/lib/utils";
 import { uiLabels } from "@/lib/ui-labels";
 import { useHiddenPosts } from "@/features/community/hidden-posts";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Asset } from "@/components/asset";
 import { Avatar } from "@/components/avatar";
 import { useCurrentUserId } from "@/features/auth/use-current-user";
 import { SignInRequired } from "@/features/auth/sign-in-required";
-import { listAllBookmarkedPosts, listAllBookmarkedShorts } from "@/lib/api/bookmarks";
+import { listBookmarkedPosts, listBookmarkedShorts } from "@/lib/api/bookmarks";
 import { togglePostBookmark } from "@/lib/api/community";
 import { toggleShortBookmark } from "@/lib/api/shorts";
+import { usePagedItems, type ItemPage } from "@/hooks/use-paged-items";
 import { ApiError } from "@/lib/api/client";
 
 const filterClass = filterChipVariants();
@@ -19,93 +20,66 @@ type SavedItem = { id: number; kind: "post" | "song"; title: string; author: str
 const failure = (cause: unknown, fallback: string) =>
   cause instanceof ApiError ? cause.message : cause instanceof TypeError ? "서버에 연결하지 못했습니다." : fallback;
 
-/** The account's server bookmarks (posts by page, shorts by cursor), reloaded on account change. */
-export function SavedScreen({
-  onOpenPost,
-  onOpenSong,
-}: {
-  onOpenPost: (id: number) => void;
-  onOpenSong: (id: number) => void;
-}) {
-  const userId = useCurrentUserId();
-  const hiddenPosts = useHiddenPosts();
-  const [retry, setRetry] = useState(0);
-  const key = `${userId}:${retry}`;
-  const [loaded, setLoaded] = useState<{ key: string; items: SavedItem[]; error?: string } | null>(null);
-  useEffect(() => {
-    if (userId === null) return;
-    const controller = new AbortController();
-    Promise.all([listAllBookmarkedPosts(controller.signal), listAllBookmarkedShorts(controller.signal)])
-      .then(([posts, shorts]) =>
-        setLoaded({
-          key,
-          items: [
-            ...posts.map((post) => ({
-              id: post.postId,
-              kind: "post" as const,
-              title: post.title,
-              author: post.writer.nickname ?? "알 수 없는 사용자",
-              imageUrl: post.imageUrl,
-            })),
-            ...shorts.map((short) => ({
-              id: short.shortId,
-              kind: "song" as const,
-              title: short.title,
-              author: short.author.nickname ?? "알 수 없는 사용자",
-              imageUrl: short.albumImageUrl,
-            })),
-          ],
-        }),
-      )
-      .catch((cause) => {
-        if (!controller.signal.aborted) setLoaded({ key, items: [], error: failure(cause, "저장 목록을 불러오지 못했습니다.") });
-      });
-    return () => controller.abort();
-  }, [key, userId]);
-  if (userId === null) return <SignInRequired>저장한 콘텐츠는 로그인 후 볼 수 있습니다.</SignInRequired>;
-  const current = loaded?.key === key ? loaded : null;
-  if (!current) return <p role="status">저장 목록을 불러오는 중...</p>;
-  if (current.error)
-    return (
-      <div role="alert">
-        <p>{current.error}</p>
-        <button onClick={() => setRetry((value) => value + 1)}>다시 시도</button>
-      </div>
-    );
-  return (
-    <SavedLibrary
-      items={current.items.filter((item) => item.kind !== "post" || !hiddenPosts.ids.has(item.id))}
-      onRemove={async (item) => {
-        const toggle = () => (item.kind === "post" ? togglePostBookmark(item.id) : toggleShortBookmark(item.id));
-        // The bookmark API only toggles. If it was already removed elsewhere, the toggle re-added it, so a
-        // second toggle restores the removal the user asked for instead of leaving it saved.
-        if ((await toggle()).isBookmarked && (await toggle()).isBookmarked)
-          throw new Error("저장 해제 상태를 확인하지 못했습니다. 목록을 새로 고쳐주세요.");
-        setLoaded((old) =>
-          old?.key === key ? { ...old, items: old.items.filter((entry) => entry.kind !== item.kind || entry.id !== item.id) } : old,
-        );
-      }}
-      onOpenPost={onOpenPost}
-      onOpenSong={onOpenSong}
-    />
-  );
+async function loadSavedPosts(page: number, signal: AbortSignal): Promise<ItemPage<SavedItem, number>> {
+  const result = await listBookmarkedPosts(page, signal);
+  return {
+    items: result.posts.map((post) => ({
+      id: post.postId,
+      kind: "post",
+      title: post.title,
+      author: post.writer.nickname ?? "알 수 없는 사용자",
+      imageUrl: post.imageUrl,
+    })),
+    next: result.posts.length && (page + 1) * result.size < result.totalCount ? page + 1 : null,
+  };
 }
-function SavedLibrary({
-  items,
-  onRemove,
-  onOpenPost,
-  onOpenSong,
-}: {
-  items: SavedItem[];
-  onRemove: (item: SavedItem) => Promise<void>;
+
+async function loadSavedSongs(cursor: number, signal: AbortSignal): Promise<ItemPage<SavedItem, number>> {
+  const result = await listBookmarkedShorts(cursor === 0 ? null : cursor, signal);
+  return {
+    items: result.items.map((short) => ({
+      id: short.shortId,
+      kind: "song",
+      title: short.title,
+      author: short.author.nickname ?? "알 수 없는 사용자",
+      imageUrl: short.albumImageUrl,
+    })),
+    next: result.page.hasMore ? result.page.nextCursor : null,
+  };
+}
+
+type SavedScreenProps = {
   onOpenPost: (id: number) => void;
   onOpenSong: (id: number) => void;
-}) {
+};
+
+export function SavedScreen(props: SavedScreenProps) {
+  const userId = useCurrentUserId();
+  if (userId === null) return <SignInRequired>저장한 콘텐츠는 로그인 후 볼 수 있습니다.</SignInRequired>;
+  return <SavedLibrary key={userId} {...props} />;
+}
+
+function SavedLibrary({ onOpenPost, onOpenSong }: SavedScreenProps) {
+  const hiddenPosts = useHiddenPosts();
   const [kind, setKind] = useState<"post" | "song">("post");
+  const [openedSongs, setOpenedSongs] = useState(false);
+  const posts = usePagedItems("posts", 0, loadSavedPosts);
+  const songs = usePagedItems("songs", 0, loadSavedSongs, openedSongs);
   const [menu, setMenu] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const visible = items.filter((item) => item.kind === kind);
+  const list = kind === "post" ? posts : songs;
+  const visible = list.state?.items.filter((item) => item.kind !== "post" || !hiddenPosts.ids.has(item.id)) ?? [];
+
+  async function remove(item: SavedItem) {
+    const toggle = () => item.kind === "post" ? togglePostBookmark(item.id) : toggleShortBookmark(item.id);
+    // The toggle may re-add an item removed elsewhere. Toggle again to restore the intended removal.
+    if ((await toggle()).isBookmarked && (await toggle()).isBookmarked)
+      throw new Error("저장 해제 상태를 확인하지 못했습니다. 목록을 새로 고쳐주세요.");
+    if (item.kind === "post" && posts.state?.next !== null) posts.reload();
+    else (item.kind === "post" ? posts : songs).remove((row) => row.id === item.id);
+  }
+
   return (
     <section
       className="scrollbar-none h-full overflow-x-hidden overflow-y-auto px-5 py-[30px]"
@@ -119,6 +93,7 @@ function SavedLibrary({
           onClick={() => {
             setKind("post");
             setMenu(null);
+            setError(null);
           }}
         >
           게시글
@@ -127,15 +102,19 @@ function SavedLibrary({
           className={filterClass}
           aria-pressed={kind === "song"}
           onClick={() => {
+            setOpenedSongs(true);
             setKind("song");
             setMenu(null);
+            setError(null);
           }}
         >
           어비스
         </button>
       </div>
       {error && <p role="alert">{error}</p>}
-      {visible.length === 0 ? (
+      {!list.state ? (
+        <p role="status">저장 목록을 불러오는 중...</p>
+      ) : visible.length === 0 && !list.state.error && list.state.next === null ? (
         <p className="my-[70px] text-center text-body leading-[1.8] text-app-muted">
           저장한 {kind === "post" ? "게시글이" : "어비스가"} 없습니다.
           <br />
@@ -197,12 +176,12 @@ function SavedLibrary({
               {menu === item.id && (
                 <div className="absolute top-full right-0 z-5 rounded-lg bg-app-surface shadow-[0_4px_18px_#0005] [&>button]:px-5 [&>button]:py-3 [&>button]:text-body">
                   <button
-                    disabled={busy}
+                    disabled={busy || list.state?.busy}
                     onClick={async () => {
                       setBusy(true);
                       setError(null);
                       try {
-                        await onRemove(item);
+                        await remove(item);
                         setMenu(null);
                       } catch (cause) {
                         setError(failure(cause, "저장 해제에 실패했습니다."));
@@ -218,6 +197,14 @@ function SavedLibrary({
             </li>
           ))}
         </ul>
+      )}
+      {list.state?.error && (
+        <p role="alert">{failure(list.state.error.cause, "저장 목록을 불러오지 못했습니다.")}</p>
+      )}
+      {list.state && list.state.next !== null && (
+        <button type="button" disabled={list.state.busy || busy} onClick={list.more}>
+          {list.state.busy ? "불러오는 중..." : list.state.error ? "다시 시도" : "더보기"}
+        </button>
       )}
       <p className="m-0 mt-6 text-caption leading-[1.6] text-app-muted">
         내 계정에 저장한 콘텐츠입니다.

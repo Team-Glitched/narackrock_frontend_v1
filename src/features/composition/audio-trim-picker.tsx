@@ -5,6 +5,7 @@ import { buttonVariants } from "@/styles/variants";
 import { pointerAxes, logicalBounds } from "./pointer-coordinates";
 
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import { LoaderCircle } from "lucide-react";
 import type { AudioSelection } from "@/features/composition/prepare-audio-file";
 import {
   centerAudioSelection,
@@ -15,13 +16,19 @@ import {
 } from "@/features/composition/audio-trim-selection";
 
 const waveformBars = 96;
-const fallbackPeaks = Array.from(
-  { length: waveformBars },
-  (_, index) => 0.28 + ((index * 17) % 11) / 15,
-);
 const formatTime = (ms: number) =>
   `${String(Math.floor(ms / 60_000)).padStart(2, "0")}:${String(Math.floor(ms / 1000) % 60).padStart(2, "0")}.${Math.floor((ms % 1000) / 100)}`;
 type DragMode = "move" | "start" | "end";
+type WaveformResult = { url: string; peaks: number[] | null };
+
+function AudioTrimLoading({ label }: { label: string }) {
+  return (
+    <div role="status" className="flex items-center gap-2 text-caption">
+      <LoaderCircle className="size-5 motion-safe:animate-spin" aria-hidden="true" />
+      <span>{label}</span>
+    </div>
+  );
+}
 
 function waveformPeaks(buffer: AudioBuffer) {
   const peaks = Array.from({ length: waveformBars }, () => 0);
@@ -60,34 +67,36 @@ export function AudioTrimPicker({
   );
   const [durationMs, setDurationMs] = useState<number | null>(null);
   const [selection, setSelection] = useState<AudioSelection | null>(null);
-  const [peaks, setPeaks] = useState(fallbackPeaks);
+  const [waveformResult, setWaveformResult] = useState<WaveformResult | null>(null);
+  const waveform = waveformResult?.url === url ? waveformResult : null;
   const [currentMs, setCurrentMs] = useState(0);
   const [previewing, setPreviewing] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
-    let cancelled = false;
-    let closed = false;
-    const context = new AudioContext();
-    const closeContext = () => {
-      if (!closed) {
-        closed = true;
-        void context.close();
+    const controller = new AbortController();
+    const { signal } = controller;
+
+    async function loadWaveform() {
+      let context: AudioContext | undefined;
+      try {
+        const response = await fetch(url, { signal });
+        if (!response.ok) throw new Error("오디오 파일을 읽을 수 없습니다.");
+        const data = await response.arrayBuffer();
+        if (signal.aborted) return;
+        context = new AudioContext();
+        const buffer = await context.decodeAudioData(data);
+        if (!signal.aborted) setWaveformResult({ url, peaks: waveformPeaks(buffer) });
+      } catch {
+        if (!signal.aborted) setWaveformResult({ url, peaks: null });
+      } finally {
+        if (context) void context.close();
       }
-    };
-    void fetch(url)
-      .then((response) => response.arrayBuffer())
-      .then((data) => context.decodeAudioData(data))
-      .then((buffer) => {
-        if (!cancelled) setPeaks(waveformPeaks(buffer));
-      })
-      .catch(() => undefined)
-      .finally(closeContext);
-    return () => {
-      cancelled = true;
-      closeContext();
-    };
+    }
+
+    void loadWaveform();
+    return () => controller.abort();
   }, [url]);
 
   function stopPreview() {
@@ -250,8 +259,7 @@ export function AudioTrimPicker({
             />
           </div>
           <p className={studioStyles.audioTrimGuide}>
-            파형의 선택 영역을 움직이거나 양쪽 손잡이로 길이를 조절하세요. 최대 1분까지 저장할 수
-            있습니다.
+            선택 영역을 움직이거나 양쪽 손잡이로 길이를 조절하세요. 최대 1분까지 저장할 수 있습니다.
           </p>
           <div
             ref={waveformRef}
@@ -267,11 +275,23 @@ export function AudioTrimPicker({
               )
             }
           >
-            <div className={sharedStyles.audioWaveformBars}>
-              {peaks.map((peak, index) => (
-                <i key={index} style={{ height: `${Math.round(peak * 82)}%` }} />
-              ))}
-            </div>
+            {waveform?.peaks ? (
+              <div className={sharedStyles.audioWaveformBars} aria-hidden="true">
+                {waveform.peaks.map((peak, index) => (
+                  <i key={index} style={{ height: `${Math.round(peak * 82)}%` }} />
+                ))}
+              </div>
+            ) : (
+              <div className="pointer-events-none absolute inset-0 z-[3] grid place-items-center">
+                {waveform ? (
+                  <p role="status" className="text-caption">
+                    파형을 표시할 수 없습니다.
+                  </p>
+                ) : (
+                  <AudioTrimLoading label="파형을 계산하는 중입니다." />
+                )}
+              </div>
+            )}
             <div
               className={cn(sharedStyles.audioWaveformShade, sharedStyles.left)}
               style={{ width: `${startPercent}%` }}
@@ -325,8 +345,8 @@ export function AudioTrimPicker({
             <span>{formatTime(durationMs)}</span>
           </div>
         </>
-      ) : (
-        <p role="status">오디오 길이를 읽는 중입니다.</p>
+      ) : error ? null : (
+        <AudioTrimLoading label="오디오 길이를 읽는 중입니다." />
       )}
       {error && (
         <p className={studioStyles.audioTrimError} role="alert">

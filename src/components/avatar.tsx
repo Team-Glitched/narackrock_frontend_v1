@@ -1,6 +1,6 @@
+import { UserRound } from "lucide-react";
 import { sharedStyles } from "@/styles/shared.styles";
 import { cn } from "@/lib/utils";
-import { Asset } from "./asset";
 export function Avatar({
   large = false,
   src = null,
@@ -24,7 +24,9 @@ export function Avatar({
       {src ? (
         <img src={src} alt="프로필" draggable={false} />
       ) : (
-        <Asset name="profile.png" alt="프로필" />
+        <span role="img" aria-label="프로필" className="grid size-full place-items-center bg-[#949494] text-white">
+          <UserRound aria-hidden="true" className="size-[58%]" />
+        </span>
       )}
     </span>
   );

@@ -42,7 +42,7 @@ export function CommunityScreen({
   onRecommendations?: () => void;
 }) {
   const posts = useGalleryPosts(DEFAULT_GALLERY_ID, { sort });
-  const role = useGalleryRole(DEFAULT_GALLERY_ID);
+  const { role } = useGalleryRole(DEFAULT_GALLERY_ID);
 
   return (
     <div className={cn(communityStyles.communityView, sharedStyles.socialScreen)}>

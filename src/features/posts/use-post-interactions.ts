@@ -12,12 +12,13 @@ import { useShareLink } from "@/hooks/use-share-link";
  */
 export function usePostInteractions(postId: number, detail: PostDetailResponse | null) {
   const sharing = useShareLink();
-  const [override, setOverride] = useState<{ postId: number; reaction?: PostReaction; bookmarked?: boolean } | null>(null);
+  const scope = `${getCurrentUserId()}:${postId}`;
+  const [override, setOverride] = useState<{ scope: string; reaction?: PostReaction; bookmarked?: boolean } | null>(null);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
-  const own = override?.postId === postId ? override : null;
+  const own = override?.scope === scope ? override : null;
   const reaction: PostReaction | null = own?.reaction ?? (detail ? detail : null);
-  const bookmarked = own?.bookmarked ?? detail?.isBookmarked ?? false;
+  const bookmarked = own?.bookmarked ?? detail?.isBookmarked;
   async function run(action: () => Promise<void>) {
     if (busy) return;
     if (getCurrentUserId() === null) {
@@ -43,12 +44,12 @@ export function usePostInteractions(postId: number, detail: PostDetailResponse |
     vote: (kind: "like" | "dislike") =>
       run(async () => {
         const next = await reactToPost(postId, kind);
-        setOverride((old) => ({ ...(old?.postId === postId ? old : {}), postId, reaction: next }));
+        setOverride((old) => ({ ...(old?.scope === scope ? old : {}), scope, reaction: next }));
       }),
     toggleBookmark: () =>
       run(async () => {
         const next = await togglePostBookmark(postId);
-        setOverride((old) => ({ ...(old?.postId === postId ? old : {}), postId, bookmarked: next.isBookmarked }));
+        setOverride((old) => ({ ...(old?.scope === scope ? old : {}), scope, bookmarked: next.isBookmarked }));
       }),
     share: (title: string) =>
       run(async () => {

@@ -13,25 +13,32 @@ import { Asset } from "@/components/asset";
 import { Avatar } from "@/components/avatar";
 import { deletePost, fetchPost, moderateGalleryContent, updatePost } from "@/lib/api/community";
 import type { PostDetailResponse, PostListItem } from "@/lib/api/contracts";
-import { getAccessToken, getCurrentUserId } from "@/lib/api/client";
+import { useCurrentUserId } from "@/features/auth/use-current-user";
 import { postError, relativeTime } from "@/features/posts/post-utils";
 import { reportPost } from "@/lib/api/reports";
 
-/** A post card. `moderation` (from the gallery role) enables moderator deletion and member sanctions. */
-export function CommunityPost({
-  post,
-  onChanged,
-  onComments,
-  onProfile,
-  moderation,
-}: {
+type CommunityPostProps = {
   moderation?: ModerationScope;
   post: PostListItem;
   onChanged: () => void;
   onComments: (postId: number) => void;
   onProfile?: (userId: number) => void;
-}) {
-  const currentUserId = getCurrentUserId();
+};
+
+/** A post card. `moderation` (from the gallery role) enables moderator deletion and member sanctions. */
+export function CommunityPost(props: CommunityPostProps) {
+  const currentUserId = useCurrentUserId();
+  return <ScopedCommunityPost key={`${currentUserId}:${props.post.postId}`} {...props} currentUserId={currentUserId} />;
+}
+
+function ScopedCommunityPost({
+  post,
+  onChanged,
+  onComments,
+  onProfile,
+  moderation,
+  currentUserId,
+}: CommunityPostProps & { currentUserId: number | null }) {
   const owner = currentUserId === post.writer.userId;
   const canModerate = Boolean(moderation?.canManage);
   const canModerateMember = canSanction(moderation, currentUserId, post.writer.userId);
@@ -40,10 +47,18 @@ export function CommunityPost({
   const [moderationNotice, setModerationNotice] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
   const optionButton = useRef<HTMLButtonElement>(null);
+  const articleRef = useRef<HTMLElement>(null);
   const hiddenPosts = useHiddenPosts();
   const [reportOpen, setReportOpen] = useState(false);
-  const [detail, setDetail] = useState<PostDetailResponse | null>(null);
-  const interactions = usePostInteractions(post.postId, detail);
+  const detailKey = `${currentUserId}:${post.postId}`;
+  const [detailResult, setDetailResult] = useState<{ key: string; detail: PostDetailResponse | null } | null>(null);
+  const currentDetail = detailResult?.key === detailKey ? detailResult : null;
+  const interactions = usePostInteractions(post.postId, currentDetail?.detail ?? null);
+  const detailStatus = currentDetail ? "unavailable" : "loading";
+  const saveStatus = currentUserId === null || interactions.bookmarked !== undefined
+    ? "ready"
+    : detailStatus;
+  const voteStatus = currentUserId === null || interactions.reaction ? "ready" : detailStatus;
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState(post.title);
   const [content, setContent] = useState("");
@@ -56,23 +71,40 @@ export function CommunityPost({
   const moderating = canModerate && !owner;
 
   useEffect(() => {
-    if (!getAccessToken()) return;
-    let cancelled = false;
-    fetchPost(post.postId)
-      .then((detail) => {
-        if (!cancelled) {
-          setDetail(detail);
+    const article = articleRef.current;
+    if (currentUserId === null || !article) return;
+    const controller = new AbortController();
+    const { signal } = controller;
+    function loadDetail() {
+      void fetchPost(post.postId, signal)
+        .then((detail) => {
+          if (signal.aborted) return;
+          setDetailResult({ key: detailKey, detail });
           setPreview(detail.content);
           setImageUrl(detail.imageUrl);
-        }
-      })
-      .catch((error) => {
-        if (!cancelled) setError(postError(error));
-      });
+        })
+        .catch((error) => {
+          if (!signal.aborted) {
+            setDetailResult({ key: detailKey, detail: null });
+            setError(postError(error));
+          }
+        });
+    }
+    if (typeof IntersectionObserver === "undefined") {
+      loadDetail();
+      return () => controller.abort();
+    }
+    const observer = new IntersectionObserver((entries) => {
+      if (signal.aborted || !entries.some((entry) => entry.isIntersecting)) return;
+      observer.disconnect();
+      loadDetail();
+    }, { rootMargin: "300px 0px" });
+    observer.observe(article);
     return () => {
-      cancelled = true;
+      observer.disconnect();
+      controller.abort();
     };
-  }, [post.postId, post.imageUrl]);
+  }, [currentUserId, detailKey, post.postId, post.imageUrl]);
 
   async function startEdit() {
     setMenuOpen(false);
@@ -133,7 +165,7 @@ export function CommunityPost({
 
   if (editing) {
     return (
-      <article className={communityStyles.communityPost} data-post-id={post.postId}>
+      <article ref={articleRef} className={communityStyles.communityPost} data-post-id={post.postId}>
         <div className={communityStyles.postForm}>
           <input
             aria-label="게시글 제목 수정"
@@ -178,7 +210,7 @@ export function CommunityPost({
   }
 
   return (
-    <article className={communityStyles.communityPost} data-post-id={post.postId}>
+    <article ref={articleRef} className={communityStyles.communityPost} data-post-id={post.postId}>
       {interactions.shareDialog}
       <div className={communityStyles.communityAuthor}>
         <button
@@ -285,13 +317,13 @@ export function CommunityPost({
           {post.title}
         </button>
       </h2>
-      {preview !== "" && (
+      {(currentUserId === null || preview) && (
         <button
           className={communityStyles.postPreview}
           onClick={() => onComments(post.postId)}
           disabled={submitting}
         >
-          {preview ?? "로그인 후 게시글 내용을 확인할 수 있어요."}
+          {currentUserId === null ? "로그인 후 게시글 내용을 확인할 수 있어요." : preview}
         </button>
       )}
       {error && (
@@ -352,13 +384,15 @@ export function CommunityPost({
       )}
       <PostActions
         likeCount={interactions.reaction?.likeCount ?? post.likeCount}
-        dislikeCount={interactions.reaction?.dislikeCount ?? 0}
+        dislikeCount={interactions.reaction?.dislikeCount}
         commentCount={post.commentCount}
         vote={interactions.reaction?.isLiked ? "like" : interactions.reaction?.isDisliked ? "dislike" : null}
+        voteStatus={voteStatus}
         busy={interactions.busy}
         onVote={(kind) => void interactions.vote(kind)}
         onComments={() => onComments(post.postId)}
         saved={interactions.bookmarked}
+        saveStatus={saveStatus}
         onSave={() => void interactions.toggleBookmark()}
         onShare={() => void interactions.share(post.title)}
       />

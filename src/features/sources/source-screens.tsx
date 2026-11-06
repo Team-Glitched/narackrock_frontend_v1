@@ -92,7 +92,7 @@ function OpenSourceCard({
           <Avatar src={source.thumbnailUrl} />
           <span>
             <strong>{source.title}</strong>
-            <small>사용 수 {source.usageCount.toLocaleString("ko-KR")}</small>
+            {source.usageCount != null && <small>사용 수 {source.usageCount.toLocaleString("ko-KR")}</small>}
           </span>
         </button>
         <SaveButton save={save} />
@@ -268,7 +268,7 @@ function SourceDetail({
             <Avatar src={source.thumbnailUrl} />
             <span>
               <strong>{source.title}</strong>
-              <small>사용 수 {source.usageCount.toLocaleString("ko-KR")}</small>
+              {source.usageCount != null && <small>사용 수 {source.usageCount.toLocaleString("ko-KR")}</small>}
             </span>
           </div>
           <SaveButton save={save} />
