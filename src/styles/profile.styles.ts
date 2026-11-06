@@ -115,11 +115,7 @@ export const profileStyles = {
     "mt-[22px] h-11 rounded-[8px] bg-app-primary bg-none font-semibold",
     "[&:disabled]:opacity-[.55]",
   ].join(" "),
-  profileWorks: ["profile-works", "[.design-canvas_.profile-works+&]:mt-[30px]"].join(" "),
-  profileWorksExpanded: [
-    "profile-works-expanded",
-    "[.design-canvas_&]:grid [.design-canvas_&]:grid-cols-[repeat(2,160px)] [.design-canvas_&]:gap-5",
-  ].join(" "),
+  profileWorks: ["profile-works", "[.design-canvas_.profile-works+&]:mt-[30px]", "[&>.section-title]:mb-[24px]!"].join(" "),
   profilePhotoShade: [
     "profile-photo-shade",
     "[.edit-avatar-overlay_&]:absolute [.edit-avatar-overlay_&]:h-auto [.edit-avatar-overlay_&]:w-auto",

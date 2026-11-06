@@ -12,6 +12,11 @@ import { useMySongs } from "./use-my-songs";
 import { songsForTab, type MySongTab } from "./my-songs";
 import { useCurrentUserId } from "@/features/auth/use-current-user";
 import { PopularContentActions } from "@/features/posts/popular-content-actions";
+import { useEffect, useState } from "react";
+import { getProfile } from "@/lib/api/profile";
+import type { UserProfile } from "@/lib/api/contracts";
+
+type MusicListTab = MySongTab | "featured";
 
 function SongRailStatus({ state }: { state: "loading" | "error" | "empty" | "signed-out" }) {
   const message =
@@ -98,38 +103,43 @@ export function HomeScreen({
 }
 
 export function ChartsScreen({
-  kind, tab, onTabChange, onOpenShort,
+  kind, tab, onTabChange, onOpenShort, featuredUserId,
 }: {
   kind: SongChartKind;
-  tab: MySongTab;
-  onTabChange: (tab: MySongTab) => void;
+  tab: MusicListTab;
+  onTabChange: (tab: MusicListTab) => void;
   onOpenShort: (shortId: number) => void;
+  featuredUserId?: number;
 }) {
   return kind === "mine"
-    ? <MySongsChart tab={tab} onTabChange={onTabChange} onOpenShort={onOpenShort} />
+    ? <MySongsChart tab={tab} onTabChange={onTabChange} onOpenShort={onOpenShort} featuredUserId={featuredUserId} />
     : <RankedSongsChart kind={kind} onOpenShort={onOpenShort} />;
 }
 
-function MySongsChart({ tab, onTabChange, onOpenShort }: {
-  tab: MySongTab;
-  onTabChange: (tab: MySongTab) => void;
+function MySongsChart({ tab, onTabChange, onOpenShort, featuredUserId }: {
+  tab: MusicListTab;
+  onTabChange: (tab: MusicListTab) => void;
   onOpenShort: (shortId: number) => void;
+  featuredUserId?: number;
 }) {
   const userId = useCurrentUserId();
-  const songs = useMySongs();
-  const items = userId === null ? [] : songsForTab(songs.items, userId, tab);
+  const songs = useMySongs(20, tab !== "featured");
+  const items = userId === null || tab === "featured" ? [] : songsForTab(songs.items, userId, tab);
   return (
     <div className={cn(sharedStyles.listView, sharedStyles.scrollContent)}>
       <h1 className={sharedStyles.postsListTitle}>{uiLabels.myMusic}</h1>
-      <div className="mb-5 flex gap-3" role="group" aria-label="내 음악 종류">
-        {(["authored", "participated"] as const).map((value) => (
+      <div className="mb-5 flex flex-wrap gap-3" role="group" aria-label="내 음악 종류">
+        {(["featured", "authored", "participated"] as const).map((value) => (
           <button key={value} type="button" aria-pressed={tab === value}
             className="rounded-lg border border-app-muted px-4 py-2 aria-pressed:bg-app-surface"
             onClick={() => onTabChange(value)}>
-            {value === "authored" ? "내 작업물" : "내 참가작"}
+            {value === "authored" ? "내 작업물" : value === "participated" ? "내 참가작" : "대표 음악"}
           </button>
         ))}
       </div>
+      {tab === "featured" ? (
+        <FeaturedSongsChart key={featuredUserId ?? userId ?? "signed-out"} userId={featuredUserId ?? userId} onOpenShort={onOpenShort} />
+      ) : <>
       {songs.status !== "ready" ? <SongRailStatus state={songs.status} /> : (
         <>
           <div className={sharedStyles.chartList}>
@@ -158,7 +168,48 @@ function MySongsChart({ tab, onTabChange, onOpenShort }: {
           {songs.appending ? "불러오는 중..." : songs.error ? "다음 목록 다시 시도" : "더보기"}
         </button>
       )}
+      </>}
     </div>
+  );
+}
+
+function FeaturedSongsChart({ userId, onOpenShort }: {
+  userId: number | null;
+  onOpenShort: (shortId: number) => void;
+}) {
+  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [revision, setRevision] = useState(0);
+  useEffect(() => {
+    if (userId === null) return;
+    let active = true;
+    getProfile(userId).then((result) => {
+      if (active) setProfile(result);
+    }).catch((cause) => {
+      if (active) setError(cause instanceof Error ? cause.message : "대표 음악을 불러오지 못했습니다.");
+    });
+    return () => { active = false; };
+  }, [userId, revision]);
+  if (userId === null) return <SongRailStatus state="signed-out" />;
+  if (error) return <div role="alert"><p>{error}</p><button onClick={() => {
+    setError(null);
+    setRevision((value) => value + 1);
+  }}>다시 시도</button></div>;
+  if (!profile) return <SongRailStatus state="loading" />;
+  return (
+    <>
+      <div className={sharedStyles.chartList}>
+        {[...profile.activities.pinnedShorts].sort((a, b) => a.displayOrder - b.displayOrder).map((song) => (
+          <button type="button" className={sharedStyles.chartRow} key={song.shortId} onClick={() => onOpenShort(song.shortId)}>
+            <span className={sharedStyles.chartArt}>
+              {song.albumImageUrl ? <img src={song.albumImageUrl} alt={`${song.title} 앨범 커버`} /> : <span className={sharedStyles.emptyArtwork} />}
+            </span>
+            <span><strong>{song.title}</strong><small>{profile.nickname}</small></span>
+          </button>
+        ))}
+      </div>
+      {profile.activities.pinnedShorts.length === 0 && <p role="status">아직 등록한 대표 음악이 없습니다.</p>}
+    </>
   );
 }
 
