@@ -169,7 +169,7 @@ function RankedSongsChart({
   kind: SongChartKind;
   onOpenShort: (shortId: number) => void;
 }) {
-  const songs = useHomeSongs(100);
+  const songs = useHomeSongs(100, kind);
   const selected =
     kind === "popular" ? songs.popular : kind === "recommended" ? songs.recommended : songs.mine;
   return (

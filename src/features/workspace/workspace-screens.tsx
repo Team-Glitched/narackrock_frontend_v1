@@ -118,7 +118,7 @@ export function WorkspaceScreen({
   onStartSong: () => void;
   onResume: (id: number, shortId: number | null) => void;
 }) {
-  const { works, error, loading } = useVisitedWorks();
+  const { works, error, loading, appending, hasMore, more } = useVisitedWorks();
   return (
     <Page
       title="이 브라우저에서 연 작업"
@@ -132,8 +132,8 @@ export function WorkspaceScreen({
           새 곡
         </button>
       </div>
-      {works.length === 0 ? (
-        <Empty>아직 작업 중인 곡이 없습니다. 새 곡을 만들거나 숏폼에서 작곡에 참여해보세요.</Empty>
+      {works.length === 0 ? (!loading && !hasMore && !error && (
+        <Empty>아직 작업 중인 곡이 없습니다. 새 곡을 만들거나 숏폼에서 작곡에 참여해보세요.</Empty>)
       ) : (
         works.map((work) => (
           <article className={workspaceStyles.workspaceCard} key={work.id}>
@@ -155,6 +155,7 @@ export function WorkspaceScreen({
           </article>
         ))
       )}
+      {hasMore && <button className={workspaceStyles.workspaceWide} disabled={appending} onClick={more}>더보기</button>}
     </Page>
   );
 }
@@ -411,8 +412,9 @@ export function SourceLibraryScreen({
   onOpenSource: (id: number) => void;
 }) {
   const { resources } = useWorkspace();
-  const { works, error: workError } = useVisitedWorks();
   const [targetResource, setTargetResource] = useState<Resource | null>(null);
+  const { works, error: workError, loading, appending, hasMore, more } =
+    useVisitedWorks({ enabled: targetResource !== null });
   const [filter, setFilter] = useState(importing ? "LOCAL" : "SERVER"),
     [query, setQuery] = useState(""),
     [busy, setBusy] = useState<number | null>(null),
@@ -447,10 +449,12 @@ export function SourceLibraryScreen({
         <button className={workspaceStyles.workspaceWide} onClick={() => setTargetResource(null)}>
           리소스 목록으로 돌아가기
         </button>
-        {works.length === 0 ? (
+        {workError && <p role="alert">{workError}</p>}
+        {loading && <p role="status">작업을 불러오는 중입니다.</p>}
+        {works.length === 0 ? (!loading && !hasMore && !workError && (
           <Empty>
             작업 중인 곡이 없습니다. 새 곡을 만든 뒤 레이어 추가에서 보관함을 열어주세요.
-          </Empty>
+          </Empty>)
         ) : (
           works.map((work) => (
             <button
@@ -468,6 +472,7 @@ export function SourceLibraryScreen({
             </button>
           ))
         )}
+        {hasMore && <button className={workspaceStyles.workspaceWide} disabled={appending} onClick={more}>더보기</button>}
         {notice && <p role="status">{notice}</p>}
         <button className={workspaceStyles.workspaceWide} onClick={onStartSong}>
           새 곡 만들기
@@ -483,7 +488,6 @@ export function SourceLibraryScreen({
           : "서버 보관 목록과 이 브라우저의 MIDI 복구 자료는 별개입니다."
       }
     >
-      {workError && <p role="alert">{workError}</p>}
       <label className={workspaceStyles.workspaceSearch}>
         <Asset name="search-input.svg" />
         <input

@@ -8,7 +8,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Asset } from "@/components/asset";
 import { CommunityDetailScreen } from "@/features/community/community-detail";
 import { galleryToCommunity, type Community } from "@/features/community/community-card";
-import { useGalleries } from "@/features/community/use-galleries";
+import { usePagedItems } from "@/hooks/use-paged-items";
 import { useGalleryRole } from "@/features/community/use-gallery-role";
 import { useCurrentUserId } from "@/features/auth/use-current-user";
 import { SignInRequired } from "@/features/auth/sign-in-required";
@@ -16,7 +16,7 @@ import { ApiError } from "@/lib/api/client";
 import {
   getGalleryBans,
   getGalleryModerationLogs,
-  getMyGalleryRole,
+  fetchManageableGalleries,
   liftGalleryBan,
   updateGalleryDescription,
   type GalleryBan,
@@ -252,52 +252,35 @@ type CommunityAdminProps = {
   onProfile: (userId: number) => void;
 };
 
-/** Galleries the user can manage, resolved from each gallery's `manage/me` (ownership is not permission). */
-function useManageableGalleries(enabled: boolean) {
-  const galleries = useGalleries(0);
-  const userId = useCurrentUserId();
-  const [manageable, setManageable] = useState<{ key: string; ids: Set<number> } | null>(null);
-  const list = galleries.status === "ready" ? galleries.galleries : null;
-  const key = `${userId}:${list?.map((gallery) => gallery.galleryId).join(",")}`;
-  useEffect(() => {
-    if (!enabled || !list || userId === null) return;
-    let active = true;
-    Promise.all(list.map((gallery) => getMyGalleryRole(gallery.galleryId).catch(() => null))).then((roles) => {
-      if (active) setManageable({ key, ids: new Set(roles.filter((role) => role?.canManage).map((role) => role!.galleryId)) });
-    });
-    return () => {
-      active = false;
-    };
-  }, [enabled, key, list, userId]);
-  return {
-    galleries,
-    manageable: manageable?.key === key && list ? list.filter((gallery) => manageable.ids.has(gallery.galleryId)) : null,
-  };
+async function loadManageableGalleries(_: number, signal: AbortSignal) {
+  return { items: await fetchManageableGalleries(signal), next: null };
 }
 
 export function CommunityAdminScreen(props: CommunityAdminProps) {
   const userId = useCurrentUserId();
-  const role = useGalleryRole(props.community?.galleryId ?? null);
-  const { galleries, manageable } = useManageableGalleries(props.community === null);
+  const { role, failed: roleFailed, retry: retryRole } = useGalleryRole(props.community?.galleryId ?? null);
+  const { state: galleries, more: retryGalleries } = usePagedItems(
+    `manageable:${userId}`, 0, loadManageableGalleries, props.community === null && userId !== null,
+  );
   if (userId === null) return <SignInRequired>커뮤니티 관리는 로그인 후 사용할 수 있습니다.</SignInRequired>;
   if (!props.community)
     return (
       <section className={cn(communityStyles.communityAdminStatus, sharedStyles.scrollContent)}>
         <h1>커뮤니티 관리</h1>
-        {galleries.status === "error" ? (
+        {!galleries || galleries.busy ? (
+          <p role="status">관리 가능한 커뮤니티를 불러오는 중...</p>
+        ) : galleries.error ? (
           <>
-            <p role="alert">커뮤니티를 불러오지 못했습니다.</p>
-            <button className={buttonVariants({ tone: "secondary" })} onClick={galleries.refetch}>
+            <p role="alert">관리 가능한 커뮤니티를 불러오지 못했습니다.</p>
+            <button className={buttonVariants({ tone: "secondary" })} onClick={retryGalleries}>
               다시 시도
             </button>
           </>
-        ) : !manageable ? (
-          <p role="status">관리 권한을 확인하는 중...</p>
-        ) : manageable.length === 0 ? (
+        ) : galleries.items.length === 0 ? (
           <p role="status">관리할 수 있는 커뮤니티가 없습니다.</p>
         ) : (
           <ul className={communityStyles.communityCardList}>
-            {manageable.map((gallery) => (
+            {galleries.items.map((gallery) => (
               <li key={gallery.galleryId}>
                 <button className={workspaceStyles.workspaceWide} onClick={() => props.onSelect(galleryToCommunity(gallery))}>
                   {gallery.name} 관리
@@ -312,7 +295,16 @@ export function CommunityAdminScreen(props: CommunityAdminProps) {
     return (
       <section className={communityStyles.communityAdminStatus}>
         <h1>커뮤니티 관리</h1>
-        <p role="status">관리 권한을 확인하는 중...</p>
+        {roleFailed ? (
+          <>
+            <p role="alert">관리 권한을 확인하지 못했습니다.</p>
+            <button className={buttonVariants({ tone: "secondary" })} onClick={retryRole}>
+              다시 시도
+            </button>
+          </>
+        ) : (
+          <p role="status">관리 권한을 확인하는 중...</p>
+        )}
       </section>
     );
   if (!role.canManage)

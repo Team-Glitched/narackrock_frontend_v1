@@ -1,7 +1,7 @@
 import { profileStyles } from "@/styles/profile.styles";
 import { communityStyles } from "@/styles/community.styles";
 import { buttonVariants } from "@/styles/variants";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { FigmaSheet } from "@/components/figma-sheet";
 import { Avatar } from "@/components/avatar";
 import { MiniPost } from "@/features/posts/post-list";
@@ -22,6 +22,7 @@ export function ProfileListSheet(props: ProfileListProps) {
 function ScopedProfileListSheet({ kind, profile, onClose, onProfile, onPost, ownFollowers }: ProfileListProps & { ownFollowers: boolean }) {
   const [people, setPeople] = useState<Person[]>([]);
   const [posts, setPosts] = useState<PostListItem[]>([]);
+  const articleResults = useRef<{ profile: UserProfile; loaded: Map<number, PostListItem | null> } | null>(null);
   const [state, setState] = useState<"loading" | "ready" | "error">("loading");
   const [error, setError] = useState("");
   const [revision, setRevision] = useState(0);
@@ -33,10 +34,21 @@ function ScopedProfileListSheet({ kind, profile, onClose, onProfile, onPost, own
     let active = true;
     (async () => {
       if (kind === "articles") {
-        const results = await Promise.allSettled(profile.activities.posts.map((post) => fetchPost(post.postId)));
+        const loaded = articleResults.current?.profile === profile
+          ? new Map(articleResults.current.loaded)
+          : new Map<number, PostListItem | null>();
+        const missing = profile.activities.posts.filter(({ postId }) => !loaded.has(postId));
+        const results = await Promise.allSettled(missing.map(async ({ postId }) => {
+          const post = await fetchPost(postId);
+          loaded.set(postId, post.writer.userId === profile.userId ? post : null);
+        }));
         if (!active) return;
-        setPosts(results.flatMap((result) => result.status === "fulfilled" && result.value.writer.userId === profile.userId ? [result.value] : []));
-        if (results.some((result) => result.status === "rejected")) setError("일부 게시글을 불러오지 못했습니다.");
+        articleResults.current = { profile, loaded };
+        setPosts(profile.activities.posts.flatMap(({ postId }) => {
+          const post = loaded.get(postId);
+          return post ? [post] : [];
+        }));
+        setError(results.some((result) => result.status === "rejected") ? "일부 게시글을 불러오지 못했습니다." : "");
       } else {
         const result = await getRelations(profile.userId, kind);
         if (!active) return;
@@ -76,9 +88,19 @@ function ScopedProfileListSheet({ kind, profile, onClose, onProfile, onPost, own
         {ownFollowers && mutualError && <div role="alert"><p>{mutualError}</p><button onClick={() => { setMutualIds(null); setMutualError(""); setMutualRevision((value) => value + 1); }}>다시 확인</button></div>}
         {state === "loading" && <p role="status">불러오는 중...</p>}
         {error && <p role="alert">{error}</p>}
-        {state === "error" && <button onClick={() => { setState("loading"); setError(""); setRevision((value) => value + 1); }}>다시 시도</button>}
-        {state === "ready" && (kind === "articles" ? <div className={communityStyles.miniPostList}>{posts.map((post) => <MiniPost key={post.postId} post={post} onOpen={(id) => { onClose(); onPost(id); }} />)}</div> : <ul className={profileStyles.profilePeopleList}>{shownPeople.map((person) => <li key={person.userId}><button onClick={() => { onClose(); onProfile(person.userId); }}><Avatar src={person.profileImageUrl} /><span><strong>{person.nickname}</strong><small>{person.primaryInstrument || ""}</small></span></button></li>)}</ul>)}
-        {state === "ready" && (kind === "articles" ? posts : shownPeople).length === 0 && <p className={profileStyles.profileListEmpty}>{kind === "articles" ? "작성한 게시글이 없습니다." : filter === "mutual" ? "맞팔로우한 팔로워가 없습니다." : `${title}가 없습니다.`}</p>}
+        {error && state !== "loading" && (
+          <button onClick={() => { setState("loading"); setError(""); setRevision((value) => value + 1); }}>
+            다시 시도
+          </button>
+        )}
+        {kind === "articles" ? (
+          <div className={communityStyles.miniPostList}>
+            {posts.map((post) => <MiniPost key={post.postId} post={post} onOpen={(id) => { onClose(); onPost(id); }} />)}
+          </div>
+        ) : state === "ready" && (
+          <ul className={profileStyles.profilePeopleList}>{shownPeople.map((person) => <li key={person.userId}><button onClick={() => { onClose(); onProfile(person.userId); }}><Avatar src={person.profileImageUrl} /><span><strong>{person.nickname}</strong><small>{person.primaryInstrument || ""}</small></span></button></li>)}</ul>
+        )}
+        {state === "ready" && !error && (kind === "articles" ? posts : shownPeople).length === 0 && <p className={profileStyles.profileListEmpty}>{kind === "articles" ? "작성한 게시글이 없습니다." : filter === "mutual" ? "맞팔로우한 팔로워가 없습니다." : `${title}가 없습니다.`}</p>}
       </section>
     </FigmaSheet>
   );

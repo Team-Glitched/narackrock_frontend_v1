@@ -60,6 +60,7 @@ export type PostWriter = { userId: number; nickname: string; profileImageUrl: st
 export type PostSort = "LATEST" | "POPULAR" | "OLDEST";
 
 export type PostListItem = {
+  contentPreview?: string;
   postId: number;
   writer: PostWriter;
   title: string;

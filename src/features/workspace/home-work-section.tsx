@@ -65,7 +65,7 @@ export function HomeWorkSection({
   onStartSong: () => void;
   onResume: (projectId: number, shortId: number | null) => void;
 }) {
-  const { works, error, loading } = useVisitedWorks();
+  const { works, error, loading } = useVisitedWorks({ home: true });
   const items = workingMusic(works);
   return (
     <section className="home-working-music">

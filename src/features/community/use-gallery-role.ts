@@ -10,20 +10,28 @@ export function canSanction(scope: ModerationScope | undefined, me: number | nul
   return Boolean(scope?.canManage) && me !== null && memberId !== me;
 }
 
-/** The signed-in user's role in a gallery; null while loading, when signed out or when it cannot be read. */
-export function useGalleryRole(galleryId: number | null): GalleryRole | null {
+/** Loads the signed-in user's gallery role and allows failed requests to be retried. */
+export function useGalleryRole(galleryId: number | null) {
   const userId = useCurrentUserId();
-  const key = `${userId}:${galleryId}`;
+  const [revision, setRevision] = useState(0);
+  const key = `${userId}:${galleryId}:${revision}`;
   const [loaded, setLoaded] = useState<{ key: string; role: GalleryRole | null } | null>(null);
   useEffect(() => {
     if (userId === null || galleryId === null) return;
     const controller = new AbortController();
     getMyGalleryRole(galleryId, controller.signal)
-      .then((role) => setLoaded({ key, role }))
+      .then((role) => {
+        if (!controller.signal.aborted) setLoaded({ key, role });
+      })
       .catch(() => {
         if (!controller.signal.aborted) setLoaded({ key, role: null });
       });
     return () => controller.abort();
   }, [galleryId, key, userId]);
-  return loaded?.key === key ? loaded.role : null;
+  const current = loaded?.key === key ? loaded : null;
+  return {
+    role: current?.role ?? null,
+    failed: current?.role === null,
+    retry: () => setRevision((value) => value + 1),
+  };
 }
