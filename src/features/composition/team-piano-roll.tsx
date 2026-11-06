@@ -32,6 +32,8 @@ type Gesture = {
   pitch: number;
   noteIndex: number | null;
   additive: boolean;
+  /** A tap (no drag) on an already selected note in additive mode removes it on release. */
+  toggleOff: boolean;
   scrollLeft: number;
   scrollTop: number;
 };
@@ -272,18 +274,20 @@ export function TeamPianoRoll({
     else if (!editor.editable) kind = note ? "tap" : "pan";
     else if (tool === "erase") kind = "erase";
     else if (note && noteIndex !== null) {
-      if (event.shiftKey) {
-        editor.select([noteIndex], "toggle");
-        indices = originalSelection.includes(noteIndex)
-          ? originalSelection.filter((index) => index !== noteIndex) : [...originalSelection, noteIndex];
+      // The select tool is additive without a modifier so touch screens can build a multi-selection.
+      const additive = event.shiftKey || tool === "select";
+      if (additive) {
+        if (!originalSelection.includes(noteIndex)) {
+          indices = [...originalSelection, noteIndex];
+          editor.select([noteIndex], "add");
+        }
       } else if (!selected.has(noteIndex)) {
         indices = [noteIndex];
         editor.select(indices);
       }
       const bounds = logicalBounds(noteElement!);
       const axes = pointerAxes(noteElement!, event);
-      kind = event.shiftKey && !indices.includes(noteIndex) ? "tap"
-        : bounds.left + bounds.width - axes.x <= Math.min(10, bounds.width / 3) ? "resize" : "move";
+      kind = bounds.left + bounds.width - axes.x <= Math.min(10, bounds.width / 3) ? "resize" : "move";
     } else if (tool === "select") kind = "marquee";
     else kind = "draw";
     event.preventDefault();
@@ -293,6 +297,7 @@ export function TeamPianoRoll({
       origin: point, previous: point, moved: false, indices, selected: originalSelection,
       notes: editor.snapshot.notes, erased: new Set(), pitch: rows[row], noteIndex,
       additive: event.shiftKey, scrollLeft: event.currentTarget.scrollLeft, scrollTop: event.currentTarget.scrollTop,
+      toggleOff: (event.shiftKey || tool === "select") && noteIndex !== null && originalSelection.includes(noteIndex),
     };
     gesture.current = active;
     event.currentTarget.setPointerCapture(event.pointerId);
@@ -331,6 +336,7 @@ export function TeamPianoRoll({
       const note = active.notes[active.noteIndex];
       if (note) {
         if (!editor.editable) editor.select([active.noteIndex], active.additive ? "toggle" : "replace");
+        else if (active.toggleOff) editor.select([active.noteIndex], "toggle");
         onAudition(note.pitch);
       }
     }
@@ -357,7 +363,18 @@ export function TeamPianoRoll({
       onPointerUp={pointerUp}
       onPointerCancel={cancel}
       onLostPointerCapture={(event) => {
-        if (gesture.current?.pointerId === event.pointerId) cancel();
+        const active = gesture.current;
+        if (active?.pointerId !== event.pointerId) return;
+        // Chrome can drop capture just before the matching pointerup (e.g. a press shortly after a tap), so losing
+        // capture is not a cancellation. Re-capture while the pointer is live; pointerup/pointercancel end the gesture.
+        try {
+          event.currentTarget.setPointerCapture(event.pointerId);
+        } catch {
+          // The pointer is gone. A pointerup bubbling from inside the roll in the same input still finishes it.
+          window.setTimeout(() => {
+            if (gesture.current === active) cancel();
+          }, 0);
+        }
       }}
       onScroll={(event) => {
         if (pixelsPerTick > 0) {

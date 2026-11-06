@@ -415,7 +415,7 @@ function LoadedNoteEditor({
         />
       )}
       {editable && (
-        <p role="status">
+        <p role="status" className="m-0 shrink-0 px-3 py-0.5 text-caption leading-[16px] text-app-muted">
           {draft.state ? draftLabels[draft.state.status] : "개인 초안 불러오는 중"}
         </p>
       )}

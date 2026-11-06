@@ -151,9 +151,12 @@ test("metadata/ack updates retain history and clipboard; actual external restore
   assert.equal(session.getSnapshot().clipboard.length, 0);
   assert.deepEqual(session.getSnapshot().history.present.selected, []);
   assert.equal(session.getSnapshot().view.tool, "select");
-  fixture.configure({ contextKey: "another-draft" });
-  assert.equal(session.getSnapshot().view.tool, "draw");
-  assert.equal(session.getSnapshot().view.snapDenominator, 8);
+  session.execute({ type: "insert", notes: [note(76)] });
+  fixture.configure({ contextKey: "loaded-draft" });
+  // Loading the draft (a new draft id) resets editing history but must not undo the user's tool/snap choice.
+  assert.equal(session.getSnapshot().history.past.length, 0);
+  assert.equal(session.getSnapshot().view.tool, "select");
+  assert.equal(session.getSnapshot().view.snapDenominator, 16);
 });
 
 test("undo is revalidated against changed timeline and instrument without moving its stacks", () => {
