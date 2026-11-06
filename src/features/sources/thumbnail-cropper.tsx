@@ -1,30 +1,62 @@
-import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { pointerAxes } from "@/features/composition/pointer-coordinates";
 import { MAX_ZOOM, MIN_ZOOM, clampCrop, cropDisplay, defaultCrop, panCrop, type ThumbnailCrop } from "./thumbnail-crop";
 
 /** Square editing area; the inscribed circle is exactly what list and detail cards show. */
-const frameSize = 300;
-const viewport = frameSize;
-const inset = (frameSize - viewport) / 2;
+const viewport = 300;
 const smallPreview = 40;
 const thumb = 18;
 
 /**
- * Thumbnail editor: the whole image stays visible in a square, everything outside the kept circle is blurred and
- * dimmed. Drag to move, slider/wheel to zoom, arrow keys to nudge. The saved crop is the square behind that circle.
+ * The area outside the crop circle is dimmed. Drag or use the arrow keys to move, and use the slider or wheel to zoom.
  */
-export function ThumbnailCropper({ url, crop, onChange, disabled = false }: {
-  url: string;
+export function ThumbnailCropper({ file, crop, onChange, disabled = false }: {
+  file: File;
   crop: ThumbnailCrop;
   onChange: (crop: ThumbnailCrop) => void;
   disabled?: boolean;
 }) {
-  const [natural, setNatural] = useState<{ url: string; width: number; height: number } | null>(null);
-  const size = natural?.url === url ? natural : null;
+  const [decoded, setDecoded] = useState<{ file: File; bitmap: ImageBitmap | null } | null>(null);
+  const size = decoded?.file === file ? decoded.bitmap : null;
   const drag = useRef<{ pointerId: number; x: number; y: number; crop: ThumbnailCrop } | null>(null);
   const frame = useRef<HTMLDivElement>(null);
+  const editorPreview = useRef<HTMLCanvasElement>(null);
+  const listPreview = useRef<HTMLCanvasElement>(null);
   const current = size ? clampCrop(crop, size.width, size.height) : crop;
   const latest = useRef({ current, size, onChange, disabled });
+
+  useEffect(() => {
+    let active = true;
+    let bitmap: ImageBitmap | undefined;
+    // Decode the same still frame as renderThumbnail, including for animated files.
+    void createImageBitmap(file).then((result) => {
+      if (!active) {
+        result.close();
+        return;
+      }
+      bitmap = result;
+      setDecoded({ file, bitmap });
+    }, () => {
+      if (active) setDecoded({ file, bitmap: null });
+    });
+    return () => {
+      active = false;
+      bitmap?.close();
+    };
+  }, [file]);
+
+  useLayoutEffect(() => {
+    for (const canvas of [editorPreview.current, listPreview.current]) {
+      const context = canvas?.getContext("2d");
+      if (!canvas || !context) continue;
+      context.clearRect(0, 0, canvas.width, canvas.height);
+      if (!size) continue;
+      const { left, top, width, height } = cropDisplay(crop, size.width, size.height, canvas.width);
+      context.imageSmoothingQuality = "high";
+      context.drawImage(size, left, top, width, height);
+    }
+  }, [crop, size]);
+
   useEffect(() => {
     latest.current = { current, size, onChange, disabled };
   });
@@ -60,13 +92,6 @@ export function ThumbnailCropper({ url, crop, onChange, disabled = false }: {
     if (drag.current?.pointerId === event.pointerId) drag.current = null;
   }
 
-  const placement = (side: number) => (size ? cropDisplay(current, size.width, size.height, side) : null);
-  const big = placement(viewport);
-  const small = placement(smallPreview);
-  // Both layers share one placement shifted into the frame, so the sharp circle lines up with the blurred surround.
-  const layer = big
-    ? { left: big.left + inset, top: big.top + inset, width: big.width, height: big.height }
-    : { inset: 0, width: "100%", height: "100%", objectFit: "cover" as const };
   return (
     <div className="flex w-full flex-col items-center gap-3">
       <div
@@ -75,7 +100,7 @@ export function ThumbnailCropper({ url, crop, onChange, disabled = false }: {
         aria-label="앨범 이미지 위치 편집. 끌어서 이동, 방향키로 미세 이동"
         tabIndex={disabled ? -1 : 0}
         className="relative shrink-0 cursor-grab touch-none overflow-hidden rounded-[4px] bg-app-surface outline-offset-4 active:cursor-grabbing"
-        style={{ width: frameSize, height: frameSize }}
+        style={{ width: viewport, height: viewport }}
         onPointerDown={pointerDown}
         onPointerMove={pointerMove}
         onPointerUp={pointerEnd}
@@ -90,28 +115,22 @@ export function ThumbnailCropper({ url, crop, onChange, disabled = false }: {
           onChange(panCrop(current, delta[0], delta[1], size.width, size.height, viewport));
         }}
       >
-        <img
-          src={url}
-          alt=""
-          aria-hidden="true"
-          draggable={false}
-          className="pointer-events-none absolute max-w-none select-none brightness-[.6]"
-          style={layer}
+        <canvas
+          ref={editorPreview}
+          role="img"
+          aria-label="앨범 이미지 미리보기"
+          width={viewport}
+          height={viewport}
+          className="pointer-events-none absolute inset-0"
         />
-        <img
-          src={url}
-          alt="앨범 이미지 미리보기"
-          draggable={false}
-          onLoad={(event) => setNatural({ url, width: event.currentTarget.naturalWidth, height: event.currentTarget.naturalHeight })}
-          className="pointer-events-none absolute max-w-none select-none"
-          style={{ ...layer, clipPath: big ? `circle(${viewport / 2}px at ${viewport / 2 - big.left}px ${viewport / 2 - big.top}px)` : undefined }}
-        />
+        {/* The shadow dims the corners without drawing a second image behind translucent pixels. */}
         <span
-          className="pointer-events-none absolute rounded-full border-2 border-solid border-app-fg"
-          style={{ left: inset, top: inset, width: viewport, height: viewport }}
+          className="pointer-events-none absolute inset-0 rounded-full border-2 border-solid border-app-fg"
+          style={{ boxShadow: `0 0 0 ${viewport}px rgb(0 0 0 / 40%)` }}
           aria-hidden="true"
         />
       </div>
+      {decoded?.file === file && !size && <p role="alert">앨범 이미지를 미리 볼 수 없습니다. 다른 이미지를 선택해주세요.</p>}
       <label className="flex w-full max-w-[260px] items-center gap-2 text-caption text-app-muted">
         확대
         <input
@@ -143,7 +162,7 @@ export function ThumbnailCropper({ url, crop, onChange, disabled = false }: {
       <div className="flex items-center gap-3 text-caption text-app-muted">
         <span className="relative block shrink-0 overflow-hidden rounded-full border border-solid border-app-fg bg-app-surface"
           style={{ width: smallPreview, height: smallPreview }} aria-hidden="true">
-          {small && <img src={url} alt="" draggable={false} className="absolute max-w-none" style={small} />}
+          <canvas ref={listPreview} width={smallPreview} height={smallPreview} className="size-full" />
         </span>
         목록에서는 이렇게 보여요
         <button type="button" className="underline disabled:opacity-40" disabled={!size || disabled}

@@ -21,6 +21,7 @@ export type CreationDraft = {
   sourceVisibility?: "PRIVATE" | "PUBLIC";
   /** Framing of `image` for the circular open-source thumbnail; the original image is what is stored. */
   imageCrop?: ThumbnailCrop;
+  imageRestoreFailed?: boolean;
   title: string;
   content: string;
   image: File | null;
@@ -59,9 +60,15 @@ export async function restoreCreationDraft(key: string) {
   const text = readCreationDraft(key);
   if (!text) return undefined;
   const noAttachments = text.attachments && !text.attachments.image && !text.attachments.audio;
-  const files = noAttachments
-    ? undefined
-    : await readBrowserRecord<{ image: File | null; audio: File | null }>(storageKey(key));
+  let files: { image: File | null; audio: File | null } | undefined;
+  let readFailed = false;
+  if (!noAttachments) {
+    try {
+      files = await readBrowserRecord<{ image: File | null; audio: File | null }>(storageKey(key));
+    } catch {
+      readFailed = true;
+    }
+  }
   const expected = text.attachments;
   const image = expected
     ? matches(files?.image, expected.image)
@@ -73,10 +80,14 @@ export async function restoreCreationDraft(key: string) {
       ? files!.audio
       : null
     : (files?.audio ?? null);
-  const missing = Boolean(expected && ((expected.image && !image) || (expected.audio && !audio)));
+  const imageRestoreFailed = !image && Boolean(
+    text.imageRestoreFailed || expected?.image || (!expected && readFailed),
+  );
+  const missing = readFailed || imageRestoreFailed || Boolean(expected?.audio && !audio);
   const draft = {
     ...text,
     image,
+    imageRestoreFailed,
     audio,
     restorationWarning: missing
       ? "일부 첨부 파일을 복원하지 못했습니다. 다시 첨부해주세요."
@@ -95,6 +106,7 @@ export function rememberCreationDraft(key: string, draft: CreationDraft): Promis
         JSON.stringify({
           sourceVisibility: draft.sourceVisibility,
           imageCrop: draft.imageCrop,
+          imageRestoreFailed: draft.imageRestoreFailed || undefined,
           title: draft.title,
           content: draft.content,
           notes: draft.notes,

@@ -34,3 +34,34 @@ test("private source visibility survives persistent restoration and never publis
     assert.equal(visibilityCalls, 0);
   } finally { clearCreationDraft("source-visibility"); if (previousStorage === undefined) delete globalThis.localStorage; else globalThis.localStorage = previousStorage; }
 });
+
+test("a failed image restore survives autosave and reload until the user resolves it", async () => {
+  const values = new Map();
+  const previousStorage = globalThis.localStorage;
+  globalThis.localStorage = {
+    getItem: (key) => values.get(key) ?? null,
+    setItem: (key, value) => values.set(key, value),
+  };
+  try {
+    const key = "live:3:source";
+    const image = new File(["cover"], "cover.png");
+    await rememberCreationDraft(key, { title: "Draft", content: "", image, audio: null, notes: [], bpm: 120 });
+
+    const first = await import("./creation-draft.ts?image-restore-first");
+    const restored = await first.restoreCreationDraft(key);
+    assert.equal(restored.image, null);
+    assert.equal(restored.imageRestoreFailed, true);
+    await first.rememberCreationDraft(key, restored);
+
+    const second = await import("./creation-draft.ts?image-restore-second");
+    const reloaded = await second.restoreCreationDraft(key);
+    assert.equal(reloaded.imageRestoreFailed, true);
+    await second.rememberCreationDraft(key, { ...reloaded, imageRestoreFailed: false });
+
+    const third = await import("./creation-draft.ts?image-restore-third");
+    assert.equal((await third.restoreCreationDraft(key)).imageRestoreFailed, false);
+  } finally {
+    if (previousStorage === undefined) delete globalThis.localStorage;
+    else globalThis.localStorage = previousStorage;
+  }
+});
