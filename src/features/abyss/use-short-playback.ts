@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useCurrentUserId } from "@/features/auth/use-current-user";
 import { useCompositionPlayback, type PlaybackComposition } from "@/features/composition/use-composition-playback";
 import { ApiError, apiOrigin } from "@/lib/api/client";
 import type { ShortItemDto } from "@/lib/api/contracts";
-import { getShortParticipantTracks, toggleShortPlayback, type ShortParticipantTracks } from "@/lib/api/shorts";
+import { toggleShortPlayback, type ShortParticipantTracks } from "@/lib/api/shorts";
+import { shortParticipantTracksQuery } from "./abyss-queries";
 import {
   listenerDurationMs,
   normalizeOwnerSelection,
@@ -82,15 +84,25 @@ export function useShortPlayback({
   const origin = apiOrigin();
   const shortId = short?.shortId ?? null;
   const key = JSON.stringify([origin, userId ?? "guest", shortId]);
-  const accountKey = JSON.stringify([origin, userId]);
   const mediaUrl = short?.mediaUrl?.trim() || null;
 
   const [selectionState, setSelectionState] = useState<Keyed<OwnerSelection>>({ key, value: null });
   const selection = selectionState.key === key ? selectionState.value : null;
   const [draftState, setDraftState] = useState<Keyed<OwnerSelection>>({ key, value: null });
   const draft = draftState.key === key ? draftState.value : null;
-  const [stemsState, setStemsState] = useState<Keyed<StemsState>>({ key, value: IDLE_STEMS });
-  const stems = stemsState.key === key ? stemsState.value : IDLE_STEMS;
+  // Stems load on demand (sheet, subset start or retry), then stay cached per account by the query client.
+  const [stemsRequestKey, setStemsRequestKey] = useState<string | null>(null);
+  const stemsQuery = useQuery({
+    ...shortParticipantTracksQuery(userId, shortId ?? 0),
+    enabled: userId !== null && shortId !== null && stemsRequestKey === key,
+  });
+  const stemsData = stemsQuery.data;
+  const stemsFailure = stemsQuery.isError ? stemsQuery.error : null;
+  const stems = useMemo<StemsState>(() => {
+    if (stemsData) return { status: "ready", data: stemsData };
+    if (stemsRequestKey !== key) return IDLE_STEMS;
+    return stemsFailure ? { status: "error", error: stemsError(stemsFailure) } : { status: "loading" };
+  }, [key, stemsData, stemsFailure, stemsRequestKey]);
   const emptyNative: NativeState = { key, playing: false, timeMs: 0, durationMs: 0 };
   const [nativeState, setNativeState] = useState<NativeState>(emptyNative);
   const native = nativeState.key === key ? nativeState : emptyNative;
@@ -100,11 +112,6 @@ export function useShortPlayback({
   const message = messageState.key === key ? messageState.value : null;
 
   const keyRef = useRef(key);
-  const [cache, setCache] = useState(() => ({ account: accountKey, entries: new Map<string, ShortParticipantTracks>() }));
-  // A new account or origin never sees the previous account's stems.
-  const entries = cache.account === accountKey ? cache.entries : null;
-  if (!entries) setCache({ account: accountKey, entries: new Map() });
-  const stemsRequest = useRef<{ key: string; controller: AbortController } | null>(null);
   const pendingStart = useRef(false);
   const pendingPatch = useRef(false);
   const ending = useRef(false);
@@ -127,46 +134,21 @@ export function useShortPlayback({
   });
   const { pause: pauseEngine, play: playEngine, seek: seekEngine } = engine;
 
-  // Short, account or origin change: drop pending requests and starts; keyed state above resets itself.
+  // Short, account or origin change: drop pending starts; keyed state above resets itself.
   useLayoutEffect(() => {
     keyRef.current = key;
     pendingStart.current = false;
     pendingPatch.current = false;
     ending.current = false;
-    return () => {
-      stemsRequest.current?.controller.abort();
-      stemsRequest.current = null;
-    };
   }, [key]);
 
   const setIntent = useCallback((value: boolean) => setIntentState({ key: keyRef.current, value }), []);
 
-  const ensureStems = useCallback(() => {
-    if (userId === null || shortId === null || !entries) return;
-    const cached = entries.get(key);
-    if (cached) {
-      setStemsState({ key, value: { status: "ready", data: cached } });
-      return;
-    }
-    if (stemsRequest.current?.key === key) return;
-    stemsRequest.current?.controller.abort();
-    const controller = new AbortController();
-    stemsRequest.current = { key, controller };
-    setStemsState({ key, value: { status: "loading" } });
-    getShortParticipantTracks(shortId, controller.signal)
-      .then((data) => {
-        if (controller.signal.aborted || keyRef.current !== key) return;
-        entries.set(key, data);
-        setStemsState({ key, value: { status: "ready", data } });
-      })
-      .catch((cause) => {
-        if (controller.signal.aborted || keyRef.current !== key) return;
-        setStemsState({ key, value: { status: "error", error: stemsError(cause) } });
-      })
-      .finally(() => {
-        if (stemsRequest.current?.controller === controller) stemsRequest.current = null;
-      });
-  }, [entries, key, shortId, userId]);
+  function ensureStems() {
+    if (userId === null || shortId === null) return;
+    if (stemsRequestKey !== key) setStemsRequestKey(key);
+    else if (stemsQuery.isError) void stemsQuery.refetch();
+  }
 
   // The original autoplays on every new short; a blocked autoplay stays paused until the play button.
   useEffect(() => {

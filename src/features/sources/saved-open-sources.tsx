@@ -1,10 +1,10 @@
 import { workspaceStyles } from "@/styles/workspace.styles";
-import { useState } from "react";
 import { useCurrentUserId } from "@/features/auth/use-current-user";
 import { SignInRequired } from "@/features/auth/sign-in-required";
 import { SourcePlayback } from "@/features/sources/source-playback";
 import { sourceError } from "@/features/sources/source-screens";
-import { listSavedOpenSources, setOpenSourceSaved } from "@/lib/api/open-sources";
+import { useSourceSaveMutation } from "@/features/sources/source-queries";
+import { listSavedOpenSources } from "@/lib/api/open-sources";
 
 import { usePagedItems } from "@/hooks/use-paged-items";
 
@@ -21,25 +21,18 @@ export function SavedOpenSources({ query, onOpen }: { query: string; onOpen: (id
 }
 
 function SavedSourceList({ query, onOpen }: { query: string; onOpen: (id: number) => void }) {
-  const { state: current, more, remove, reload } = usePagedItems("saved-sources", 0, loadSavedSources);
-  const [busy, setBusy] = useState<number | null>(null);
-  const [notice, setNotice] = useState("");
+  // Shares `sourceKeys.saved`, which every save/unsave invalidates.
+  const { state: current, more, remove } = usePagedItems(["sources", "saved"], 0, loadSavedSources);
+  const unsave = useSourceSaveMutation();
   if (!current) return <p role="status">저장한 오픈소스를 불러오는 중...</p>;
-  async function unsave(id: number) {
-    if (busy !== null) return;
-    setBusy(id);
-    setNotice("");
-    try {
-      const result = await setOpenSourceSaved(id, false);
-      if (!result.isSaved) {
-        if (current?.next !== null) reload();
-        else remove((item) => item.openSourceId === id);
-      }
-    } catch (cause) {
-      setNotice(sourceError(cause, "보관 해제에 실패했습니다."));
-    } finally {
-      setBusy(null);
-    }
+  const busy = unsave.isPending ? unsave.variables.sourceId : null;
+  const notice = unsave.error ? sourceError(unsave.error, "보관 해제에 실패했습니다.") : "";
+  function unsaveSource(id: number) {
+    if (unsave.isPending) return;
+    unsave.mutate({ sourceId: id, saved: false }, {
+      // The library is reread from its first page; the row leaves at once.
+      onSuccess: (result) => { if (!result.isSaved) remove((item) => item.openSourceId === id); },
+    });
   }
   const keyword = query.trim().toLocaleLowerCase();
   const items = current.items.filter(
@@ -73,7 +66,7 @@ function SavedSourceList({ query, onOpen }: { query: string; onOpen: (id: number
             </>
           )}
           <div className={workspaceStyles.workspaceActions}>
-            <button disabled={busy !== null || current.busy} onClick={() => void unsave(item.openSourceId)}>
+            <button disabled={busy !== null || current.busy} onClick={() => unsaveSource(item.openSourceId)}>
               {busy === item.openSourceId ? "해제 중..." : "저장 해제"}
             </button>
             {item.availability === "AVAILABLE" && (

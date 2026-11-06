@@ -2,6 +2,8 @@ import { studioStyles } from "@/styles/studio.styles";
 import { cn } from "@/lib/utils";
 import { sharedStyles } from "@/styles/shared.styles";
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { queryScope } from "@/lib/query";
 import { PublishConfirmation } from "@/features/composition/publish-confirmation";
 import { VolumeDialog } from "@/features/composition/volume-dialog";
 import { InstrumentDialog } from "@/features/composition/instrument-dialog";
@@ -28,8 +30,6 @@ import { TimelineClip } from "@/features/composition/timeline-clip";
 import { canMoveClip, overlapsClip } from "@/features/composition/timeline-move";
 import {
   createAudioClip,
-  enterComposition,
-  getComposition,
   getExport,
   getPendingContributions,
   publishComposition,
@@ -38,13 +38,11 @@ import {
   updateTrackInstrument,
   uploadMedia,
   type ClipDto,
-  type CompositionDto,
 } from "@/lib/api/composition";
 import { errorText } from "./studio-helpers";
 import { StudioToolbar } from "./studio-toolbar";
 import { ApiError, apiOrigin } from "@/lib/api/client";
 import {
-  getEditorDrafts,
   commitEditorDrafts,
   submitEditorDrafts,
   saveEditorDraft,
@@ -52,9 +50,15 @@ import {
 import { updateProjectTiming } from "@/lib/api/composition";
 import { syncProjectEditorDrafts, clearCommittedRecovery } from "./project-editor-drafts";
 import { browserDraftStorage } from "./use-editor-draft";
-import { listLocalDrafts, readLocalDraft, DraftSession, type ServerDraft } from "./editor-draft";
+import { listLocalDrafts, readLocalDraft, DraftSession } from "./editor-draft";
 import { withPersonalDrafts } from "./draft-preview";
 import { useCurrentUserId } from "@/features/auth/use-current-user";
+import {
+  compositionEntryQuery,
+  compositionKeys,
+  compositionQuery,
+  editorDraftsQuery,
+} from "./composition-queries";
 
 export function StudioScreen({
   onSubmitted,
@@ -79,13 +83,12 @@ export function StudioScreen({
 }) {
   const userId = useCurrentUserId();
   const origin = apiOrigin();
+  const queryClient = useQueryClient();
   const [showSources, setShowSources] = useState(false);
   const [trackSettingsId, setTrackSettingsId] = useState<number | null>(null);
   const [instrumentTrackId, setInstrumentTrackId] = useState<number | null>(null);
   // Original audio of a layer, fetched once per media URL for the role chooser's audition.
   const originalAudio = useRef(new Map<string, Promise<File>>());
-  const [composition, setComposition] = useState<CompositionDto | null>(null);
-  const [compositionOrigin, setCompositionOrigin] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
@@ -100,9 +103,26 @@ export function StudioScreen({
     file: File;
     url: string;
   } | null>(null);
-  const [personalDrafts, setPersonalDrafts] = useState<ServerDraft[]>([]);
+  // A short opens its project; the shared tracks and personal drafts are then read together.
+  const entry = useQuery({ ...compositionEntryQuery(userId, shortId ?? 0), enabled: shortId != null });
+  const loadedProjectId = shortId == null ? projectId : (entry.data?.projectId ?? null);
+  // Layer pages write without touching this cache, so opening the studio always re-reads the project.
+  const compositionResult = useQuery({
+    ...compositionQuery(userId, loadedProjectId ?? 0),
+    enabled: loadedProjectId !== null,
+    refetchOnMount: "always",
+  });
+  const draftsResult = useQuery({
+    ...editorDraftsQuery(userId, loadedProjectId ?? 0),
+    enabled: loadedProjectId !== null,
+    refetchOnMount: "always",
+  });
+  const composition =
+    compositionResult.data && draftsResult.data ? compositionResult.data : null;
+  const personalDrafts = draftsResult.data;
+  const loadFailure = entry.error ?? compositionResult.error ?? draftsResult.error;
   const preview = useMemo(() => {
-    if (!composition || composition.viewerPermission.userId !== userId || compositionOrigin !== origin) return null;
+    if (!composition || !personalDrafts || composition.viewerPermission.userId !== userId) return null;
     const local = listLocalDrafts(
       browserDraftStorage(),
       apiOrigin(),
@@ -119,7 +139,7 @@ export function StudioScreen({
       ...local,
     ];
     return withPersonalDrafts(composition, merged);
-  }, [composition, personalDrafts, userId, origin, compositionOrigin]);
+  }, [composition, personalDrafts, userId]);
   const playback = useCompositionPlayback(preview, {
     scopeKey: JSON.stringify([origin, userId, projectId ?? composition?.project.projectId ?? null]),
   });
@@ -131,42 +151,28 @@ export function StudioScreen({
     [pendingAudio],
   );
 
-  // A different route/account/backend starts from an empty screen before its own response arrives.
+  // A different route/account/backend starts without the previous screen's dialogs and errors.
   const loadKey = JSON.stringify([shortId, projectId, userId, origin]);
   const [loadedKey, setLoadedKey] = useState(loadKey);
   if (loadedKey !== loadKey) {
     setLoadedKey(loadKey);
-    setComposition(null);
-    setPersonalDrafts([]);
     setTrackSettingsId(null);
     setInstrumentTrackId(null);
     setError(null);
   }
   useEffect(() => {
-    if (shortId == null && projectId == null) return;
-    let cancelled = false;
-    originalAudio.current.clear();
-    (async () => {
-      const id = shortId == null ? projectId! : (await enterComposition(shortId)).projectId;
-      const [result, drafts] = await Promise.all([getComposition(id), getEditorDrafts(id)]);
-      if (!cancelled) {
-        setComposition(result);
-        setCompositionOrigin(origin);
-        setPersonalDrafts(drafts);
-        try {
-          rememberWork(result, shortId);
-        } catch {
-          /* The server project remains available if browser storage is full. */
-        }
-        if (id !== projectId) onProjectSelected(id);
-      }
-    })().catch((cause) => {
-      if (!cancelled) setError(errorText(cause));
-    });
-    return () => {
-      cancelled = true;
-    };
-  }, [shortId, projectId, onProjectSelected, userId, origin]);
+    const audio = originalAudio.current;
+    return () => audio.clear();
+  }, [loadKey]);
+  useEffect(() => {
+    if (!composition) return;
+    try {
+      rememberWork(composition, shortId);
+    } catch {
+      /* The server project remains available if browser storage is full. */
+    }
+    if (composition.project.projectId !== projectId) onProjectSelected(composition.project.projectId);
+  }, [composition, shortId, projectId, onProjectSelected]);
 
   /** Plays the layer's own trimmed server audio; the media is fetched once per URL in this scope. */
   async function previewOriginal(clip: ClipDto | undefined) {
@@ -187,13 +193,13 @@ export function StudioScreen({
     });
   }
 
+  /** Re-reads the shared tracks and personal drafts; a failed read is reported to the caller. */
   async function refresh() {
-    if (composition) {
-      const id = composition.project.projectId;
-      const [latest, drafts] = await Promise.all([getComposition(id), getEditorDrafts(id)]);
-      setComposition(latest);
-      setPersonalDrafts(drafts);
-    }
+    if (composition)
+      await queryClient.invalidateQueries(
+        { queryKey: compositionKeys.project(userId, composition.project.projectId) },
+        { throwOnError: true },
+      );
   }
   async function addAudio(trackId: number, file: File, selection: AudioSelection) {
     if (!composition || busy) throw new Error("잠시 후 다시 시도해 주세요.");
@@ -235,6 +241,8 @@ export function StudioScreen({
         submitComment.trim(),
       );
       clearCommittedRecovery(browserDraftStorage(), drafts);
+      // Drafts, tracks and contribution lists of this account all changed with the submission.
+      void queryClient.invalidateQueries({ queryKey: compositionKeys.all(userId) });
       setStatus(`제출 #${submitted.contributionId} · ${submitted.approvalStatus}`);
       setShowSubmitForm(false);
       onSubmitted();
@@ -267,20 +275,20 @@ export function StudioScreen({
       const committed = await commitEditorDrafts(id, drafts);
       clearCommittedRecovery(browserDraftStorage(), committed);
       if (composition.viewerPermission.canReviewContribution) {
-        const latest = await getComposition(id);
-        const userId = latest.viewerPermission.userId;
+        const latest = await queryClient.fetchQuery({ ...compositionQuery(userId, id), staleTime: 0 });
+        const viewerId = latest.viewerPermission.userId;
         const hasUnsubmitted = latest.tracks.some(
           (track) =>
-            track.ownerId === userId &&
+            track.ownerId === viewerId &&
             (track.approvalStatus === "DRAFT" ||
               track.clips.some(
-                (clip) => clip.ownerId === userId && clip.approvalStatus === "DRAFT",
+                (clip) => clip.ownerId === viewerId && clip.approvalStatus === "DRAFT",
               )),
         );
         if (hasUnsubmitted)
           await submitEditorDrafts(id, [], latest.project.version, "원작성자 변경 반영");
         for (const pending of (await getPendingContributions(id)).filter(
-          (item) => item.userId === userId,
+          (item) => item.userId === viewerId,
         )) {
           await reviewContribution(id, pending.contributionId, "APPROVED");
         }
@@ -309,6 +317,11 @@ export function StudioScreen({
       setError(errorText(cause));
       setStatus(null);
     } finally {
+      // Commits, approvals and exports may have landed even when a later step failed; a finished export is also a new
+      // or updated short in the song lists and the abyss feed.
+      void queryClient.invalidateQueries({ queryKey: compositionKeys.all(userId) });
+      void queryClient.invalidateQueries({ queryKey: [...queryScope(userId), "songs"] });
+      void queryClient.invalidateQueries({ queryKey: [...queryScope(userId), "shorts"] });
       setBusy(false);
     }
   }
@@ -343,16 +356,18 @@ export function StudioScreen({
     }
   }
 
-  if (!composition || composition.viewerPermission.userId !== userId || compositionOrigin !== origin)
+  if (!composition || composition.viewerPermission.userId !== userId) {
+    const message = loadFailure ? errorText(loadFailure) : error;
     return (
       <div
         className={cn(studioStyles.studio, studioStyles.studioState)}
-        role={error ? "alert" : "status"}
+        role={message ? "alert" : "status"}
       >
-        <p>{error ?? "작곡 데이터를 불러오는 중입니다."}</p>
-        {error && <button onClick={onExit}>돌아가기</button>}
+        <p>{message ?? "작곡 데이터를 불러오는 중입니다."}</p>
+        {message && <button onClick={onExit}>돌아가기</button>}
       </div>
     );
+  }
   const { project, viewerPermission } = composition;
   const tracks = preview?.tracks ?? composition.tracks;
   const timelineWidth = (project.maxTick / Math.max(1, project.ppq / 2)) * 20;
@@ -598,7 +613,10 @@ export function StudioScreen({
                   playback.pause();
                   await updateTrackInstrument(project.projectId, selected.trackId, instrument);
                   // Only metadata/occupancy is re-read; personal drafts and their history stay as they are.
-                  setComposition(await getComposition(project.projectId));
+                  await queryClient.invalidateQueries(
+                    { queryKey: compositionKeys.detail(userId, project.projectId) },
+                    { throwOnError: true },
+                  );
                 },
               }}
               onClose={() => setInstrumentTrackId(null)}
@@ -610,7 +628,7 @@ export function StudioScreen({
           onClose={() => setShowSources(false)}
           onResource={async (resource) => {
             await onImportResource(resource);
-            setComposition(await getComposition(project.projectId));
+            await refresh();
             setShowSources(false);
           }}
         />
@@ -752,7 +770,7 @@ export function StudioScreen({
                           midiNotes: shared.midiNotes ?? [],
                         };
                         const local = readLocalDraft(browserDraftStorage(), context);
-                        const server = personalDrafts.find(
+                        const server = personalDrafts?.find(
                           (item) =>
                             item.trackId === track.trackId && item.targetClipId === clip.clipId,
                         );
@@ -772,10 +790,17 @@ export function StudioScreen({
                         } finally {
                           session.dispose();
                         }
-                        setPersonalDrafts(await getEditorDrafts(project.projectId));
-                        const updated = await getComposition(project.projectId);
-                        setComposition(updated);
-                        rememberWork(updated, shortId);
+                        await queryClient.invalidateQueries(
+                          { queryKey: compositionKeys.drafts(userId, project.projectId) },
+                          { throwOnError: true },
+                        );
+                        rememberWork(
+                          await queryClient.fetchQuery({
+                            ...compositionQuery(userId, project.projectId),
+                            staleTime: 0,
+                          }),
+                          shortId,
+                        );
                       } finally {
                         setBusy(false);
                       }

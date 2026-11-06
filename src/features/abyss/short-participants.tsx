@@ -1,11 +1,11 @@
 import { sharedStyles } from "@/styles/shared.styles";
 import { abyssStyles } from "@/styles/abyss.styles";
-import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { Avatar } from "@/components/avatar";
 import { useCurrentUserId } from "@/features/auth/use-current-user";
-import { ApiError, apiOrigin } from "@/lib/api/client";
+import { ApiError } from "@/lib/api/client";
 import type { ShortItemDto } from "@/lib/api/contracts";
-import { getShortComposers, type ShortComposer } from "@/lib/api/shorts";
+import { shortComposersQuery } from "./abyss-queries";
 import { participantOwners, toggleOwner } from "./short-playback-state";
 import type { ShortPlayback } from "./use-short-playback";
 
@@ -25,26 +25,7 @@ export function ShortParticipants({
   onListenAll: () => void;
 }) {
   const userId = useCurrentUserId();
-  const key = JSON.stringify([apiOrigin(), userId, short.shortId]);
-  const [composers, setComposers] = useState<{ key: string; items?: ShortComposer[]; error?: string } | null>(null);
-  const [reload, setReload] = useState(0);
-  useEffect(() => {
-    if (userId === null) return;
-    const controller = new AbortController();
-    getShortComposers(short.shortId, controller.signal)
-      .then((items) => {
-        if (!controller.signal.aborted) setComposers({ key, items });
-      })
-      .catch((cause) => {
-        if (controller.signal.aborted) return;
-        setComposers({
-          key,
-          error: cause instanceof ApiError && cause.status === 403
-            ? "참여자 정보를 볼 권한이 없습니다." : "참여자 정보를 불러오지 못했습니다.",
-        });
-      });
-    return () => controller.abort();
-  }, [key, reload, short.shortId, userId]);
+  const composers = useQuery({ ...shortComposersQuery(userId, short.shortId), enabled: userId !== null });
 
   if (userId === null)
     return (
@@ -66,10 +47,13 @@ export function ShortParticipants({
       </ul>
     );
 
-  const metadata = composers?.key === key ? composers : null;
+  const composersError = composers.isError
+    ? composers.error instanceof ApiError && composers.error.status === 403
+      ? "참여자 정보를 볼 권한이 없습니다." : "참여자 정보를 불러오지 못했습니다."
+    : null;
   const { stems, draft } = playback;
   const tracks = stems.status === "ready" ? stems.data.tracks : [];
-  const owners = participantOwners(metadata?.items ?? [], tracks, [short.author, ...short.participants]);
+  const owners = participantOwners(composers.data ?? [], tracks, [short.author, ...short.participants]);
   const ownerIds = owners.map((owner) => owner.userId);
   const selectable = stems.status === "ready";
   const checkedCount = draft === null ? ownerIds.length : ownerIds.filter((id) => draft.has(id)).length;
@@ -92,10 +76,12 @@ export function ShortParticipants({
             : `${checkedCount}명의 트랙만 재생합니다.`}
         </p>
       )}
-      {!metadata && <p className={abyssStyles.participantSelectionStatus} role="status">참여자 정보를 불러오는 중...</p>}
-      {metadata?.error && (
+      {composers.isPending && (
+        <p className={abyssStyles.participantSelectionStatus} role="status">참여자 정보를 불러오는 중...</p>
+      )}
+      {composersError && (
         <p className={abyssStyles.participantSelectionStatus} role="alert">
-          {metadata.error} <button onClick={() => setReload((value) => value + 1)}>다시 시도</button>
+          {composersError} <button onClick={() => void composers.refetch()}>다시 시도</button>
         </p>
       )}
       <ul className={sharedStyles.participantList}>
@@ -119,7 +105,7 @@ export function ShortParticipants({
             </li>
           );
         })}
-        {metadata?.items && stems.status !== "loading" && owners.length === 0 && <li>아직 참여자가 없습니다.</li>}
+        {composers.data && stems.status !== "loading" && owners.length === 0 && <li>아직 참여자가 없습니다.</li>}
       </ul>
     </div>
   );

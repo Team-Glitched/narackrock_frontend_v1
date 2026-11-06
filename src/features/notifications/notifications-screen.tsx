@@ -2,15 +2,12 @@ import { badgeVariants, filterChipVariants, type BadgeStatus } from "@/styles/va
 import { socialStyles } from "@/styles/social.styles";
 import { profileStyles } from "@/styles/profile.styles";
 import { useEffect, useRef, useState } from "react";
+import { useQuery, type UseQueryResult } from "@tanstack/react-query";
 import { Avatar } from "@/components/avatar";
 import { useCurrentUserId } from "@/features/auth/use-current-user";
+import { followRequestsQuery, useReviewFollowRequestMutation } from "@/features/social/social-queries";
+import { contributionInboxQuery, useReviewContributionMutation } from "@/features/workspace/workspace-queries";
 import { ApiError } from "@/lib/api/client";
-import {
-  getContributionInbox,
-  reviewContribution,
-  type ContributionNotificationDto,
-} from "@/lib/api/composition";
-import { getFollowRequests, reviewFollowRequest, type FollowRequest } from "@/lib/api/social";
 
 const badge = (status: BadgeStatus) => badgeVariants({ status });
 
@@ -21,31 +18,8 @@ const notificationFilters = [
 ] as const;
 type NotificationFilter = (typeof notificationFilters)[number]["id"];
 
-function useNotificationList<T>(load: () => Promise<T[]>, enabled: boolean) {
-  const [items, setItems] = useState<T[]>([]);
-  const [status, setStatus] = useState<"loading" | "ready" | "error">("loading");
-  const [revision, setRevision] = useState(0);
-  useEffect(() => {
-    if (!enabled) return;
-    let active = true;
-    load().then((result) => {
-      if (!active) return;
-      setItems(result);
-      setStatus("ready");
-    }).catch(() => {
-      if (active) setStatus("error");
-    });
-    return () => { active = false; };
-  }, [enabled, load, revision]);
-  return {
-    items,
-    setItems,
-    status,
-    retry: () => {
-      setStatus("loading");
-      setRevision((value) => value + 1);
-    },
-  };
+function listStatus({ data, error, isFetching }: UseQueryResult<unknown>) {
+  return data ? "ready" : error && !isFetching ? "error" : "loading";
 }
 
 /**
@@ -64,11 +38,14 @@ export function NotificationsScreen(props: NotificationProps) {
 }
 
 function ScopedNotificationsScreen({ onBack, onOpenProject, onOpenProfile, signedIn }: NotificationProps & { signedIn: boolean }) {
+  const userId = useCurrentUserId();
   const [filter, setFilter] = useState<NotificationFilter>("all");
   const panel = useRef<HTMLElement>(null);
-  const contributionList = useNotificationList<ContributionNotificationDto>(getContributionInbox, signedIn);
-  const followList = useNotificationList<FollowRequest>(getFollowRequests, signedIn);
-  const [busy, setBusy] = useState<string | null>(null);
+  const contributionList = useQuery({ ...contributionInboxQuery(userId), enabled: signedIn });
+  const followList = useQuery({ ...followRequestsQuery(userId), enabled: signedIn });
+  const contributionReview = useReviewContributionMutation();
+  const followReview = useReviewFollowRequestMutation();
+  const busy = contributionReview.isPending || followReview.isPending;
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   useEffect(() => {
@@ -76,27 +53,22 @@ function ScopedNotificationsScreen({ onBack, onOpenProject, onOpenProfile, signe
     panel.current?.focus();
     return () => previous?.focus();
   }, []);
-  async function act(key: string, run: () => Promise<unknown>, done: string, update: () => void) {
-    if (busy !== null) return;
-    setBusy(key);
+  /** Runs one review at a time; the reviewed request leaves its list once the server confirmed it. */
+  function act<T>(mutate: (variables: T, callbacks: { onSuccess: () => void; onError: (cause: Error) => void }) => void, variables: T, done: string) {
+    if (busy) return;
     setError(null);
     setNotice(null);
-    try {
-      await run();
-      update();
-      setNotice(done);
-    } catch (cause) {
-      setError(cause instanceof ApiError && cause.message ? cause.message : "요청을 처리하지 못했습니다.");
-    } finally {
-      setBusy(null);
-    }
+    mutate(variables, {
+      onSuccess: () => setNotice(done),
+      onError: (cause) => setError(cause instanceof ApiError && cause.message ? cause.message : "요청을 처리하지 못했습니다."),
+    });
   }
-  const contributions = filter === "follow" ? [] : contributionList.items;
-  const follows = filter === "contribution" ? [] : followList.items;
+  const contributions = filter === "follow" ? [] : contributionList.data ?? [];
+  const follows = filter === "contribution" ? [] : followList.data ?? [];
   const resultCount = contributions.length + follows.length;
   const shownLists = [
-    { id: "contribution", label: "참여 요청", ...contributionList },
-    { id: "follow", label: "팔로우 요청", ...followList },
+    { id: "contribution", label: "참여 요청", status: listStatus(contributionList), retry: () => void contributionList.refetch() },
+    { id: "follow", label: "팔로우 요청", status: listStatus(followList), retry: () => void followList.refetch() },
   ].filter(({ id }) => filter === "all" || filter === id);
   const complete = shownLists.every(({ status }) => status === "ready");
   return (
@@ -189,14 +161,12 @@ function ScopedNotificationsScreen({ onBack, onOpenProject, onOpenProfile, signe
                     {(["APPROVED", "REJECTED"] as const).map((decision) => (
                       <button
                         key={decision}
-                        disabled={busy !== null}
+                        disabled={busy}
                         onClick={() =>
-                          void act(
-                            `c${item.contributionId}`,
-                            () => reviewContribution(item.projectId, item.contributionId, decision),
+                          act(
+                            contributionReview.mutate,
+                            { projectId: item.projectId, contributionId: item.contributionId, status: decision },
                             decision === "APPROVED" ? "참여 요청을 승인했습니다." : "참여 요청을 반려했습니다.",
-                            () =>
-                              contributionList.setItems((old) => old.filter((x) => x.contributionId !== item.contributionId)),
                           )
                         }
                       >
@@ -220,14 +190,12 @@ function ScopedNotificationsScreen({ onBack, onOpenProject, onOpenProfile, signe
                     {(["accept", "reject"] as const).map((decision) => (
                       <button
                         key={decision}
-                        disabled={busy !== null}
+                        disabled={busy}
                         onClick={() =>
-                          void act(
-                            `f${request.requestId}`,
-                            () => reviewFollowRequest(request.requestId, decision),
+                          act(
+                            followReview.mutate,
+                            { requestId: request.requestId, decision },
                             decision === "accept" ? "팔로우 요청을 수락했습니다." : "팔로우 요청을 거절했습니다.",
-                            () =>
-                              followList.setItems((old) => old.filter((x) => x.requestId !== request.requestId)),
                           )
                         }
                       >

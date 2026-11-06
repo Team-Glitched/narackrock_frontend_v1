@@ -107,6 +107,7 @@ src/
   hooks/             # 여러 기능에서 쓰는 범용 훅
   lib/
     api/             # API 클라이언트, 응답 타입, 서버 요청
+    query.ts         # TanStack Query 클라이언트, 계정별 query key 범위
     browser/         # 브라우저 저장소
   styles/            # Tailwind 공통 토큰, variant, 화면 프리셋
 ```
@@ -121,11 +122,14 @@ src/
 | 특정 기능의 페이지                | `src/features/<기능>/pages/`                                                                 |
 | 스튜디오 화면·상단 도구·노트 편집 | `src/features/composition/studio-screen.tsx`, `studio-toolbar.tsx`, `note-editor-screen.tsx` |
 | 특정 로직의 테스트                | 같은 폴더의 `*.test.ts` 또는 `*.test.mjs`                                                    |
+| 서버 데이터 조회·갱신 규칙        | `src/lib/query.ts`, 각 기능의 `*-queries.ts`                                                  |
 
 페이지 파일은 URL 파라미터·검색 문맥·이동 행동과 자신의 `DesignViewport`, `Header`, `Footer`, `NotificationsOverlay`를 직접 조합합니다.
 공용 layout 설정이나 slot wrapper로 화면 역할을 추론하지 않습니다. resource ID가 잘못되면 chrome 안에 오류를 표시하고 해당 resource 화면을 마운트하지 않습니다.
 `src/app`에는 `App.tsx`, `routes.tsx`, `providers.tsx`, `runtime.tsx`만 둡니다. provider는 children을 받고 feature 상태는 소유 feature에 둡니다.
 API 폴더에는 실제 서버 요청과 API 클라이언트 테스트를 두고, 나머지 테스트는 해당 기능 옆에 둡니다.
+서버 데이터는 TanStack Query로 읽고 캐시합니다. 조회는 `useQuery`, 페이지 목록은 `useInfiniteQuery`, 좋아요·팔로우·댓글 같은 단순 변경은 `useMutation` 후 관련 key를 갱신합니다. 모든 query key는 `queryScope(userId)`(백엔드 origin, 계정)로 시작하고 계정이 바뀌면 캐시를 비웁니다. 기본 캐시 신선도는 30초이며 4xx·세션 변경 오류는 재시도하지 않고, 변경 요청은 자동 재전송하지 않습니다. key와 query 옵션은 기능 폴더의 `*-queries.ts`에 둡니다.
+노트 편집 초안(`DraftSession`), 업로드·게시 진행 기록, 채팅 실시간 연결, 인증 토큰 갱신은 자체 동기화 규칙이 있어 Query 캐시를 쓰지 않습니다.
 사용하지 않는 shadcn 기본 컴포넌트와 전용 의존성은 제거했습니다. `components.json`은 향후 필요한 컴포넌트를 생성할 때 쓸 설정으로 유지합니다.
 `npm test`는 `src/` 아래의 테스트를 하위 폴더까지 자동으로 찾아 실행합니다.
 

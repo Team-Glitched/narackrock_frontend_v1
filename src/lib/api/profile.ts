@@ -1,8 +1,8 @@
 import { apiRequest } from "./client.ts";
 import type { ApiResponse, UserProfile } from "./contracts.ts";
 
-export async function getProfile(userId: number): Promise<UserProfile> {
-  const response = await apiRequest<ApiResponse<UserProfile>>(`/api/v1/users/profiles/${userId}`);
+export async function getProfile(userId: number, signal?: AbortSignal): Promise<UserProfile> {
+  const response = await apiRequest<ApiResponse<UserProfile>>(`/api/v1/users/profiles/${userId}`, { signal });
   return response.data;
 }
 

@@ -39,8 +39,8 @@ export function CommunityDetailScreen({
   const canManage = Boolean(role?.canManage);
   const membership = useCommunityMembership();
   // 목록에서 넘어올 때 받은 값은 그 시점의 스냅샷이라, 이 화면에서 가입/탈퇴하면 가입자 수가
-  // 뒤처진다. 갤러리 목록을 다시 받아 같은 id를 덮어쓴다(아직 못 받았으면 넘겨받은 값으로 그린다).
-  const galleries = useGalleries(membership.revision);
+  // 뒤처진다. 가입/탈퇴 뒤 다시 받는 갤러리 목록에서 같은 id를 덮어쓴다(아직 없으면 넘겨받은 값으로 그린다).
+  const galleries = useGalleries();
   const community = useMemo(() => {
     if (galleries.status !== "ready") return selected;
     const fresh = galleries.galleries.find((gallery) => gallery.galleryId === selected.galleryId);

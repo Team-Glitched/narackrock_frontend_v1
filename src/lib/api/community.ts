@@ -23,10 +23,11 @@ export function fetchPostComments(
   postId: number,
   parentCommentId: number | null = null,
   page = 0,
+  signal?: AbortSignal,
 ): Promise<PostCommentPage> {
   const query = new URLSearchParams({ page: String(page), size: "20" });
   if (parentCommentId !== null) query.set("parentCommentId", String(parentCommentId));
-  return apiRequest<ApiResponse<PostCommentPage>>(`/api/v1/posts/${postId}/comments?${query}`).then(
+  return apiRequest<ApiResponse<PostCommentPage>>(`/api/v1/posts/${postId}/comments?${query}`, { signal }).then(
     (r) => r.data,
   );
 }
@@ -100,8 +101,8 @@ export function fetchManageableGalleries(signal?: AbortSignal): Promise<GalleryL
 }
 
 // 요청자가 구독한 갤러리만. 인증 필수 — 비로그인으로 부르면 401(빈 본문)이다.
-export function fetchSubscribedGalleries(): Promise<GalleryListItem[]> {
-  return apiRequest<ApiResponse<GalleryListItem[]>>("/api/v1/galleries/subscribed").then(
+export function fetchSubscribedGalleries(signal?: AbortSignal): Promise<GalleryListItem[]> {
+  return apiRequest<ApiResponse<GalleryListItem[]>>("/api/v1/galleries/subscribed", { signal }).then(
     (r) => r.data,
   );
 }
@@ -178,8 +179,8 @@ export function fetchPost(postId: number, signal?: AbortSignal): Promise<PostDet
   );
 }
 
-export function getLikedPostIds(): Promise<number[]> {
-  return apiRequest<ApiResponse<number[]>>("/api/v1/users/me/liked-posts").then(
+export function getLikedPostIds(signal?: AbortSignal): Promise<number[]> {
+  return apiRequest<ApiResponse<number[]>>("/api/v1/users/me/liked-posts", { signal }).then(
     (response) => response.data,
   );
 }
@@ -349,8 +350,8 @@ export function proposeGallery(name: string, description: string): Promise<{ pro
   }).then((r) => r.data);
 }
 
-export function getMyGalleryProposals(): Promise<MyGalleryProposal[]> {
-  return apiRequest<ApiResponse<MyGalleryProposal[]>>("/api/v1/gallery-proposals/me").then((r) => r.data);
+export function getMyGalleryProposals(signal?: AbortSignal): Promise<MyGalleryProposal[]> {
+  return apiRequest<ApiResponse<MyGalleryProposal[]>>("/api/v1/gallery-proposals/me", { signal }).then((r) => r.data);
 }
 
 export type PopularPost = PostListItem & {

@@ -35,18 +35,20 @@ export function AbyssComments({
   open,
   onClose,
   shortId,
-  onCreated,
+  onChanged,
 }: {
   open: boolean;
   onClose: () => void;
   shortId: number;
-  onCreated: () => void;
+  onChanged: () => void;
 }) {
   const userId = useCurrentUserId();
   const adapter = useMemo<CommentAdapter>(
     () => ({
-      async load(parentId) {
-        const items = (await getShortComments(shortId)).comments
+      kind: "shorts",
+      targetId: shortId,
+      async load(parentId, _page, signal) {
+        const items = (await getShortComments(shortId, signal)).comments
           .filter((comment) => comment.parentCommentId === parentId)
           .map(toItem);
         return { items, total: items.length, page: 0 };
@@ -73,7 +75,7 @@ export function AbyssComments({
   if (!open) return null;
   return (
     <FigmaSheet title="댓글" onClose={onClose}>
-      <CommonComments key={userId} adapter={adapter} currentUserId={userId} onCreated={onCreated} />
+      <CommonComments key={userId} adapter={adapter} currentUserId={userId} onChanged={onChanged} />
     </FigmaSheet>
   );
 }

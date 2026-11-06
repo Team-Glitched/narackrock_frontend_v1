@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { getComposition } from "@/lib/api/composition";
+import { useQueryClient } from "@tanstack/react-query";
+import { compositionQuery } from "./composition-queries";
 import { InstrumentDialog } from "./instrument-dialog";
 import { useCompositionPlayback, type AudioAudition } from "./use-composition-playback";
 import type { PartTrack } from "./instrument-parts";
@@ -17,6 +18,7 @@ export type InstrumentPromptRequest = { mode: "midi" } | { mode: "audio"; audio:
 /** No layer is created until the caller receives an explicitly confirmed choice. */
 export function useInstrumentPrompt(projectId: number | null) {
   const userId = useCurrentUserId();
+  const queryClient = useQueryClient();
   const preview = useCompositionPlayback(null, {
     scopeKey: JSON.stringify([apiOrigin(), userId, projectId, "instrument"]),
   });
@@ -64,8 +66,11 @@ export function useInstrumentPrompt(projectId: number | null) {
     dialog,
     async ask(next: InstrumentPromptRequest) {
       if (projectId === null) throw new Error("대상 프로젝트를 먼저 선택해주세요.");
-      // Fetch current project access and team usage before showing the chooser.
-      const composition = await getComposition(projectId);
+      // Read current project access and team usage from the server before showing the chooser.
+      const composition = await queryClient.fetchQuery({
+        ...compositionQuery(userId, projectId),
+        staleTime: 0,
+      });
       if (!mounted.current) throw new InstrumentPromptCancelled();
       pending.current?.reject(new InstrumentPromptCancelled());
       setTracks(composition.tracks);

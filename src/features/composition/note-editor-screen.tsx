@@ -1,18 +1,13 @@
 import { studioStyles } from "@/styles/studio.styles";
 import { cn } from "@/lib/utils";
-import {
-  useCallback,
-  useEffect,
-  useMemo,
-  useState,
-} from "react";
+import { useCallback, useMemo, useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { CanvasDialog } from "@/components/canvas-dialog";
 import { NoteSettingsDialog } from "./note-settings-dialog";
 import { useCompositionPlayback } from "./use-composition-playback";
 import { StudioSourceDialog } from "./studio-source-dialog";
 import { TeamPianoRoll } from "./team-piano-roll";
 import {
-  getComposition,
   updateProjectTiming,
   updateTrackInstrument,
   type CompositionDto,
@@ -33,6 +28,7 @@ import { useNoteEditorShortcuts } from "./use-note-editor-shortcuts";
 import { clipLocalTiming, clipPositionTick, projectPositionMs } from "./clip-local-timing";
 import { sameNotes } from "./note-editing";
 import { compositionEndMs } from "./composition-playback-timeline";
+import { compositionKeys, compositionQuery } from "./composition-queries";
 
 export function NoteEditorScreen({
   projectId,
@@ -46,60 +42,43 @@ export function NoteEditorScreen({
   onBack: () => void;
 }) {
   const currentUserId = useCurrentUserId();
-  const origin = apiOrigin();
-  const [composition, setComposition] = useState<CompositionDto | null>(null);
-  const [compositionOrigin, setCompositionOrigin] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  // A different project/account/backend starts from an empty screen before its own response arrives.
-  const loadKey = JSON.stringify([projectId, currentUserId, origin]);
-  const [loadedKey, setLoadedKey] = useState(loadKey);
-  if (loadedKey !== loadKey) {
-    setLoadedKey(loadKey);
-    setComposition(null);
-    setError(null);
-  }
-  useEffect(() => {
-    if (projectId === null) return;
-    let active = true;
-    getComposition(projectId)
-      .then((result) => {
-        if (active) {
-          setComposition(result);
-          setCompositionOrigin(origin);
-        }
-      })
-      .catch((cause) => {
-        if (active) setError(errorText(cause));
-      });
-    return () => {
-      active = false;
-    };
-  }, [projectId, currentUserId, origin]);
+  // Layer pages write without touching this cache, so the editor only opens on a response read after mounting.
+  const query = useQuery({
+    ...compositionQuery(currentUserId, projectId ?? 0),
+    enabled: projectId !== null,
+    refetchOnMount: "always",
+  });
+  const editorKey = `${apiOrigin()}:${projectId}:${trackId}:${clipId}:${currentUserId}`;
+  const composition = query.data?.viewerPermission.userId === currentUserId ? query.data : undefined;
   const track = composition?.tracks.find((item) => item.trackId === trackId);
   const requestedClip = track?.clips.find((item) => item.clipId === clipId && item.clipType === "MIDI");
   const canCreateClip = track && composition && track.ownerId === currentUserId &&
     supportsMidi(track.instrument) && ["DRAFT", "IN_PROGRESS"].includes(composition.project.status) &&
     ["DRAFT", "APPROVED"].includes(track.approvalStatus) &&
     (composition.viewerPermission.canContribute || composition.viewerPermission.canEdit);
-  const missingClip = composition !== null && (
-    (clipId !== null && !requestedClip) ||
-    (clipId === null && !canCreateClip)
-  );
-  if (!composition || compositionOrigin !== origin || composition.project.projectId !== projectId || !track ||
-      composition.viewerPermission.userId !== currentUserId || missingClip)
+  const missingClip = (clipId !== null && !requestedClip) || (clipId === null && !canCreateClip);
+  const ready = query.isFetchedAfterMount && !query.error && Boolean(track) && !missingClip;
+  // Once open, later refreshes (timing, instrument, committed recovery) never close the editor over a moved clip.
+  const [openedKey, setOpenedKey] = useState<string | null>(null);
+  if (ready && openedKey !== editorKey) setOpenedKey(editorKey);
+  if (!composition || !track || !(ready || openedKey === editorKey)) {
+    const error = query.isFetchedAfterMount && query.error ? errorText(query.error) : null;
     return (
       <div className={cn(studioStyles.studio, studioStyles.studioState)}>
         <p role={error ? "alert" : "status"}>
           {error ??
-            (composition ? "선택한 MIDI 클립 또는 레이어를 찾을 수 없습니다." : "피아노롤을 불러오는 중입니다.")}
+            (query.isFetchedAfterMount && query.data
+              ? "선택한 MIDI 클립 또는 레이어를 찾을 수 없습니다."
+              : "피아노롤을 불러오는 중입니다.")}
         </p>
         <button onClick={onBack}>돌아가기</button>
       </div>
     );
+  }
   return (
     <LoadedNoteEditor
-      key={`${apiOrigin()}:${projectId}:${trackId}:${clipId}:${currentUserId}`}
-      initial={composition}
+      key={editorKey}
+      composition={composition}
       trackId={track.trackId}
       requestedClipId={clipId}
       onBack={onBack}
@@ -108,19 +87,21 @@ export function NoteEditorScreen({
 }
 
 function LoadedNoteEditor({
-  initial,
+  composition,
   trackId,
   requestedClipId,
   onBack,
 }: {
-  initial: CompositionDto;
+  /** The live project; working notes and their base snapshot are kept apart from it. */
+  composition: CompositionDto;
   trackId: number;
   requestedClipId: number | null;
   onBack: () => void;
 }) {
   const currentUserId = useCurrentUserId();
-  const [composition, setComposition] = useState(initial);
-  const [baseline, setBaseline] = useState(initial);
+  const queryClient = useQueryClient();
+  const [initial] = useState(composition);
+  const [baseline, setBaseline] = useState(composition);
   const [targetClipId, setTargetClipId] = useState(requestedClipId);
   const [showSources, setShowSources] = useState(false);
   const [showChords, setShowChords] = useState(false);
@@ -166,15 +147,18 @@ function LoadedNoteEditor({
   );
   const recoverCommitted = useCallback(
     (id: number) => {
-      void getComposition(initial.project.projectId)
+      void queryClient
+        .fetchQuery({
+          ...compositionQuery(initial.viewerPermission.userId, initial.project.projectId),
+          staleTime: 0,
+        })
         .then((latest) => {
-          setComposition(latest);
           setBaseline(latest);
           setTargetClipId(id);
         })
         .catch((cause) => setError(errorText(cause)));
     },
-    [initial],
+    [initial, queryClient],
   );
   const draft = useEditorDraft({
     context,
@@ -356,7 +340,11 @@ function LoadedNoteEditor({
                   timeSignatureNumerator: signature.numerator,
                   timeSignatureDenominator: signature.denominator,
                 });
-                setComposition(await getComposition(context.projectId));
+                // Only the shared project is re-read; working notes stay in the draft session.
+                await queryClient.invalidateQueries(
+                  { queryKey: compositionKeys.detail(context.userId, context.projectId) },
+                  { throwOnError: true },
+                );
               }
             : undefined
         }
@@ -381,7 +369,10 @@ function LoadedNoteEditor({
                     throw new Error("현재 노트에 이 악기에서 지원하지 않는 음이 있습니다.");
                   playback.pause();
                   await updateTrackInstrument(context.projectId, trackId, instrument);
-                  setComposition(await getComposition(context.projectId));
+                  await queryClient.invalidateQueries(
+                    { queryKey: compositionKeys.detail(context.userId, context.projectId) },
+                    { throwOnError: true },
+                  );
                 },
               }
             : undefined

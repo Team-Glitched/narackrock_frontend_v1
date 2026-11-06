@@ -140,8 +140,9 @@ export function getOpenSourceComments(
   id: number,
   parentCommentId: number | null,
   page: number,
+  signal?: AbortSignal,
 ): Promise<OpenSourceCommentPage> {
-  return data(`/api/v1/open-sources/${id}/comments${query({ parentCommentId, page })}`);
+  return data(`/api/v1/open-sources/${id}/comments${query({ parentCommentId, page })}`, { signal });
 }
 
 export function createOpenSourceComment(
@@ -190,8 +191,8 @@ export function getMyOpenSourcePublication(id: number): Promise<OpenSourcePublic
   return data(`/api/v1/users/me/open-source-publications/${id}`);
 }
 
-export function listMyOpenSourcePublications(page: number): Promise<OpenSourcePage<OpenSourcePublication>> {
-  return data(`/api/v1/users/me/open-source-publications${query({ page, size: 50 })}`);
+export function listMyOpenSourcePublications(page: number, signal?: AbortSignal): Promise<OpenSourcePage<OpenSourcePublication>> {
+  return data(`/api/v1/users/me/open-source-publications${query({ page, size: 50 })}`, { signal });
 }
 
 export function deleteOpenSource(id: number): Promise<{ openSourceId: number; isDeleted: boolean }> {

@@ -4,7 +4,14 @@ import { communityStyles } from "@/styles/community.styles";
 import { workspaceStyles } from "@/styles/workspace.styles";
 import { buttonVariants } from "@/styles/variants";
 import { socialStyles } from "@/styles/social.styles";
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
+import {
+  useInfiniteQuery,
+  useMutation,
+  useQueryClient,
+  type InfiniteData,
+  type UseInfiniteQueryOptions,
+} from "@tanstack/react-query";
 import { Asset } from "@/components/asset";
 import { CommunityDetailScreen } from "@/features/community/community-detail";
 import { galleryToCommunity, type Community } from "@/features/community/community-card";
@@ -14,8 +21,6 @@ import { useCurrentUserId } from "@/features/auth/use-current-user";
 import { SignInRequired } from "@/features/auth/sign-in-required";
 import { ApiError } from "@/lib/api/client";
 import {
-  getGalleryBans,
-  getGalleryModerationLogs,
   fetchManageableGalleries,
   liftGalleryBan,
   updateGalleryDescription,
@@ -24,8 +29,6 @@ import {
 } from "@/lib/api/community";
 import {
   approveGalleryProposal,
-  listGalleryProposals,
-  listReports,
   rejectGalleryProposal,
   rejectReport,
   reportActions,
@@ -34,6 +37,16 @@ import {
   type GalleryProposal,
   type ReportAction,
 } from "@/lib/api/admin";
+import { galleryKeys } from "@/features/community/community-queries";
+import {
+  adminKeys,
+  galleryBansQuery,
+  moderationLogsQuery,
+  pendingProposalsQuery,
+  pendingReportsQuery,
+  reportedContentKey,
+  type CursorPage,
+} from "./admin-queries";
 
 function adminError(cause: unknown, fallback: string) {
   if (cause instanceof ApiError) {
@@ -47,62 +60,43 @@ function adminError(cause: unknown, fallback: string) {
 
 const date = (value: string | null) => (value ? new Date(value).toLocaleString("ko-KR") : "");
 
+type CursorPages<T> = InfiniteData<CursorPage<T>>;
+
 /** Cursor list that keeps following `nextCursor` on demand. */
-function useCursorList<T>(load: (cursor: number | null) => Promise<{ items: T[]; nextCursor: number | null; hasNext: boolean }>) {
-  const [state, setState] = useState<{ items: T[]; cursor: number | null; hasNext: boolean; error?: string; loaded: boolean }>({
-    items: [],
-    cursor: null,
-    hasNext: false,
-    loaded: false,
-  });
-  const [busy, setBusy] = useState(false);
-  const fetchPage = useCallback(
-    (cursor: number | null, append: boolean) =>
-      load(cursor)
-        .then((page) =>
-          setState((old) => ({
-            items: append ? [...old.items, ...page.items] : page.items,
-            cursor: page.nextCursor,
-            hasNext: page.hasNext,
-            loaded: true,
-          })),
-        )
-        .catch((cause) => setState((old) => ({ ...old, loaded: true, error: adminError(cause, "목록을 불러오지 못했습니다.") }))),
-    [load],
-  );
-  useEffect(() => {
-    void fetchPage(null, false);
-  }, [fetchPage]);
+function useCursorList<T>(options: UseInfiniteQueryOptions<CursorPage<T>, Error, CursorPages<T>, readonly unknown[], number | null>) {
+  const queryClient = useQueryClient();
+  const { data, error, isFetching, isFetchingNextPage, hasNextPage, fetchNextPage } = useInfiniteQuery(options);
   return {
-    ...state,
-    busy,
-    reload: () => fetchPage(null, false),
-    more: async () => {
-      if (!state.hasNext || busy) return;
-      setBusy(true);
-      await fetchPage(state.cursor, true);
-      setBusy(false);
+    items: data?.pages.flatMap((page) => page.items) ?? [],
+    hasNext: hasNextPage,
+    error: error ? adminError(error, "목록을 불러오지 못했습니다.") : undefined,
+    loaded: data !== undefined || (error !== null && !isFetching),
+    busy: isFetchingNextPage,
+    more: () => {
+      if (hasNextPage && !isFetchingNextPage) void fetchNextPage();
     },
-    remove: (predicate: (item: T) => boolean) => setState((old) => ({ ...old, items: old.items.filter((item) => !predicate(item)) })),
+    remove: (predicate: (item: T) => boolean) =>
+      queryClient.setQueryData<CursorPages<T>>(options.queryKey, (old) =>
+        old && { ...old, pages: old.pages.map((page) => ({ ...page, items: page.items.filter((item) => !predicate(item)) })) },
+      ),
   };
 }
 
 function ProposalCard({ proposal, onDone }: { proposal: GalleryProposal; onDone: () => void }) {
+  const userId = useCurrentUserId();
+  const queryClient = useQueryClient();
   const [reason, setReason] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
-  async function act(action: () => Promise<unknown>) {
-    setBusy(true);
-    setError("");
-    try {
-      await action();
+  const review = useMutation({
+    mutationFn: (rejection: string | null) =>
+      rejection === null ? approveGalleryProposal(proposal.proposalId) : rejectGalleryProposal(proposal.proposalId, rejection),
+    onSuccess: (_, rejection) => {
+      // An approval creates a gallery.
+      if (rejection === null) void queryClient.invalidateQueries({ queryKey: galleryKeys.all(userId) });
       onDone();
-    } catch (cause) {
-      setError(adminError(cause, "신청을 처리하지 못했습니다."));
-    } finally {
-      setBusy(false);
-    }
-  }
+    },
+  });
+  const busy = review.isPending;
+  const error = review.error ? adminError(review.error, "신청을 처리하지 못했습니다.") : "";
   return (
     <article className={workspaceStyles.workspaceCard}>
       <span className={workspaceStyles.workspaceStatus}>커뮤니티 개설 신청</span>
@@ -114,10 +108,10 @@ function ProposalCard({ proposal, onDone }: { proposal: GalleryProposal; onDone:
       <input aria-label={`${proposal.name} 반려 사유`} placeholder="반려 사유" maxLength={500} value={reason} onChange={(event) => setReason(event.target.value)} />
       {error && <p role="alert">{error}</p>}
       <div className={workspaceStyles.workspaceActions}>
-        <button disabled={busy || !reason.trim()} onClick={() => void act(() => rejectGalleryProposal(proposal.proposalId, reason.trim()))}>
+        <button disabled={busy || !reason.trim()} onClick={() => review.mutate(reason.trim())}>
           반려
         </button>
-        <button className={workspaceStyles.workspacePrimary} disabled={busy} onClick={() => void act(() => approveGalleryProposal(proposal.proposalId))}>
+        <button className={workspaceStyles.workspacePrimary} disabled={busy} onClick={() => review.mutate(null)}>
           승인
         </button>
       </div>
@@ -133,24 +127,25 @@ const actionLabels: Record<ReportAction, string> = {
 };
 
 function ReportCard({ report, onDone }: { report: AdminReport; onDone: () => void }) {
+  const userId = useCurrentUserId();
+  const queryClient = useQueryClient();
   const actions = reportActions(report.targetType);
   const [action, setAction] = useState<ReportAction>(actions[0]);
   const [reason, setReason] = useState("");
   const [days, setDays] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
-  async function act(run: () => Promise<unknown>) {
-    setBusy(true);
-    setError("");
-    try {
-      await run();
+  const handle = useMutation({
+    mutationFn: (resolution: { action: ReportAction; banDays: number | null } | null) =>
+      resolution === null
+        ? rejectReport(report.reportId, reason.trim())
+        : resolveReport(report.reportId, resolution.action, reason.trim(), resolution.banDays),
+    onSuccess: (_, resolution) => {
+      if (resolution?.action === "DELETE_CONTENT")
+        void queryClient.invalidateQueries({ queryKey: reportedContentKey(userId, report.targetType) });
       onDone();
-    } catch (cause) {
-      setError(adminError(cause, "신고를 처리하지 못했습니다."));
-    } finally {
-      setBusy(false);
-    }
-  }
+    },
+  });
+  const busy = handle.isPending;
+  const error = handle.error ? adminError(handle.error, "신고를 처리하지 못했습니다.") : "";
   const banDays = days.trim() === "" ? null : Number(days);
   const validDays = banDays === null || (Number.isInteger(banDays) && banDays >= 1);
   return (
@@ -181,13 +176,13 @@ function ReportCard({ report, onDone }: { report: AdminReport; onDone: () => voi
       <input aria-label="처리 사유" placeholder="처리 사유" maxLength={500} value={reason} onChange={(event) => setReason(event.target.value)} />
       {error && <p role="alert">{error}</p>}
       <div className={workspaceStyles.workspaceActions}>
-        <button disabled={busy || !reason.trim()} onClick={() => void act(() => rejectReport(report.reportId, reason.trim()))}>
+        <button disabled={busy || !reason.trim()} onClick={() => handle.mutate(null)}>
           신고 반려
         </button>
         <button
           className={workspaceStyles.workspacePrimary}
           disabled={busy || !reason.trim() || (action === "BAN_USER" && !validDays)}
-          onClick={() => void act(() => resolveReport(report.reportId, action, reason.trim(), action === "BAN_USER" ? banDays : null))}
+          onClick={() => handle.mutate({ action, banDays: action === "BAN_USER" ? banDays : null })}
         >
           처리
         </button>
@@ -200,12 +195,8 @@ function ReportCard({ report, onDone }: { report: AdminReport; onDone: () => voi
 export function AdminReviewScreen() {
   const userId = useCurrentUserId();
   const [tab, setTab] = useState<"proposals" | "reports">("proposals");
-  const proposals = useCursorList(
-    useCallback((cursor: number | null) => listGalleryProposals("PENDING", cursor).then((page) => ({ ...page, items: page.proposals })), []),
-  );
-  const reports = useCursorList(
-    useCallback((cursor: number | null) => listReports("PENDING", cursor).then((page) => ({ ...page, items: page.content })), []),
-  );
+  const proposals = useCursorList({ ...pendingProposalsQuery(userId), enabled: userId !== null });
+  const reports = useCursorList({ ...pendingReportsQuery(userId), enabled: userId !== null });
   if (userId === null) return <SignInRequired>관리자 화면은 로그인 후 사용할 수 있습니다.</SignInRequired>;
   const list = tab === "proposals" ? proposals : reports;
   return (
@@ -260,7 +251,7 @@ export function CommunityAdminScreen(props: CommunityAdminProps) {
   const userId = useCurrentUserId();
   const { role, failed: roleFailed, retry: retryRole } = useGalleryRole(props.community?.galleryId ?? null);
   const { state: galleries, more: retryGalleries } = usePagedItems(
-    `manageable:${userId}`, 0, loadManageableGalleries, props.community === null && userId !== null,
+    ["admin", "manageable-galleries"], 0, loadManageableGalleries, props.community === null && userId !== null,
   );
   if (userId === null) return <SignInRequired>커뮤니티 관리는 로그인 후 사용할 수 있습니다.</SignInRequired>;
   if (!props.community)
@@ -329,18 +320,24 @@ export function CommunityAdminScreen(props: CommunityAdminProps) {
 }
 
 function CommunityMembers({ community, onBack }: { community: Community; onBack: () => void }) {
+  const userId = useCurrentUserId();
+  const queryClient = useQueryClient();
   const [description, setDescription] = useState(community.description ?? "");
   const [notice, setNotice] = useState("");
-  const [saving, setSaving] = useState(false);
-  const bans = useCursorList<GalleryBan>(
-    useCallback((cursor: number | null) => getGalleryBans(community.galleryId, cursor).then((page) => ({ ...page, items: page.bans })), [community.galleryId]),
-  );
-  const logs = useCursorList<GalleryModerationLog>(
-    useCallback(
-      (cursor: number | null) => getGalleryModerationLogs(community.galleryId, cursor).then((page) => ({ ...page, items: page.logs })),
-      [community.galleryId],
-    ),
-  );
+  const bans = useCursorList<GalleryBan>(galleryBansQuery(userId, community.galleryId));
+  const logs = useCursorList<GalleryModerationLog>(moderationLogsQuery(userId, community.galleryId));
+  const saveDescription = useMutation({
+    mutationFn: (text: string) => updateGalleryDescription(community.galleryId, text),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: galleryKeys.all(userId) });
+      void queryClient.invalidateQueries({ queryKey: adminKeys.manageableGalleries(userId) });
+    },
+  });
+  const lift = useMutation({
+    mutationFn: (banId: number) => liftGalleryBan(community.galleryId, banId),
+    // Both the ban list and the moderation log record the lift.
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: adminKeys.gallery(userId, community.galleryId) }),
+  });
   return (
     <section className={cn(communityStyles.communityMembersView, sharedStyles.scrollContent)} aria-label={`${community.name} 운영`}>
       <div className={socialStyles.searchLine}>
@@ -353,25 +350,21 @@ function CommunityMembers({ community, onBack }: { community: Community; onBack:
       </p>
       <form
         className={workspaceStyles.workspaceCard}
-        onSubmit={async (event) => {
+        onSubmit={(event) => {
           event.preventDefault();
-          setSaving(true);
+          if (saveDescription.isPending) return;
           setNotice("");
-          try {
-            await updateGalleryDescription(community.galleryId, description.trim());
-            setNotice("커뮤니티 설명을 저장했습니다.");
-          } catch (cause) {
-            setNotice(adminError(cause, "설명을 저장하지 못했습니다."));
-          } finally {
-            setSaving(false);
-          }
+          saveDescription.mutate(description.trim(), {
+            onSuccess: () => setNotice("커뮤니티 설명을 저장했습니다."),
+            onError: (cause) => setNotice(adminError(cause, "설명을 저장하지 못했습니다.")),
+          });
         }}
       >
         <h2>커뮤니티 설명</h2>
         <textarea aria-label="커뮤니티 설명" maxLength={1000} value={description} onChange={(event) => setDescription(event.target.value)} />
         {notice && <p role="status">{notice}</p>}
-        <button className={workspaceStyles.workspacePrimary} disabled={saving}>
-          {saving ? "저장 중..." : "설명 저장"}
+        <button className={workspaceStyles.workspacePrimary} disabled={saveDescription.isPending}>
+          {saveDescription.isPending ? "저장 중..." : "설명 저장"}
         </button>
       </form>
       <h2>제재 내역</h2>
@@ -391,15 +384,10 @@ function CommunityMembers({ community, onBack }: { community: Community; onBack:
           {ban.active && (
             <div className={workspaceStyles.workspaceActions}>
               <button
-                onClick={async () => {
-                  try {
-                    await liftGalleryBan(community.galleryId, ban.banId);
-                    await bans.reload();
-                    await logs.reload();
-                  } catch (cause) {
-                    setNotice(adminError(cause, "제재를 해제하지 못했습니다."));
-                  }
-                }}
+                disabled={lift.isPending}
+                onClick={() =>
+                  lift.mutate(ban.banId, { onError: (cause) => setNotice(adminError(cause, "제재를 해제하지 못했습니다.")) })
+                }
               >
                 제재 해제
               </button>

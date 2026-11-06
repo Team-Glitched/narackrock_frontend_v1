@@ -20,9 +20,10 @@ export type GalleryProposal = {
   reviewedAt: string | null;
 };
 
-export function listGalleryProposals(status: ProposalStatus | null, cursor: number | null) {
+export function listGalleryProposals(status: ProposalStatus | null, cursor: number | null, signal?: AbortSignal) {
   return data<{ proposals: GalleryProposal[]; nextCursor: number | null; hasNext: boolean }>(
     `/api/v1/admin/gallery-proposals?${cursorQuery({ status, cursor, size: 20 })}`,
+    { signal },
   );
 }
 
@@ -56,9 +57,10 @@ export type AdminReport = {
   contentSummary: string | null;
 };
 
-export function listReports(status: "PENDING" | "RESOLVED" | "REJECTED" | null, cursor: number | null) {
+export function listReports(status: "PENDING" | "RESOLVED" | "REJECTED" | null, cursor: number | null, signal?: AbortSignal) {
   return data<{ content: AdminReport[]; nextCursor: number | null; hasNext: boolean }>(
     `/api/v1/admin/reports?${cursorQuery({ status, cursor, size: 20 })}`,
+    { signal },
   );
 }
 
