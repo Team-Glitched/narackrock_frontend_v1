@@ -26,6 +26,8 @@ import { validatePostImage } from "@/features/community/post-image";
 import type { GalleryListItem } from "@/lib/api/contracts";
 import { hasPendingPublication, publishSource } from "@/features/sources/publish-source";
 import { sourceError } from "@/features/sources/source-screens";
+import { ThumbnailCropper } from "@/features/sources/thumbnail-cropper";
+import { defaultCrop, renderThumbnail, type ThumbnailCrop } from "@/features/sources/thumbnail-crop";
 export function SocialCreate({
   onCancel,
   postTargetStatus = "ready",
@@ -63,9 +65,10 @@ export function SocialCreate({
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [sourceVisibility, setSourceVisibility] = useState<"PRIVATE" | "PUBLIC">(() => initial?.sourceVisibility === "PRIVATE" ? "PRIVATE" : "PUBLIC");
+  const [imageCrop, setImageCrop] = useState<ThumbnailCrop>(() => initial?.imageCrop ?? defaultCrop());
   const draftValue = useMemo(
-    () => ({ title, content, image: image?.file ?? null, audio, notes: pianoNotes, bpm: pianoBpm, sourceVisibility }),
-    [title, content, image, audio, pianoNotes, pianoBpm, sourceVisibility],
+    () => ({ title, content, image: image?.file ?? null, audio, notes: pianoNotes, bpm: pianoBpm, sourceVisibility, imageCrop }),
+    [title, content, image, audio, pianoNotes, pianoBpm, sourceVisibility, imageCrop],
   );
   const [savedDraft, setSavedDraft] = useState<typeof draftValue | null>(null);
   const draftSaving = !restoring && !discarding && !storageError && savedDraft !== draftValue;
@@ -83,6 +86,7 @@ export function SocialCreate({
         setPianoNotes(draft.notes);
         setPianoBpm(draft.bpm);
         setImage(draft.image ? { file: draft.image, url: URL.createObjectURL(draft.image) } : null);
+        setImageCrop(draft.imageCrop ?? defaultCrop());
       })
       .catch(() => {
         if (active) setRestoreError("첨부 파일을 복원하지 못했습니다. 다시 첨부해주세요.");
@@ -127,6 +131,21 @@ export function SocialCreate({
     setAudio(new File([wav], "opensource.wav", { type: "audio/wav" }));
     setAudioStage("details");
   }
+  function pickImage(input: HTMLInputElement) {
+    const file = input.files?.[0];
+    input.value = "";
+    if (!file) return;
+    try {
+      validatePostImage(file);
+      setRestoreError("");
+      setImage({ file, url: URL.createObjectURL(file) });
+      // A new picture starts centred; a framing chosen for the previous one would not fit it.
+      setImageCrop(defaultCrop());
+      setError(null);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "이미지를 추가하지 못했습니다.");
+    }
+  }
   useEffect(
     () => () => {
       if (image) URL.revokeObjectURL(image.url);
@@ -158,7 +177,9 @@ export function SocialCreate({
         if ([...title.trim()].length > 100 || [...content].length > 2000)
           throw new Error("오픈소스 이름은 100자, 설명은 2000자 이내로 입력해주세요.");
         try {
-          await publishSource({ userId, draftKey, title: title.trim(), description: content.trim() || null, audio, image: image?.file ?? null, visibility: sourceVisibility });
+          // The original stays in the draft; only the circle the user framed is uploaded as the thumbnail.
+          const thumbnail = image ? await renderThumbnail(image.file, imageCrop) : null;
+          await publishSource({ userId, draftKey, title: title.trim(), description: content.trim() || null, audio, image: thumbnail, visibility: sourceVisibility });
         } catch (cause) {
           const message = sourceError(cause, "오픈소스를 등록하지 못했습니다.");
           throw new Error(
@@ -281,6 +302,28 @@ export function SocialCreate({
           <p className={sharedStyles.creationSaveStatus}>
             커뮤니티 프로필 사진은 현재 서버에서 지원하지 않습니다. 이름과 설명으로 개설을 신청하면 관리자 승인 후 커뮤니티가 만들어집니다.
           </p>
+        ) : kind === "source" && image ? (
+          // Not inside a <label>: a click or drag in the editor must not reopen the file picker.
+          <div className="flex flex-col gap-[10px] text-label font-bold text-app-fg">
+            앨범
+            <ThumbnailCropper url={image.url} crop={imageCrop} onChange={setImageCrop} disabled={busy} />
+            <div className="flex justify-center gap-4 text-body font-medium text-app-muted">
+              <label className="relative cursor-pointer underline">
+                다른 이미지 선택
+                <input
+                  aria-label="다른 앨범 이미지 선택"
+                  className="absolute inset-0 cursor-pointer opacity-0"
+                  disabled={busy}
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  onChange={(event) => pickImage(event.target)}
+                />
+              </label>
+              <button type="button" className="underline" disabled={busy} onClick={() => setImage(null)}>
+                앨범 이미지 삭제
+              </button>
+            </div>
+          </div>
         ) : (
         <label>
           {kind === "source" ? "앨범" : "사진"}
@@ -298,21 +341,7 @@ export function SocialCreate({
               disabled={busy}
               type="file"
               accept="image/jpeg,image/png,image/webp"
-              onChange={(event) => {
-                const file = event.target.files?.[0];
-                event.target.value = "";
-                if (!file) return;
-                try {
-                  validatePostImage(file);
-                  setRestoreError("");
-                  setImage({ file, url: URL.createObjectURL(file) });
-                  setError(null);
-                } catch (cause) {
-                  setError(
-                    cause instanceof Error ? cause.message : "이미지를 추가하지 못했습니다.",
-                  );
-                }
-              }}
+              onChange={(event) => pickImage(event.target)}
             />
           </span>
           {image && (
@@ -322,7 +351,7 @@ export function SocialCreate({
               disabled={busy}
               onClick={() => setImage(null)}
             >
-              {kind === "source" ? "앨범 이미지 삭제" : "첨부 사진 삭제"}
+              첨부 사진 삭제
             </button>
           )}
         </label>

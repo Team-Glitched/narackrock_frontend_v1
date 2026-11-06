@@ -1,3 +1,4 @@
+import type { ThumbnailCrop } from "../sources/thumbnail-crop.ts";
 import type { MidiNoteDto } from "../../lib/api/composition.ts";
 import {
   readBrowserRecord,
@@ -18,6 +19,8 @@ const matches = (file: File | null | undefined, identity: FileIdentity | null) =
   );
 export type CreationDraft = {
   sourceVisibility?: "PRIVATE" | "PUBLIC";
+  /** Framing of `image` for the circular open-source thumbnail; the original image is what is stored. */
+  imageCrop?: ThumbnailCrop;
   title: string;
   content: string;
   image: File | null;
@@ -91,6 +94,7 @@ export function rememberCreationDraft(key: string, draft: CreationDraft): Promis
         storageKey(key),
         JSON.stringify({
           sourceVisibility: draft.sourceVisibility,
+          imageCrop: draft.imageCrop,
           title: draft.title,
           content: draft.content,
           notes: draft.notes,
