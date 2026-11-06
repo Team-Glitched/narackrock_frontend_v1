@@ -363,7 +363,18 @@ export function TeamPianoRoll({
       onPointerUp={pointerUp}
       onPointerCancel={cancel}
       onLostPointerCapture={(event) => {
-        if (gesture.current?.pointerId === event.pointerId) cancel();
+        const active = gesture.current;
+        if (active?.pointerId !== event.pointerId) return;
+        // Chrome can drop capture just before the matching pointerup (e.g. a press shortly after a tap), so losing
+        // capture is not a cancellation. Re-capture while the pointer is live; pointerup/pointercancel end the gesture.
+        try {
+          event.currentTarget.setPointerCapture(event.pointerId);
+        } catch {
+          // The pointer is gone. A pointerup bubbling from inside the roll in the same input still finishes it.
+          window.setTimeout(() => {
+            if (gesture.current === active) cancel();
+          }, 0);
+        }
       }}
       onScroll={(event) => {
         if (pixelsPerTick > 0) {
