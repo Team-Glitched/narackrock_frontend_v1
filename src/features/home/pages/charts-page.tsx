@@ -21,10 +21,13 @@ export default function ChartsPage() {
       <div className={sharedStyles.phoneFrame}>
         <Header onBack={() => back("/")} onSearch={() => to(withQuery("/search", { scope, galleryId }))} />
         <div className={sharedStyles.screenBody}>
-          <ChartsScreen kind={kind} tab={query.get("tab") === "participated" ? "participated" : "authored"}
+          <ChartsScreen kind={kind}
+            tab={query.get("tab") === "featured" ? "featured" : query.get("tab") === "participated" ? "participated" : "authored"}
+            featuredUserId={readId(query.get("userId")) ?? undefined}
             onTabChange={(tab) => {
               const next = new URLSearchParams(query);
               next.set("tab", tab);
+              if (tab !== "featured") next.delete("userId");
               to(`/charts?${next}`, { replace: true });
             }}
             onOpenShort={(id) => to(`/abyss/${id}`)} />
