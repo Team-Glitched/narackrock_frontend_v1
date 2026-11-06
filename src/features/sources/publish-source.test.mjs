@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { hasPendingPublication, publishSource } from "./publish-source.ts";
+import { clearPendingPublication, getPendingSourceAudioId, getSourceDraftRevision, hasPendingPublication, publishSource, withSourcePublicationLock } from "./publish-source.ts";
 
 function memoryStorage() {
   const values = new Map();
@@ -59,6 +59,49 @@ const input = {
   visibility: "PUBLIC",
 };
 
+test("an active publication blocks discard, and a finished draft cannot be submitted again from a stale tab", async () => {
+  const storage = memoryStorage();
+  const server = backend({ failVisibility: 1 });
+  const deps = server.deps(storage);
+  let active = false;
+  const locks = {
+    async request(_key, { ifAvailable }, callback) {
+      assert.equal(ifAvailable, true);
+      if (active) return callback(null);
+      active = true;
+      try {
+        return await callback({});
+      } finally {
+        active = false;
+      }
+    },
+  };
+  const scope = { ...input, draftRevision: getSourceDraftRevision(input, storage) };
+  const entered = Promise.withResolvers();
+  const release = Promise.withResolvers();
+  const setVisibility = deps.setOpenSourceVisibility;
+  deps.setOpenSourceVisibility = async (...args) => {
+    entered.resolve();
+    await release.promise;
+    return setVisibility(...args);
+  };
+  const submit = () => withSourcePublicationLock(scope, () => publishSource(input, deps), locks, storage);
+  const firstAttempt = submit();
+  await entered.promise;
+  await assert.rejects(
+    withSourcePublicationLock(scope, () => clearPendingPublication(input, storage), locks, storage),
+    /다른 탭에서 이 초안을 처리하고 있습니다/,
+  );
+  release.resolve();
+  await assert.rejects(firstAttempt, /503/);
+  assert.equal(hasPendingPublication(input, storage), true);
+  assert.equal(await submit(), 70);
+
+  await assert.rejects(submit(), /다른 탭에서 이 초안을 등록하거나 삭제했습니다/);
+  assert.equal(server.publications.length, 1);
+  assert.deepEqual(server.calls.filter((call) => call === "upload:AUDIO"), ["upload:AUDIO"]);
+});
+
 test("a failed publish step is retried alone without uploading or creating again", async () => {
   const storage = memoryStorage();
   const server = backend({ failVisibility: 1 });
@@ -77,11 +120,48 @@ test("a lost create response is recovered from the owner's publications instead 
   const server = backend({ loseCreateResponse: true });
 
   await assert.rejects(() => publishSource(input, server.deps(storage)));
-  assert.equal(await publishSource(input, server.deps(storage)), 70);
+  assert.equal(hasPendingPublication(input, storage), false);
+  assert.equal(getPendingSourceAudioId(input, storage), 11);
+  assert.equal(await publishSource({ ...input, audio: null }, server.deps(storage)), 70);
+  assert.equal(getPendingSourceAudioId(input, storage), null);
 
   assert.equal(server.calls.filter((call) => call === "create").length, 1);
   assert.equal(server.calls.filter((call) => call.startsWith("upload")).length, 1);
   assert.equal(server.publications.length, 1);
+});
+
+test("a stale tab cannot publish with audio that differs from the pending upload it saw", async () => {
+  const storage = memoryStorage();
+  const server = backend({ failVisibility: 1 });
+  const deps = server.deps(storage);
+  const staleTab = { ...input, audio: new File(["b"], "b.wav"), expectedPendingAudioId: null };
+  await assert.rejects(() => publishSource(input, deps), /503/);
+  const callsAfterFailure = [...server.calls];
+
+  await assert.rejects(() => publishSource(staleTab, deps), /다른 탭에서 등록 상태가 바뀌었습니다/);
+  assert.deepEqual(server.calls, callsAfterFailure);
+  assert.equal(await publishSource({ ...input, expectedPendingAudioId: 11 }, deps), 70);
+});
+
+test("discarding a failed draft lets the next draft create a separate publication with its own audio", async () => {
+  const storage = memoryStorage();
+  const server = backend({ failVisibility: 1 });
+  const deps = server.deps(storage);
+  const uploaded = [];
+  deps.uploadMedia = async (file) => {
+    uploaded.push(file.name);
+    return uploaded.length;
+  };
+
+  await assert.rejects(() => publishSource(input, deps), /503/);
+  clearPendingPublication(input, storage);
+  const newDraft = { ...input, title: "New draft", audio: new File(["b"], "b.wav") };
+  assert.equal(await publishSource(newDraft, deps), 71);
+
+  assert.deepEqual(uploaded, ["a.wav", "b.wav"]);
+  assert.deepEqual(server.publications.map((publication) => publication.mediaFileId), [1, 2]);
+  assert.deepEqual(server.calls.filter((call) => call.startsWith("public:")), ["public:70", "public:71"]);
+  assert.equal(server.calls.includes("update"), false);
 });
 
 test("edits made between attempts are applied to the existing publication before publishing", async () => {
@@ -92,6 +172,33 @@ test("edits made between attempts are applied to the existing publication before
   await publishSource({ ...input, title: "Riff v2" }, server.deps(storage));
 
   assert.deepEqual(server.calls.slice(-2), ["update", "public:70"]);
+});
+
+test("a retry applies the changed crop before publishing and reuses it on another retry", async () => {
+  const storage = memoryStorage();
+  const server = backend({ failVisibility: 2 });
+  const deps = server.deps(storage);
+  const uploads = [];
+  const patches = [];
+  deps.uploadMedia = async (file, type) => {
+    if (type === "AUDIO") return 11;
+    uploads.push(await file.text());
+    return 11 + uploads.length;
+  };
+  deps.updateOpenSource = async (id, patch) => {
+    patches.push([id, patch.thumbnailMediaFileId]);
+    server.calls.push("update");
+  };
+  const crop = (bytes) => ({ ...input, image: new File([bytes], "same-name.png") });
+
+  await assert.rejects(() => publishSource(crop("first crop"), deps), /503/);
+  await assert.rejects(() => publishSource(crop("second crop"), deps), /503/);
+  assert.equal(await publishSource(crop("second crop"), deps), 70);
+
+  assert.deepEqual(uploads, ["first crop", "second crop"]);
+  assert.deepEqual(patches, [[70, 13]]);
+  assert.deepEqual(server.calls.slice(-4), ["public:70", "update", "public:70", "public:70"]);
+  assert.equal(server.publications.length, 1);
 });
 
 test("private registration never exposes the source and finishes without a pending entry", async () => {
