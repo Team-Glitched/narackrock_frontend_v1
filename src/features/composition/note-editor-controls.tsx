@@ -11,6 +11,8 @@ const tools: ReadonlyArray<[NoteEditorController["view"]["tool"], string, Lucide
 ];
 const iconButton = "grid h-7 w-[26px] shrink-0 place-items-center rounded-[6px] text-app-fg hover:bg-app-surface disabled:pointer-events-none disabled:opacity-35";
 const pill = "flex h-7 shrink-0 items-center gap-1 rounded-[8px] bg-app-surface px-1.5 text-caption text-app-muted";
+const selectPill = cn(pill, "has-[:focus-visible]:[outline:1px_auto_-webkit-focus-ring-color]");
+const selectInput = "cursor-pointer bg-transparent font-medium text-app-fg outline-none [color-scheme:dark] [&>option]:bg-app-panel [&>option]:text-app-fg";
 
 function IconButton({ label, icon: Icon, className, ...props }: {
   label: string; icon: LucideIcon; className?: string; disabled?: boolean; onClick: () => void;
@@ -73,21 +75,21 @@ export function NoteEditorControls({ editor, positionTick = 0, onChord, onSettin
       </Group>
       <Divider />
       <Group label="격자와 구간">
-        <label className={pill} title="스냅">
+        <label className={selectPill} title="스냅">
           <Magnet size={13} aria-hidden="true" />
           <select
             aria-label="스냅"
-            className="cursor-pointer bg-transparent font-medium text-app-fg outline-none"
+            className={selectInput}
             value={view.snapDenominator}
             onChange={(event) => editor.setSnapDenominator(Number(event.target.value) as 4 | 8 | 16)}
           >
             {[4, 8, 16].map((n) => <option key={n} value={n}>1/{n}</option>)}
           </select>
         </label>
-        <label className={pill}>
+        <label className={selectPill}>
           <select
             aria-label="표시 마디"
-            className="cursor-pointer bg-transparent font-medium text-app-fg outline-none"
+            className={selectInput}
             value={view.visibleBars}
             onChange={(event) => editor.setVisibleBars(Number(event.target.value) as 1 | 2 | 4)}
           >
