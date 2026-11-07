@@ -9,11 +9,13 @@ import { ReportReasons } from "@/features/comments/report-reasons";
 import { PostActions } from "@/features/posts/post-actions";
 import { usePostInteractions } from "@/features/posts/use-post-interactions";
 import { useEffect, useRef, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Asset } from "@/components/asset";
 import { Avatar } from "@/components/avatar";
-import { deletePost, fetchPost, moderateGalleryContent, updatePost } from "@/lib/api/community";
-import type { PostDetailResponse, PostListItem } from "@/lib/api/contracts";
+import { deletePost, moderateGalleryContent, updatePost } from "@/lib/api/community";
+import type { PostListItem } from "@/lib/api/contracts";
 import { useCurrentUserId } from "@/features/auth/use-current-user";
+import { applyPostEdit, applyPostRemoval, postDetailQuery } from "@/features/posts/post-queries";
 import { postError, relativeTime } from "@/features/posts/post-utils";
 import { reportPost } from "@/lib/api/reports";
 
@@ -50,11 +52,16 @@ function ScopedCommunityPost({
   const articleRef = useRef<HTMLElement>(null);
   const hiddenPosts = useHiddenPosts();
   const [reportOpen, setReportOpen] = useState(false);
-  const detailKey = `${currentUserId}:${post.postId}`;
-  const [detailResult, setDetailResult] = useState<{ key: string; detail: PostDetailResponse | null } | null>(null);
-  const currentDetail = detailResult?.key === detailKey ? detailResult : null;
-  const interactions = usePostInteractions(post.postId, currentDetail?.detail ?? null);
-  const detailStatus = currentDetail ? "unavailable" : "loading";
+  const queryClient = useQueryClient();
+  // The detail (preview, reactions, saved state) is requested once the card nears the viewport.
+  const [nearViewport, setNearViewport] = useState(() => typeof IntersectionObserver === "undefined");
+  const detailQuery = useQuery({
+    ...postDetailQuery(currentUserId, post.postId),
+    enabled: currentUserId !== null && nearViewport,
+  });
+  const detail = detailQuery.data ?? null;
+  const interactions = usePostInteractions(post.postId, detail);
+  const detailStatus = detailQuery.isError ? "unavailable" : "loading";
   const saveStatus = currentUserId === null || interactions.bookmarked !== undefined
     ? "ready"
     : detailStatus;
@@ -62,103 +69,91 @@ function ScopedCommunityPost({
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState(post.title);
   const [content, setContent] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [preview, setPreview] = useState<string | null>(null);
-  const [imageUrl, setImageUrl] = useState<string | null>(post.imageUrl);
+  const [loadingEdit, setLoadingEdit] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const error = actionError ?? (detailQuery.isLoadingError ? postError(detailQuery.error) : null);
+  const preview = detail?.content ?? null;
+  const imageUrl = detail ? detail.imageUrl : post.imageUrl;
 
   const [confirmDelete, setConfirmDelete] = useState(false);
   const moderating = canModerate && !owner;
 
+  const saving = useMutation({
+    mutationFn: (edit: { title: string; content: string }) => updatePost(post.postId, edit.title, edit.content),
+    onSuccess: (_response, edit) => {
+      applyPostEdit(queryClient, currentUserId, post.postId, edit.title, edit.content);
+      setEditing(false);
+      onChanged();
+    },
+    onError: (cause) => setActionError(postError(cause)),
+  });
+  const removal = useMutation({
+    mutationFn: (moderationScope: { galleryId: number; reason: string } | null) =>
+      moderationScope
+        ? moderateGalleryContent(moderationScope.galleryId, "posts", post.postId, moderationScope.reason)
+        : deletePost(post.postId),
+    onSuccess: () => {
+      applyPostRemoval(queryClient, currentUserId, post.postId);
+      onChanged();
+    },
+    onError: (cause) => {
+      setActionError(postError(cause));
+      setConfirmDelete(false);
+    },
+  });
+  // A deleted post stays disabled until the list reloads without it.
+  const submitting = loadingEdit || saving.isPending || removal.isPending || removal.isSuccess;
+
   useEffect(() => {
     const article = articleRef.current;
-    if (currentUserId === null || !article) return;
-    const controller = new AbortController();
-    const { signal } = controller;
-    function loadDetail() {
-      void fetchPost(post.postId, signal)
-        .then((detail) => {
-          if (signal.aborted) return;
-          setDetailResult({ key: detailKey, detail });
-          setPreview(detail.content);
-          setImageUrl(detail.imageUrl);
-        })
-        .catch((error) => {
-          if (!signal.aborted) {
-            setDetailResult({ key: detailKey, detail: null });
-            setError(postError(error));
-          }
-        });
-    }
-    if (typeof IntersectionObserver === "undefined") {
-      loadDetail();
-      return () => controller.abort();
-    }
+    if (currentUserId === null || nearViewport || !article) return;
     const observer = new IntersectionObserver((entries) => {
-      if (signal.aborted || !entries.some((entry) => entry.isIntersecting)) return;
+      if (!entries.some((entry) => entry.isIntersecting)) return;
       observer.disconnect();
-      loadDetail();
+      setNearViewport(true);
     }, { rootMargin: "300px 0px" });
     observer.observe(article);
-    return () => {
-      observer.disconnect();
-      controller.abort();
-    };
-  }, [currentUserId, detailKey, post.postId, post.imageUrl]);
+    return () => observer.disconnect();
+  }, [currentUserId, nearViewport]);
 
   async function startEdit() {
     setMenuOpen(false);
-    setError(null);
-    setSubmitting(true);
+    setActionError(null);
+    setLoadingEdit(true);
     try {
-      const detail = await fetchPost(post.postId);
-      setTitle(detail.title);
-      setContent(detail.content);
+      // Edit the server's current text, not a possibly older cached copy.
+      const fresh = await queryClient.fetchQuery({ ...postDetailQuery(currentUserId, post.postId), staleTime: 0 });
+      setTitle(fresh.title);
+      setContent(fresh.content);
       setEditing(true);
-    } catch (error) {
-      setError(postError(error));
+    } catch (cause) {
+      setActionError(postError(cause));
     } finally {
-      setSubmitting(false);
+      setLoadingEdit(false);
     }
   }
 
-  async function saveEdit() {
+  function saveEdit() {
     if (!title.trim() || !content.trim()) {
-      setError("제목과 내용을 모두 입력해주세요.");
+      setActionError("제목과 내용을 모두 입력해주세요.");
       return;
     }
-    setSubmitting(true);
-    setError(null);
-    try {
-      await updatePost(post.postId, title, content);
-      setPreview(content);
-      setEditing(false);
-      onChanged();
-    } catch (error) {
-      setError(postError(error));
-    } finally {
-      setSubmitting(false);
-    }
+    if (submitting) return;
+    setActionError(null);
+    saving.mutate({ title, content });
   }
 
-  async function remove() {
+  function remove() {
     setMenuOpen(false);
     if (moderating && !moderationReason.trim()) {
-      setError("운영 삭제 사유를 입력해주세요.");
+      setActionError("운영 삭제 사유를 입력해주세요.");
       return;
     }
-    setSubmitting(true);
-    setError(null);
-    try {
-      if (moderating && moderation)
-        await moderateGalleryContent(moderation.galleryId, "posts", post.postId, moderationReason.trim());
-      else await deletePost(post.postId);
-      onChanged();
-    } catch (error) {
-      setError(postError(error));
-      setSubmitting(false);
-      setConfirmDelete(false);
-    }
+    if (submitting) return;
+    setActionError(null);
+    removal.mutate(
+      moderating && moderation ? { galleryId: moderation.galleryId, reason: moderationReason.trim() } : null,
+    );
   }
 
   if (hiddenPosts.ids.has(post.postId)) return null;

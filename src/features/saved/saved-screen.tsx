@@ -12,6 +12,9 @@ import { togglePostBookmark } from "@/lib/api/community";
 import { toggleShortBookmark } from "@/lib/api/shorts";
 import { usePagedItems, type ItemPage } from "@/hooks/use-paged-items";
 import { ApiError } from "@/lib/api/client";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { applyPostBookmark } from "@/features/posts/post-queries";
+import { updateCachedShort } from "@/features/abyss/abyss-queries";
 
 const filterClass = filterChipVariants();
 
@@ -63,22 +66,32 @@ function SavedLibrary({ onOpenPost, onOpenSong }: SavedScreenProps) {
   const hiddenPosts = useHiddenPosts();
   const [kind, setKind] = useState<"post" | "song">("post");
   const [openedSongs, setOpenedSongs] = useState(false);
-  const posts = usePagedItems("posts", 0, loadSavedPosts);
-  const songs = usePagedItems("songs", 0, loadSavedSongs, openedSongs);
+  const posts = usePagedItems(["saved", "posts"], 0, loadSavedPosts);
+  const songs = usePagedItems(["saved", "songs"], 0, loadSavedSongs, openedSongs);
   const [menu, setMenu] = useState<number | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
+  const userId = useCurrentUserId();
+  const queryClient = useQueryClient();
   const list = kind === "post" ? posts : songs;
   const visible = list.state?.items.filter((item) => item.kind !== "post" || !hiddenPosts.ids.has(item.id)) ?? [];
 
-  async function remove(item: SavedItem) {
-    const toggle = () => item.kind === "post" ? togglePostBookmark(item.id) : toggleShortBookmark(item.id);
-    // The toggle may re-add an item removed elsewhere. Toggle again to restore the intended removal.
-    if ((await toggle()).isBookmarked && (await toggle()).isBookmarked)
-      throw new Error("저장 해제 상태를 확인하지 못했습니다. 목록을 새로 고쳐주세요.");
-    if (item.kind === "post" && posts.state?.next !== null) posts.reload();
-    else (item.kind === "post" ? posts : songs).remove((row) => row.id === item.id);
-  }
+  const unsave = useMutation({
+    mutationFn: async (item: SavedItem) => {
+      const toggle = () => item.kind === "post" ? togglePostBookmark(item.id) : toggleShortBookmark(item.id);
+      // The toggle may re-add an item removed elsewhere. Toggle again to restore the intended removal.
+      if ((await toggle()).isBookmarked && (await toggle()).isBookmarked)
+        throw new Error("저장 해제 상태를 확인하지 못했습니다. 목록을 새로 고쳐주세요.");
+    },
+    onSuccess: async (_, item) => {
+      // The feed reads its own short snapshots, so invalidating only the detail leaves its saved icon stale.
+      if (item.kind === "song")
+        await updateCachedShort(queryClient, userId, item.id, (short) => ({ ...short, isBookmarked: false }));
+      else await applyPostBookmark(queryClient, userId, item.id, false);
+      if (item.kind === "post" && posts.state?.next !== null) posts.reload();
+      else (item.kind === "post" ? posts : songs).remove((row) => row.id === item.id);
+    },
+  });
+  const busy = unsave.isPending;
+  const error = unsave.isError ? failure(unsave.error, "저장 해제에 실패했습니다.") : null;
 
   return (
     <section
@@ -93,7 +106,7 @@ function SavedLibrary({ onOpenPost, onOpenSong }: SavedScreenProps) {
           onClick={() => {
             setKind("post");
             setMenu(null);
-            setError(null);
+            unsave.reset();
           }}
         >
           게시글
@@ -105,7 +118,7 @@ function SavedLibrary({ onOpenPost, onOpenSong }: SavedScreenProps) {
             setOpenedSongs(true);
             setKind("song");
             setMenu(null);
-            setError(null);
+            unsave.reset();
           }}
         >
           어비스
@@ -177,18 +190,7 @@ function SavedLibrary({ onOpenPost, onOpenSong }: SavedScreenProps) {
                 <div className="absolute top-full right-0 z-5 rounded-lg bg-app-surface shadow-[0_4px_18px_#0005] [&>button]:px-5 [&>button]:py-3 [&>button]:text-body">
                   <button
                     disabled={busy || list.state?.busy}
-                    onClick={async () => {
-                      setBusy(true);
-                      setError(null);
-                      try {
-                        await remove(item);
-                        setMenu(null);
-                      } catch (cause) {
-                        setError(failure(cause, "저장 해제에 실패했습니다."));
-                      } finally {
-                        setBusy(false);
-                      }
-                    }}
+                    onClick={() => unsave.mutate(item, { onSuccess: () => setMenu(null) })}
                   >
                     저장 해제
                   </button>

@@ -1,7 +1,8 @@
 import { abyssStyles } from "@/styles/abyss.styles";
 import { cn } from "@/lib/utils";
 import { sharedStyles } from "@/styles/shared.styles";
-import { useEffect, useEffectEvent, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AlbumCarousel } from "@/features/abyss/album-carousel";
 import { ShortParticipants } from "@/features/abyss/short-participants";
 import { AbyssComments } from "./abyss-comments";
@@ -17,19 +18,11 @@ import { canJoinShort } from "@/features/abyss/short-participation";
 import { useCurrentUserId } from "@/features/auth/use-current-user";
 import { useShortPlayback } from "@/features/abyss/use-short-playback";
 import type { PlaybackMode } from "@/features/abyss/short-playback-state";
-import {
-  getShort,
-  getShortShareLink,
-  getShorts,
-  reactToShort,
-  recordShortView,
-  toggleShortBookmark,
-} from "@/lib/api/shorts";
+import { shortDetailQuery, shortsFeedQuery, updateCachedShort } from "@/features/abyss/abyss-queries";
+import { getShort, getShortShareLink, reactToShort, recordShortView, toggleShortBookmark } from "@/lib/api/shorts";
 import { reportShort } from "@/lib/api/reports";
-import type { ShortItemDto, ShortsPageDto } from "@/lib/api/contracts";
-
-type FeedState = "loading" | "ready" | "error";
-type PageInfo = ShortsPageDto["page"];
+import type { ShortItemDto } from "@/lib/api/contracts";
+import { queryScope } from "@/lib/query";
 
 function actionError(cause: unknown) {
   if (cause instanceof ApiError && cause.status === 401) return "로그인 후 이용할 수 있습니다.";
@@ -54,64 +47,49 @@ export function AbyssScreen({
   mode?: PlaybackMode;
 }) {
   const currentUserId = useCurrentUserId();
+  const queryClient = useQueryClient();
   const sharing = useShareLink();
-  const [busy, setBusy] = useState(false);
   const [sheet, setSheet] = useState<"participants" | "comments" | "report" | null>(null);
   const [feedback, setFeedback] = useState<string | null>(null);
-  const [shorts, setShorts] = useState<ShortItemDto[]>([]);
-  const [page, setPage] = useState<PageInfo | null>(null);
-  const [index, setIndex] = useState(0);
-  const [feedState, setFeedState] = useState<FeedState>("loading");
-  const [reloadKey, setReloadKey] = useState(0);
-  const [loadingMore, setLoadingMore] = useState(false);
   const [nextFailed, setNextFailed] = useState(false);
   const [mediaFailedShortId, setMediaFailedShortId] = useState<number | null>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
-  const loadingMoreRef = useRef(false);
-  const feedGeneration = useRef(0);
-  const moreRequest = useRef<AbortController | null>(null);
   const currentShortIdRef = useRef<number | undefined>(undefined);
+  // The selection is tracked by ID, so loaded pages and a prepended deep link never move the listener.
+  const [selectedId, setSelectedId] = useState(initialShortId ?? null);
 
-  // The feed (with its cursor) loads once per account; the URL's short is read when it loads. A shared/saved
-  // deep link outside the first page is read directly instead of scanning the feed for it.
-  const linkedShortId = useEffectEvent(() => initialShortId);
-  useEffect(() => {
-    const controller = new AbortController();
-    const target = linkedShortId();
-    // A reloaded feed (account change or new link) invalidates any in-flight next-page request.
-    feedGeneration.current++;
-    moreRequest.current?.abort();
-    (async () => {
-      const result = await getShorts(undefined, controller.signal);
-      let items = result.items;
-      if (target != null && !items.some((item) => item.shortId === target)) {
-        const linked = await getShort(target, controller.signal).catch((cause) => {
-          if (cause instanceof ApiError && cause.status === 404) return null;
-          throw cause;
-        });
-        if (linked) items = [linked, ...items];
-      }
-      if (controller.signal.aborted) return;
-      setShorts(items);
-      setPage(result.page);
-      setIndex(initialShortIndex(items, target));
-      setFeedState("ready");
-    })().catch(() => {
-      if (!controller.signal.aborted) setFeedState("error");
-    });
-    return () => {
-      controller.abort();
-      moreRequest.current?.abort();
-    };
-  }, [reloadKey, currentUserId]);
+  // The feed (with its cursor) loads once per account. A shared/saved deep link outside the first page is read
+  // directly and prepended instead of scanning the feed for it; an account change re-reads the URL's short.
+  const [link, setLink] = useState({ userId: currentUserId, shortId: initialShortId ?? null });
+  if (link.userId !== currentUserId) setLink({ userId: currentUserId, shortId: initialShortId ?? null });
+  const feed = useInfiniteQuery(shortsFeedQuery(currentUserId));
+  const firstPage = feed.data?.pages[0];
+  const needsLinked =
+    link.shortId !== null && firstPage !== undefined && !firstPage.items.some((item) => item.shortId === link.shortId);
+  const linked = useQuery({ ...shortDetailQuery(currentUserId, link.shortId ?? 0), enabled: needsLinked });
+  const linkedFailed =
+    needsLinked && !linked.data && linked.isError && !(linked.error instanceof ApiError && linked.error.status === 404);
 
-  // Selecting a short rewrites the URL to it; only a URL change to a short that is not loaded needs a reload.
+  // A deep-linked short is prepended to the first page, so its own page must not add it twice: the URL sync
+  // would jump back to the first copy and loop the feed.
+  const shorts: ShortItemDto[] = [];
+  const loadedIds = new Set<number>();
+  const feedItems = feed.data?.pages.flatMap((page) => page.items) ?? [];
+  for (const item of needsLinked && linked.data ? [linked.data, ...feedItems] : feedItems) {
+    if (loadedIds.has(item.shortId)) continue;
+    loadedIds.add(item.shortId);
+    shorts.push(item);
+  }
+  const index = initialShortIndex(shorts, selectedId);
+
+  // Selecting a short rewrites the URL to it; only a URL change to a short that is not loaded needs a direct read.
   const [seenLinkedId, setSeenLinkedId] = useState(initialShortId);
   if (initialShortId !== seenLinkedId) {
     setSeenLinkedId(initialShortId);
-    const found = shorts.findIndex((item) => item.shortId === initialShortId);
-    if (found >= 0) setIndex(found);
-    else if (initialShortId != null) setReloadKey((key) => key + 1);
+    if (initialShortId != null) {
+      setSelectedId(initialShortId);
+      if (!loadedIds.has(initialShortId)) setLink({ userId: currentUserId, shortId: initialShortId });
+    }
   }
 
   const currentShortId = shorts[index]?.shortId;
@@ -127,21 +105,26 @@ export function AbyssScreen({
     onProfile(userId);
   };
   const mediaUrl = current?.mediaUrl?.trim() || null;
-  const hasNext = index < shorts.length - 1 || Boolean(page?.hasMore && page.nextCursor != null);
+  const loadingMore = feed.isFetchingNextPage;
+  const hasNext = index < shorts.length - 1 || feed.hasNextPage;
   const playback = useShortPlayback({ short: current ?? null, audioRef, muted, mode, onNext: selectNext });
   const progress = playback.totalMs > 0 ? Math.min(100, (playback.positionMs / playback.totalMs) * 100) : 0;
   useLayoutEffect(() => {
     currentShortIdRef.current = current?.shortId;
   });
 
-  function selectShort(nextIndex: number) {
-    if (nextIndex < 0 || nextIndex >= shorts.length) return;
+  function select(short: ShortItemDto) {
     audioRef.current?.pause();
-    setNextFailed(false);
     setFeedback(null);
     setSheet(null);
-    setIndex(nextIndex);
-    onRememberShort?.(shorts[nextIndex].shortId);
+    setSelectedId(short.shortId);
+    onRememberShort?.(short.shortId);
+  }
+
+  function selectShort(nextIndex: number) {
+    if (nextIndex < 0 || nextIndex >= shorts.length) return;
+    setNextFailed(false);
+    select(shorts[nextIndex]);
   }
 
   async function selectNext() {
@@ -149,41 +132,20 @@ export function AbyssScreen({
       selectShort(index + 1);
       return;
     }
-    if (!page?.hasMore || page.nextCursor == null || loadingMoreRef.current) return;
+    if (!feed.hasNextPage || feed.isFetchingNextPage) return;
 
-    const generation = feedGeneration.current;
     const requestedFrom = current?.shortId;
-    const loadedCount = shorts.length;
-    const controller = new AbortController();
-    moreRequest.current = controller;
-    loadingMoreRef.current = true;
-    setLoadingMore(true);
     setNextFailed(false);
-    try {
-      const next = await getShorts(page.nextCursor, controller.signal);
-      if (controller.signal.aborted || generation !== feedGeneration.current) return;
-      setPage(next.items.length ? next.page : { ...next.page, hasMore: false });
-      // A deep-linked short is prepended to the first page, so its own page must not add it twice: the URL sync
-      // would jump back to the first copy and loop the feed.
-      const fresh = next.items.filter((item) => !shorts.some((loaded) => loaded.shortId === item.shortId));
-      if (!fresh.length) return;
-      setShorts((previous) => [...previous, ...fresh]);
-      // Only move on when the listener is still on the short that asked for the next page.
-      if (currentShortIdRef.current !== requestedFrom) return;
-      audioRef.current?.pause();
-      setFeedback(null);
-      setSheet(null);
-      setIndex(loadedCount);
-      onRememberShort?.(fresh[0].shortId);
-    } catch {
-      if (!controller.signal.aborted && generation === feedGeneration.current) setNextFailed(true);
-    } finally {
-      if (moreRequest.current === controller) {
-        moreRequest.current = null;
-        loadingMoreRef.current = false;
-        setLoadingMore(false);
-      }
+    // An ended event and a click on the same short share one request.
+    const result = await feed.fetchNextPage({ cancelRefetch: false });
+    if (result.isFetchNextPageError) {
+      setNextFailed(true);
+      return;
     }
+    const fresh = result.data?.pages.at(-1)?.items.find((item) => !loadedIds.has(item.shortId));
+    // Only move on when the listener is still on the short that asked for the next page.
+    if (!fresh || currentShortIdRef.current !== requestedFrom) return;
+    select(fresh);
   }
 
   // Confirm, backdrop, grip and Escape all apply the sheet's selection the same way.
@@ -192,56 +154,72 @@ export function AbyssScreen({
     setSheet(null);
   };
 
-  const replaceCurrent = (next: ShortItemDto) =>
-    setShorts((items) => items.map((item) => (item.shortId === next.shortId ? next : item)));
-  async function run(action: () => Promise<void>) {
-    if (busy) return;
-    setBusy(true);
-    setFeedback(null);
-    try {
-      await action();
-    } catch (cause) {
-      setFeedback(actionError(cause));
-    } finally {
-      setBusy(false);
-    }
-  }
-  const vote = (kind: "like" | "dislike") =>
-    run(async () => {
-      await reactToShort(current.shortId, kind);
+  const showError = (cause: unknown) => setFeedback(actionError(cause));
+  const reaction = useMutation({
+    mutationFn: async ({ shortId, kind }: { shortId: number; kind: "like" | "dislike" }) => {
+      await reactToShort(shortId, kind);
       // The reaction response has only the requested side; the detail has both.
-      replaceCurrent(await getShort(current.shortId));
-    });
-  const bookmark = () =>
-    run(async () => {
-      const result = await toggleShortBookmark(current.shortId);
-      replaceCurrent({ ...current, isBookmarked: result.isBookmarked });
-    });
-  const share = () =>
-    run(async () => {
-      const { shareUrl } = await getShortShareLink(current.shortId);
-      setFeedback(await sharing.share(current.title, canonicalShareLink("short", current.shortId, shareUrl, window.location.origin)));
-    });
+      return getShort(shortId);
+    },
+    onSuccess: (short) => updateCachedShort(queryClient, currentUserId, short.shortId, () => short),
+    onError: showError,
+  });
+  const bookmarkToggle = useMutation({
+    mutationFn: toggleShortBookmark,
+    onSuccess: async ({ shortId, isBookmarked }) => {
+      await updateCachedShort(queryClient, currentUserId, shortId, (short) => ({ ...short, isBookmarked }));
+      void queryClient.invalidateQueries({ queryKey: [...queryScope(currentUserId), "saved"] });
+    },
+    onError: showError,
+  });
+  const shareLink = useMutation({
+    mutationFn: async (short: ShortItemDto) => {
+      const { shareUrl } = await getShortShareLink(short.shortId);
+      return sharing.share(short.title, canonicalShareLink("short", short.shortId, shareUrl, window.location.origin));
+    },
+    onSuccess: setFeedback,
+    onError: showError,
+  });
+  const report = useMutation({
+    mutationFn: ({ shortId, reason, description }: { shortId: number; reason: string; description: string | null }) =>
+      reportShort(shortId, reason, description),
+  });
+  const busy = reaction.isPending || bookmarkToggle.isPending || shareLink.isPending;
+  const vote = (kind: "like" | "dislike") => {
+    if (busy) return;
+    setFeedback(null);
+    reaction.mutate({ shortId: current.shortId, kind });
+  };
+  const bookmark = () => {
+    if (busy) return;
+    setFeedback(null);
+    bookmarkToggle.mutate(current.shortId);
+  };
+  const share = () => {
+    if (busy) return;
+    setFeedback(null);
+    shareLink.mutate(current);
+  };
 
-  if (feedState === "loading") {
-    return (
-      <div className={cn(abyssStyles.abyssView, abyssStyles.abyssState)} role="status">
-        숏폼을 불러오는 중입니다.
-      </div>
-    );
-  }
-  if (feedState === "error") {
+  if ((!feed.data && feed.isError) || linkedFailed) {
     return (
       <div className={cn(abyssStyles.abyssView, abyssStyles.abyssState)} role="alert">
         <p>숏폼을 불러오지 못했습니다.</p>
         <button
           onClick={() => {
-            setFeedState("loading");
-            setReloadKey((key) => key + 1);
+            if (!feed.data) void feed.refetch();
+            if (linkedFailed) void linked.refetch();
           }}
         >
           다시 시도
         </button>
+      </div>
+    );
+  }
+  if (!feed.data || (needsLinked && linked.isPending)) {
+    return (
+      <div className={cn(abyssStyles.abyssView, abyssStyles.abyssState)} role="status">
+        숏폼을 불러오는 중입니다.
       </div>
     );
   }
@@ -290,7 +268,7 @@ export function AbyssScreen({
             aria-label={`좋아요 ${current.likeCount}개`}
             aria-pressed={current.isLiked}
             disabled={busy}
-            onClick={() => void vote("like")}
+            onClick={() => vote("like")}
           >
             <IconSlot
               name={current.isLiked ? "v3-short-like-on.svg" : "v3-short-like-off.svg"}
@@ -304,7 +282,7 @@ export function AbyssScreen({
             aria-label={`싫어요 ${current.dislikeCount}개`}
             aria-pressed={current.isDisliked}
             disabled={busy}
-            onClick={() => void vote("dislike")}
+            onClick={() => vote("dislike")}
           >
             <IconSlot
               name={current.isDisliked ? "v3-short-dislike-on.svg" : "v3-short-dislike-off.svg"}
@@ -318,9 +296,7 @@ export function AbyssScreen({
         </button>
         <button
           className={abyssStyles.abyssShare}
-          onClick={() => {
-            void share();
-          }}
+          onClick={share}
           aria-label="공유"
         >
           <IconSlot name="abyss-share.svg" kind="short-share" />
@@ -330,7 +306,7 @@ export function AbyssScreen({
           aria-label="저장"
           aria-pressed={current.isBookmarked}
           disabled={busy}
-          onClick={() => void bookmark()}
+          onClick={bookmark}
         >
           <IconSlot name={current.isBookmarked ? "save-on.svg" : "save-off.svg"} kind="short-save" />
         </button>
@@ -423,7 +399,7 @@ export function AbyssScreen({
         {sheet === "report" && (
           <FigmaSheet title="신고" onClose={() => setSheet(null)}>
             <ReportReasons
-              onSubmit={(reason, description) => reportShort(current.shortId, reason, description)}
+              onSubmit={(reason, description) => report.mutateAsync({ shortId: current.shortId, reason, description })}
               onDone={() => setSheet(null)}
             />
           </FigmaSheet>
@@ -449,9 +425,12 @@ export function AbyssScreen({
         <AbyssComments
           key={current.shortId}
           shortId={current.shortId}
-          onCreated={() => {
-            void getShort(current.shortId)
-              .then(replaceCurrent)
+          onChanged={() => {
+            // The comment count lives on the short; re-read it from the server.
+            const shortId = current.shortId;
+            void queryClient
+              .fetchQuery({ ...shortDetailQuery(currentUserId, shortId), staleTime: 0 })
+              .then((short) => updateCachedShort(queryClient, currentUserId, shortId, () => short))
               .catch(() => {});
           }}
           open={sheet === "comments"}

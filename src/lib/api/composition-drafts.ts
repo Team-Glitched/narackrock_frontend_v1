@@ -7,8 +7,8 @@ async function data<T>(path: string, init?: RequestInit): Promise<T> {
   return (await apiRequest<ApiEnvelope<T>>(path, init)).data;
 }
 
-export const getEditorDrafts = (projectId: number) =>
-  data<ServerDraft[]>(`/api/v1/projects/${projectId}/editor-drafts`);
+export const getEditorDrafts = (projectId: number, signal?: AbortSignal) =>
+  data<ServerDraft[]>(`/api/v1/projects/${projectId}/editor-drafts`, { signal });
 export const getEditorDraft = (projectId: number, draftId: string) =>
   data<ServerDraft>(`/api/v1/projects/${projectId}/editor-drafts/${draftId}`);
 /** Personal working copy only; never changes the shared clip. */

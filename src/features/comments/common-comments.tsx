@@ -1,13 +1,16 @@
 import { communityStyles } from "@/styles/community.styles";
 import { sharedStyles } from "@/styles/shared.styles";
 import { cn } from "@/lib/utils";
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Asset } from "@/components/asset";
 import { Avatar } from "@/components/avatar";
 import { PostUserActionsMenu } from "@/features/posts/post-user-actions-menu";
 import { FigmaSheet } from "@/components/figma-sheet";
 import { ReportReasons } from "@/features/comments/report-reasons";
-import type { CommentAdapter, CommentItem, CommentPage, CommentReaction } from "./comment-model";
+import { useCurrentUserId } from "@/features/auth/use-current-user";
+import type { CommentAdapter, CommentItem } from "./comment-model";
+import { commentKeys, commentPagesQuery, loadedComments, updateCachedReaction } from "./comment-queries";
 
 function resizeComposer(input: HTMLTextAreaElement) {
   const style = getComputedStyle(input);
@@ -22,71 +25,29 @@ function resizeComposer(input: HTMLTextAreaElement) {
   input.style.overflowY = contentHeight > maxHeight ? "auto" : "hidden";
 }
 
-function useCommentPage(adapter: CommentAdapter, parentId: number | null, revision: number) {
-  const [reload, setReload] = useState(0);
-  const key = `${parentId}:${revision}:${reload}`;
-  const [loaded, setLoaded] = useState<{ key: string; data: CommentPage } | null>(null);
-  const [error, setError] = useState<{ key: string; text: string } | null>(null);
-  const [moreBusy, setMoreBusy] = useState(false);
-  useEffect(() => {
-    let active = true;
-    adapter
-      .load(parentId, 0)
-      .then((data) => {
-        if (active) {
-          setLoaded({ key, data });
-          setError(null);
-        }
-      })
-      .catch((cause) => {
-        if (active)
-          setError({
-            key,
-            text: cause instanceof Error ? cause.message : "댓글을 불러오지 못했습니다.",
-          });
-      });
-    return () => {
-      active = false;
-    };
-  }, [adapter, parentId, key]);
-  const data = loaded?.key === key ? loaded.data : null;
-  async function more() {
-    if (!data || moreBusy) return;
-    setMoreBusy(true);
-    setError(null);
-    try {
-      const next = await adapter.load(parentId, data.page + 1);
-      setLoaded((current) =>
-        current?.key === key
-          ? {
-              key,
-              data: {
-                ...next,
-                items: [
-                  ...current.data.items,
-                  ...next.items.filter(
-                    (item) => !current.data.items.some((old) => old.id === item.id),
-                  ),
-                ],
-              },
-            }
-          : current,
-      );
-    } catch (cause) {
-      setError({
-        key,
-        text: cause instanceof Error ? cause.message : "답글을 더 불러오지 못했습니다.",
-      });
-    } finally {
-      setMoreBusy(false);
-    }
-  }
+function errorText(cause: unknown, fallback: string) {
+  return cause instanceof Error ? cause.message : fallback;
+}
+
+function useCommentPage(adapter: CommentAdapter, parentId: number | null) {
+  const userId = useCurrentUserId();
+  const { data, error, isError, isFetching, isFetchNextPageError, hasNextPage, isFetchingNextPage, fetchNextPage, refetch } =
+    useInfiniteQuery(commentPagesQuery(userId, adapter, parentId));
+  const items = useMemo(() => (data ? loadedComments(data.pages) : null), [data]);
   return {
-    data,
-    error: error?.key === key ? error.text : null,
-    more,
-    moreBusy,
-    retry: () => setReload((value) => value + 1),
+    items,
+    total: data?.pages.at(-1)?.total ?? 0,
+    hasMore: hasNextPage,
+    // A retried or next request hides the previous failure while it runs.
+    error:
+      isError && !isFetching
+        ? errorText(error, isFetchNextPageError ? "답글을 더 불러오지 못했습니다." : "댓글을 불러오지 못했습니다.")
+        : null,
+    more: () => {
+      if (hasNextPage && !isFetchingNextPage) void fetchNextPage({ cancelRefetch: false });
+    },
+    moreBusy: isFetchingNextPage,
+    retry: () => void refetch(),
   };
 }
 
@@ -95,7 +56,7 @@ export function CommonComments({
   currentUserId,
   onProfile,
   canWrite = true,
-  onCreated,
+  onChanged,
   focus = false,
   header,
 }: {
@@ -103,17 +64,17 @@ export function CommonComments({
   currentUserId: number | null;
   onProfile?: (id: number) => void;
   canWrite?: boolean;
-  onCreated?: () => void;
+  /** After every comment write (create, edit, delete); counts owned by the target must be re-read. */
+  onChanged?: () => void;
   focus?: boolean | number;
   header?: React.ReactNode;
 }) {
   const writable = canWrite && currentUserId !== null;
-  const [revision, setRevision] = useState(0);
+  const userId = useCurrentUserId();
+  const queryClient = useQueryClient();
   const [expanded, setExpanded] = useState<Set<number>>(() => new Set());
   const [reply, setReply] = useState<{ threadId: number; author: string } | null>(null);
   const [draft, setDraft] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [reportTarget, setReportTarget] = useState<number | null>(null);
   const input = useRef<HTMLTextAreaElement>(null);
   useLayoutEffect(() => {
@@ -134,8 +95,22 @@ export function CommonComments({
   useEffect(() => {
     if (focus) input.current?.focus();
   }, [focus]);
-  const top = useCommentPage(adapter, null, revision);
-  const changed = () => setRevision((value) => value + 1);
+  const top = useCommentPage(adapter, null);
+  // Writes change counts and threads; every cached thread of the target re-reads from the server.
+  const changed = () => {
+    void queryClient.invalidateQueries({ queryKey: commentKeys.target(userId, adapter.kind, adapter.targetId) });
+    onChanged?.();
+  };
+  const create = useMutation({
+    mutationFn: ({ text, parentId }: { text: string; parentId: number | null }) => adapter.create(text, parentId),
+    onSuccess: () => {
+      setDraft("");
+      setReply(null);
+      changed();
+    },
+  });
+  const busy = create.isPending;
+  const error = create.isError ? errorText(create.error, "댓글을 등록하지 못했습니다.") : null;
   const toggle = (id: number) =>
     setExpanded((old) => {
       const next = new Set(old);
@@ -149,22 +124,10 @@ export function CommonComments({
     input.current?.focus();
   };
   const report = adapter.report;
-  async function submit(event: React.FormEvent) {
+  function submit(event: React.FormEvent) {
     event.preventDefault();
     if (busy || !writable || !draft.trim()) return;
-    setBusy(true);
-    setError(null);
-    try {
-      await adapter.create(draft.trim(), reply?.threadId ?? null);
-      setDraft("");
-      setReply(null);
-      changed();
-      onCreated?.();
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "댓글을 등록하지 못했습니다.");
-    } finally {
-      setBusy(false);
-    }
+    create.mutate({ text: draft.trim(), parentId: reply?.threadId ?? null });
   }
   const row = (item: CommentItem, threadId: number) => (
     <CommentCard
@@ -191,14 +154,14 @@ export function CommonComments({
         {top.error && (
           <div role="alert">
             {top.error}
-            <button onClick={changed}>다시 시도</button>
+            <button onClick={top.retry}>다시 시도</button>
           </div>
         )}
-        {!top.data && !top.error && <p role="status">댓글을 불러오는 중...</p>}
-        {top.data?.items.length === 0 && (
+        {!top.items && !top.error && <p role="status">댓글을 불러오는 중...</p>}
+        {top.items?.length === 0 && (
           <p className={communityStyles.nrCommentsEmpty}>첫 댓글을 남겨보세요.</p>
         )}
-        {top.data?.items.map((item) => (
+        {top.items?.map((item) => (
           <section
             className={communityStyles.nrCommentThread}
             key={item.id}
@@ -219,18 +182,17 @@ export function CommonComments({
                 key={item.id}
                 adapter={adapter}
                 parentId={item.id}
-                revision={revision}
                 render={(child) => row(child, item.id)}
                 onCollapse={() => toggle(item.id)}
               />
             )}
           </section>
         ))}
-        {top.data && top.data.items.length < top.data.total && (
+        {top.hasMore && (
           <button
             className={communityStyles.nrCommentsMore}
             disabled={top.moreBusy}
-            onClick={() => void top.more()}
+            onClick={top.more}
           >
             {top.moreBusy ? "불러오는 중..." : "댓글 더보기"}
           </button>
@@ -289,17 +251,15 @@ export function CommonComments({
 function Replies({
   adapter,
   parentId,
-  revision,
   render,
   onCollapse,
 }: {
   adapter: CommentAdapter;
   parentId: number;
-  revision: number;
   render: (item: CommentItem) => React.ReactNode;
   onCollapse: () => void;
 }) {
-  const page = useCommentPage(adapter, parentId, revision);
+  const page = useCommentPage(adapter, parentId);
   return (
     <div className={communityStyles.nrCommentReplies}>
       <button
@@ -316,17 +276,17 @@ function Replies({
             </button>
           </div>
         )}
-        {!page.data && !page.error && <p role="status">답글을 불러오는 중...</p>}
-        {page.data?.items.map(render)}
-        {page.data && page.data.items.length < page.data.total && (
+        {!page.items && !page.error && <p role="status">답글을 불러오는 중...</p>}
+        {page.items?.map(render)}
+        {page.items && page.hasMore && (
           <button
             className={communityStyles.nrCommentsMore}
             disabled={page.moreBusy}
-            onClick={() => void page.more()}
+            onClick={page.more}
           >
             {page.moreBusy
               ? "불러오는 중..."
-              : `더보기 (${page.data.total - page.data.items.length})`}
+              : `더보기 (${page.total - page.items.length})`}
           </button>
         )}
       </div>
@@ -352,68 +312,62 @@ function CommentCard({
   onProfile: () => void;
   onReport?: () => void;
 }) {
+  const userId = useCurrentUserId();
+  const queryClient = useQueryClient();
   const [menu, setMenu] = useState(false);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(item.text);
   const [confirm, setConfirm] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
   const [hidden, setHidden] = useState(false);
   const optionButton = useRef<HTMLButtonElement>(null);
-  const [reaction, setReaction] = useState<CommentReaction | null>(null);
-  const [reacting, setReacting] = useState(false);
-  const current = reaction ?? {
-    isLiked: item.isLiked,
-    isDisliked: item.isDisliked,
-    likeCount: item.likes,
-    dislikeCount: item.dislikes,
-  };
   const react = adapter.react;
   const canEdit = owner && adapter.update !== undefined && adapter.remove !== undefined;
   const moderate = owner ? undefined : adapter.moderate;
   const [moderating, setModerating] = useState(false);
   const [moderationReason, setModerationReason] = useState("");
-  async function removeAsModerator() {
-    if (!moderate || busy || !moderationReason.trim()) return;
-    setBusy(true);
-    setError(null);
-    try {
-      await moderate(item.id, moderationReason.trim());
-      setModerating(false);
-      onChanged();
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "댓글을 삭제하지 못했습니다.");
-    } finally {
-      setBusy(false);
-    }
-  }
-  async function vote(kind: "like" | "dislike") {
-    if (!react || reacting) return;
-    setReacting(true);
-    setError(null);
-    try {
-      setReaction(await react(item.id, kind));
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "반응을 반영하지 못했습니다.");
-    } finally {
-      setReacting(false);
-    }
-  }
-  async function change(remove = false) {
-    if (!canEdit || busy || (!remove && !draft.trim())) return;
-    setBusy(true);
-    setError(null);
-    try {
-      if (remove) await adapter.remove?.(item.id);
-      else await adapter.update?.(item.id, draft.trim());
+  const reaction = useMutation({
+    mutationFn: ({ send, kind }: { send: NonNullable<CommentAdapter["react"]>; kind: "like" | "dislike" }) =>
+      send(item.id, kind),
+    onSuccess: (result) => updateCachedReaction(queryClient, userId, adapter, item.id, result),
+  });
+  // Edit, delete and moderator delete share one in-flight guard; `failure` is the message for a non-Error cause.
+  const change = useMutation({
+    mutationFn: async ({ run }: { run: () => Promise<unknown> | undefined; failure: string }) => {
+      await run();
+    },
+    onSuccess: () => {
       setEditing(false);
       setConfirm(false);
+      setModerating(false);
       onChanged();
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "댓글을 변경하지 못했습니다.");
-    } finally {
-      setBusy(false);
-    }
+    },
+  });
+  const busy = change.isPending;
+  const reacting = reaction.isPending;
+  const error = reaction.isError
+    ? errorText(reaction.error, "반응을 반영하지 못했습니다.")
+    : change.isError
+      ? errorText(change.error, change.variables.failure)
+      : null;
+  function removeAsModerator() {
+    if (!moderate || busy || !moderationReason.trim()) return;
+    const reason = moderationReason.trim();
+    reaction.reset();
+    change.mutate({ run: () => moderate(item.id, reason), failure: "댓글을 삭제하지 못했습니다." });
+  }
+  function vote(kind: "like" | "dislike") {
+    if (!react || reacting) return;
+    change.reset();
+    reaction.mutate({ send: react, kind });
+  }
+  function edit(remove = false) {
+    if (!canEdit || busy || (!remove && !draft.trim())) return;
+    const text = draft.trim();
+    reaction.reset();
+    change.mutate({
+      run: () => (remove ? adapter.remove?.(item.id) : adapter.update?.(item.id, text)),
+      failure: "댓글을 변경하지 못했습니다.",
+    });
   }
   if (hidden) return null;
   return (
@@ -485,7 +439,7 @@ function CommentCard({
           className={communityStyles.nrCommentEdit}
           onSubmit={(event) => {
             event.preventDefault();
-            void change();
+            edit();
           }}
         >
           <textarea
@@ -507,7 +461,7 @@ function CommentCard({
         <div className={communityStyles.nrCommentDelete}>
           <p>이 댓글을 삭제할까요?</p>
           <button onClick={() => setConfirm(false)}>취소</button>
-          <button disabled={busy} onClick={() => void change(true)}>
+          <button disabled={busy} onClick={() => edit(true)}>
             삭제 확인
           </button>
         </div>
@@ -523,7 +477,7 @@ function CommentCard({
             onChange={(event) => setModerationReason(event.target.value)}
           />
           <button onClick={() => setModerating(false)}>취소</button>
-          <button disabled={busy || !moderationReason.trim()} onClick={() => void removeAsModerator()}>
+          <button disabled={busy || !moderationReason.trim()} onClick={removeAsModerator}>
             삭제 확인
           </button>
         </div>
@@ -532,21 +486,21 @@ function CommentCard({
       <div className={communityStyles.nrCommentActions}>
         <button
           aria-label="댓글 좋아요"
-          aria-pressed={current.isLiked}
+          aria-pressed={item.isLiked}
           disabled={!react || reacting}
-          onClick={() => void vote("like")}
+          onClick={() => vote("like")}
         >
-          <Asset name={current.isLiked ? "v3-comment-like-on.svg" : "v3-comment-like-off.svg"} />
-          {current.likeCount}
+          <Asset name={item.isLiked ? "v3-comment-like-on.svg" : "v3-comment-like-off.svg"} />
+          {item.likes}
         </button>
         <button
-          aria-label={`댓글 싫어요 ${current.dislikeCount}개`}
-          aria-pressed={current.isDisliked}
+          aria-label={`댓글 싫어요 ${item.dislikes}개`}
+          aria-pressed={item.isDisliked}
           disabled={!react || reacting}
-          onClick={() => void vote("dislike")}
+          onClick={() => vote("dislike")}
         >
           <Asset
-            name={current.isDisliked ? "v3-comment-dislike-on.svg" : "v3-comment-dislike-off.svg"}
+            name={item.isDisliked ? "v3-comment-dislike-on.svg" : "v3-comment-dislike-off.svg"}
           />
         </button>
         <button aria-label={`${item.author}에게 답글 작성`} disabled={!canReply} onClick={onReply}>

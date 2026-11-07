@@ -1,47 +1,25 @@
-import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useCurrentUserId } from "@/features/auth/use-current-user";
-import { getPopularShorts, getShorts } from "@/lib/api/shorts";
 import { useMySongs } from "./use-my-songs";
+import { popularSongsQuery, recommendedSongsQuery } from "./home-queries";
 import { recommendByAuthor } from "@/features/community/discovery";
 import type { ShortItemDto } from "@/lib/api/contracts";
 
 type SongListState = {
-  status: "loading" | "ready" | "error" | "signed-out";
+  status: "loading" | "ready" | "error";
   items: ShortItemDto[];
 };
 
+function songList(query: { data?: { items: ShortItemDto[] }; isError: boolean }): SongListState {
+  if (query.data) return { status: "ready", items: query.data.items };
+  return { status: query.isError ? "error" : "loading", items: [] };
+}
+
 export function useHomeSongs(size = 10, kind?: "popular" | "recommended" | "mine") {
   const currentUserId = useCurrentUserId();
-  const [popular, setPopular] = useState<SongListState>({ status: "loading", items: [] });
-  const [feed, setFeed] = useState<SongListState>({ status: "loading", items: [] });
+  const popular = useQuery({ ...popularSongsQuery(currentUserId, size), enabled: !kind || kind === "popular" });
+  const feed = songList(useQuery({ ...recommendedSongsQuery(currentUserId), enabled: !kind || kind === "recommended" }));
   const mine = useMySongs(size, !kind || kind === "mine");
-
-  useEffect(() => {
-    if (kind && kind !== "popular") return;
-    const controller = new AbortController();
-    getPopularShorts(size, controller.signal)
-      .then((page) => {
-        if (!controller.signal.aborted) setPopular({ status: "ready", items: page.items });
-      })
-      .catch(() => {
-        if (!controller.signal.aborted) setPopular({ status: "error", items: [] });
-      });
-    return () => controller.abort();
-  }, [size, kind]);
-
-  useEffect(() => {
-    if (kind && kind !== "recommended") return;
-    const controller = new AbortController();
-    getShorts(undefined, controller.signal)
-      .then((page) => {
-        if (!controller.signal.aborted) setFeed({ status: "ready", items: page.items });
-      })
-      .catch(() => {
-        if (!controller.signal.aborted) setFeed({ status: "error", items: [] });
-      });
-    return () => controller.abort();
-  }, [kind]);
-
 
   const recommended = {
     ...feed,
@@ -50,5 +28,5 @@ export function useHomeSongs(size = 10, kind?: "popular" | "recommended" | "mine
       size,
     ),
   };
-  return { popular, mine, recommended };
+  return { popular: songList(popular), mine, recommended };
 }

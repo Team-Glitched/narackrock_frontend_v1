@@ -3,7 +3,8 @@ import { sharedStyles } from "@/styles/shared.styles";
 import { cn } from "@/lib/utils";
 import { communityStyles } from "@/styles/community.styles";
 import { buttonVariants } from "@/styles/variants";
-import { useCallback, useEffect, useEffectEvent, useRef, useState } from "react";
+import { useEffect, useEffectEvent, useRef, useState } from "react";
+import { experimental_streamedQuery as streamedQuery, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Asset } from "@/components/asset";
 import { Avatar } from "@/components/avatar";
 import { MiniPost } from "@/features/posts/post-list";
@@ -19,6 +20,7 @@ import { SignInRequired } from "@/features/auth/sign-in-required";
 import { sourceError } from "@/features/sources/source-screens";
 import type { SearchScope } from "@/features/search/search-scope";
 import { searchCommunityPosts } from "@/features/community/post-search";
+import { queryScope } from "@/lib/query";
 const scopes: { id: SearchScope; label: string }[] = [
   { id: "sources", label: "오픈소스" },
   { id: "songs", label: "음악" },
@@ -34,6 +36,51 @@ type Results = {
   sources: OpenSourceSummary[];
 };
 const empty = (): Results => ({ posts: [], communities: [], songs: [], people: [], sources: [] });
+type Loaded = { results: Results; error?: string; pending?: boolean };
+
+/** Unpaged search of one scope. Posts found so far are yielded while further communities are still searched. */
+async function* searchResults(
+  scope: SearchScope,
+  keyword: string,
+  galleryId: number | undefined,
+  signal: AbortSignal,
+): AsyncGenerator<Loaded> {
+  const results = empty();
+  const fetchForGallery: typeof fetchPosts = (id, options) => fetchPosts(id, options, signal);
+  const matches = (value: string) => value.toLocaleLowerCase().includes(keyword.toLocaleLowerCase());
+  if (galleryId !== undefined) results.posts = await searchCommunityPosts(fetchForGallery, galleryId, keyword);
+  else if (scope === "communities")
+    results.communities = (await fetchGalleries(signal)).filter((item) => matches(`${item.name} ${item.description ?? ""}`));
+  else if (scope === "posts") {
+    const galleries = await fetchGalleries(signal);
+    const posts = new Map<number, PostListItem>();
+    let failed = false;
+    for (let offset = 0; offset < galleries.length; offset += 4) {
+      const pages = await Promise.allSettled(galleries.slice(offset, offset + 4).map((gallery) =>
+        searchCommunityPosts(fetchForGallery, gallery.galleryId, keyword),
+      ));
+      signal.throwIfAborted();
+      for (const page of pages) {
+        if (page.status === "rejected") failed = true;
+        else for (const post of page.value) posts.set(post.postId, post);
+      }
+      if (posts.size && offset + 4 < galleries.length) yield { results: { ...results, posts: [...posts.values()] }, pending: true };
+    }
+    results.posts = [...posts.values()];
+    if (failed) {
+      yield { results, error: "일부 커뮤니티에서 검색하지 못했습니다." };
+      return;
+    }
+  } else {
+    for (let page = 0; ; page++) {
+      const result = await listOpenSources({ keyword, page }, signal);
+      results.sources.push(...result.items);
+      if (!result.hasNext) break;
+    }
+  }
+  yield { results };
+}
+
 export function ScopedSearch({
   scope: requestedScope,
   community,
@@ -59,7 +106,6 @@ export function ScopedSearch({
   onSource: (id: number) => void;
   onProfile: (id: number) => void;
 }) {
-  const [retry, setRetry] = useState(0);
   // Keep the native input stable while React Router commits query replacements.
   const [searchText, setSearchText] = useState(query);
   const [syncedQuery, setSyncedQuery] = useState(query);
@@ -77,104 +123,59 @@ export function ScopedSearch({
   const inputRef = useRef<HTMLInputElement>(null);
   const galleryId = community?.galleryId;
   const userId = useCurrentUserId();
+  const queryClient = useQueryClient();
   const peopleSignInRequired = scope === "people" && userId === null;
-  const key = `${userId}:${galleryId ?? "all"}:${scope}:${query.trim()}:${retry}`;
-  const [loaded, setLoaded] = useState<{ key: string; results: Results; error?: string; pending?: boolean } | null>(
-    null,
-  );
   const keyword = query.trim();
+  const key = `${userId}:${galleryId ?? "all"}:${scope}:${keyword}`;
   const [debouncedKey, setDebouncedKey] = useState("");
   useEffect(() => {
     const timer = window.setTimeout(() => setDebouncedKey(key), 200);
     return () => window.clearTimeout(timer);
   }, [key]);
+  const debounced = !!keyword && key === debouncedKey;
   const paged = !community && (scope === "people" || scope === "songs");
-  const loadPeople = useCallback(async (page: number, signal: AbortSignal) => {
+  const people = usePagedItems(["search", "people", keyword], 0, async (page: number, signal: AbortSignal) => {
     const size = 20;
     const result = await searchPeople(keyword, page, size, signal);
     return {
       items: result.users,
       next: result.users.length && (page + 1) * size < result.totalResultCount ? page + 1 : null,
     };
-  }, [keyword]);
-  const loadSongs = useCallback(async (cursor: number, signal: AbortSignal) => {
+  }, paged && scope === "people" && !peopleSignInRequired && debounced);
+  const songs = usePagedItems(["search", "songs", keyword], 0, async (cursor: number, signal: AbortSignal) => {
     const result = await searchShorts(keyword, cursor === 0 ? undefined : cursor, signal);
     return {
       items: result.items,
       next: result.page.hasMore ? result.page.nextCursor : null,
     };
-  }, [keyword]);
-  const people = usePagedItems(key, 0, loadPeople, paged && scope === "people" && !peopleSignInRequired && !!keyword && key === debouncedKey);
-  const songs = usePagedItems(key, 0, loadSongs, paged && scope === "songs" && !!keyword && key === debouncedKey);
+  }, paged && scope === "songs" && debounced);
   const pagination = scope === "people" ? people : songs;
 
-  useEffect(() => {
-    const keyword = query.trim();
-    if (!keyword || paged) return;
-    let active = true;
-    const controller = new AbortController();
-    const timer = window.setTimeout(() => {
-      const results = empty();
-      void (async () => {
-        const fetchForGallery: typeof fetchPosts = (id, options) =>
-          fetchPosts(id, options, controller.signal);
-        const matches = (value: string) =>
-          value.toLocaleLowerCase().includes(keyword.toLocaleLowerCase());
-        if (galleryId !== undefined)
-          results.posts = await searchCommunityPosts(fetchForGallery, galleryId, keyword);
-        else if (scope === "communities")
-          results.communities = (await fetchGalleries(controller.signal)).filter((item) =>
-            matches(`${item.name} ${item.description ?? ""}`),
-          );
-        else if (scope === "posts") {
-          const galleries = await fetchGalleries(controller.signal);
-          const posts = new Map<number, PostListItem>();
-          let failed = false;
-          for (let offset = 0; active && offset < galleries.length; offset += 4) {
-            const pages = await Promise.allSettled(galleries.slice(offset, offset + 4).map((gallery) =>
-              searchCommunityPosts(fetchForGallery, gallery.galleryId, keyword),
-            ));
-            if (!active) return;
-            for (const page of pages) {
-              if (page.status === "rejected") failed = true;
-              else for (const post of page.value) posts.set(post.postId, post);
-            }
-            if (posts.size && offset + 4 < galleries.length) {
-              setLoaded({ key, results: { ...results, posts: [...posts.values()] }, pending: true });
-            }
-          }
-          results.posts = [...posts.values()];
-          if (failed) {
-            setLoaded({ key, results, error: "일부 커뮤니티에서 검색하지 못했습니다." });
-            return;
-          }
-        } else {
-          if (userId === null) throw new Error("오픈소스 검색은 로그인 후 사용할 수 있습니다.");
-          for (let page = 0; ; page++) {
-            const result = await listOpenSources({ keyword, page }, controller.signal).catch((cause) => {
-              throw new Error(sourceError(cause, "오픈소스를 검색하지 못했습니다."));
-            });
-            results.sources.push(...result.items);
-            if (!result.hasNext) break;
-          }
-        }
-        if (active) setLoaded({ key, results });
-      })().catch((cause) => {
-        if (active)
-          setLoaded({
-            key,
+  const sourcesSignInRequired = !paged && scope === "sources" && userId === null;
+  const searchKey = [...queryScope(userId), "search", galleryId ?? "all", scope, keyword] as const;
+  const search = useQuery({
+    queryKey: searchKey,
+    queryFn: streamedQuery({
+      streamFn: ({ signal }) => searchResults(scope, keyword, galleryId, signal),
+      reducer: (_: Loaded, chunk: Loaded) => chunk,
+      initialValue: { results: empty() },
+      // A background refetch keeps the shown results until the new search completes.
+      refetchMode: "replace",
+    }),
+    enabled: !paged && !sourcesSignInRequired && debounced,
+  });
+  const current: Loaded | null = paged || !keyword
+    ? null
+    : sourcesSignInRequired
+      ? { results: empty(), error: "오픈소스 검색은 로그인 후 사용할 수 있습니다." }
+      : search.error
+        ? {
             results: empty(),
-            error: cause instanceof Error ? cause.message : "검색에 실패했습니다.",
-          });
-      });
-    }, 200);
-    return () => {
-      active = false;
-      controller.abort();
-      window.clearTimeout(timer);
-    };
-  }, [scope, query, key, galleryId, userId, paged]);
-  const current = loaded?.key === key && !paged ? loaded : null;
+            error: scope === "sources"
+              ? sourceError(search.error, "오픈소스를 검색하지 못했습니다.")
+              : search.error.message || "검색에 실패했습니다.",
+          }
+        : search.data ?? null;
   const results = paged
     ? pagination.state && { ...empty(), people: people.state?.items ?? [], songs: songs.state?.items ?? [] }
     : current?.results ?? null;
@@ -249,7 +250,7 @@ export function ScopedSearch({
                 tone: "secondary",
                 size: "compact",
               })}
-              onClick={() => setRetry((value) => value + 1)}
+              onClick={() => void queryClient.resetQueries({ queryKey: searchKey, exact: true })}
             >
               다시 시도
             </button>

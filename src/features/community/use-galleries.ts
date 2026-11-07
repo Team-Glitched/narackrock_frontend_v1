@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useState } from "react";
-import { fetchGalleries } from "@/lib/api/community";
+import { useQuery } from "@tanstack/react-query";
+import { useCurrentUserId } from "@/features/auth/use-current-user";
+import { galleriesQuery } from "@/features/community/community-queries";
 import type { GalleryListItem } from "@/lib/api/contracts";
 
 export type GalleriesState =
@@ -14,28 +15,13 @@ export type GalleriesState =
  * 가입 여부는 CommunityMembershipProvider가 들고 있는 id 집합으로 갈라 쓰면 되고,
  * 그러면 목록 호출이 화면당 한 번으로 끝난다.
  *
- * @param revision 가입/탈퇴가 서버에 반영될 때마다 바뀌는 값(`useCommunityMembership().revision`).
- *   구독자 수가 집계라 구독 직후 값이 달라지므로, 이 값이 바뀌면 목록을 다시 받는다.
+ * 구독자 수는 서버 집계라 가입/탈퇴가 반영되면 달라진다. CommunityMembershipProvider가 그때
+ * 이 목록(`galleryKeys.list`)을 무효화해 다시 받게 한다.
  */
-export function useGalleries(revision: number): GalleriesState & { refetch: () => void } {
-  const [state, setState] = useState<GalleriesState>({ status: "loading" });
-  const [reloadToken, setReloadToken] = useState(0);
-
-  useEffect(() => {
-    let cancelled = false;
-    fetchGalleries()
-      .then((galleries) => {
-        if (!cancelled) setState({ status: "ready", galleries });
-      })
-      .catch(() => {
-        if (!cancelled) setState({ status: "error" });
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [revision, reloadToken]);
-
-  const refetch = useCallback(() => setReloadToken((token) => token + 1), []);
-
-  return { ...state, refetch };
+export function useGalleries(): GalleriesState & { refetch: () => void } {
+  const userId = useCurrentUserId();
+  const { data, isError, refetch } = useQuery(galleriesQuery(userId));
+  const retry = () => void refetch();
+  if (data) return { status: "ready", galleries: data, refetch: retry };
+  return { status: isError ? "error" : "loading", refetch: retry };
 }

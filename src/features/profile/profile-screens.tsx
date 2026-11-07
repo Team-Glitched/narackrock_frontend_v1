@@ -3,6 +3,7 @@ import { sharedStyles } from "@/styles/shared.styles";
 import { cn } from "@/lib/utils";
 import { uiLabels } from "@/lib/ui-labels";
 import { useEffect, useState, type ReactNode } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ProfileListSheet, type ProfileListKind } from "./profile-lists";
 import { ProfilePrivacyToggle, ProfileRelationActions } from "./profile-relations";
 import { Asset } from "@/components/asset";
@@ -11,11 +12,12 @@ import { SectionTitle } from "@/components/section-title";
 import { FigmaSheet } from "@/components/figma-sheet";
 import { useCurrentUserId } from "@/features/auth/use-current-user";
 import { ApiError } from "@/lib/api/client";
-import { getProfile, updateFeaturedMusic, updateProfile, updateProfileImage } from "@/lib/api/profile";
+import { updateFeaturedMusic, updateProfile, updateProfileImage } from "@/lib/api/profile";
 import type { UserProfile } from "@/lib/api/contracts";
 import { Link, useNavigate } from "react-router";
 import { useMySongs } from "@/features/home/use-my-songs";
 import { songsForTab } from "@/features/home/my-songs";
+import { profileKeys, profileQuery } from "./profile-queries";
 
 function profileErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : "프로필을 불러오지 못했습니다.";
@@ -24,73 +26,17 @@ function profileErrorMessage(error: unknown): string {
 function useOwnProfile(targetUserId?: number) {
   const currentUserId = useCurrentUserId();
   const userId = targetUserId ?? currentUserId;
-  const [revision, setRevision] = useState(0);
-  const [result, setResult] = useState<{
-    userId: number;
-    profile: UserProfile | null;
-    error: string | null;
-  } | null>(null);
+  const query = useQuery({ ...profileQuery(currentUserId, userId ?? 0), enabled: userId !== null });
+  const reload = () => { if (userId !== null) void query.refetch(); };
 
-  useEffect(() => {
-    if (userId == null) return;
-
-    let cancelled = false;
-
-    getProfile(userId)
-      .then((profile) => {
-        if (!cancelled) {
-          setResult({ userId, profile, error: null });
-        }
-      })
-      .catch((cause) => {
-        if (!cancelled) {
-          setResult({
-            userId,
-            profile: null,
-            error: profileErrorMessage(cause),
-          });
-        }
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [userId, revision]);
-  const reload = () => setRevision((value) => value + 1);
-
-  const setProfile = (profile: UserProfile) => {
-    if (userId != null) {
-      setResult({ userId, profile, error: null });
-    }
-  };
-
-  if (userId == null) {
-    return {
-      profile: null,
-      loading: false,
-      error: "로그인이 필요합니다.",
-      setProfile,
-      reload,
-    };
+  if (userId === null) {
+    return { profile: null, loading: false, error: "로그인이 필요합니다.", reload };
   }
-
-  if (!result || result.userId !== userId) {
-    return {
-      profile: null,
-      loading: true,
-      error: null,
-      setProfile,
-      reload,
-    };
+  if (query.data) return { profile: query.data, loading: false, error: null, reload };
+  if (query.isError) {
+    return { profile: null, loading: false, error: profileErrorMessage(query.error), reload };
   }
-
-  return {
-    profile: result.profile,
-    loading: false,
-    error: result.error,
-    setProfile,
-    reload,
-  };
+  return { profile: null, loading: true, error: null, reload };
 }
 
 function compactCount(count: number) {
@@ -371,7 +317,7 @@ export function ProfileScreen({
 
       <h1>{profile.nickname}</h1>
       {!own && currentUserId !== null && (
-        <ProfileRelationActions profile={profile} onChanged={reload} onChat={onChat} />
+        <ProfileRelationActions key={profile.userId} profile={profile} onChat={onChat} />
       )}
 
       <div className={sharedStyles.stats}>
@@ -440,7 +386,9 @@ export function ProfileScreen({
 }
 
 export function EditProfileScreen({ onSaved }: { onSaved: () => void }) {
-  const { profile, loading, error: loadError, setProfile } = useOwnProfile();
+  const userId = useCurrentUserId();
+  const queryClient = useQueryClient();
+  const { profile, loading, error: loadError } = useOwnProfile();
 
   if (loading) {
     return (
@@ -460,7 +408,7 @@ export function EditProfileScreen({ onSaved }: { onSaved: () => void }) {
 
   return (
     <>
-    <ProfilePrivacyToggle isPrivate={profile.isPrivate} onChanged={(isPrivate) => setProfile({ ...profile, isPrivate })} />
+    <ProfilePrivacyToggle isPrivate={profile.isPrivate} />
     <ProfileForm
       initial={{
         nickname: profile.nickname,
@@ -478,11 +426,14 @@ export function EditProfileScreen({ onSaved }: { onSaved: () => void }) {
 
         const uploaded = image ? await updateProfileImage(image) : null;
 
-        setProfile({
-          ...profile,
-          ...updated,
-          profileImageUrl: uploaded?.profileImageUrl ?? profile.profileImageUrl,
-        });
+        if (userId !== null) {
+          queryClient.setQueryData<UserProfile>(profileKeys.detail(userId, userId), (current) => current && {
+            ...current,
+            ...updated,
+            profileImageUrl: uploaded?.profileImageUrl ?? current.profileImageUrl,
+          });
+          void queryClient.invalidateQueries({ queryKey: profileKeys.all(userId) });
+        }
 
         onSaved();
       }}

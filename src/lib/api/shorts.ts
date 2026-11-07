@@ -104,8 +104,11 @@ export type ShortComment = {
 };
 
 /** The short comment list is not paged; it returns every top-level comment and reply. */
-export function getShortComments(shortId: number): Promise<{ shortId: number; comments: ShortComment[] }> {
-  return data(`/api/v1/shorts/${shortId}/comments`);
+export function getShortComments(
+  shortId: number,
+  signal?: AbortSignal,
+): Promise<{ shortId: number; comments: ShortComment[] }> {
+  return data(`/api/v1/shorts/${shortId}/comments`, { signal });
 }
 
 export function createShortComment(shortId: number, content: string, parentCommentId: number | null): Promise<unknown> {

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { DesignViewport } from "@/components/design-viewport";
 import { Header } from "@/features/navigation/header";
 import { NotificationsOverlay } from "@/features/notifications/notifications-overlay";
@@ -11,12 +12,15 @@ import { MyGalleryProposals } from "@/features/community/my-gallery-proposals";
 import { DEFAULT_GALLERY_ID } from "@/lib/api/community";
 import { useCurrentUserId } from "@/features/auth/use-current-user";
 import { SignInRequired } from "@/features/auth/sign-in-required";
+import { galleryKeys } from "@/features/community/community-queries";
 
 export default function CreateCommunityPage() {
   const { to, back, params, query } = useUrlNavigation();
   const galleryId = readId(params.galleryId) ?? readId(query.get("galleryId"));
   const scope = resolveSearchScope(query.get("scope"), "songs", Boolean(galleryId));
-  const signedIn = useCurrentUserId() !== null;
+  const userId = useCurrentUserId();
+  const signedIn = userId !== null;
+  const queryClient = useQueryClient();
   const [submissions, setSubmissions] = useState(0);
   return (
     <DesignViewport>
@@ -28,13 +32,16 @@ export default function CreateCommunityPage() {
         <div className={sharedStyles.screenBody}>
           {signedIn ? (
             <>
-              <MyGalleryProposals revision={submissions} submitted={submissions > 0} />
+              <MyGalleryProposals submitted={submissions > 0} />
               <SocialCreate
                 key={submissions}
                 kind="community"
                 galleryId={DEFAULT_GALLERY_ID}
                 onCancel={() => back("/communities")}
-                onCreated={() => setSubmissions((value) => value + 1)}
+                onCreated={() => {
+                  setSubmissions((value) => value + 1);
+                  void queryClient.invalidateQueries({ queryKey: galleryKeys.myProposals(userId) });
+                }}
               />
             </>
           ) : (

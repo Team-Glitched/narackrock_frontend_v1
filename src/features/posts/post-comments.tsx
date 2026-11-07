@@ -2,6 +2,7 @@ import { communityStyles } from "@/styles/community.styles";
 import { cn } from "@/lib/utils";
 import { buttonVariants } from "@/styles/variants";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { canSanction, useGalleryRole, type ModerationScope } from "@/features/community/use-gallery-role";
 import { PostMemberModeration } from "@/features/admin/post-member-moderation";
 import { useHiddenPosts } from "@/features/community/hidden-posts";
@@ -15,19 +16,19 @@ import { Avatar } from "@/components/avatar";
 import {
   createPostComment,
   deletePostComment,
-  fetchPost,
   fetchPostComments,
   recordPostView,
   updatePostComment,
   reactToPostComment,
   moderateGalleryContent,
 } from "@/lib/api/community";
-import { ApiError, getCurrentUserId } from "@/lib/api/client";
+import { ApiError } from "@/lib/api/client";
+import { useCurrentUserId } from "@/features/auth/use-current-user";
 import { CommonComments } from "@/features/comments/common-comments";
 import type { CommentAdapter } from "@/features/comments/comment-model";
-import type { PostDetailResponse } from "@/lib/api/contracts";
 import { reportPost, reportPostComment } from "@/lib/api/reports";
 import { PostActions } from "@/features/posts/post-actions";
+import { applyPostRemoval, postDetailQuery, postKeys } from "@/features/posts/post-queries";
 import { usePostInteractions } from "@/features/posts/use-post-interactions";
 
 function errorMessage(error: unknown, forbidden = "현재 계정은 댓글을 작성할 수 없습니다.") {
@@ -57,11 +58,14 @@ export function PostCommentsScreen({
   onHidden: () => void;
 }) {
   const hiddenPosts = useHiddenPosts();
+  const userId = useCurrentUserId();
+  const queryClient = useQueryClient();
   const [memberAction, setMemberAction] = useState<"suspend" | "expel" | null>(null);
   const [moderationNotice, setModerationNotice] = useState("");
-  const [post, setPost] = useState<PostDetailResponse | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [revision, setRevision] = useState(0);
+  const detailQuery = useQuery(postDetailQuery(userId, postId));
+  const post = detailQuery.data ?? null;
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const error = deleteError ?? (detailQuery.error ? errorMessage(detailQuery.error) : null);
   const { role } = useGalleryRole(post?.gallery.galleryId ?? null);
   const postGalleryId = post?.gallery.galleryId ?? null;
   const roleCanManage = role?.canManage === true;
@@ -71,8 +75,10 @@ export function PostCommentsScreen({
   const canModerate = roleCanManage;
   const adapter = useMemo<CommentAdapter>(
     () => ({
-      async load(parentId, page) {
-        const result = await fetchPostComments(postId, parentId, page);
+      kind: "posts",
+      targetId: postId,
+      async load(parentId, page, signal) {
+        const result = await fetchPostComments(postId, parentId, page, signal);
         return {
           page: result.page,
           total: result.totalCount,
@@ -103,22 +109,6 @@ export function PostCommentsScreen({
     }),
     [postId, moderationGalleryId],
   );
-  useEffect(() => {
-    let cancelled = false;
-    fetchPost(postId)
-      .then((data) => {
-        if (!cancelled) {
-          setPost(data);
-          setError(null);
-        }
-      })
-      .catch((error) => {
-        if (!cancelled) setError(errorMessage(error));
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [postId, revision]);
 
   // 조회수는 **본문을 실제로 띄운 뒤에만** 기록한다.
   //
@@ -126,7 +116,7 @@ export function PostCommentsScreen({
   // 필수라(비로그인은 401) 로그인 전에는 본문이 뜨지 않는데, 그때도 조회수가 오르는 것을
   // 실제로 확인했다. 읽지 못한 글은 읽은 것이 아니다.
   //
-  // revision(댓글 등록 후 재조회)에는 의존하지 않는다 - 같은 글을 계속 보고 있을 뿐이다.
+  // 댓글 등록 뒤의 재조회에는 의존하지 않는다 - 같은 글을 계속 보고 있을 뿐이다.
   const loadedPostId = post?.postId;
   useEffect(() => {
     if (loadedPostId !== postId) return;
@@ -138,20 +128,25 @@ export function PostCommentsScreen({
   const optionButton = useRef<HTMLButtonElement>(null);
   const [report, setReport] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const [deleting, setDeleting] = useState(false);
   const [moderationReason, setModerationReason] = useState("");
-  const canModerateMember = post ? canSanction(scope, getCurrentUserId(), post.writer.userId) : false;
-  async function removePost() {
-    if (!canModerate || !scope || !moderationReason.trim()) return;
-    setDeleting(true);
-    try {
-      await moderateGalleryContent(scope.galleryId, "posts", postId, moderationReason.trim());
+  const canModerateMember = post ? canSanction(scope, userId, post.writer.userId) : false;
+  const removal = useMutation({
+    mutationFn: (target: { galleryId: number; reason: string }) =>
+      moderateGalleryContent(target.galleryId, "posts", postId, target.reason),
+    onSuccess: () => {
+      applyPostRemoval(queryClient, userId, postId);
       onHidden();
-    } catch (cause) {
-      setError(errorMessage(cause, "이 게시글을 삭제할 권한이 없습니다."));
-      setDeleting(false);
+    },
+    onError: (cause) => {
+      setDeleteError(errorMessage(cause, "이 게시글을 삭제할 권한이 없습니다."));
       setConfirmDelete(false);
-    }
+    },
+  });
+  // The screen is left after a successful delete; until then nothing may be written to the post.
+  const deleting = removal.isPending || removal.isSuccess;
+  function removePost() {
+    if (!canModerate || !scope || !moderationReason.trim() || deleting) return;
+    removal.mutate({ galleryId: scope.galleryId, reason: moderationReason.trim() });
   }
   const [focus, setFocus] = useState(0);
   const interactions = usePostInteractions(postId, post);
@@ -161,9 +156,13 @@ export function PostCommentsScreen({
       <CommonComments
         canWrite={post !== null && !deleting}
         adapter={adapter}
-        currentUserId={getCurrentUserId()}
+        currentUserId={userId}
         onProfile={onProfile}
-        onCreated={() => setRevision((value) => value + 1)}
+        onChanged={() => {
+          // 댓글 수가 바뀌었을 수 있다. 지금 글은 다시 받고, 목록은 다음에 열 때 다시 받는다.
+          void queryClient.invalidateQueries({ queryKey: postKeys.detail(userId, postId) });
+          void queryClient.invalidateQueries({ queryKey: postKeys.lists(userId), refetchType: "none" });
+        }}
         focus={focus}
         header={
           <>
@@ -176,10 +175,7 @@ export function PostCommentsScreen({
                       tone: "secondary",
                       size: "compact",
                     })}
-                    onClick={() => {
-                      setError(null);
-                      setRevision((value) => value + 1);
-                    }}
+                    onClick={() => void detailQuery.refetch()}
                   >
                     다시 시도
                   </button>

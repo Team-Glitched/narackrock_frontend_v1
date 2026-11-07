@@ -1,3 +1,4 @@
+import { useQueryClient } from "@tanstack/react-query";
 import { SocialCreate } from "@/features/community/create-content";
 import { DesignViewport } from "@/components/design-viewport";
 import { Header } from "@/features/navigation/header";
@@ -11,6 +12,7 @@ import { cn } from "@/lib/utils";
 import { useCurrentUserId } from "@/features/auth/use-current-user";
 import { SignInRequired } from "@/features/auth/sign-in-required";
 import { apiOrigin } from "@/lib/api/client";
+import { sourceKeys } from "../source-queries";
 
 export type SourceStage = "details" | "choose" | "upload" | "record" | "note";
 export function sourceStage(value: string | null): SourceStage {
@@ -22,6 +24,7 @@ export function sourceStage(value: string | null): SourceStage {
 export default function CreateSourcePage() {
   const { to, back, params, query } = useUrlNavigation();
   const userId = useCurrentUserId();
+  const queryClient = useQueryClient();
   const signedIn = userId !== null;
   const stage = sourceStage(query.get("stage"));
   const pianoMode = stage === "note";
@@ -41,7 +44,11 @@ export default function CreateSourcePage() {
               audioStage={stage}
               onAudioStage={(next) => to(withQuery("/sources/new", { stage: next === "details" ? null : next }))}
               onCancel={() => back("/sources")}
-              onCreated={() => to("/sources?tab=mine", { replace: true })}
+              onCreated={() => {
+                // The new publication must show in "내 등록" and, if public, in the source lists right away.
+                void queryClient.invalidateQueries({ queryKey: sourceKeys.all(userId) });
+                to("/sources?tab=mine", { replace: true });
+              }}
             />
           ) : (
             <SignInRequired>오픈소스 등록은 로그인 후 사용할 수 있습니다.</SignInRequired>

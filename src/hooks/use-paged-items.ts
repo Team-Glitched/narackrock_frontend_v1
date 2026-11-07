@@ -1,75 +1,66 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useInfiniteQuery, useQueryClient, type InfiniteData } from "@tanstack/react-query";
+import { useCurrentUserId } from "@/features/auth/use-current-user";
+import { queryScope } from "@/lib/query";
 
 export type ItemPage<T, Cursor> = { items: T[]; next: Cursor | null };
 
+/** Cache key of a paged list: a tuple scope is used as given (domain first); a string scope is grouped under "paged". */
+export function pagedItemsKey(userId: number | null, scope: string | readonly unknown[]): readonly unknown[] {
+  return [...queryScope(userId), ...(typeof scope === "string" ? ["paged", scope] : scope)];
+}
+
+/** A cursor already requested ends the list, so a server that repeats a cursor cannot loop. */
+function nextCursor<Cursor>(page: ItemPage<unknown, Cursor>, requested: Cursor[]): Cursor | null {
+  return page.next !== null && !requested.includes(page.next) ? page.next : null;
+}
+
 export function usePagedItems<T, Cursor>(
-  scope: string,
+  scope: string | readonly unknown[],
   first: Cursor,
   load: (cursor: Cursor, signal: AbortSignal) => Promise<ItemPage<T, Cursor>>,
   enabled = true,
 ) {
-  const [result, setState] = useState<{
-    scope: string;
-    items: T[];
-    next: Cursor | null;
-    busy: boolean;
-    error: { cause: unknown } | null;
-  } | null>(null);
-  const session = useRef<{
-    scope: string;
-    controller: AbortController;
-    cursor: Cursor | null;
-    busy: boolean;
-    seen: Set<Cursor>;
-  } | null>(null);
-  type Session = NonNullable<typeof session.current>;
+  const userId = useCurrentUserId();
+  const queryClient = useQueryClient();
+  const queryKey = pagedItemsKey(userId, scope);
+  const { data, error, isFetching, isFetchingNextPage, hasNextPage, fetchNextPage, refetch } = useInfiniteQuery<
+    ItemPage<T, Cursor>, Error, InfiniteData<ItemPage<T, Cursor>, Cursor>, readonly unknown[], Cursor
+  >({
+    queryKey,
+    // TanStack's context type is conditional on the page parameter, which stays unresolved for a generic `Cursor`.
+    queryFn: ({ pageParam, signal }) => load(pageParam as Cursor, signal),
+    initialPageParam: first,
+    getNextPageParam: (last, _pages, _lastParam, requested) => nextCursor(last, requested),
+    enabled,
+  });
 
-  const request = useCallback((current: Session, fetchPage: typeof load, reset = false) => {
-    const { controller, cursor } = current;
-    if (current.busy || cursor === null || controller.signal.aborted) return;
-    current.busy = true;
-    setState((old) => !reset && old?.scope === current.scope ? { ...old, busy: true, error: null } : null);
-    void fetchPage(cursor, controller.signal).then(({ items, next }) => {
-      if (controller.signal.aborted) return;
-      current.seen.add(cursor);
-      current.cursor = next !== null && !current.seen.has(next) ? next : null;
-      setState((old) => ({
-        scope: current.scope,
-        items: [...(old?.scope === current.scope ? old.items : []), ...items], next: current.cursor, busy: false, error: null,
-      }));
-    }).catch((cause: unknown) => {
-      if (controller.signal.aborted) return;
-      setState((old) => ({ scope: current.scope, items: old?.scope === current.scope ? old.items : [], next: cursor, busy: false, error: { cause } }));
-    }).finally(() => { current.busy = false; });
-  }, []);
-
-  useEffect(() => {
-    if (!enabled) return;
-    const current: Session = {
-      scope, controller: new AbortController(), cursor: first, busy: false, seen: new Set(),
-    };
-    session.current = current;
-    queueMicrotask(() => request(current, load, true));
-    return () => {
-      session.current?.controller.abort();
-      session.current = null;
-    };
-  }, [enabled, first, load, request, scope]);
+  const state = !enabled
+    ? null
+    : data
+      ? {
+          items: data.pages.flatMap((page) => page.items),
+          next: hasNextPage ? nextCursor(data.pages[data.pages.length - 1], data.pageParams) : null,
+          busy: isFetchingNextPage,
+          error: error ? { cause: error } : null,
+        }
+      : error
+        ? { items: [] as T[], next: first, busy: isFetching, error: { cause: error } }
+        : null;
 
   return {
-    state: enabled && result?.scope === scope ? result : null,
-    more: () => { if (session.current?.scope === scope) request(session.current, load); },
-    reload: () => {
-      if (session.current?.scope !== scope) return;
-      session.current.controller.abort();
-      const next: Session = {
-        scope, controller: new AbortController(), cursor: first, busy: false, seen: new Set(),
-      };
-      session.current = next;
-      request(next, load, true);
+    state,
+    /** Loads the following page, or retries the first page after it failed. */
+    more: () => {
+      if (!enabled || isFetchingNextPage) return;
+      if (data) {
+        if (hasNextPage) void fetchNextPage();
+      } else if (!isFetching) void refetch();
     },
+    reload: () => void queryClient.resetQueries({ queryKey, exact: true }),
     remove: (predicate: (item: T) => boolean) => {
-      setState((old) => old?.scope === scope ? { ...old, items: old.items.filter((item) => !predicate(item)) } : old);
+      queryClient.setQueryData<InfiniteData<ItemPage<T, Cursor>, Cursor>>(queryKey, (old) =>
+        old && { ...old, pages: old.pages.map((page) => ({ ...page, items: page.items.filter((item) => !predicate(item)) })) },
+      );
     },
   };
 }

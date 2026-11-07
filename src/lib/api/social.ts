@@ -28,21 +28,23 @@ async function data<T>(path: string, init?: RequestInit): Promise<T> {
   return (await apiRequest<ApiResponse<T>>(path, init)).data;
 }
 
-export const getMutualFollowers = () => data<Person[]>("/api/v1/users/me/mutual");
+export const getMutualFollowers = (signal?: AbortSignal) => data<Person[]>("/api/v1/users/me/mutual", { signal });
 /** Rejects with 403/PRIVATE_PROFILE for another user's private profile; that is not an empty list. */
-export const getRelations = (userId: number, type: "followers" | "following") =>
-  data<Person[]>(`/api/v1/users/${userId}/relations?type=${type}`);
-export const getRecommendations = (page = 0, size = 20) =>
+export const getRelations = (userId: number, type: "followers" | "following", signal?: AbortSignal) =>
+  data<Person[]>(`/api/v1/users/${userId}/relations?type=${type}`, { signal });
+export const getRecommendations = (page = 0, size = 20, signal?: AbortSignal) =>
   data<{ totalCount: number; fallbackTriggered: boolean; recommendedUsers: RecommendedPerson[] }>(
     `/api/v1/users/recommendations?page=${page}&size=${size}`,
+    { signal },
   );
 export const searchPeople = (keyword: string, page = 0, size = 20, signal?: AbortSignal) =>
   data<{ searchKeyword: string; totalResultCount: number; users: SearchedPerson[] }>(
     `/api/v1/users/search?keyword=${encodeURIComponent(keyword)}&page=${page}&size=${size}`,
     { signal },
   );
-export const getFollowRequests = () => data<FollowRequest[]>("/api/v1/users/me/follow-requests");
-export const getOutgoingFollowRequests = () => data<OutgoingRequest[]>("/api/v1/users/me/follow-requests/outgoing");
+export const getFollowRequests = (signal?: AbortSignal) => data<FollowRequest[]>("/api/v1/users/me/follow-requests", { signal });
+export const getOutgoingFollowRequests = (signal?: AbortSignal) =>
+  data<OutgoingRequest[]>("/api/v1/users/me/follow-requests/outgoing", { signal });
 /** Public targets are followed immediately; private targets get a PENDING request. */
 export const followPerson = (userId: number) =>
   data<{ status: "FOLLOWING" | "PENDING"; requestId: number | null }>(`/api/v1/users/${userId}/follow`, { method: "POST" });
