@@ -8,6 +8,7 @@ import { useCompositionPlayback } from "./use-composition-playback";
 import { StudioSourceDialog } from "./studio-source-dialog";
 import { TeamPianoRoll } from "./team-piano-roll";
 import {
+  insertOpenSourceClip,
   updateProjectTiming,
   updateTrackInstrument,
   type CompositionDto,
@@ -29,6 +30,23 @@ import { clipLocalTiming, clipPositionTick, projectPositionMs } from "./clip-loc
 import { sameNotes } from "./note-editing";
 import { compositionEndMs } from "./composition-playback-timeline";
 import { compositionKeys, compositionQuery } from "./composition-queries";
+import { getOpenSourcePlayback, type OpenSourceSummary } from "@/lib/api/open-sources";
+
+/** The playback answer may omit the length; the audio metadata is read then. */
+async function openSourceDurationMs(openSourceId: number): Promise<number> {
+  const playback = await getOpenSourcePlayback(openSourceId);
+  if (playback.durationMs && playback.durationMs > 0) return playback.durationMs;
+  const { promise, resolve, reject } = Promise.withResolvers<number>();
+  const audio = new Audio();
+  audio.preload = "metadata";
+  audio.onloadedmetadata = () =>
+    Number.isFinite(audio.duration) && audio.duration > 0
+      ? resolve(Math.round(audio.duration * 1000))
+      : reject(new Error("오픈소스 음원 길이를 확인하지 못했습니다."));
+  audio.onerror = () => reject(new Error("오픈소스 음원을 불러오지 못했습니다."));
+  audio.src = playback.audioUrl;
+  return promise;
+}
 
 export function NoteEditorScreen({
   projectId,
@@ -108,6 +126,7 @@ function LoadedNoteEditor({
   const [leaving, setLeaving] = useState(false);
   const [noteSettingsIndex, setNoteSettingsIndex] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const track = composition.tracks.find((item) => item.trackId === trackId)!;
   const clip = track.clips.find((item) => item.clipId === targetClipId && item.clipType === "MIDI");
@@ -202,7 +221,10 @@ function LoadedNoteEditor({
     session.edit({ ...current, durationTick, midiNotes: next });
     const accepted = session.getSnapshot().content;
     const success = accepted.durationTick === durationTick && sameNotes(accepted.midiNotes, next);
-    if (success) setError(null);
+    if (success) {
+      setError(null);
+      setNotice(null);
+    }
     return success;
   }
   const preview = useMemo<CompositionDto | null>(
@@ -310,6 +332,21 @@ function LoadedNoteEditor({
     link.click();
     URL.revokeObjectURL(url);
   }
+  async function insertOpenSource(source: OpenSourceSummary) {
+    const { projectId, bpm, ppq, maxTick: projectMaxTick } = composition.project;
+    const ticksPerMs = (bpm * ppq) / 60000;
+    const durationMs = await openSourceDurationMs(source.openSourceId);
+    const startTick = Math.min(Math.max(0, Math.round(playback.positionMs * ticksPerMs)), projectMaxTick - 1);
+    const durationTick = Math.min(Math.ceil(durationMs * ticksPerMs), projectMaxTick - startTick);
+    playback.pause();
+    await insertOpenSourceClip(projectId, trackId, source.openSourceId, startTick, durationTick);
+    await queryClient.invalidateQueries(
+      { queryKey: compositionKeys.detail(context.userId, projectId) },
+      { throwOnError: true },
+    );
+    setShowSources(false);
+    setNotice(`‘${source.title}’을(를) 내 레이어에 오디오로 넣었습니다. 스튜디오에서 확인할 수 있어요.`);
+  }
   if (clipUnavailable) return (
     <div className={cn(studioStyles.studio, studioStyles.studioState)}>
       <p role="alert">선택한 MIDI 클립을 찾을 수 없습니다.</p>
@@ -389,7 +426,12 @@ function LoadedNoteEditor({
         metronome={playback.metronome}
         onMetronome={() => playback.setMetronome((value) => !value)}
         onImportSource={editor.editable ? () => setShowSources(true) : undefined}
-        onAdd={editable ? () => setLeaving(true) : undefined}
+        // The plus button saves straight to the shared clip; conflicts still need the explicit choices.
+        onAdd={editable
+          ? () => draft.session && draft.state?.status !== "conflict"
+            ? void action(draft.commit, true)
+            : setLeaving(true)
+          : undefined}
         addLabel="저장 및 나가기"
       />
       {editable && (
@@ -407,7 +449,7 @@ function LoadedNoteEditor({
       )}
       {editable && (
         <p role="status" className="m-0 shrink-0 px-3 py-0.5 text-caption leading-[16px] text-app-muted">
-          {draft.state ? draftLabels[draft.state.status] : "개인 초안 불러오는 중"}
+          {notice ?? (draft.state ? draftLabels[draft.state.status] : "개인 초안 불러오는 중")}
         </p>
       )}
       {(error || playback.error || editor.error || draft.loadError || draft.state?.error) && (
@@ -432,7 +474,7 @@ function LoadedNoteEditor({
       {!editable && <p>내 MIDI 레이어만 수정할 수 있습니다.</p>}
       {showSources && editor.editable && (
         <StudioSourceDialog
-          midiOnly
+          onOpenSource={insertOpenSource}
           onClose={() => setShowSources(false)}
           onResource={async (resource) => {
             const after = Math.max(0, ...notes.map((note) => note.startTick + note.durationTick));

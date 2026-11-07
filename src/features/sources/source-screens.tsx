@@ -252,7 +252,7 @@ function SourceDetail({
         </button>
         <p className={sourceStyles.osDetailCopy}>{source.description ?? ""}</p>
         <SourcePlayback sourceId={source.openSourceId} canPreview={source.canPreview} durationMs={source.durationMs} />
-        <p className={sourceStyles.osDiscoveryEmpty}>곡에 오픈소스 넣기는 현재 서버에서 지원하지 않습니다.</p>
+        <p className={sourceStyles.osDiscoveryEmpty}>보관한 뒤 피아노롤의 ‘+ 오픈소스’에서 내 레이어에 오디오로 넣을 수 있습니다.</p>
         <PostActions
           likeCount={source.likeCount}
           dislikeCount={source.dislikeCount}

@@ -11,6 +11,7 @@ import {
   getOpenSource,
   listMyOpenSourcePublications,
   listOpenSources,
+  listSavedOpenSources,
   setOpenSourceSaved,
   type OpenSourceDetail,
   type OpenSourcePage,
@@ -52,6 +53,13 @@ export const sourcePublicationsQuery = (userId: number | null) =>
     initialPageParam: 0,
     getNextPageParam: (last, _pages, page) => (last.hasNext ? page + 1 : undefined),
   });
+
+/** Paged-list scope and loader of the saved-source library shared by every `usePagedItems` reader. */
+export const savedSourcesScope = ["sources", "saved"] as const;
+export async function loadSavedSources(page: number, signal: AbortSignal) {
+  const result = await listSavedOpenSources(page, signal);
+  return { items: result.items, next: result.hasNext ? page + 1 : null };
+}
 
 /** Writes a server-confirmed change of one source into its cached detail and every cached public list. */
 export function patchSource(
