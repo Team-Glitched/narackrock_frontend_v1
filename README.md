@@ -169,6 +169,7 @@ Prettier 설정은 `.prettierrc.json`, 기본 편집 규칙은 `.editorconfig`�
 검색 문맥은 query 값 → 커뮤니티의 posts → 페이지 기본값 순서로 결정합니다. 생성 목적지는 페이지가 계산하며 프로필의 생성은 항상 곡 만들기입니다.
 스튜디오 최초 진입은 `studioFrom`과 `studioIndex`를 기록하고 레이어·녹음·노트 이동에서는 이를 보존합니다. 알림은 기존 query와 route state를 유지합니다.
 portal host는 각 페이지 mount의 layout effect에서 찾고 body fallback을 사용하지 않습니다. viewport 크기·회전·키보드 정책은 기존 디자인 canvas 기준을 유지합니다.
+피아노롤(`/studio/:projectId/tracks/:trackId/notes`)은 터치 기기(`pointer: coarse`)에서는 390×844 세로 배치, 데스크톱에서는 가로 canvas로 시작하고, 상태 줄의 **가로 모드** / **세로 모드** 버튼으로 전환합니다. 마지막 선택은 이 브라우저의 `narackrock.note-editor-layout`에 저장되어 기기 기본값보다 우선하며, 전환해도 개인 초안은 유지됩니다. 데스크톱의 가로 모드는 창이 세로로 길어도 회전하지 않고, 세로로 든 터치 기기에서 가로 모드를 고를 때만 기존처럼 canvas를 회전합니다. 세로 배치는 가로 배치와 같은 컨트롤만 사용합니다. 상단에는 뒤로·볼륨·저장, 가로 스크롤되는 bpm·beat·time·오픈소스·악기 줄과 실행 기록·스냅·구간·노트 선택 도구 줄, 상태 줄을 두고, 하단에는 그리기·선택·지우개·이동 도구와 큰 처음으로·재생·메트로놈 버튼을 둡니다. 컨트롤은 좌우 16px 여백과 36px 높이로 맞추고 하단 영역은 화면 끝에서 띄웁니다. 악기는 두 배치 모두 이름으로 표시합니다. 세로 피아노롤은 칸을 키우려고 행 40px·건반 44px·기본 1마디로 표시하고 검은 건반 이름은 숨기며, 가로로 돌아가면 기본 2마디로 표시합니다. 스튜디오 타임라인은 기존 가로 배치를 유지합니다.
 
 ## 스타일 작성
 
@@ -274,4 +275,4 @@ Studio·피아노롤·source·악기 선택·작업함 재생은 `useComposition
 
 ### 백엔드 후속 계약
 
-openSourceId를 이용한 출처·권한·usageCount·clip 생성의 원자적 삽입, source 인기/추천·신고·댓글 관리, 전체 커뮤니티 회원 명부, 일반 알림 이력/read, 전체 프로젝트와 cross-project 제출 목록, 불변 제출 snapshot, 영속 mute 조회가 필요합니다. 미리듣기 URL 재업로드로 source 삽입을 우회하지 않습니다. cross-tab session sync와 실제 OAuth·HTI·배포 share 환경 검증도 별도 준비 항목입니다.
+openSourceId 기반 usageCount 집계, source 인기/추천·신고·댓글 관리, 전체 커뮤니티 회원 명부, 일반 알림 이력/read, 전체 프로젝트와 cross-project 제출 목록, 불변 제출 snapshot, 영속 mute 조회가 필요합니다. 미리듣기 URL 재업로드로 source 삽입을 우회하지 않습니다. cross-tab session sync와 실제 OAuth·HTI·배포 share 환경 검증도 별도 준비 항목입니다.
