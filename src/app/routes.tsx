@@ -69,7 +69,7 @@ export const appRoutes: RouteObject[] = [{
     { path: "profile/likes", element: <RequireAuth><LikedPostsPage /></RequireAuth> },
     { path: "login", element: <LoginPage /> },
     { path: "onboarding", element: <OnboardingPage /> },
-    { path: "settings", element: <SettingsPage /> },
+    { path: "settings", element: <RequireAuth><SettingsPage /></RequireAuth> },
     { path: "privacy", element: <PrivacyPage /> },
     { path: "saved", element: <SavedPage /> },
     { path: "workspace", element: <WorkspacePage /> },
