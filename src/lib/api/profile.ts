@@ -32,3 +32,12 @@ export async function updateProfileImage(image: File): Promise<{ profileImageUrl
   );
   return response.data;
 }
+
+export async function updateFeaturedMusic(shortId: number | null): Promise<void> {
+  const path = "/api/v1/users/me/profile/featured-music";
+  if (shortId === null) {
+    await apiRequest(path, { method: "DELETE" });
+  } else {
+    await apiRequest(`${path}/${shortId}`, { method: "PUT" });
+  }
+}

@@ -2,7 +2,7 @@ import { sharedStyles } from "@/styles/shared.styles";
 import { cn } from "@/lib/utils";
 import { useUrlNavigation } from "./use-url-navigation";
 import { Asset } from "@/components/asset";
-import { IconSlot } from "@/components/icon-slot";
+import { iconSlotVariants } from "@/styles/variants";
 // The five footer tabs. `studio` is the center action button, not a real tab.
 type FooterTab = "home" | "abyss" | "studio" | "social" | "opensource";
 const nav: { id: FooterTab; label: string; path: string }[] = [
@@ -41,7 +41,17 @@ export function Footer({
               <i />
             </>
           ) : (
-            <IconSlot name={`nav-${item.id}-${item.id === activeTab ? "on" : "off"}.svg`} kind="nav" />
+            // Both variants stay mounted so switching tabs never waits for the other SVG to download: an unloaded
+            // image renders as nothing, which blanked each icon the first time its tab was entered or left.
+            <span className={iconSlotVariants({ kind: "nav" })} aria-hidden="true">
+              {(["on", "off"] as const).map((state) => (
+                <Asset
+                  key={state}
+                  name={`nav-${item.id}-${state}.svg`}
+                  className={(state === "on") === (item.id === activeTab) ? "" : "invisible"}
+                />
+              ))}
+            </span>
           )}
           {item.label && <span>{item.label}</span>}
         </button>
