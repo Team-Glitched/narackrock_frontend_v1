@@ -66,12 +66,17 @@ export const shortParticipantTracksQuery = (userId: number | null, shortId: numb
   });
 
 /** Applies a server-confirmed change of one short to the feed and its detail entry. */
-export function updateCachedShort(
+export async function updateCachedShort(
   client: QueryClient,
   userId: number | null,
   shortId: number,
   update: (short: ShortItemDto) => ShortItemDto,
 ) {
+  // Cancel both snapshots before patching them; a delayed refetch must not undo a confirmed reaction or bookmark.
+  await Promise.all([
+    client.cancelQueries({ queryKey: shortKeys.feed(userId), exact: true }),
+    client.cancelQueries({ queryKey: shortKeys.detail(userId, shortId), exact: true }),
+  ]);
   client.setQueryData<InfiniteData<ShortsPageDto, number | undefined>>(
     shortKeys.feed(userId),
     (feed) =>

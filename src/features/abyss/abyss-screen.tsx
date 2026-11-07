@@ -166,8 +166,8 @@ export function AbyssScreen({
   });
   const bookmarkToggle = useMutation({
     mutationFn: toggleShortBookmark,
-    onSuccess: ({ shortId, isBookmarked }) => {
-      updateCachedShort(queryClient, currentUserId, shortId, (short) => ({ ...short, isBookmarked }));
+    onSuccess: async ({ shortId, isBookmarked }) => {
+      await updateCachedShort(queryClient, currentUserId, shortId, (short) => ({ ...short, isBookmarked }));
       void queryClient.invalidateQueries({ queryKey: [...queryScope(currentUserId), "saved"] });
     },
     onError: showError,

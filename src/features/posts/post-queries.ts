@@ -70,12 +70,17 @@ function updateListedPosts(
 }
 
 /** Applies a server reaction response to the cached detail and to the like counts of cached lists. */
-export function applyPostReaction(
+export async function applyPostReaction(
   client: QueryClient,
   userId: number | null,
   postId: number,
   reaction: PostReaction,
 ) {
+  // A read started before the write may still carry the old counts, even after the mutation succeeded.
+  await Promise.all([
+    client.cancelQueries({ queryKey: postKeys.detail(userId, postId), exact: true }),
+    client.cancelQueries({ queryKey: postKeys.lists(userId) }),
+  ]);
   client.setQueryData<PostDetailResponse>(
     postKeys.detail(userId, postId),
     (detail) => detail && { ...detail, ...reaction },
@@ -84,6 +89,20 @@ export function applyPostReaction(
     posts.map((post) =>
       post.postId === postId ? { ...post, likeCount: reaction.likeCount } : post,
     ),
+  );
+}
+
+/** Applies a confirmed bookmark change without letting an older detail response restore the previous state. */
+export async function applyPostBookmark(
+  client: QueryClient,
+  userId: number | null,
+  postId: number,
+  isBookmarked: boolean,
+) {
+  await client.cancelQueries({ queryKey: postKeys.detail(userId, postId), exact: true });
+  client.setQueryData<PostDetailResponse>(
+    postKeys.detail(userId, postId),
+    (detail) => detail && { ...detail, isBookmarked },
   );
 }
 

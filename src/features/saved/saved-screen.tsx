@@ -13,8 +13,8 @@ import { toggleShortBookmark } from "@/lib/api/shorts";
 import { usePagedItems, type ItemPage } from "@/hooks/use-paged-items";
 import { ApiError } from "@/lib/api/client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { postKeys } from "@/features/posts/post-queries";
-import { shortKeys } from "@/features/abyss/abyss-queries";
+import { applyPostBookmark } from "@/features/posts/post-queries";
+import { updateCachedShort } from "@/features/abyss/abyss-queries";
 
 const filterClass = filterChipVariants();
 
@@ -81,12 +81,13 @@ function SavedLibrary({ onOpenPost, onOpenSong }: SavedScreenProps) {
       if ((await toggle()).isBookmarked && (await toggle()).isBookmarked)
         throw new Error("저장 해제 상태를 확인하지 못했습니다. 목록을 새로 고쳐주세요.");
     },
-    onSuccess: (_, item) => {
+    onSuccess: async (_, item) => {
+      // The feed reads its own short snapshots, so invalidating only the detail leaves its saved icon stale.
+      if (item.kind === "song")
+        await updateCachedShort(queryClient, userId, item.id, (short) => ({ ...short, isBookmarked: false }));
+      else await applyPostBookmark(queryClient, userId, item.id, false);
       if (item.kind === "post" && posts.state?.next !== null) posts.reload();
       else (item.kind === "post" ? posts : songs).remove((row) => row.id === item.id);
-      void queryClient.invalidateQueries({
-        queryKey: item.kind === "post" ? postKeys.detail(userId, item.id) : shortKeys.detail(userId, item.id),
-      });
     },
   });
   const busy = unsave.isPending;

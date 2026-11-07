@@ -4,7 +4,7 @@ import { getPostShareLink, reactToPost, togglePostBookmark } from "@/lib/api/com
 import { canonicalShareLink } from "@/lib/api/content-link";
 import { queryScope } from "@/lib/query";
 import { useCurrentUserId } from "@/features/auth/use-current-user";
-import { applyPostReaction, postKeys } from "@/features/posts/post-queries";
+import { applyPostBookmark, applyPostReaction } from "@/features/posts/post-queries";
 import { profileKeys } from "@/features/profile/profile-queries";
 import { postError } from "@/features/posts/post-utils";
 import type { PostDetailResponse } from "@/lib/api/contracts";
@@ -25,18 +25,16 @@ export function usePostInteractions(postId: number, detail: PostDetailResponse |
 
   const vote = useMutation({
     mutationFn: async (kind: "like" | "dislike") => ({ scope, reaction: await reactToPost(postId, kind) }),
-    onSuccess: ({ reaction }) => {
-      applyPostReaction(queryClient, userId, postId, reaction);
+    onSuccess: async ({ reaction }) => {
+      await applyPostReaction(queryClient, userId, postId, reaction);
       void queryClient.invalidateQueries({ queryKey: profileKeys.likedPostIds(userId) });
     },
     onError: (cause) => setNotice(postError(cause)),
   });
   const bookmark = useMutation({
     mutationFn: async () => ({ scope, ...(await togglePostBookmark(postId)) }),
-    onSuccess: ({ isBookmarked }) => {
-      queryClient.setQueryData<PostDetailResponse>(postKeys.detail(userId, postId), (cached) =>
-        cached && { ...cached, isBookmarked },
-      );
+    onSuccess: async ({ isBookmarked }) => {
+      await applyPostBookmark(queryClient, userId, postId, isBookmarked);
       void queryClient.invalidateQueries({ queryKey: [...queryScope(userId), "saved"] });
     },
     onError: (cause) => setNotice(postError(cause)),
