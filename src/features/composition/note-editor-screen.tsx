@@ -18,7 +18,7 @@ import { apiOrigin } from "@/lib/api/client";
 import { errorText } from "./studio-helpers";
 import { StudioToolbar } from "./studio-toolbar";
 import { useEditorDraft } from "./use-editor-draft";
-import { resourceNotes } from "./composition-actions";
+import { cancelEmptyLayer, resourceNotes } from "./composition-actions";
 import { findInstrument, invalidPitchesFor } from "./instrument-catalog";
 import { supportsMidi } from "./instrument-parts";
 import { useCurrentUserId } from "@/features/auth/use-current-user";
@@ -610,7 +610,18 @@ function LoadedNoteEditor({
           >
             개인 초안 유지
           </button>
-          <button disabled={busy} onClick={() => void action(draft.discard, true)}>
+          <button
+            disabled={busy}
+            onClick={() =>
+              void action(async () => {
+                await draft.discard();
+                // A layer that never got a shared clip only existed for this draft; keeping the empty track
+                // would use up the viewer's one layer in this song.
+                await cancelEmptyLayer(context.projectId, trackId);
+                await queryClient.invalidateQueries({ queryKey: compositionKeys.detail(context.userId, context.projectId) });
+              }, true)
+            }
+          >
             버리기
           </button>
           <button onClick={exportRecovery}>복구본 내보내기</button>
