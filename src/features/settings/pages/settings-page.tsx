@@ -1,3 +1,4 @@
+import { logout } from "@/lib/api/auth";
 import { SettingsScreen } from "@/features/settings/settings-screen";
 import { useUrlNavigation } from "@/features/navigation/use-url-navigation";
 import { DesignViewport } from "@/components/design-viewport";
@@ -26,7 +27,13 @@ export default function SettingsPage() {
             <MigrationScreen />
           ) : (
             <>
-              <SettingsScreen onNavigate={to} />
+              <SettingsScreen
+                onNavigate={to}
+                onLogout={() => {
+                  logout();
+                  to("/login", { replace: true });
+                }}
+              />
               <button onClick={() => to("/settings?migration=1")}>
                 이 브라우저 데이터 이관·복구
               </button>

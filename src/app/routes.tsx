@@ -1,7 +1,6 @@
 import { createBrowserRouter, type RouteObject } from "react-router";
 import { AppProviders } from "./providers";
 import { AppRuntime } from "./runtime";
-import { RequireAuth } from "@/features/auth/require-auth";
 import NotFoundPage from "@/features/navigation/pages/not-found-page";
 import HomePage from "@/features/home/pages/home-page";
 import AbyssPage from "@/features/abyss/pages/abyss-page";
@@ -63,13 +62,13 @@ export const appRoutes: RouteObject[] = [{
     { path: "sources/:sourceId/comments", element: <SourcePage /> },
     { path: "sources/new", element: <CreateSourcePage /> },
     { path: "search", element: <SearchPage /> },
-    { path: "profile", element: <RequireAuth><ProfilePage /></RequireAuth> },
+    { path: "profile", element: <ProfilePage /> },
     { path: "users/:userId", element: <ProfilePage /> },
-    { path: "profile/edit", element: <RequireAuth><EditProfilePage /></RequireAuth> },
-    { path: "profile/likes", element: <RequireAuth><LikedPostsPage /></RequireAuth> },
+    { path: "profile/edit", element: <EditProfilePage /> },
+    { path: "profile/likes", element: <LikedPostsPage /> },
     { path: "login", element: <LoginPage /> },
     { path: "onboarding", element: <OnboardingPage /> },
-    { path: "settings", element: <RequireAuth><SettingsPage /></RequireAuth> },
+    { path: "settings", element: <SettingsPage /> },
     { path: "privacy", element: <PrivacyPage /> },
     { path: "saved", element: <SavedPage /> },
     { path: "workspace", element: <WorkspacePage /> },
