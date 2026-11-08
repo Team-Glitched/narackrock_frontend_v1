@@ -55,6 +55,7 @@ export function AbyssScreen({
   const audioRef = useRef<HTMLAudioElement>(null);
   const currentShortIdRef = useRef<number | undefined>(undefined);
   const restartRef = useRef(false);
+  const restartPlaybackRef = useRef<() => void>(() => {});
   const [restarting, setRestarting] = useState(false);
   // The selection is tracked by ID, so loaded pages and a prepended deep link never move the listener.
   const [selectedId, setSelectedId] = useState(initialShortId ?? null);
@@ -113,6 +114,7 @@ export function AbyssScreen({
   const progress = playback.totalMs > 0 ? Math.min(100, (playback.positionMs / playback.totalMs) * 100) : 0;
   useLayoutEffect(() => {
     currentShortIdRef.current = current?.shortId;
+    restartPlaybackRef.current = playback.restart;
   });
 
   function select(short: ShortItemDto) {
@@ -170,7 +172,7 @@ export function AbyssScreen({
       setLink({ userId: currentUserId, shortId: null });
       const next = first.items[0];
       if (!next) return;
-      if (next.shortId === requestedFrom) playback.seek(0);
+      if (next.shortId === requestedFrom) restartPlaybackRef.current();
       else select(next);
     } catch {
       setNextFailed(true);

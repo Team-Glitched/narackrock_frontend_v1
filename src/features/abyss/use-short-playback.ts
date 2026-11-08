@@ -43,6 +43,7 @@ export type ShortPlayback = {
   totalMs: number;
   toggle: () => Promise<void>;
   seek: (ms: number) => void;
+  restart: () => void;
   error: string | null;
   nativeHandlers: {
     onLoadedMetadata: (event: NativeEvent) => void;
@@ -263,6 +264,27 @@ export function useShortPlayback({
     }
   }
 
+  // Explicit next-to-self starts playback even if the listener paused the current short.
+  function restart() {
+    setMessageState({ key, value: null });
+    if (selection === null) {
+      const audio = audioRef.current;
+      if (!audio || !mediaUrl) return;
+      audio.currentTime = 0;
+      setNativeState({ ...native, timeMs: 0 });
+      void audio.play().catch(() => setMessageState({ key, value: "음원을 재생하지 못했습니다." }));
+      return;
+    }
+    seekEngine(0);
+    if (selection.size === 0 || failed) return;
+    setIntent(true);
+    if (composition) void playEngine();
+    else {
+      pendingStart.current = true;
+      ensureStems();
+    }
+  }
+
   // The native `ended` and the engine's `onEnded` both land here; a short repeats until the listener moves on.
   function handleEnded() {
     if (selection === null) {
@@ -313,6 +335,7 @@ export function useShortPlayback({
     totalMs: selection === null ? native.durationMs : durationMs ?? native.durationMs,
     toggle,
     seek,
+    restart,
     error,
     nativeHandlers: {
       onLoadedMetadata: (event) => {
