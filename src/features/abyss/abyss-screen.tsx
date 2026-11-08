@@ -1,3 +1,4 @@
+import { useSearchParams } from "react-router";
 import { useLoginPrompt } from "@/features/auth/login-prompt";
 import { abyssStyles } from "@/styles/abyss.styles";
 import { cn } from "@/lib/utils";
@@ -48,7 +49,10 @@ export function AbyssScreen({
   const currentUserId = useCurrentUserId();
   const queryClient = useQueryClient();
   const sharing = useShareLink();
-  const [sheet, setSheet] = useState<"participants" | "comments" | "report" | null>(null);
+  const [notificationQuery] = useSearchParams();
+  const commentLink = notificationQuery.get("commentId");
+  const [sheet, setSheet] = useState<"participants" | "comments" | "report" | null>(commentLink ? "comments" : null);
+  useEffect(() => { if (commentLink) setSheet("comments"); }, [commentLink]);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [nextFailed, setNextFailed] = useState(false);
   const [mediaFailedShortId, setMediaFailedShortId] = useState<number | null>(null);
