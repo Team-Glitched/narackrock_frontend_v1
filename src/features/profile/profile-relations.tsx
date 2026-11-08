@@ -1,3 +1,4 @@
+import { useLoginPrompt } from "@/features/auth/login-prompt";
 import { buttonVariants } from "@/styles/variants";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -20,6 +21,7 @@ export function relationError(cause: unknown, fallback: string) {
  */
 export function ProfileRelationActions({ profile, onChat }: { profile: UserProfile; onChat: (userId: number) => void }) {
   const userId = useCurrentUserId();
+  const { requireLogin } = useLoginPrompt();
   const authenticated = userId !== null;
   const outgoingQuery = useQuery({ ...outgoingRequestsQuery(userId), enabled: authenticated });
   const follow = useFollowMutation();
@@ -32,22 +34,22 @@ export function ProfileRelationActions({ profile, onChat }: { profile: UserProfi
   const state = profile.relations.isFollowing ? "FOLLOWING" : pending ? "PENDING" : null;
   const busy = follow.isPending;
   function change() {
-    if (busy || !known) return;
+    if (!requireLogin() || busy || !known) return;
     setNotice("");
     follow.mutate({ targetId: profile.userId, state }, {
       onSuccess: ({ status }) => setNotice(state === "PENDING" ? "팔로우 요청을 취소했습니다." : status === "PENDING" ? "비공개 계정이라 상대가 수락하면 팔로우됩니다." : ""),
       onError: (cause) => setNotice(relationError(cause, "팔로우 상태를 바꾸지 못했습니다.")),
     });
   }
-  const label = !authenticated ? "로그인 필요" : !known ? outgoingError ? "확인 실패" : "확인 중" : state === "FOLLOWING" ? "팔로잉" : state === "PENDING" ? "요청됨" : profile.relations.isFollowedBy ? "맞팔로우" : "팔로우";
+  const label = !authenticated ? "팔로우" : !known ? outgoingError ? "확인 실패" : "확인 중" : state === "FOLLOWING" ? "팔로잉" : state === "PENDING" ? "요청됨" : profile.relations.isFollowedBy ? "맞팔로우" : "팔로우";
   return (
     <div className="flex flex-wrap items-center justify-center gap-2">
-      <button className={buttonVariants({ tone: state ? "secondary" : "primary" })} disabled={busy || !known} aria-pressed={known ? state !== null : undefined} onClick={change}>
+      <button className={buttonVariants({ tone: state ? "secondary" : "primary" })} disabled={busy || (authenticated && !known)} aria-pressed={known ? state !== null : undefined} onClick={change}>
         {label}
       </button>
       {outgoingError && <div role="alert"><p>{outgoingError}</p><button onClick={() => void outgoingQuery.refetch()}>다시 확인</button></div>}
       {canSendChatTo(profile) && (
-        <button className={buttonVariants({ tone: "secondary" })} onClick={() => onChat(profile.userId)}>
+        <button className={buttonVariants({ tone: "secondary" })} onClick={() => { if (requireLogin(`/chat?userId=${profile.userId}`)) onChat(profile.userId); }}>
           채팅
         </button>
       )}

@@ -1,3 +1,4 @@
+import { useLoginPrompt } from "@/features/auth/login-prompt";
 import { profileStyles } from "@/styles/profile.styles";
 import { sharedStyles } from "@/styles/shared.styles";
 import { cn } from "@/lib/utils";
@@ -278,6 +279,7 @@ export function ProfileScreen({
   onChat: (id: number) => void;
 }) {
   const currentUserId = useCurrentUserId();
+  const { requireLogin } = useLoginPrompt();
   const [list, setList] = useState<ProfileListKind | null>(null);
   const own = userId === undefined || userId === currentUserId;
   const { profile, loading, error, reload } = useOwnProfile(userId);
@@ -316,20 +318,20 @@ export function ProfileScreen({
       </button>
 
       <h1>{profile.nickname}</h1>
-      {!own && currentUserId !== null && (
+      {!own && (
         <ProfileRelationActions key={profile.userId} profile={profile} onChat={onChat} />
       )}
 
       <div className={sharedStyles.stats}>
-        <button aria-label="팔로워 목록" onClick={() => setList("followers")}>
+        <button aria-label="팔로워 목록" onClick={() => { if (requireLogin()) setList("followers"); }}>
           <strong>팔로워</strong>
           <small>{compactCount(profile.relations.followerCount)}</small>
         </button>
-        <button aria-label="팔로잉 목록" onClick={() => setList("following")}>
+        <button aria-label="팔로잉 목록" onClick={() => { if (requireLogin()) setList("following"); }}>
           <strong>팔로잉</strong>
           <small>{compactCount(profile.relations.followingCount)}</small>
         </button>
-        <button aria-label="작성한 게시글 목록" onClick={() => setList("articles")}>
+        <button aria-label="작성한 게시글 목록" onClick={() => { if (requireLogin()) setList("articles"); }}>
           <strong>게시글</strong>
           <small>{compactCount(profile.activities.postCount)}</small>
         </button>
