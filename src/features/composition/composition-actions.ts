@@ -14,7 +14,8 @@ import { findInstrument, invalidPitchesFor } from "./instrument-catalog";
 import { partFor, partLabel, supportsMidi } from "./instrument-parts";
 import { rememberWork, type Resource } from "@/features/workspace/workspace-store";
 import { getEditorDrafts, saveEditorDraft } from "@/lib/api/composition-drafts";
-import type { DraftContent } from "./editor-draft";
+import { listLocalDrafts, type DraftContent } from "./editor-draft";
+import { apiOrigin } from "@/lib/api/client";
 
 export type CompositionTarget = { projectId: number; shortId: number | null };
 export type EditorTarget = { trackId: number; clipId: number | null };
@@ -44,10 +45,19 @@ export async function cancelEmptyLayer(projectId: number, trackId: number) {
  */
 export async function releaseAbandonedLayer(projectId: number) {
   const [composition, drafts] = await Promise.all([getComposition(projectId), getEditorDrafts(projectId)]);
+  // Keeping a draft may succeed locally even when its first server save fails.
+  // If recovery storage is inaccessible, we cannot safely classify a track as abandoned.
+  let localDrafts;
+  try {
+    localDrafts = listLocalDrafts(window.localStorage, apiOrigin(), composition.viewerPermission.userId, projectId);
+  } catch {
+    return;
+  }
   const abandoned = composition.tracks.find(
     (track) =>
       track.ownerId === composition.viewerPermission.userId &&
       track.clips.length === 0 &&
+      !localDrafts.some((draft) => draft.trackId === track.trackId) &&
       !drafts.some((draft) => draft.trackId === track.trackId && draft.status === "ACTIVE"),
   );
   if (abandoned) await deleteTrack(abandoned.trackId);
