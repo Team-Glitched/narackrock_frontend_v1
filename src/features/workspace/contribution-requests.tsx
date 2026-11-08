@@ -224,6 +224,7 @@ export function SubmissionDetailScreen({
   });
   const review = useReviewContributionMutation();
   const [reviewed, setReviewed] = useState<ContributionDto | null>(null);
+  const [reason, setReason] = useState("");
   const item = reviewed ?? contributions.data?.find((entry) => entry.contributionId === id);
   const own = item?.userId === userId;
   const ownerId = composition.data?.project.ownerId;
@@ -291,6 +292,12 @@ export function SubmissionDetailScreen({
           {item.description}
         </p>
       )}
+      {item.approvalStatus === "REJECTED" && item.reviewComment?.trim() && (
+        <section className="mt-4 rounded-xl border border-app-border bg-app-surface px-4 py-3" aria-label="거절 사유">
+          <h3 className="mb-1 text-caption font-semibold text-app-muted">거절 사유</h3>
+          <p className="m-0 whitespace-pre-wrap text-body leading-6 [overflow-wrap:anywhere]">{item.reviewComment}</p>
+        </section>
+      )}
       <button
         className="mt-6 flex min-h-12 w-full items-center justify-between gap-3 rounded-xl border border-app-border bg-app-surface px-4 py-3 text-left text-label font-medium"
         onClick={() => onResume(projectId, id)}
@@ -299,25 +306,39 @@ export function SubmissionDetailScreen({
         <ArrowUpRight size={20} aria-hidden="true" />
       </button>
       {canReview && (
-        <ContributionReviewActions
-          busy={review.isPending}
-          onReview={(status) => {
-            if (review.isPending) return;
-            review.mutate(
-              { projectId, contributionId: id, status },
-              {
-                onSuccess: (result) =>
-                  setReviewed({
-                    ...item,
-                    approvalStatus: result.approvalStatus,
-                    reviewedAt: result.reviewedAt,
-                    reviewedBy: result.reviewedBy,
-                    reviewComment: result.reviewComment,
-                  }),
-              },
-            );
-          }}
-        />
+        <>
+          <label className="mt-6 block">
+            <span className="mb-2 block text-caption font-semibold text-app-muted">거절 사유 (선택)</span>
+            <textarea
+              className="box-border min-h-20 w-full resize-y rounded-xl border border-app-border bg-app-surface p-3 text-body text-app-fg"
+              maxLength={500}
+              placeholder="거절할 때 참여자에게 보여줄 사유를 적어 주세요."
+              value={reason}
+              disabled={review.isPending}
+              onChange={(event) => setReason(event.target.value)}
+            />
+          </label>
+          <ContributionReviewActions
+            busy={review.isPending}
+            onReview={(status) => {
+              if (review.isPending) return;
+              review.mutate(
+                // The reason is shown to the requester only for a rejection.
+                { projectId, contributionId: id, status, comment: status === "REJECTED" ? reason.trim() || null : null },
+                {
+                  onSuccess: (result) =>
+                    setReviewed({
+                      ...item,
+                      approvalStatus: result.approvalStatus,
+                      reviewedAt: result.reviewedAt,
+                      reviewedBy: result.reviewedBy,
+                      reviewComment: result.reviewComment,
+                    }),
+                },
+              );
+            }}
+          />
+        </>
       )}
       {review.isError && <ReviewError error={review.error} />}
     </RequestPage>
