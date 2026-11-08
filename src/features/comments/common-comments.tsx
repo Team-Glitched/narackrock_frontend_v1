@@ -86,7 +86,11 @@ export function CommonComments({
   const [commentLink] = useSearchParams();
   const linkedParent = readId(commentLink.get("parentCommentId"));
   const [expanded, setExpanded] = useState<Set<number>>(() => new Set(linkedParent ? [linkedParent] : []));
-  useEffect(() => { if (linkedParent) setExpanded((old) => new Set([...old, linkedParent])); }, [linkedParent]);
+  const [linkedThread, setLinkedThread] = useState(linkedParent);
+  if (linkedThread !== linkedParent) {
+    setLinkedThread(linkedParent);
+    if (linkedParent) setExpanded((old) => new Set([...old, linkedParent]));
+  }
   const [reply, setReply] = useState<{ threadId: number; author: string } | null>(null);
   const [draft, setDraft] = useState("");
   const [reportTarget, setReportTarget] = useState<number | null>(null);

@@ -52,7 +52,11 @@ export function AbyssScreen({
   const [notificationQuery] = useSearchParams();
   const commentLink = notificationQuery.get("commentId");
   const [sheet, setSheet] = useState<"participants" | "comments" | "report" | null>(commentLink ? "comments" : null);
-  useEffect(() => { if (commentLink) setSheet("comments"); }, [commentLink]);
+  const [openedCommentLink, setOpenedCommentLink] = useState(commentLink);
+  if (openedCommentLink !== commentLink) {
+    setOpenedCommentLink(commentLink);
+    if (commentLink) setSheet("comments");
+  }
   const [feedback, setFeedback] = useState<string | null>(null);
   const [nextFailed, setNextFailed] = useState(false);
   const [mediaFailedShortId, setMediaFailedShortId] = useState<number | null>(null);
