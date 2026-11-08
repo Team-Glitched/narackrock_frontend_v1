@@ -13,7 +13,7 @@ import { createHtiMidiLayerPlan } from "./hti-midi-flow";
 import { findInstrument, invalidPitchesFor } from "./instrument-catalog";
 import { partFor, partLabel, supportsMidi } from "./instrument-parts";
 import { rememberWork, type Resource } from "@/features/workspace/workspace-store";
-import { saveEditorDraft } from "@/lib/api/composition-drafts";
+import { getEditorDrafts, saveEditorDraft } from "@/lib/api/composition-drafts";
 import type { DraftContent } from "./editor-draft";
 
 export type CompositionTarget = { projectId: number; shortId: number | null };
@@ -36,6 +36,21 @@ export async function cancelEmptyLayer(projectId: number, trackId: number) {
   const track = composition.tracks.find((item) => item.trackId === trackId);
   if (track && track.ownerId === composition.viewerPermission.userId && track.clips.length === 0)
     await deleteTrack(trackId);
+}
+
+/**
+ * Frees the viewer's one layer in a song when an earlier flow left an empty track behind: no shared clip and no
+ * personal draft that "개인 초안 유지" kept for later.
+ */
+export async function releaseAbandonedLayer(projectId: number) {
+  const [composition, drafts] = await Promise.all([getComposition(projectId), getEditorDrafts(projectId)]);
+  const abandoned = composition.tracks.find(
+    (track) =>
+      track.ownerId === composition.viewerPermission.userId &&
+      track.clips.length === 0 &&
+      !drafts.some((draft) => draft.trackId === track.trackId && draft.status === "ACTIVE"),
+  );
+  if (abandoned) await deleteTrack(abandoned.trackId);
 }
 
 async function saveNewLayerDraft(projectId: number, trackId: number, content: DraftContent) {
