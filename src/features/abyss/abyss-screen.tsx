@@ -18,9 +18,8 @@ import { ApiError } from "@/lib/api/client";
 import { canJoinShort } from "@/features/abyss/short-participation";
 import { useCurrentUserId } from "@/features/auth/use-current-user";
 import { useShortPlayback } from "@/features/abyss/use-short-playback";
-import type { PlaybackMode } from "@/features/abyss/short-playback-state";
 import { shortDetailQuery, shortsFeedQuery, updateCachedShort } from "@/features/abyss/abyss-queries";
-import { getShort, getShortShareLink, reactToShort, recordShortView, toggleShortBookmark } from "@/lib/api/shorts";
+import { getShort, getShortShareLink, getShorts, reactToShort, recordShortView, toggleShortBookmark } from "@/lib/api/shorts";
 import { reportShort } from "@/lib/api/reports";
 import type { ShortItemDto } from "@/lib/api/contracts";
 import { queryScope } from "@/lib/query";
@@ -37,7 +36,6 @@ export function AbyssScreen({
   onJoin,
   initialShortId,
   muted = false,
-  mode = "repeat",
   onRememberShort,
 }: {
   onRememberShort?: (id: number) => void;
@@ -45,7 +43,6 @@ export function AbyssScreen({
   onJoin: (shortId: number) => void;
   initialShortId?: number | null;
   muted?: boolean;
-  mode?: PlaybackMode;
 }) {
   const { requireLogin } = useLoginPrompt();
   const currentUserId = useCurrentUserId();
@@ -57,6 +54,9 @@ export function AbyssScreen({
   const [mediaFailedShortId, setMediaFailedShortId] = useState<number | null>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
   const currentShortIdRef = useRef<number | undefined>(undefined);
+  const restartRef = useRef(false);
+  const restartPlaybackRef = useRef<() => void>(() => {});
+  const [restarting, setRestarting] = useState(false);
   // The selection is tracked by ID, so loaded pages and a prepended deep link never move the listener.
   const [selectedId, setSelectedId] = useState(initialShortId ?? null);
 
@@ -107,12 +107,14 @@ export function AbyssScreen({
     onProfile(userId);
   };
   const mediaUrl = current?.mediaUrl?.trim() || null;
-  const loadingMore = feed.isFetchingNextPage;
-  const hasNext = index < shorts.length - 1 || feed.hasNextPage;
-  const playback = useShortPlayback({ short: current ?? null, audioRef, muted, mode, onNext: selectNext });
+  const loadingMore = feed.isFetchingNextPage || restarting;
+  // The feed never ends: after the last short the list is read again from the backend.
+  const hasNext = shorts.length > 0;
+  const playback = useShortPlayback({ short: current ?? null, audioRef, muted });
   const progress = playback.totalMs > 0 ? Math.min(100, (playback.positionMs / playback.totalMs) * 100) : 0;
   useLayoutEffect(() => {
     currentShortIdRef.current = current?.shortId;
+    restartPlaybackRef.current = playback.restart;
   });
 
   function select(short: ShortItemDto) {
@@ -134,11 +136,14 @@ export function AbyssScreen({
       selectShort(index + 1);
       return;
     }
-    if (!feed.hasNextPage || feed.isFetchingNextPage) return;
-
+    if (feed.isFetchingNextPage || restartRef.current) return;
     const requestedFrom = current?.shortId;
     setNextFailed(false);
-    // An ended event and a click on the same short share one request.
+    if (!feed.hasNextPage) {
+      await restartFeed(requestedFrom);
+      return;
+    }
+    // Repeated clicks on the same short share one request.
     const result = await feed.fetchNextPage({ cancelRefetch: false });
     if (result.isFetchNextPageError) {
       setNextFailed(true);
@@ -146,8 +151,35 @@ export function AbyssScreen({
     }
     const fresh = result.data?.pages.at(-1)?.items.find((item) => !loadedIds.has(item.shortId));
     // Only move on when the listener is still on the short that asked for the next page.
-    if (!fresh || currentShortIdRef.current !== requestedFrom) return;
-    select(fresh);
+    if (currentShortIdRef.current !== requestedFrom) return;
+    if (fresh) select(fresh);
+    else await restartFeed(requestedFrom);
+  }
+
+  // Past the last short, the first page is read again and replaces the loaded feed, so new shorts appear and the
+  // cursor starts over. The listener stays on the current short until the fresh page arrives.
+  async function restartFeed(requestedFrom: number | undefined) {
+    restartRef.current = true;
+    setRestarting(true);
+    try {
+      const first = await getShorts(undefined);
+      if (currentShortIdRef.current !== requestedFrom) return;
+      queryClient.setQueryData(shortsFeedQuery(currentUserId).queryKey, {
+        pages: [first],
+        pageParams: [undefined],
+      });
+      // The fresh list starts the cycle again; a deep-linked short is no longer prepended to it.
+      setLink({ userId: currentUserId, shortId: null });
+      const next = first.items[0];
+      if (!next) return;
+      if (next.shortId === requestedFrom) restartPlaybackRef.current();
+      else select(next);
+    } catch {
+      setNextFailed(true);
+    } finally {
+      restartRef.current = false;
+      setRestarting(false);
+    }
   }
 
   // Confirm, backdrop, grip and Escape all apply the sheet's selection the same way.
