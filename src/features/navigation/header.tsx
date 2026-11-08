@@ -1,3 +1,4 @@
+import { NotificationBell } from "@/features/notifications/notification-bell";
 import type { ReactNode } from "react";
 import { useAuthSession } from "@/features/auth/auth-session";
 import { useUrlNavigation } from "./use-url-navigation";
@@ -62,9 +63,7 @@ export function Header({
         </button>
       )}
       <div className={cn("flex h-11 items-start gap-[10px] overflow-hidden", abyss && "gap-2")}>
-        <button className={headerControl} aria-label="알림" onClick={openNotifications}>
-          <Asset name="v3-bell.svg" />
-        </button>
+        <NotificationBell className={headerControl} onClick={openNotifications} />
         <button className={headerControl} aria-label="검색" onClick={onSearch}>
           <Asset name="v3-search.svg" />
         </button>

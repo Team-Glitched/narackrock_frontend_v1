@@ -1,3 +1,4 @@
+import { NotificationBell } from "@/features/notifications/notification-bell";
 import { socialStyles } from "@/styles/social.styles";
 import { sharedStyles } from "@/styles/shared.styles";
 import { communityStyles } from "@/styles/community.styles";
@@ -231,9 +232,7 @@ export function ChatScreen({
         ) : (
           <h1>채팅</h1>
         )}
-        <button aria-label="알림" onClick={onNotifications}>
-          <Asset name="bell.svg" />
-        </button>
+        <NotificationBell onClick={onNotifications} />
         <button aria-label={friendId === null ? "대화 상대 검색" : "검색"} onClick={friendId === null ? () => {
           setSearch((previous) => ({ open: true, request: previous.request + 1 }));
         } : onSearch}>

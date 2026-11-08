@@ -16,6 +16,7 @@ export function NotificationPanel({ overlay = false }: { overlay?: boolean }) {
   }
   return <NotificationsScreen
     onBack={close}
+    onNavigate={(path) => to(path)}
     onOpenProject={(id, contributionId) => to(withQuery(`/studio/${id}`, { contributionId }), { state: { studioFrom: currentPath, studioIndex: window.history.state?.idx, inbox: true } })}
     onOpenProfile={(id) => to("/users/" + id)}
   />;
