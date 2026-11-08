@@ -1,4 +1,5 @@
 import { useMemo, type ReactNode } from "react";
+import { NotificationRuntime } from "@/features/notifications/notification-runtime";
 import { LoginPromptProvider } from "@/features/auth/login-prompt";
 import { AuthSessionProvider } from "@/features/auth/auth-session";
 import { AbyssPlaybackProvider } from "@/features/abyss/playback-preferences";
@@ -12,6 +13,7 @@ export function AppProviders({ children }: { children: ReactNode }) {
   return (
     <AuthSessionProvider>
       <LoginPromptProvider>
+        <NotificationRuntime />
         <AbyssPlaybackProvider>
           <CommunityMembershipProvider api={membershipApi}>{children}</CommunityMembershipProvider>
         </AbyssPlaybackProvider>
