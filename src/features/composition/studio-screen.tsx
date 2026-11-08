@@ -1,3 +1,5 @@
+import { contributionsQuery } from "@/features/workspace/workspace-queries";
+import { contributionTrackIds } from "@/features/workspace/contribution-presentation";
 import { studioStyles } from "@/styles/studio.styles";
 import { cn } from "@/lib/utils";
 import { sharedStyles } from "@/styles/shared.styles";
@@ -62,6 +64,7 @@ import {
 
 export function StudioScreen({
   onSubmitted,
+  contributionId,
   shortId,
   projectId,
   onReturnToShort,
@@ -72,6 +75,7 @@ export function StudioScreen({
   onExit,
 }: {
   onSubmitted: () => void;
+  contributionId?: number;
   shortId: number | null;
   projectId: number | null;
   onExit: () => void;
@@ -120,6 +124,21 @@ export function StudioScreen({
   const composition =
     compositionResult.data && draftsResult.data ? compositionResult.data : null;
   const personalDrafts = draftsResult.data;
+  const requestList = useQuery({
+    ...contributionsQuery(userId, loadedProjectId ?? 0),
+    enabled: contributionId != null && loadedProjectId !== null,
+  });
+  const highlightedRequest = requestList.data?.find((item) => item.contributionId === contributionId);
+  const highlightedTracks = useMemo(
+    () => contributionTrackIds(highlightedRequest?.items ?? [], composition?.tracks ?? []),
+    [highlightedRequest, composition],
+  );
+  const firstHighlightedTrack = useRef<HTMLDivElement>(null);
+  const highlightKey = [...highlightedTracks].join(":");
+  useEffect(() => {
+    if (highlightKey)
+      firstHighlightedTrack.current?.scrollIntoView({ block: "nearest", inline: "nearest" });
+  }, [highlightKey]);
   const loadFailure = entry.error ?? compositionResult.error ?? draftsResult.error;
   const preview = useMemo(() => {
     if (!composition || !personalDrafts || composition.viewerPermission.userId !== userId) return null;
@@ -443,6 +462,24 @@ export function StudioScreen({
           </button>
         )}
       </StudioToolbar>
+      {contributionId != null && (
+        <div className="flex shrink-0 items-center gap-2 px-4 py-2 text-caption text-app-primary-soft" role="status">
+          {requestList.isPending ? (
+            "요청의 추가 트랙을 확인하는 중..."
+          ) : requestList.isError ? (
+            <>
+              <span>요청의 추가 트랙을 확인하지 못했습니다.</span>
+              <button onClick={() => void requestList.refetch()}>다시 시도</button>
+            </>
+          ) : !highlightedRequest ? (
+            "이 요청의 추가 트랙을 확인할 수 없습니다."
+          ) : highlightedTracks.size ? (
+            `이 요청으로 추가한 트랙 ${highlightedTracks.size}개를 강조했어요.`
+          ) : (
+            "요청의 추가 트랙이 현재 음악에 없습니다."
+          )}
+        </div>
+      )}
       {(error || playback.error) && !showSubmitForm && (
         <p className={studioStyles.studioError} role="alert">
           {error ?? playback.error}
@@ -698,8 +735,17 @@ export function StudioScreen({
             }}
           />
           {tracks.map((track) => (
-            <div className={cn(sharedStyles.track, studioStyles.studioTrack)} key={track.trackId}>
+            <div
+              className={cn(sharedStyles.track, studioStyles.studioTrack, highlightedTracks.has(track.trackId) && "after:pointer-events-none after:absolute after:inset-0 after:z-[3] after:rounded-md after:border-2 after:border-solid after:border-app-primary-soft after:content-['']")}
+              key={track.trackId}
+              ref={track.trackId === [...highlightedTracks][0] ? firstHighlightedTrack : undefined}
+              data-contribution-highlighted={highlightedTracks.has(track.trackId) || undefined}
+              aria-label={highlightedTracks.has(track.trackId) ? `${track.name} · 이 요청으로 추가된 트랙` : undefined}
+            >
               <div className={studioStyles.trackPerson} title={track.name}>
+                {highlightedTracks.has(track.trackId) && (
+                  <span className="pointer-events-none absolute right-1 bottom-0 z-[3] rounded bg-app-primary px-1 text-[9px] leading-3 text-white">추가 트랙</span>
+                )}
                 <button
                   className={"track-settings-trigger"}
                   aria-label={`${track.name} 트랙 설정`}
