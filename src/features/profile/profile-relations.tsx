@@ -36,14 +36,14 @@ export function ProfileRelationActions({ profile, onChat }: { profile: UserProfi
   function change() {
     if (!requireLogin() || busy || !known) return;
     setNotice("");
+    // The button label already shows the result ("요청됨", "팔로잉", "팔로우"); only failures need a message.
     follow.mutate({ targetId: profile.userId, state }, {
-      onSuccess: ({ status }) => setNotice(state === "PENDING" ? "팔로우 요청을 취소했습니다." : status === "PENDING" ? "비공개 계정이라 상대가 수락하면 팔로우됩니다." : ""),
       onError: (cause) => setNotice(relationError(cause, "팔로우 상태를 바꾸지 못했습니다.")),
     });
   }
   const label = !authenticated ? "팔로우" : !known ? outgoingError ? "확인 실패" : "확인 중" : state === "FOLLOWING" ? "팔로잉" : state === "PENDING" ? "요청됨" : profile.relations.isFollowedBy ? "맞팔로우" : "팔로우";
   return (
-    <div className="flex flex-wrap items-center justify-center gap-2">
+    <div className="mb-4 flex flex-wrap items-center justify-center gap-2">
       <button className={buttonVariants({ tone: state ? "secondary" : "primary" })} disabled={busy || (authenticated && !known)} aria-pressed={known ? state !== null : undefined} onClick={change}>
         {label}
       </button>
@@ -53,7 +53,7 @@ export function ProfileRelationActions({ profile, onChat }: { profile: UserProfi
           채팅
         </button>
       )}
-      {notice && <p role="status">{notice}</p>}
+      {notice && <p role="alert" className="m-0 basis-full text-center text-caption text-app-muted">{notice}</p>}
     </div>
   );
 }
