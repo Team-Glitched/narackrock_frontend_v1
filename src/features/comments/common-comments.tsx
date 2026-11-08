@@ -230,13 +230,7 @@ export function CommonComments({
               ref={input}
               rows={1}
               aria-label="댓글 내용"
-              placeholder={
-                currentUserId === null
-                  ? "로그인 후 댓글을 작성할 수 있습니다."
-                  : canWrite
-                    ? "입력"
-                    : "댓글 작성은 준비 중입니다."
-              }
+              placeholder="입력"
               value={draft}
               onChange={(event) => setDraft(event.target.value)}
               disabled={busy || !writable}
