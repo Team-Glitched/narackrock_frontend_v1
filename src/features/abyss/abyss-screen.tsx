@@ -119,18 +119,35 @@ export function AbyssScreen({
     onProfile(userId);
   };
   const participation = current ? shortParticipation(current, currentUserId) : null;
-  const [openingRequest, setOpeningRequest] = useState(false);
+  const requestContext = useRef<AbortController | null>(null);
+  const [openingRequest, setOpeningRequest] = useState<{
+    shortId: number | undefined;
+    userId: number | null;
+    signal: AbortSignal;
+  } | null>(null);
+  useLayoutEffect(() => {
+    const context = new AbortController();
+    requestContext.current = context;
+    // A late response must not navigate after leaving this song or switching accounts.
+    return () => context.abort();
+  }, [currentShortId, currentUserId]);
+  const requestBusy = openingRequest !== null &&
+    openingRequest.shortId === currentShortId && openingRequest.userId === currentUserId &&
+    !openingRequest.signal.aborted;
   // The short only says a request is pending; its ID comes from the project's contribution list.
   async function openPendingRequest(projectId: number) {
-    setOpeningRequest(true);
+    const signal = requestContext.current?.signal;
+    if (!signal || signal.aborted) return;
+    setOpeningRequest({ shortId: currentShortId, userId: currentUserId, signal });
     try {
       const list = await queryClient.fetchQuery({ ...contributionsQuery(currentUserId, projectId), staleTime: 0 });
+      if (signal.aborted) return;
       const pending = list.find((item) => item.userId === currentUserId && item.approvalStatus === "PENDING");
       onOpenRequest(projectId, pending?.contributionId ?? null);
     } catch {
-      onOpenRequest(projectId, null);
+      if (!signal.aborted) onOpenRequest(projectId, null);
     } finally {
-      setOpeningRequest(false);
+      if (!signal.aborted) setOpeningRequest((request) => request?.signal === signal ? null : request);
     }
   }
   const mediaUrl = current?.mediaUrl?.trim() || null;
@@ -501,7 +518,7 @@ export function AbyssScreen({
           <div className={abyssStyles.abyssJoinSlot}>
             <button
               className={cn(abyssStyles.abyssJoin, participation !== "joinable" && abyssStyles.abyssJoined)}
-              disabled={openingRequest}
+              disabled={requestBusy}
               onClick={() => {
                 const projectId = current.projectId;
                 if (projectId == null) return;
