@@ -1,3 +1,4 @@
+import { useLoginPrompt } from "@/features/auth/login-prompt";
 import { sharedStyles } from "@/styles/shared.styles";
 import { abyssStyles } from "@/styles/abyss.styles";
 import { useQuery } from "@tanstack/react-query";
@@ -24,6 +25,7 @@ export function ShortParticipants({
   onClose: () => void;
   onListenAll: () => void;
 }) {
+  const { requestLogin } = useLoginPrompt();
   const userId = useCurrentUserId();
   const composers = useQuery({ ...shortComposersQuery(userId, short.shortId), enabled: userId !== null });
 
@@ -43,7 +45,7 @@ export function ShortParticipants({
         ) : (
           <li>아직 참여자가 없습니다.</li>
         )}
-        <li>참여자별 트랙 듣기는 로그인 후 사용할 수 있습니다.</li>
+        <li><button onClick={() => requestLogin()}>로그인하고 참여자별 트랙 듣기</button></li>
       </ul>
     );
 

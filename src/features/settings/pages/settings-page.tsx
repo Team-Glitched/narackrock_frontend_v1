@@ -1,3 +1,5 @@
+import { useNavigate } from "react-router";
+import { logout } from "@/lib/api/auth";
 import { SettingsScreen } from "@/features/settings/settings-screen";
 import { useUrlNavigation } from "@/features/navigation/use-url-navigation";
 import { DesignViewport } from "@/components/design-viewport";
@@ -11,6 +13,7 @@ import { creationTarget } from "@/features/navigation/creation-target";
 import { MigrationScreen } from "@/features/migration/migration-screen";
 export default function SettingsPage() {
   const { to, back, params, query, currentPath } = useUrlNavigation();
+  const navigate = useNavigate();
   const galleryId = readId(params.galleryId) ?? readId(query.get("galleryId"));
   const scope = resolveSearchScope(query.get("scope"), "songs", Boolean(galleryId));
   const target = creationTarget(scope, galleryId);
@@ -26,7 +29,15 @@ export default function SettingsPage() {
             <MigrationScreen />
           ) : (
             <>
-              <SettingsScreen onNavigate={to} />
+              <SettingsScreen
+                onNavigate={to}
+                onLogout={() => {
+                  // Leave the protected page in the same render before the session clears; a transition here would
+                  // first re-render /settings signed out and flash the login confirmation.
+                  navigate("/login", { replace: true, flushSync: true });
+                  logout();
+                }}
+              />
               <button onClick={() => to("/settings?migration=1")}>
                 이 브라우저 데이터 이관·복구
               </button>

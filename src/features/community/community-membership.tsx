@@ -1,3 +1,4 @@
+import { useLoginPrompt } from "@/features/auth/login-prompt";
 import { createContext, useCallback, useContext, useMemo, useState } from "react";
 import type { ReactNode } from "react";
 import { useMutation, useMutationState, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -127,6 +128,7 @@ function ScopedMembershipProvider({
   api?: CommunityMembershipApi;
   children: ReactNode;
 }) {
+  const { requireLogin } = useLoginPrompt();
   const queryClient = useQueryClient();
   const resolvedApi = useMemo(
     () => api ?? createLocalMembershipApi(defaultJoinedIds),
@@ -190,7 +192,7 @@ function ScopedMembershipProvider({
 
   const toggle = useCallback(
     (communityId: number) => {
-      if (loading || loadFailed) return;
+      if (!requireLogin() || loading || loadFailed) return;
       // 캐시를 직접 읽어 두 번 연달아 누른 클릭도 진행 중인 요청을 본다.
       const inFlight = queryClient.isMutating({
         mutationKey: membershipKey,
@@ -202,7 +204,7 @@ function ScopedMembershipProvider({
       setChangeError(null);
       mutate({ communityId, joining });
     },
-    [joinedKey, loadFailed, loading, membershipKey, mutate, queryClient],
+    [joinedKey, loadFailed, loading, membershipKey, mutate, queryClient, requireLogin],
   );
 
   const { refetch } = joined;
