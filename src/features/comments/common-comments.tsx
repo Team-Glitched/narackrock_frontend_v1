@@ -218,7 +218,11 @@ export function CommonComments({
             <i />
           </span>
           {currentUserId === null ? (
-            <button type="button" className="min-h-11 flex-1 text-left text-app-muted" onClick={() => requestLogin()}>
+            <button
+              type="button"
+              className="box-border min-h-9 min-w-0 flex-1 rounded-[20px] bg-app-surface py-2 pr-2.5 pl-[38px] text-left text-body leading-[20px] text-app-muted"
+              onClick={() => requestLogin()}
+            >
               로그인 후 댓글을 작성할 수 있습니다.
             </button>
           ) : (
