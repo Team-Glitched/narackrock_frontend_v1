@@ -1,4 +1,4 @@
-import { ReviewInboxScreen } from "@/features/workspace/workspace-screens";
+import { ReviewInboxScreen } from "@/features/workspace/contribution-requests";
 import { useUrlNavigation } from "@/features/navigation/use-url-navigation";
 import { readId, withQuery } from "@/features/navigation/paths";
 import { DesignViewport } from "@/components/design-viewport";
@@ -30,6 +30,16 @@ export default function ReviewsPage() {
         <div className={sharedStyles.screenBody}>
           <ReviewInboxScreen
             onSelect={(id, projectId) => to(withQuery(`/submissions/${id}`, { projectId }))}
+            onOpenProject={(id, contributionId) =>
+              to(withQuery(`/studio/${id}`, { contributionId }), {
+                state: {
+                  studioFrom: currentPath,
+                  studioIndex: window.history.state?.idx,
+                  inbox: true,
+                },
+              })
+            }
+            onOpenProfile={(id) => to(`/users/${id}`)}
           />
         </div>
         <Footer activeTab={null} onCreate={onCreate} createLabel={target.label} />

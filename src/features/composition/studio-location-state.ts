@@ -3,4 +3,5 @@ export type StudioLocationState = NavigationState & {
   studioFrom?: string;
   studioIndex?: number;
   inbox?: boolean;
+  contributionId?: number;
 };

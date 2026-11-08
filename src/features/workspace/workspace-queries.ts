@@ -1,14 +1,21 @@
-import { queryOptions, useMutation, useQueryClient } from "@tanstack/react-query";
+import {
+  infiniteQueryOptions,
+  queryOptions,
+  useMutation,
+  useQueryClient,
+} from "@tanstack/react-query";
 import { useCurrentUserId } from "@/features/auth/use-current-user";
 import { compositionKeys } from "@/features/composition/composition-queries";
 import {
   getContributionInbox,
+  getSentContributions,
   listContributions,
   reviewContribution,
   type ContributionNotificationDto,
 } from "@/lib/api/composition";
 
 export const contributionKeys = {
+  sent: (userId: number | null) => [...compositionKeys.all(userId), "sent-contributions"] as const,
   /** Every contribution of one project; part of the project's composition data. */
   project: (userId: number | null, projectId: number) =>
     [...compositionKeys.project(userId, projectId), "contributions"] as const,
@@ -20,6 +27,16 @@ export const contributionsQuery = (userId: number | null, projectId: number) =>
   queryOptions({
     queryKey: contributionKeys.project(userId, projectId),
     queryFn: ({ signal }) => listContributions(projectId, undefined, signal),
+  });
+
+export const sentContributionsQuery = (userId: number | null) =>
+  infiniteQueryOptions({
+    queryKey: contributionKeys.sent(userId),
+    queryFn: ({ pageParam, signal }) => getSentContributions(pageParam, signal),
+    initialPageParam: undefined as number | undefined,
+    enabled: userId !== null,
+    getNextPageParam: (last) =>
+      last.page.hasMore && last.page.nextCursor != null ? last.page.nextCursor : undefined,
   });
 
 export const contributionInboxQuery = (userId: number | null) =>
@@ -56,6 +73,7 @@ export function useReviewContributionMutation() {
         queryClient.invalidateQueries({ queryKey: contributionKeys.project(userId, projectId) }),
         queryClient.invalidateQueries({ queryKey: compositionKeys.detail(userId, projectId) }),
         queryClient.invalidateQueries({ queryKey: contributionKeys.inbox(userId) }),
+        queryClient.invalidateQueries({ queryKey: contributionKeys.sent(userId) }),
       ]);
     },
   });

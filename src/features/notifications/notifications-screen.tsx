@@ -1,3 +1,4 @@
+import { ContributionRequestCard, ContributionReviewActions } from "@/features/workspace/contribution-request-card";
 import { badgeVariants, filterChipVariants, type BadgeStatus } from "@/styles/variants";
 import { socialStyles } from "@/styles/social.styles";
 import { profileStyles } from "@/styles/profile.styles";
@@ -28,7 +29,7 @@ function listStatus({ data, error, isFetching }: UseQueryResult<unknown>) {
  */
 type NotificationProps = {
   onBack: () => void;
-  onOpenProject: (id: number) => void;
+  onOpenProject: (id: number, contributionId: number) => void;
   onOpenProfile: (id: number) => void;
 };
 
@@ -148,34 +149,13 @@ function ScopedNotificationsScreen({ onBack, onOpenProject, onOpenProfile, signe
           {notice && <p role="status">{notice}</p>}
           <ul className={socialStyles.notificationEvents}>
             {contributions.map((item) => (
-              <li key={`contribution:${item.contributionId}`}>
-                <Avatar />
-                <div>
-                  <span className={badge("request")}>받은 참여 요청</span>
-                  <button className={socialStyles.notificationEventCopy} onClick={() => onOpenProject(item.projectId)}>
-                    <strong>{item.nickname}</strong>
-                    <span>님이 {item.projectTitle}에 참여를 요청했습니다.</span>
-                    {item.description && <small>{item.description}</small>}
-                  </button>
-                  <div className={socialStyles.notificationEventActions}>
-                    {(["APPROVED", "REJECTED"] as const).map((decision) => (
-                      <button
-                        key={decision}
-                        disabled={busy}
-                        onClick={() =>
-                          act(
-                            contributionReview.mutate,
-                            { projectId: item.projectId, contributionId: item.contributionId, status: decision },
-                            decision === "APPROVED" ? "참여 요청을 승인했습니다." : "참여 요청을 반려했습니다.",
-                          )
-                        }
-                      >
-                        {decision === "APPROVED" ? "승인" : "반려"}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              </li>
+              <ContributionRequestCard key={`contribution:${item.contributionId}`} item={item} onOpenProject={onOpenProject} onOpenProfile={onOpenProfile}>
+                <ContributionReviewActions busy={busy} onReview={(status) => act(
+                  contributionReview.mutate,
+                  { projectId: item.projectId, contributionId: item.contributionId, status },
+                  status === "APPROVED" ? "참여 요청을 수락했습니다." : "참여 요청을 거절했습니다.",
+                )} />
+              </ContributionRequestCard>
             ))}
             {follows.map((request) => (
               <li key={`follow:${request.requestId}`}>
@@ -212,9 +192,6 @@ function ScopedNotificationsScreen({ onBack, onOpenProject, onOpenProfile, signe
               {filter === "all" ? "새로운 알림이 없습니다." : "선택한 종류의 알림이 없습니다."}
             </p>
           )}
-          <p className={profileStyles.profileListEmpty}>
-            보낸 요청의 결과, 지난 알림 기록과 읽음 표시는 현재 서버에서 지원하지 않습니다.
-          </p>
         </div>
       </section>
     </div>

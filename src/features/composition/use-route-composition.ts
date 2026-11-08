@@ -28,6 +28,7 @@ export function useRouteComposition() {
     studioFrom: nav.state.studioFrom ?? safeReturnPath(nav.state.from),
     studioIndex: nav.state.studioIndex,
     inbox: nav.state.inbox,
+    contributionId: readId(nav.query.get("contributionId")) ?? readId(String(nav.state.contributionId)) ?? undefined,
   };
   async function importResource(resource: Resource, work?: Work) {
     if (locked.current) throw new Error("다른 레이어를 추가하는 중입니다.");
