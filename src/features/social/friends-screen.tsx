@@ -3,45 +3,58 @@ import { cn } from "@/lib/utils";
 import { socialStyles } from "@/styles/social.styles";
 import { buttonVariants } from "@/styles/variants";
 import { profileStyles } from "@/styles/profile.styles";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Avatar } from "@/components/avatar";
 import { SectionTitle } from "@/components/section-title";
 import { useCurrentUserId } from "@/features/auth/use-current-user";
 import { SignInRequired } from "@/features/auth/sign-in-required";
 import { relationError } from "@/features/profile/profile-relations";
-import type { FollowRequest, Person } from "@/lib/api/social";
+import type { Person } from "@/lib/api/social";
 import { RecommendedPeopleList } from "./recommended-people-list";
 import { followRequestsQuery, mutualFollowersQuery, useReviewFollowRequestMutation } from "./social-queries";
 
-type FriendsProps = { onProfile: (id: number) => void; onChat: (id: number) => void; view?: "summary" | "recommendations"; onRecommendations?: () => void };
-type Loaded = { mutual: Person[]; requests: FollowRequest[]; error?: string };
+type ProfileHandler = (id: number) => void;
+type ChatHandler = (userId: number) => void;
 
-function PersonLink({ person, onProfile }: { person: Pick<Person, "userId" | "nickname" | "profileImageUrl" | "primaryInstrument">; onProfile: (id: number) => void }) {
+/** The friends tab shows this many of each list; "모두보기" opens the full list on its own page. */
+const MUTUAL_PREVIEW = 6;
+const REQUEST_PREVIEW = 3;
+
+function PersonLink({ person, onProfile }: { person: Pick<Person, "userId" | "nickname" | "profileImageUrl" | "primaryInstrument">; onProfile: ProfileHandler }) {
   return <button className={socialStyles.personLink} onClick={() => onProfile(person.userId)}><Avatar src={person.profileImageUrl} /><span><strong>{person.nickname}</strong><small>{person.primaryInstrument ?? ""}</small></span></button>;
 }
 
-export function FriendsScreen(props: FriendsProps) {
+function SignedIn({ children }: { children: (userId: number) => ReactNode }) {
   const userId = useCurrentUserId();
   if (userId === null) return <SignInRequired>친구 기능은 로그인 후 사용할 수 있습니다.</SignInRequired>;
-  return <SignedInFriendsScreen {...props} userId={userId} />;
+  return <div className={cn(socialStyles.friendsView, sharedStyles.scrollContent)}>{children(userId)}</div>;
 }
 
-function SignedInFriendsScreen({ onProfile, onChat, view = "summary", onRecommendations, userId }: FriendsProps & { userId: number }) {
-  const summary = view === "summary";
-  const mutualQuery = useQuery({ ...mutualFollowersQuery(userId), enabled: summary });
-  const requestsQuery = useQuery({ ...followRequestsQuery(userId), enabled: summary });
+function MutualFriends({ userId, full, onProfile, onChat, onAll }: { userId: number; full: boolean; onProfile: ProfileHandler; onChat: ChatHandler; onAll?: () => void }) {
+  const query = useQuery(mutualFollowersQuery(userId));
+  const people = query.data ?? [];
+  return (
+    <section className={cn("mutual-friends", socialStyles.friendsSection)} aria-label="맞팔로우">
+      <SectionTitle onAll={full ? undefined : onAll}>맞팔로우</SectionTitle>
+      {query.isPending && <p className={socialStyles.friendsEmpty} role="status">맞팔로우를 불러오는 중...</p>}
+      {query.isError && <div role="alert"><p>{relationError(query.error, "맞팔로우를 불러오지 못했습니다.")}</p><button disabled={query.isFetching} onClick={() => void query.refetch()}>다시 시도</button></div>}
+      {query.isSuccess && people.length === 0 && <p className={socialStyles.friendsEmpty}>아직 맞팔로우한 친구가 없습니다.</p>}
+      {full ? (
+        <div className={profileStyles.peopleList}>{people.map((person) => <div className={socialStyles.person} key={person.userId}><PersonLink person={person} onProfile={onProfile} /><button className={buttonVariants({ tone: "primary" })} onClick={() => onChat(person.userId)}>채팅</button></div>)}</div>
+      ) : (
+        <div className={socialStyles.mutualFriendRail}>{people.slice(0, MUTUAL_PREVIEW).map((person) => <article className={socialStyles.mutualFriendCard} key={person.userId}><button className={socialStyles.mutualFriendIdentity} aria-label={`${person.nickname} 프로필`} onClick={() => onProfile(person.userId)}><Avatar src={person.profileImageUrl} /><strong>{person.nickname}</strong><small>{person.primaryInstrument ?? ""}</small></button><button className={buttonVariants({ tone: "primary" })} onClick={() => onChat(person.userId)}>채팅</button></article>)}</div>
+      )}
+    </section>
+  );
+}
+
+function FollowRequests({ userId, full, onProfile, onAll }: { userId: number; full: boolean; onProfile: ProfileHandler; onAll?: () => void }) {
+  const query = useQuery(followRequestsQuery(userId));
   const review = useReviewFollowRequestMutation();
   const [notice, setNotice] = useState("");
-  const failure = mutualQuery.error ?? requestsQuery.error;
-  const loaded: Loaded | null = failure
-    ? { mutual: [], requests: [], error: relationError(failure, "친구 정보를 불러오지 못했습니다.") }
-    : mutualQuery.data && requestsQuery.data ? { mutual: mutualQuery.data, requests: requestsQuery.data } : null;
   const busy = review.isPending;
-  const retry = () => {
-    if (mutualQuery.isError) void mutualQuery.refetch();
-    if (requestsQuery.isError) void requestsQuery.refetch();
-  };
+  const requests = query.data ?? [];
 
   function decide(requestId: number, decision: "accept" | "reject") {
     if (busy) return;
@@ -52,25 +65,39 @@ function SignedInFriendsScreen({ onProfile, onChat, view = "summary", onRecommen
   }
 
   return (
-    <div className={cn(socialStyles.friendsView, sharedStyles.scrollContent)}>
-      {view === "summary" && <>
-        <section className={cn("mutual-friends", socialStyles.friendsSection)} aria-label="맞팔로우">
-          <SectionTitle>맞팔로우</SectionTitle>
-          {!loaded && <p className={socialStyles.friendsEmpty} role="status">맞팔로우를 불러오는 중...</p>}
-          {loaded?.error && <div role="alert"><p>{loaded.error}</p><button onClick={retry}>다시 시도</button></div>}
-          {loaded && !loaded.error && loaded.mutual.length === 0 && <p className={socialStyles.friendsEmpty}>아직 맞팔로우한 친구가 없습니다.</p>}
-          <div className={socialStyles.mutualFriendRail}>{loaded?.mutual.map((person) => <article className={socialStyles.mutualFriendCard} key={person.userId}><button className={socialStyles.mutualFriendIdentity} aria-label={`${person.nickname} 프로필`} onClick={() => onProfile(person.userId)}><Avatar src={person.profileImageUrl} /><strong>{person.nickname}</strong><small>{person.primaryInstrument ?? ""}</small></button><button className={buttonVariants({ tone: "primary" })} onClick={() => onChat(person.userId)}>채팅</button></article>)}</div>
-        </section>
+    <section className={socialStyles.friendsSection} aria-label="팔로우 요청">
+      <SectionTitle onAll={full ? undefined : onAll}>팔로우 요청</SectionTitle>
+      {notice && <p role="status">{notice}</p>}
+      {query.isPending && <p className={socialStyles.friendsEmpty} role="status">팔로우 요청을 불러오는 중...</p>}
+      {query.isError && <div role="alert"><p>{relationError(query.error, "팔로우 요청을 확인하지 못했습니다.")}</p><button disabled={query.isFetching} onClick={() => void query.refetch()}>다시 시도</button></div>}
+      {query.isSuccess && requests.length === 0 && <p className={socialStyles.friendsEmpty}>받은 팔로우 요청이 없습니다.</p>}
+      <div className={profileStyles.peopleList}>{(full ? requests : requests.slice(0, REQUEST_PREVIEW)).map((request) => <div className={socialStyles.person} key={request.requestId}><PersonLink person={{ ...request, userId: request.requesterId }} onProfile={onProfile} /><button className={buttonVariants({ tone: "primary", size: "compact" })} disabled={busy} onClick={() => decide(request.requestId, "accept")}>수락</button><button className={buttonVariants({ tone: "secondary" })} disabled={busy} onClick={() => decide(request.requestId, "reject")}>거절</button></div>)}</div>
+    </section>
+  );
+}
+
+export type FriendsListKind = "mutual" | "recommendations" | "requests";
+
+export function FriendsScreen({ onProfile, onChat, onOpenList }: { onProfile: ProfileHandler; onChat: ChatHandler; onOpenList?: (kind: FriendsListKind) => void }) {
+  const open = (kind: FriendsListKind) => (onOpenList ? () => onOpenList(kind) : undefined);
+  return (
+    <SignedIn>
+      {(userId) => <>
+        <MutualFriends userId={userId} full={false} onProfile={onProfile} onChat={onChat} onAll={open("mutual")} />
+        <RecommendedPeopleList full={false} onProfile={onProfile} onAll={open("recommendations")} />
+        <FollowRequests userId={userId} full={false} onProfile={onProfile} onAll={open("requests")} />
       </>}
-      <RecommendedPeopleList full={view === "recommendations"} onProfile={onProfile} onAll={onRecommendations} />
-      {view === "summary" && <section className={socialStyles.friendsSection} aria-label="팔로우 요청">
-        <SectionTitle>팔로우 요청</SectionTitle>
-        {notice && <p role="status">{notice}</p>}
-        {!loaded && <p className={socialStyles.friendsEmpty} role="status">팔로우 요청을 불러오는 중...</p>}
-        {loaded?.error && <div role="alert"><p>팔로우 요청을 확인하지 못했습니다.</p><button onClick={retry}>다시 시도</button></div>}
-        {loaded && !loaded.error && loaded.requests.length === 0 && <p className={socialStyles.friendsEmpty}>받은 팔로우 요청이 없습니다.</p>}
-        <div className={profileStyles.peopleList}>{loaded?.requests.map((request) => <div className={socialStyles.person} key={request.requestId}><PersonLink person={{ ...request, userId: request.requesterId }} onProfile={onProfile} /><button className={buttonVariants({ tone: "primary", size: "compact" })} disabled={busy} onClick={() => decide(request.requestId, "accept")}>수락</button><button className={buttonVariants({ tone: "secondary" })} disabled={busy} onClick={() => decide(request.requestId, "reject")}>거절</button></div>)}</div>
-      </section>}
-    </div>
+    </SignedIn>
+  );
+}
+
+/** Separate page behind each friends-tab "모두보기"; the header back button returns to the friends tab. */
+export function FriendsListScreen({ kind, onProfile, onChat }: { kind: FriendsListKind; onProfile: ProfileHandler; onChat: ChatHandler }) {
+  return (
+    <SignedIn>
+      {(userId) => kind === "mutual" ? <MutualFriends userId={userId} full onProfile={onProfile} onChat={onChat} />
+        : kind === "requests" ? <FollowRequests userId={userId} full onProfile={onProfile} />
+          : <RecommendedPeopleList full onProfile={onProfile} />}
+    </SignedIn>
   );
 }

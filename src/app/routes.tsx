@@ -12,6 +12,7 @@ import CreatePostPage from "@/features/posts/pages/create-post-page";
 import SocialPage from "@/features/social/pages/social-page";
 import CommunitiesPage from "@/features/social/pages/communities-page";
 import FriendsPage from "@/features/social/pages/friends-page";
+import FriendsListPage from "@/features/social/pages/friends-list-page";
 import JoinedPage from "@/features/community/pages/joined-page";
 import CreateCommunityPage from "@/features/community/pages/create-community-page";
 import CommunityPage from "@/features/community/pages/community-page";
@@ -50,6 +51,7 @@ export const appRoutes: RouteObject[] = [{
     { path: "social", element: <SocialPage /> },
     { path: "communities", element: <CommunitiesPage /> },
     { path: "friends", element: <FriendsPage /> },
+    { path: "friends/:list", element: <FriendsListPage /> },
     { path: "communities/joined", element: <JoinedPage /> },
     { path: "communities/new", element: <CreateCommunityPage /> },
     { path: "communities/:galleryId", element: <CommunityPage /> },
