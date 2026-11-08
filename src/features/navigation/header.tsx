@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { useAuthSession } from "@/features/auth/auth-session";
 import { useUrlNavigation } from "./use-url-navigation";
 import { useNotificationsNavigation } from "@/features/notifications/use-notifications-navigation";
+import { buttonVariants } from "@/styles/variants";
 import { cn } from "@/lib/utils";
 import { Asset } from "@/components/asset";
 import { Avatar } from "@/components/avatar";
@@ -32,7 +33,7 @@ export function Header({
   communitySelector?: ReactNode;
 }) {
   const { currentUserId, headerProfileImageUrl } = useAuthSession();
-  const { to } = useUrlNavigation();
+  const { to, currentPath } = useUrlNavigation();
   const { openNotifications } = useNotificationsNavigation();
   return (
     <header
@@ -67,14 +68,23 @@ export function Header({
         <button className={headerControl} aria-label="검색" onClick={onSearch}>
           <Asset name="v3-search.svg" />
         </button>
-        {communitySelector ?? (
+        {currentUserId === null ? (
           <button
-            aria-label={onSettings ? "설정" : "프로필"}
-            className={cn(headerControl, !onSettings && "p-[7px] [&_.avatar]:border-0")}
-            onClick={onSettings ?? (() => to(currentUserId === null ? "/login" : "/profile"))}
+            className={cn(buttonVariants({ tone: "primary", size: "compact" }), "my-auto")}
+            onClick={() => to("/login", { state: { returnTo: currentPath } })}
           >
-            {onSettings ? <Asset name="settings.svg" /> : <Avatar src={headerProfileImageUrl} />}
+            로그인
           </button>
+        ) : (
+          (communitySelector ?? (
+            <button
+              aria-label={onSettings ? "설정" : "프로필"}
+              className={cn(headerControl, !onSettings && "p-[7px] [&_.avatar]:border-0")}
+              onClick={onSettings ?? (() => to("/profile"))}
+            >
+              {onSettings ? <Asset name="settings.svg" /> : <Avatar src={headerProfileImageUrl} />}
+            </button>
+          ))
         )}
       </div>
     </header>
