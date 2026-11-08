@@ -192,9 +192,6 @@ function ScopedNotificationsScreen({ onBack, onOpenProject, onOpenProfile, signe
               {filter === "all" ? "새로운 알림이 없습니다." : "선택한 종류의 알림이 없습니다."}
             </p>
           )}
-          <p className={profileStyles.profileListEmpty}>
-            보낸 요청의 결과, 지난 알림 기록과 읽음 표시는 현재 서버에서 지원하지 않습니다.
-          </p>
         </div>
       </section>
     </div>

@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import { useQueries, useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { ArrowUpRight } from "lucide-react";
 import { Avatar } from "@/components/avatar";
 import { PageState } from "@/components/page-state";
@@ -17,10 +17,10 @@ import {
 import { canReviewRequest, requestStatus } from "./contribution-presentation";
 import {
   contributionInboxQuery,
+  sentContributionsQuery,
   contributionsQuery,
   useReviewContributionMutation,
 } from "./workspace-queries";
-import { useWorkspace } from "./workspace-store";
 
 function RequestPage({ title, children }: { title: string; children: ReactNode }) {
   return (
@@ -121,24 +121,11 @@ export function SubmissionsScreen({
 }: {
   onSelect: (id: number, projectId: number) => void;
 }) {
-  const { works } = useWorkspace();
   const userId = useCurrentUserId();
-  const lists = useQueries({
-    queries: works.map((work) => ({
-      ...contributionsQuery(userId, work.id),
-      enabled: userId !== null,
-    })),
-  });
-  const loading = lists.some((list) => list.isPending);
-  const failed = lists.some((list) => list.isError);
-  const items = lists
-    .flatMap(
-      (list, index) =>
-        list.data
-          ?.filter((item) => item.userId === userId)
-          .map((item) => ({ ...item, projectTitle: works[index].title })) ?? [],
-    )
-    .sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt));
+  const list = useInfiniteQuery(sentContributionsQuery(userId));
+  const items = list.data?.pages.flatMap((page) => page.items) ?? [];
+  const loading = list.isPending;
+  const failed = list.isError;
   return (
     <RequestPage title="보낸 참여 요청">
       {loading && (
@@ -148,13 +135,13 @@ export function SubmissionsScreen({
       )}
       {failed && (
         <div role="alert">
-          <p>일부 요청을 불러오지 못했습니다.</p>
+          <p>보낸 요청을 불러오지 못했습니다.</p>
           <button
             className={buttonVariants({ tone: "secondary" })}
             onClick={() =>
-              lists.forEach((list) => {
-                if (list.isError) void list.refetch();
-              })
+              list.isFetchNextPageError
+                ? void list.fetchNextPage({ cancelRefetch: false })
+                : void list.refetch()
             }
           >
             다시 시도
@@ -163,7 +150,7 @@ export function SubmissionsScreen({
       )}
       {!loading && !failed && !items.length && (
         <p className="py-12 text-center text-body text-app-muted">
-          최근 참여한 음악의 요청이 여기에 표시됩니다.
+          아직 보낸 참여 요청이 없습니다.
         </p>
       )}
       <ul className="m-0 list-none divide-y divide-app-border p-0">
@@ -203,6 +190,16 @@ export function SubmissionsScreen({
           </li>
         ))}
       </ul>
+      {list.hasNextPage && (
+        <button
+          type="button"
+          className={buttonVariants({ tone: "secondary" })}
+          disabled={list.isFetchingNextPage}
+          onClick={() => void list.fetchNextPage({ cancelRefetch: false })}
+        >
+          {list.isFetchingNextPage ? "불러오는 중..." : "더보기"}
+        </button>
+      )}
     </RequestPage>
   );
 }
