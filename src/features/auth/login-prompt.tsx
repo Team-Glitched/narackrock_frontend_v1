@@ -45,10 +45,12 @@ export function LoginPromptProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!onSignInScreen || blocker.state !== "blocked") return;
     blocker.reset();
-    // The router restores the blocked history entry asynchronously; navigate once that has settled. The timer is
-    // not cleared on re-render because reset() itself changes `blocker` and re-runs this effect.
-    window.setTimeout(() => navigate("/", { replace: true }));
-  }, [onSignInScreen, blocker, navigate]);
+    const toHome = () => navigate("/", { replace: true });
+    // A blocked Back/Forward is undone by an asynchronous history.go(); replace only once the browser is back on the
+    // sign-in entry, otherwise the protected entry would be overwritten and the router index would drift.
+    if (window.location.pathname === location.pathname) toHome();
+    else window.addEventListener("popstate", toHome, { once: true });
+  }, [onSignInScreen, blocker, navigate, location.pathname]);
   const requestLogin = useCallback(
     (returnTo = currentPath) => {
       setRequest({ ...loginDestination(returnTo, currentPath), locationKey: location.key });
