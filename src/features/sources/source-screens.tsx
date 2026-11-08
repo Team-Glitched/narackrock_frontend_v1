@@ -3,7 +3,8 @@ import { sharedStyles } from "@/styles/shared.styles";
 import { communityStyles } from "@/styles/community.styles";
 import { buttonVariants } from "@/styles/variants";
 import { cn } from "@/lib/utils";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
+import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { SectionTitle } from "@/components/section-title";
 import { Avatar } from "@/components/avatar";
 import { PageState } from "@/components/page-state";
@@ -19,16 +20,14 @@ import { useShareLink } from "@/hooks/use-share-link";
 import { relativeTime } from "@/features/posts/post-utils";
 import {
   createOpenSourceComment,
-  getOpenSource,
   getOpenSourceComments,
   getOpenSourceShare,
-  listOpenSources,
   reactToOpenSource,
   reactToOpenSourceComment,
-  setOpenSourceSaved,
   type OpenSourceDetail,
   type OpenSourceSummary,
 } from "@/lib/api/open-sources";
+import { openSourceListQuery, openSourceQuery, patchSource, sourceKeys, useSourceSaveMutation } from "./source-queries";
 
 export function sourceError(cause: unknown, fallback = "오픈소스를 불러오지 못했습니다.") {
   if (cause instanceof ApiError) {
@@ -42,24 +41,15 @@ export function sourceError(cause: unknown, fallback = "오픈소스를 불러�
 
 /** Server save state of one source, updated only from the PUT/DELETE response. */
 function useSourceSave(source: Pick<OpenSourceSummary, "openSourceId" | "isSaved">) {
-  const [saved, setSaved] = useState<{ id: number; value: boolean } | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
-  const value = saved?.id === source.openSourceId ? saved.value : source.isSaved;
-  async function toggle() {
-    if (busy) return;
-    setBusy(true);
-    setError("");
-    try {
-      const result = await setOpenSourceSaved(source.openSourceId, !value);
-      setSaved({ id: result.openSourceId, value: result.isSaved });
-    } catch (cause) {
-      setError(sourceError(cause, "보관함을 변경하지 못했습니다."));
-    } finally {
-      setBusy(false);
-    }
-  }
-  return { saved: value, busy, error, toggle };
+  const mutation = useSourceSaveMutation();
+  return {
+    saved: source.isSaved,
+    busy: mutation.isPending,
+    error: mutation.error ? sourceError(mutation.error, "보관함을 변경하지 못했습니다.") : "",
+    toggle: () => {
+      if (!mutation.isPending) mutation.mutate({ sourceId: source.openSourceId, saved: !source.isSaved });
+    },
+  };
 }
 
 function SaveButton({ save }: { save: ReturnType<typeof useSourceSave> }) {
@@ -68,7 +58,7 @@ function SaveButton({ save }: { save: ReturnType<typeof useSourceSave> }) {
       className={cn(buttonVariants({ tone: "primary" }), sourceStyles.osSaveButton)}
       aria-pressed={save.saved}
       disabled={save.busy}
-      onClick={() => void save.toggle()}
+      onClick={save.toggle}
     >
       {save.saved ? "저장됨" : "저장"}
     </button>
@@ -92,7 +82,7 @@ function OpenSourceCard({
           <Avatar src={source.thumbnailUrl} />
           <span>
             <strong>{source.title}</strong>
-            <small>사용 수 {source.usageCount.toLocaleString("ko-KR")}</small>
+            {source.usageCount != null && <small>사용 수 {source.usageCount.toLocaleString("ko-KR")}</small>}
           </span>
         </button>
         <SaveButton save={save} />
@@ -121,48 +111,34 @@ function OpenSourceCard({
   );
 }
 
-type ListState = { key: string; items: OpenSourceSummary[]; page: number; hasNext: boolean; error?: string };
-
 /** Paged public source list for a keyword; following pages are appended until the server reports no more. */
 export function useOpenSourceList(keyword: string, enabled: boolean) {
   const userId = useCurrentUserId();
-  const [retry, setRetry] = useState(0);
-  const key = `${userId}:${keyword.trim()}:${retry}`;
-  const [state, setState] = useState<ListState | null>(null);
-  const [moreBusy, setMoreBusy] = useState(false);
-  useEffect(() => {
-    if (!enabled || userId === null) return;
-    const controller = new AbortController();
-    listOpenSources({ keyword, page: 0 }, controller.signal)
-      .then((page) => setState({ key, items: page.items, page: 0, hasNext: page.hasNext }))
-      .catch((cause) => {
-        if (!controller.signal.aborted) setState({ key, items: [], page: 0, hasNext: false, error: sourceError(cause) });
-      });
-    return () => controller.abort();
-  }, [enabled, key, keyword, userId]);
-  const current = state?.key === key ? state : null;
-  async function more() {
-    if (!current?.hasNext || moreBusy) return;
-    setMoreBusy(true);
-    try {
-      const next = await listOpenSources({ keyword, page: current.page + 1 });
-      setState((old) =>
-        old?.key === key
-          ? {
-              key,
-              page: next.page,
-              hasNext: next.hasNext,
-              items: [...old.items, ...next.items.filter((item) => !old.items.some((seen) => seen.openSourceId === item.openSourceId))],
-            }
-          : old,
-      );
-    } catch (cause) {
-      setState((old) => (old?.key === key ? { ...old, error: sourceError(cause) } : old));
-    } finally {
-      setMoreBusy(false);
-    }
-  }
-  return { state: current, more, moreBusy, retry: () => setRetry((value) => value + 1), signedIn: userId !== null };
+  const queryClient = useQueryClient();
+  const options = openSourceListQuery(userId, keyword.trim());
+  const query = useInfiniteQuery({ ...options, enabled: enabled && userId !== null });
+  const { data, error, isFetching, isFetchingNextPage, hasNextPage, fetchNextPage } = query;
+  const items = useMemo(() => {
+    const seen = new Set<number>();
+    return (data?.pages ?? []).flatMap((page) => page.items).filter((item) => {
+      if (seen.has(item.openSourceId)) return false;
+      seen.add(item.openSourceId);
+      return true;
+    });
+  }, [data]);
+  const state =
+    data || (error && !isFetching)
+      ? { items, hasNext: hasNextPage, error: error ? sourceError(error) : undefined }
+      : null;
+  return {
+    state,
+    more: () => {
+      if (hasNextPage && !isFetchingNextPage) void fetchNextPage();
+    },
+    moreBusy: isFetchingNextPage,
+    retry: () => void queryClient.resetQueries({ queryKey: options.queryKey, exact: true }),
+    signedIn: userId !== null,
+  };
 }
 
 export function OpensourceScreen({
@@ -227,21 +203,17 @@ function SourceDetail({
 }) {
   const save = useSourceSave(source);
   const sharing = useShareLink();
-  const [reaction, setReaction] = useState<Pick<OpenSourceDetail, "isLiked" | "isDisliked" | "likeCount" | "dislikeCount"> | null>(null);
-  const [busy, setBusy] = useState(false);
+  const userId = useCurrentUserId();
+  const queryClient = useQueryClient();
+  const reaction = useMutation({
+    mutationFn: (kind: "like" | "dislike") => reactToOpenSource(source.openSourceId, kind),
+    onSuccess: (result) => patchSource(queryClient, userId, source.openSourceId, result),
+  });
   const [notice, setNotice] = useState("");
-  const current = reaction ?? source;
-  async function vote(kind: "like" | "dislike") {
-    if (busy) return;
-    setBusy(true);
+  function vote(kind: "like" | "dislike") {
+    if (reaction.isPending) return;
     setNotice("");
-    try {
-      setReaction(await reactToOpenSource(source.openSourceId, kind));
-    } catch (cause) {
-      setNotice(sourceError(cause, "반응을 반영하지 못했습니다."));
-    } finally {
-      setBusy(false);
-    }
+    reaction.mutate(kind, { onError: (cause) => setNotice(sourceError(cause, "반응을 반영하지 못했습니다.")) });
   }
   async function share() {
     setNotice("");
@@ -268,7 +240,7 @@ function SourceDetail({
             <Avatar src={source.thumbnailUrl} />
             <span>
               <strong>{source.title}</strong>
-              <small>사용 수 {source.usageCount.toLocaleString("ko-KR")}</small>
+              {source.usageCount != null && <small>사용 수 {source.usageCount.toLocaleString("ko-KR")}</small>}
             </span>
           </div>
           <SaveButton save={save} />
@@ -280,17 +252,17 @@ function SourceDetail({
         </button>
         <p className={sourceStyles.osDetailCopy}>{source.description ?? ""}</p>
         <SourcePlayback sourceId={source.openSourceId} canPreview={source.canPreview} durationMs={source.durationMs} />
-        <p className={sourceStyles.osDiscoveryEmpty}>곡에 오픈소스 넣기는 현재 서버에서 지원하지 않습니다.</p>
+        <p className={sourceStyles.osDiscoveryEmpty}>보관한 뒤 피아노롤의 ‘+ 오픈소스’에서 내 레이어에 오디오로 넣을 수 있습니다.</p>
         <PostActions
-          likeCount={current.likeCount}
-          dislikeCount={current.dislikeCount}
+          likeCount={source.likeCount}
+          dislikeCount={source.dislikeCount}
           commentCount={source.commentCount}
-          vote={current.isLiked ? "like" : current.isDisliked ? "dislike" : null}
-          onVote={(kind) => void vote(kind)}
-          busy={busy || save.busy}
+          vote={source.isLiked ? "like" : source.isDisliked ? "dislike" : null}
+          onVote={vote}
+          busy={reaction.isPending || save.busy}
           onComments={onComments}
           saved={save.saved}
-          onSave={() => void save.toggle()}
+          onSave={save.toggle}
           onShare={() => void share()}
         />
         {notice && <p role="status">{notice}</p>}
@@ -310,24 +282,15 @@ export function OpensourceDetailScreen({
   onProfile: (id: number) => void;
 }) {
   const userId = useCurrentUserId();
-  const [retry, setRetry] = useState(0);
-  const key = `${userId}:${sourceId}:${retry}`;
-  const [loaded, setLoaded] = useState<{ key: string; source?: OpenSourceDetail; error?: string } | null>(null);
+  const queryClient = useQueryClient();
+  const query = useQuery({ ...openSourceQuery(userId, sourceId), enabled: userId !== null });
   const [focus, setFocus] = useState(focusComments ? 1 : 0);
-  useEffect(() => {
-    if (userId === null) return;
-    const controller = new AbortController();
-    getOpenSource(sourceId, controller.signal)
-      .then((source) => setLoaded({ key, source }))
-      .catch((cause) => {
-        if (!controller.signal.aborted) setLoaded({ key, error: sourceError(cause) });
-      });
-    return () => controller.abort();
-  }, [key, sourceId, userId]);
   const adapter = useMemo<CommentAdapter>(
     () => ({
-      async load(parentId, page) {
-        const result = await getOpenSourceComments(sourceId, parentId, page);
+      kind: "sources",
+      targetId: sourceId,
+      async load(parentId, page, signal) {
+        const result = await getOpenSourceComments(sourceId, parentId, page, signal);
         return {
           page: result.page,
           total: result.totalCount,
@@ -353,14 +316,14 @@ export function OpensourceDetailScreen({
     [sourceId],
   );
   if (userId === null) return <SignInRequired>오픈소스는 로그인 후 볼 수 있습니다.</SignInRequired>;
-  const current = loaded?.key === key ? loaded : null;
-  if (!current) return <PageState>오픈소스를 불러오는 중...</PageState>;
-  if (current.error || !current.source)
+  const source = query.data;
+  if (!source && (!query.error || query.isFetching)) return <PageState>오픈소스를 불러오는 중...</PageState>;
+  if (!source)
     return (
       <PageState error>
         <span className="grid gap-3">
-          <span>{current.error}</span>
-          <button className={buttonVariants({ tone: "secondary", size: "compact" })} onClick={() => setRetry((value) => value + 1)}>
+          <span>{sourceError(query.error)}</span>
+          <button className={buttonVariants({ tone: "secondary", size: "compact" })} onClick={() => void query.refetch()}>
             다시 시도
           </button>
         </span>
@@ -369,13 +332,13 @@ export function OpensourceDetailScreen({
   return (
     <div className={sourceStyles.opensourceDetailShell}>
       <CommonComments
-        key={key}
         adapter={adapter}
         currentUserId={userId}
         onProfile={onProfile}
         focus={focus}
-        onCreated={() => setRetry((value) => value + 1)}
-        header={<SourceDetail source={current.source} onComments={() => setFocus((value) => value + 1)} onProfile={onProfile} />}
+        // The detail's comment count is server-owned: reread it after a comment is added or removed.
+        onChanged={() => void queryClient.invalidateQueries({ queryKey: sourceKeys.detail(userId, sourceId) })}
+        header={<SourceDetail source={source} onComments={() => setFocus((value) => value + 1)} onProfile={onProfile} />}
       />
     </div>
   );

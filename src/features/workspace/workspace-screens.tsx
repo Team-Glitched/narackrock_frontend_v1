@@ -5,14 +5,10 @@ import { SavedOpenSources } from "@/features/sources/saved-open-sources";
 import { AudioPlaybackBar } from "@/components/audio-playback-bar";
 import { uiLabels } from "@/lib/ui-labels";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
-import {
-  getComposition,
-  listContributions,
-  getContributionInbox,
-  reviewContribution,
-  type ContributionDto,
-  type CompositionDto,
-} from "@/lib/api/composition";
+import { useQueries, useQuery } from "@tanstack/react-query";
+import type { CompositionDto } from "@/lib/api/composition";
+import { compositionQuery } from "@/features/composition/composition-queries";
+import { contributionInboxQuery, contributionsQuery, useReviewContributionMutation } from "./workspace-queries";
 import { useCurrentUserId } from "@/features/auth/use-current-user";
 import { compositionDurationMs } from "@/features/composition/playback-duration";
 import { useCompositionPlayback } from "@/features/composition/use-composition-playback";
@@ -118,7 +114,7 @@ export function WorkspaceScreen({
   onStartSong: () => void;
   onResume: (id: number, shortId: number | null) => void;
 }) {
-  const { works, error, loading } = useVisitedWorks();
+  const { works, error, loading, appending, hasMore, more } = useVisitedWorks();
   return (
     <Page
       title="이 브라우저에서 연 작업"
@@ -132,8 +128,8 @@ export function WorkspaceScreen({
           새 곡
         </button>
       </div>
-      {works.length === 0 ? (
-        <Empty>아직 작업 중인 곡이 없습니다. 새 곡을 만들거나 숏폼에서 작곡에 참여해보세요.</Empty>
+      {works.length === 0 ? (!loading && !hasMore && !error && (
+        <Empty>아직 작업 중인 곡이 없습니다. 새 곡을 만들거나 숏폼에서 작곡에 참여해보세요.</Empty>)
       ) : (
         works.map((work) => (
           <article className={workspaceStyles.workspaceCard} key={work.id}>
@@ -155,6 +151,7 @@ export function WorkspaceScreen({
           </article>
         ))
       )}
+      {hasMore && <button className={workspaceStyles.workspaceWide} disabled={appending} onClick={more}>더보기</button>}
     </Page>
   );
 }
@@ -165,34 +162,37 @@ export function SubmissionsScreen({
 }) {
   const { works } = useWorkspace();
   const userId = useCurrentUserId();
-  const [result, setResult] = useState<{ userId: number | null; items: ContributionDto[] } | null>(
-    null,
-  );
-  const items = result?.userId === userId ? result.items : [];
-  const [error, setError] = useState("");
-  useEffect(() => {
-    let active = true;
-    Promise.all(works.map((work) => listContributions(work.id)))
-      .then((lists) => {
-        if (active)
-          setResult({ userId, items: lists.flat().filter((item) => item.userId === userId) });
-      })
-      .catch((cause) => {
-        if (active)
-          setError(cause instanceof Error ? cause.message : "제출을 불러오지 못했습니다.");
-      });
-    return () => {
-      active = false;
-    };
-  }, [works, userId]);
+  const lists = useQueries({
+    queries: works.map((work) => ({ ...contributionsQuery(userId, work.id), enabled: userId !== null })),
+  });
+  const loading = userId !== null && lists.some((list) => list.isPending || (list.isError && list.isFetching));
+  const failed = loading ? 0 : lists.filter((list) => list.isError).length;
+  const items = lists.flatMap((list) => list.data?.filter((item) => item.userId === userId) ?? []);
   return (
     <Page
       title="확인된 프로젝트의 제출"
       subtitle="이 브라우저에서 연 프로젝트만 조회합니다. 전체 프로젝트 간 제출 목록 API는 없습니다."
     >
-      {error && <p role="alert">{error}</p>}
-      {!items.length && (
-        <Empty>확인된 제출이 없습니다. 프로젝트를 열어 방문 이력에 추가해주세요.</Empty>
+      {userId === null && <Empty>로그인 후 내 제출을 확인할 수 있습니다.</Empty>}
+      {loading && <p role="status">제출 목록을 불러오는 중입니다.</p>}
+      {!loading && !!failed && (
+        <div>
+          <p role="alert">
+            {failed === works.length
+              ? "제출 목록을 불러오지 못했습니다."
+              : `${failed}개 프로젝트의 제출을 불러오지 못했습니다.`}
+          </p>
+          <button type="button" onClick={() => lists.forEach((list) => { if (list.isError) void list.refetch(); })}>
+            다시 시도
+          </button>
+        </div>
+      )}
+      {userId !== null && !loading && !failed && !items.length && (
+        <Empty>
+          {works.length
+            ? "이 브라우저에서 연 프로젝트에 내 제출이 없습니다."
+            : "이 브라우저에서 연 프로젝트가 없습니다."}
+        </Empty>
       )}
       {items.map((item) => (
         <button
@@ -217,26 +217,9 @@ export function ReviewInboxScreen({
   onSelect: (id: number, projectId: number) => void;
 }) {
   const userId = useCurrentUserId();
-  const [result, setResult] = useState<{
-    userId: number | null;
-    items: Awaited<ReturnType<typeof getContributionInbox>>;
-  } | null>(null);
-  const items = result?.userId === userId ? result.items : [];
-  const [error, setError] = useState("");
-  useEffect(() => {
-    let active = true;
-    getContributionInbox()
-      .then((items) => {
-        if (active) setResult({ userId, items });
-      })
-      .catch((cause) => {
-        if (active)
-          setError(cause instanceof Error ? cause.message : "검토 요청을 불러오지 못했습니다.");
-      });
-    return () => {
-      active = false;
-    };
-  }, [userId]);
+  const inbox = useQuery(contributionInboxQuery(userId));
+  const items = inbox.data ?? [];
+  const error = inbox.error ? inbox.error.message || "검토 요청을 불러오지 못했습니다." : "";
   return (
     <Page title="받은 참여 요청" subtitle="서버의 기여 알림으로 확인한 요청입니다.">
       {error && <p role="alert">{error}</p>}
@@ -269,30 +252,21 @@ export function SubmissionDetailScreen({
   onResume: (id: number, shortId: number | null) => void;
 }) {
   const userId = useCurrentUserId();
-  const [item, setItem] = useState<ContributionDto | null>(null);
-  const [canReview, setCanReview] = useState(false);
-  const [error, setError] = useState("");
   const [comment, setComment] = useState("");
-  const [busy, setBusy] = useState(false);
-  useEffect(() => {
-    if (projectId === null) return;
-    let active = true;
-    Promise.all([listContributions(projectId), getComposition(projectId)])
-      .then(([items, composition]) => {
-        if (!active) return;
-        const found = items.find((entry) => entry.contributionId === id) ?? null;
-        setItem(found);
-        setCanReview(composition.viewerPermission.canReviewContribution);
-        if (!found) setError("서버에서 제출을 찾지 못했습니다.");
-      })
-      .catch((cause) => {
-        if (active)
-          setError(cause instanceof Error ? cause.message : "제출을 불러오지 못했습니다.");
-      });
-    return () => {
-      active = false;
-    };
-  }, [id, projectId, userId]);
+  const contributions = useQuery({ ...contributionsQuery(userId, projectId ?? 0), enabled: projectId !== null });
+  const composition = useQuery({ ...compositionQuery(userId, projectId ?? 0), enabled: projectId !== null });
+  const review = useReviewContributionMutation();
+  const loaded = contributions.data && composition.data;
+  const item = loaded ? contributions.data.find((entry) => entry.contributionId === id) ?? null : null;
+  const canReview = composition.data?.viewerPermission.canReviewContribution ?? false;
+  const loadError = contributions.error ?? composition.error;
+  const error = review.error
+    ? review.error.message || "검토 결과를 저장하지 못했습니다."
+    : loadError
+      ? loadError.message || "제출을 불러오지 못했습니다."
+      : loaded && !item
+        ? "서버에서 제출을 찾지 못했습니다."
+        : "";
   if (projectId === null)
     return (
       <Page title="제출 상세">
@@ -339,24 +313,10 @@ export function SubmissionDetailScreen({
               {(["APPROVED", "REJECTED"] as const).map((status) => (
                 <button
                   key={status}
-                  disabled={busy}
-                  onClick={async () => {
-                    setBusy(true);
-                    setError("");
-                    try {
-                      await reviewContribution(projectId, id, status, comment.trim() || null);
-                      setItem(
-                        (await listContributions(projectId)).find(
-                          (entry) => entry.contributionId === id,
-                        ) ?? null,
-                      );
-                    } catch (cause) {
-                      setError(
-                        cause instanceof Error ? cause.message : "검토 결과를 저장하지 못했습니다.",
-                      );
-                    } finally {
-                      setBusy(false);
-                    }
+                  disabled={review.isPending}
+                  onClick={() => {
+                    if (!review.isPending)
+                      review.mutate({ projectId, contributionId: id, status, comment: comment.trim() || null });
                   }}
                 >
                   {status === "APPROVED" ? "승인" : "반려"}
@@ -384,8 +344,9 @@ export function SourceLibraryScreen({
   onOpenSource: (id: number) => void;
 }) {
   const { resources } = useWorkspace();
-  const { works, error: workError } = useVisitedWorks();
   const [targetResource, setTargetResource] = useState<Resource | null>(null);
+  const { works, error: workError, loading, appending, hasMore, more } =
+    useVisitedWorks({ enabled: targetResource !== null });
   const [filter, setFilter] = useState(importing ? "LOCAL" : "SERVER"),
     [query, setQuery] = useState(""),
     [busy, setBusy] = useState<number | null>(null),
@@ -420,10 +381,12 @@ export function SourceLibraryScreen({
         <button className={workspaceStyles.workspaceWide} onClick={() => setTargetResource(null)}>
           리소스 목록으로 돌아가기
         </button>
-        {works.length === 0 ? (
+        {workError && <p role="alert">{workError}</p>}
+        {loading && <p role="status">작업을 불러오는 중입니다.</p>}
+        {works.length === 0 ? (!loading && !hasMore && !workError && (
           <Empty>
             작업 중인 곡이 없습니다. 새 곡을 만든 뒤 레이어 추가에서 보관함을 열어주세요.
-          </Empty>
+          </Empty>)
         ) : (
           works.map((work) => (
             <button
@@ -441,6 +404,7 @@ export function SourceLibraryScreen({
             </button>
           ))
         )}
+        {hasMore && <button className={workspaceStyles.workspaceWide} disabled={appending} onClick={more}>더보기</button>}
         {notice && <p role="status">{notice}</p>}
         <button className={workspaceStyles.workspaceWide} onClick={onStartSong}>
           새 곡 만들기
@@ -452,11 +416,10 @@ export function SourceLibraryScreen({
       title={importing ? "MIDI 가져오기" : uiLabels.sourceLibrary}
       subtitle={
         importing
-          ? "이 브라우저의 MIDI 원본을 개인 초안으로 가져옵니다."
-          : "서버 보관 목록과 이 브라우저의 MIDI 복구 자료는 별개입니다."
+          ? "이 기기에 남아 있는 MIDI 작업을 개인 초안으로 가져옵니다."
+          : "보관한 오픈소스는 계정에, MIDI 작업은 이 기기에 저장됩니다."
       }
     >
-      {workError && <p role="alert">{workError}</p>}
       <label className={workspaceStyles.workspaceSearch}>
         <Asset name="search-input.svg" />
         <input
@@ -468,10 +431,10 @@ export function SourceLibraryScreen({
       </label>
       <div className={workspaceStyles.workspaceTabs}>
         {(importing
-          ? [["LOCAL", "이 브라우저 MIDI 복구"]]
+          ? [["LOCAL", "이 기기의 MIDI 작업"]]
           : [
-              ["SERVER", "서버 오픈소스 보관"],
-              ["LOCAL", "이 브라우저 MIDI 복구"],
+              ["SERVER", "보관한 오픈소스"],
+              ["LOCAL", "이 기기의 MIDI 작업"],
             ]
         ).map(([value, label]) => (
           <button key={value} aria-pressed={filter === value} onClick={() => setFilter(value)}>
@@ -486,14 +449,14 @@ export function SourceLibraryScreen({
       )}
       {filter === "LOCAL" && items.length === 0 ? (
         <Empty>
-          이 브라우저의 MIDI 복구 자료가 없습니다. 이전 작성물은 설정의 데이터 이관·복구에서 내보낼
-          수 있습니다.
+          이 기기에 남아 있는 MIDI 작업이 없습니다. 이전 작업은 설정의 데이터 이관·복구에서 내보낼 수
+          있습니다.
         </Empty>
       ) : (
         items.map((r) => (
           <article className={workspaceStyles.workspaceCard} key={r.id}>
             <span className={workspaceStyles.workspaceStatus}>
-              이 브라우저의 MIDI 원본 · 서버 보관 자료 아님
+              이 기기에 저장된 MIDI 작업
             </span>
             <h2>{r.title}</h2>
             <p>{r.description}</p>

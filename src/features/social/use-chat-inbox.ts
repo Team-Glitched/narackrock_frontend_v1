@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { apiOrigin, getCurrentUserId, subscribeCurrentUserId } from "@/lib/api/client";
-import { getChatThreads, getMutualFollowers } from "@/lib/api/social";
+import { getChatThreads, getMutualFollowers, type ChatThread, type Person } from "@/lib/api/social";
 import { buildChatInbox, type ChatInboxRow } from "@/features/social/chat-inbox";
 import { createChatRefresh } from "@/features/social/chat-refresh";
 import { useChatRealtime } from "@/features/social/use-chat-realtime";
@@ -15,13 +15,22 @@ export function useChatInbox(me: number) {
   const refresh = useRef<(() => void) | null>(null);
   useEffect(() => {
     let active = true;
+    let threads: ChatThread[] | null = null;
+    let mutual: Person[] = [];
+    const isCurrent = () => active && getCurrentUserId() === me && apiOrigin() === origin;
+    const publish = () => {
+      if (threads) setState((previous) => ({
+        scope, rows: buildChatInbox(threads ?? [], mutual), loaded: true,
+        error: previous?.scope === scope ? previous.error : "",
+      }));
+    };
     const coordinator = createChatRefresh({
-      load: async () => {
-        const [threads, mutual] = await Promise.all([getChatThreads(), getMutualFollowers()]);
-        return buildChatInbox(threads, mutual);
+      load: getChatThreads,
+      isCurrent,
+      onSuccess: (value) => {
+        threads = value;
+        setState({ scope, rows: buildChatInbox(threads, mutual), loaded: true, error: "" });
       },
-      isCurrent: () => active && getCurrentUserId() === me && apiOrigin() === origin,
-      onSuccess: (rows) => setState({ scope, rows, loaded: true, error: "" }),
       onError: (cause) => setState((previous) => ({
         scope,
         rows: previous?.scope === scope ? previous.rows : [],
@@ -29,25 +38,46 @@ export function useChatInbox(me: number) {
         error: relationError(cause, "대화 목록을 불러오지 못했습니다."),
       })),
     });
+    const contacts = createChatRefresh({
+      load: getMutualFollowers,
+      isCurrent,
+      onSuccess: (value) => {
+        mutual = value;
+        publish();
+      },
+      onError: () => {
+        // Keep the last known contacts; the conversation list can still refresh.
+      },
+    });
+    const refreshOnFocus = () => {
+      coordinator.request();
+      contacts.request();
+    };
+    const contactsTimer = window.setInterval(() => {
+      if (document.visibilityState === "visible") contacts.request();
+    }, 60_000);
     refresh.current = coordinator.request;
     const unsubscribe = subscribeCurrentUserId(() => {
       if (getCurrentUserId() !== me) {
         active = false;
         coordinator.dispose();
+        contacts.dispose();
       }
     });
     const onVisible = () => {
-      if (document.visibilityState === "visible") coordinator.request();
+      if (document.visibilityState === "visible") refreshOnFocus();
     };
-    window.addEventListener("focus", coordinator.request);
+    window.addEventListener("focus", refreshOnFocus);
     document.addEventListener("visibilitychange", onVisible);
-    coordinator.request();
+    refreshOnFocus();
     return () => {
       active = false;
       coordinator.dispose();
+      contacts.dispose();
+      window.clearInterval(contactsTimer);
       refresh.current = null;
       unsubscribe();
-      window.removeEventListener("focus", coordinator.request);
+      window.removeEventListener("focus", refreshOnFocus);
       document.removeEventListener("visibilitychange", onVisible);
     };
   }, [me, origin, scope]);

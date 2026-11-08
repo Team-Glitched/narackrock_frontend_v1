@@ -73,12 +73,15 @@ async function data<T>(path: string, init?: RequestInit): Promise<T> {
   return response.data;
 }
 
-export async function enterComposition(shortId: number): Promise<{ projectId: number }> {
-  return data(`/api/v1/shorts/${shortId}/composition`);
+export async function enterComposition(
+  shortId: number,
+  signal?: AbortSignal,
+): Promise<{ projectId: number }> {
+  return data(`/api/v1/shorts/${shortId}/composition`, { signal });
 }
 
-export async function getComposition(projectId: number): Promise<CompositionDto> {
-  return data(`/api/v1/projects/${projectId}/tracks`);
+export async function getComposition(projectId: number, signal?: AbortSignal): Promise<CompositionDto> {
+  return data(`/api/v1/projects/${projectId}/tracks`, { signal });
 }
 
 /** Creates a track. `instrument` must be a sampled instrument or a recorded role; the server rejects others. */
@@ -137,6 +140,20 @@ export async function createAudioClip(
   return data(`/api/v1/projects/${projectId}/tracks/${trackId}/clips/audio`, {
     method: "POST",
     body: JSON.stringify({ mediaFileId, sourceType, startTick: 0, durationTick, clipOffsetMs: 0 }),
+  });
+}
+
+/** Places a public open source's audio on the caller's own layer; the server keeps the source owner's media. */
+export async function insertOpenSourceClip(
+  projectId: number,
+  trackId: number,
+  openSourceId: number,
+  startTick: number,
+  durationTick: number,
+) {
+  return data(`/api/v1/projects/${projectId}/tracks/${trackId}/clips/open-source`, {
+    method: "POST",
+    body: JSON.stringify({ openSourceId, startTick, durationTick }),
   });
 }
 
@@ -213,9 +230,10 @@ export type ContributionNotificationDto = {
   createdAt: string;
 };
 
-export async function getContributionInbox(): Promise<ContributionNotificationDto[]> {
+export async function getContributionInbox(signal?: AbortSignal): Promise<ContributionNotificationDto[]> {
   const response = await data<{ items: ContributionNotificationDto[] }>(
     "/api/v1/notifications/contributions",
+    { signal },
   );
   return response.items;
 }
@@ -228,6 +246,7 @@ export async function getPendingContributions(projectId: number): Promise<Contri
 export async function listContributions(
   projectId: number,
   status?: "PENDING" | "APPROVED" | "REJECTED",
+  signal?: AbortSignal,
 ): Promise<ContributionDto[]> {
   const items: ContributionDto[] = [];
   let cursor: number | null = null;
@@ -238,7 +257,7 @@ export async function listContributions(
     const page: {
       items: ContributionDto[];
       page: { nextCursor: number | null; hasMore: boolean };
-    } = await data(`/api/v1/projects/${projectId}/contributions?${params}`);
+    } = await data(`/api/v1/projects/${projectId}/contributions?${params}`, { signal });
     items.push(...page.items);
     if (!page.page.hasMore || page.page.nextCursor === null || page.page.nextCursor === cursor)
       return items;

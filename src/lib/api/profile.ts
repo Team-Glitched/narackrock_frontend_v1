@@ -1,8 +1,8 @@
 import { apiRequest } from "./client.ts";
 import type { ApiResponse, UserProfile } from "./contracts.ts";
 
-export async function getProfile(userId: number): Promise<UserProfile> {
-  const response = await apiRequest<ApiResponse<UserProfile>>(`/api/v1/users/profiles/${userId}`);
+export async function getProfile(userId: number, signal?: AbortSignal): Promise<UserProfile> {
+  const response = await apiRequest<ApiResponse<UserProfile>>(`/api/v1/users/profiles/${userId}`, { signal });
   return response.data;
 }
 
@@ -31,4 +31,13 @@ export async function updateProfileImage(image: File): Promise<{ profileImageUrl
     },
   );
   return response.data;
+}
+
+export async function updateFeaturedMusic(shortId: number | null): Promise<void> {
+  const path = "/api/v1/users/me/profile/featured-music";
+  if (shortId === null) {
+    await apiRequest(path, { method: "DELETE" });
+  } else {
+    await apiRequest(`${path}/${shortId}`, { method: "PUT" });
+  }
 }

@@ -1,6 +1,9 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { useLoginPrompt } from "@/features/auth/login-prompt";
+import { createContext, useCallback, useContext, useMemo, useState } from "react";
 import type { ReactNode } from "react";
+import { useMutation, useMutationState, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCurrentUserId } from "@/features/auth/use-current-user";
+import { galleryKeys } from "@/features/community/community-queries";
 import {
   fetchSubscribedGalleries,
   subscribeGallery,
@@ -16,7 +19,7 @@ import {
  * userId를 인자로 받는 이유는 로그인 사용자가 바뀌면 목록도 그 사용자 것으로 바뀌어야 하기 때문이다.
  */
 export type CommunityMembershipApi = {
-  listJoined: (userId: number | null) => Promise<number[]>;
+  listJoined: (userId: number | null, signal?: AbortSignal) => Promise<number[]>;
   setJoined: (userId: number | null, communityId: number, joined: boolean) => Promise<void>;
 };
 
@@ -34,9 +37,9 @@ export class MembershipError extends Error {}
  */
 export function createServerMembershipApi(): CommunityMembershipApi {
   return {
-    listJoined: async (userId) => {
+    listJoined: async (userId, signal) => {
       if (userId === null) return [];
-      const galleries = await fetchSubscribedGalleries();
+      const galleries = await fetchSubscribedGalleries(signal);
       return galleries.map((gallery) => gallery.galleryId);
     },
     setJoined: async (userId, communityId, joined) => {
@@ -81,13 +84,9 @@ export type CommunityMembership = {
   error: string | null;
   loadFailed: boolean;
   retryLoad: () => void;
-  /**
-   * 가입/탈퇴가 서버에 반영될 때마다 증가한다. 구독자 수는 서버가 집계로 즉시 바꾸는데
-   * 목록은 이 Provider가 아니라 화면이 따로 들고 있어서, 목록을 다시 받을 시점을
-   * 알리는 신호가 필요하다(useGalleries가 이 값을 의존성으로 쓴다).
-   */
-  revision: number;
 };
+
+type MembershipChange = { communityId: number; joining: boolean };
 
 const MembershipContext = createContext<CommunityMembership | null>(null);
 
@@ -105,7 +104,7 @@ export function CommunityMembershipProvider({
   children: ReactNode;
 }) {
   const userId = useCurrentUserId();
-  // 계정이 바뀌면 이전 계정의 목록과 진행 중인 요청 상태를 함께 폐기한다.
+  // 계정이 바뀌면 이전 계정의 가입/탈퇴 실패 문구를 함께 폐기한다.
   return (
     <ScopedMembershipProvider
       key={userId ?? "guest"}
@@ -129,95 +128,89 @@ function ScopedMembershipProvider({
   api?: CommunityMembershipApi;
   children: ReactNode;
 }) {
+  const { requireLogin } = useLoginPrompt();
+  const queryClient = useQueryClient();
   const resolvedApi = useMemo(
     () => api ?? createLocalMembershipApi(defaultJoinedIds),
     [api, defaultJoinedIds],
   );
+  const joinedKey = useMemo(() => galleryKeys.subscribed(userId), [userId]);
+  const membershipKey = useMemo(() => galleryKeys.membership(userId), [userId]);
 
-  const [joinedIds, setJoinedIds] = useState<ReadonlySet<number>>(() => new Set());
-  const [pendingIds, setPendingIds] = useState<ReadonlySet<number>>(() => new Set());
-  const [error, setError] = useState<string | null>(null);
-  const [loadFailed, setLoadFailed] = useState(false);
-  const [retrying, setRetrying] = useState(false);
-  const [reloadToken, setReloadToken] = useState(0);
-  const [revision, setRevision] = useState(0);
-  // 어느 사용자의 목록을 받아 뒀는지. 지금 사용자와 다르면 아직 불러오는 중이다.
-  // (loading을 별도 state로 두면 effect 본문에서 setState를 하게 된다)
-  const [loadedUserId, setLoadedUserId] = useState<number | null | undefined>(undefined);
-  const loading = loadedUserId !== userId || retrying;
+  const joined = useQuery({
+    queryKey: joinedKey,
+    queryFn: ({ signal }) => resolvedApi.listJoined(userId, signal),
+  });
+  const joinedIds = useMemo<ReadonlySet<number>>(() => new Set(joined.data), [joined.data]);
+  // 처음 받기에 실패했을 때만 가입 상태를 모르는 것이다. 받아 둔 목록이 있으면 그대로 쓴다.
+  const loading = joined.isPending;
+  const loadFailed = joined.isLoadingError;
 
-  // 로그인 사용자가 바뀌면 그 사용자의 가입 목록을 다시 불러온다.
-  useEffect(() => {
-    let cancelled = false;
-    resolvedApi
-      .listJoined(userId)
-      .then((ids) => {
-        if (cancelled) return;
-        setJoinedIds(new Set(ids));
-        setLoadFailed(false);
-        setRetrying(false);
-        setError(null);
-        setLoadedUserId(userId);
-      })
-      .catch(() => {
-        if (cancelled) return;
-        setJoinedIds(new Set());
-        setLoadFailed(true);
-        setRetrying(false);
-        setError("가입한 커뮤니티를 불러오지 못했습니다.");
-        setLoadedUserId(userId);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [resolvedApi, userId, reloadToken]);
+  const [changeError, setChangeError] = useState<string | null>(null);
+  const error =
+    changeError ?? (loadFailed ? "가입한 커뮤니티를 불러오지 못했습니다." : null);
 
-  const retryLoad = useCallback(() => {
-    setRetrying(true);
-    setReloadToken((token) => token + 1);
-  }, []);
+  const applyJoined = useCallback(
+    (communityId: number, add: boolean) =>
+      queryClient.setQueryData<number[]>(joinedKey, (ids = []) => {
+        const next = new Set(ids);
+        if (add) next.add(communityId);
+        else next.delete(communityId);
+        return [...next];
+      }),
+    [joinedKey, queryClient],
+  );
+
+  const { mutate } = useMutation({
+    mutationKey: membershipKey,
+    mutationFn: ({ communityId, joining }: MembershipChange) =>
+      resolvedApi.setJoined(userId, communityId, joining),
+    onMutate: async ({ communityId, joining }) => {
+      // 진행 중인 목록 재조회가 먼저 반영한 값을 덮어쓰지 않도록 멈춘다.
+      await queryClient.cancelQueries({ queryKey: joinedKey });
+      applyJoined(communityId, joining); // 서버 응답을 기다리지 않고 먼저 반영한다.
+    },
+    // 서버가 구독자 수를 집계로 바로 바꾸므로 갤러리 목록을 다시 받아야 한다.
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: galleryKeys.list(userId) }),
+    onError: (cause, { communityId, joining }) => {
+      applyJoined(communityId, !joining); // 실패하면 되돌린다.
+      setChangeError(
+        cause instanceof MembershipError
+          ? cause.message
+          : joining
+            ? "커뮤니티 가입에 실패했습니다."
+            : "커뮤니티 탈퇴에 실패했습니다.",
+      );
+    },
+  });
+
+  const pendingList = useMutationState({
+    filters: { mutationKey: membershipKey, status: "pending" },
+    select: (mutation) => (mutation.state.variables as MembershipChange).communityId,
+  });
+  const pendingIds = useMemo<ReadonlySet<number>>(() => new Set(pendingList), [pendingList]);
 
   const toggle = useCallback(
     (communityId: number) => {
-      if (loading || loadFailed || pendingIds.has(communityId)) return;
-      const joining = !joinedIds.has(communityId);
-
-      const apply = (add: boolean) =>
-        setJoinedIds((previous) => {
-          const next = new Set(previous);
-          if (add) next.add(communityId);
-          else next.delete(communityId);
-          return next;
-        });
-
-      setPendingIds((previous) => new Set(previous).add(communityId));
-      setError(null);
-      apply(joining); // 서버 응답을 기다리지 않고 먼저 반영한다.
-
-      void resolvedApi
-        .setJoined(userId, communityId, joining)
-        // 서버가 구독자 수를 집계로 바로 바꾸므로 목록을 다시 받아야 한다.
-        .then(() => setRevision((previous) => previous + 1))
-        .catch((cause: unknown) => {
-          apply(!joining); // 실패하면 되돌린다.
-          setError(
-            cause instanceof MembershipError
-              ? cause.message
-              : joining
-                ? "커뮤니티 가입에 실패했습니다."
-                : "커뮤니티 탈퇴에 실패했습니다.",
-          );
-        })
-        .finally(() =>
-          setPendingIds((previous) => {
-            const next = new Set(previous);
-            next.delete(communityId);
-            return next;
-          }),
-        );
+      if (!requireLogin() || loading || loadFailed) return;
+      // 캐시를 직접 읽어 두 번 연달아 누른 클릭도 진행 중인 요청을 본다.
+      const inFlight = queryClient.isMutating({
+        mutationKey: membershipKey,
+        predicate: (mutation) =>
+          (mutation.state.variables as MembershipChange | undefined)?.communityId === communityId,
+      });
+      if (inFlight > 0) return;
+      const joining = !(queryClient.getQueryData<number[]>(joinedKey) ?? []).includes(communityId);
+      setChangeError(null);
+      mutate({ communityId, joining });
     },
-    [joinedIds, loadFailed, loading, pendingIds, resolvedApi, userId],
+    [joinedKey, loadFailed, loading, membershipKey, mutate, queryClient, requireLogin],
   );
+
+  const { refetch } = joined;
+  const retryLoad = useCallback(() => {
+    void refetch();
+  }, [refetch]);
 
   const value = useMemo<CommunityMembership>(
     () => ({
@@ -228,9 +221,8 @@ function ScopedMembershipProvider({
       error,
       loadFailed,
       retryLoad,
-      revision,
     }),
-    [error, joinedIds, loadFailed, loading, pendingIds, retryLoad, revision, toggle],
+    [error, joinedIds, loadFailed, loading, pendingIds, retryLoad, toggle],
   );
 
   return <MembershipContext.Provider value={value}>{children}</MembershipContext.Provider>;

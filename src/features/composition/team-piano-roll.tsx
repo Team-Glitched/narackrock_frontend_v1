@@ -12,8 +12,6 @@ import { drumPadFor } from "./drum-kit";
 import { DrumPadIcon } from "./drum-pad-icon";
 
 const pitchNames = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
-const rowHeight = 30;
-const keyWidth = 87;
 const rulerHeight = 30;
 const clamp = (value: number, low: number, high: number) => Math.max(low, Math.min(high, value));
 type Point = { x: number; y: number };
@@ -32,6 +30,8 @@ type Gesture = {
   pitch: number;
   noteIndex: number | null;
   additive: boolean;
+  /** A tap (no drag) on an already selected note in additive mode removes it on release. */
+  toggleOff: boolean;
   scrollLeft: number;
   scrollTop: number;
 };
@@ -58,7 +58,7 @@ function crossesNote(from: Point, to: Point, left: number, top: number, right: n
 
 export function TeamPianoRoll({
   editor, signature, ppq, maxTick, positionTick, onSeekTick, playing,
-  instrument, initialPitch, onAudition, onSettings,
+  instrument, initialPitch, onAudition, onSettings, rowHeight = 30, keyWidth = 87,
 }: {
   editor: NoteEditorController;
   signature: TimeSignature;
@@ -71,6 +71,9 @@ export function TeamPianoRoll({
   initialPitch: number;
   onAudition: (pitch: number) => void;
   onSettings?: (index: number) => void;
+  /** Pitch row height and key column width in canvas px; the portrait layout enlarges the touch targets. */
+  rowHeight?: number;
+  keyWidth?: number;
 }) {
   const workspaceRef = useRef<HTMLDivElement>(null);
   const rollRef = useRef<HTMLDivElement>(null);
@@ -134,7 +137,7 @@ export function TeamPianoRoll({
       observer.disconnect();
       window.removeEventListener("resize", measure);
     };
-  }, []);
+  }, [keyWidth]);
 
   useLayoutEffect(() => {
     const workspace = workspaceRef.current;
@@ -272,18 +275,20 @@ export function TeamPianoRoll({
     else if (!editor.editable) kind = note ? "tap" : "pan";
     else if (tool === "erase") kind = "erase";
     else if (note && noteIndex !== null) {
-      if (event.shiftKey) {
-        editor.select([noteIndex], "toggle");
-        indices = originalSelection.includes(noteIndex)
-          ? originalSelection.filter((index) => index !== noteIndex) : [...originalSelection, noteIndex];
+      // The select tool is additive without a modifier so touch screens can build a multi-selection.
+      const additive = event.shiftKey || tool === "select";
+      if (additive) {
+        if (!originalSelection.includes(noteIndex)) {
+          indices = [...originalSelection, noteIndex];
+          editor.select([noteIndex], "add");
+        }
       } else if (!selected.has(noteIndex)) {
         indices = [noteIndex];
         editor.select(indices);
       }
       const bounds = logicalBounds(noteElement!);
       const axes = pointerAxes(noteElement!, event);
-      kind = event.shiftKey && !indices.includes(noteIndex) ? "tap"
-        : bounds.left + bounds.width - axes.x <= Math.min(10, bounds.width / 3) ? "resize" : "move";
+      kind = bounds.left + bounds.width - axes.x <= Math.min(10, bounds.width / 3) ? "resize" : "move";
     } else if (tool === "select") kind = "marquee";
     else kind = "draw";
     event.preventDefault();
@@ -293,6 +298,7 @@ export function TeamPianoRoll({
       origin: point, previous: point, moved: false, indices, selected: originalSelection,
       notes: editor.snapshot.notes, erased: new Set(), pitch: rows[row], noteIndex,
       additive: event.shiftKey, scrollLeft: event.currentTarget.scrollLeft, scrollTop: event.currentTarget.scrollTop,
+      toggleOff: (event.shiftKey || tool === "select") && noteIndex !== null && originalSelection.includes(noteIndex),
     };
     gesture.current = active;
     event.currentTarget.setPointerCapture(event.pointerId);
@@ -331,6 +337,7 @@ export function TeamPianoRoll({
       const note = active.notes[active.noteIndex];
       if (note) {
         if (!editor.editable) editor.select([active.noteIndex], active.additive ? "toggle" : "replace");
+        else if (active.toggleOff) editor.select([active.noteIndex], "toggle");
         onAudition(note.pitch);
       }
     }
@@ -357,7 +364,18 @@ export function TeamPianoRoll({
       onPointerUp={pointerUp}
       onPointerCancel={cancel}
       onLostPointerCapture={(event) => {
-        if (gesture.current?.pointerId === event.pointerId) cancel();
+        const active = gesture.current;
+        if (active?.pointerId !== event.pointerId) return;
+        // Chrome can drop capture just before the matching pointerup (e.g. a press shortly after a tap), so losing
+        // capture is not a cancellation. Re-capture while the pointer is live; pointerup/pointercancel end the gesture.
+        try {
+          event.currentTarget.setPointerCapture(event.pointerId);
+        } catch {
+          // The pointer is gone. A pointerup bubbling from inside the roll in the same input still finishes it.
+          window.setTimeout(() => {
+            if (gesture.current === active) cancel();
+          }, 0);
+        }
       }}
       onScroll={(event) => {
         if (pixelsPerTick > 0) {
@@ -421,7 +439,7 @@ export function TeamPianoRoll({
       </div>
       <div
         className={studioStyles.pianoKeys}
-        style={{ height, gridTemplateRows: `repeat(${rows.length}, ${rowHeight}px)`, gridColumn: 1, gridRow: 2, left: 0 }}
+        style={{ height, width: keyWidth, gridTemplateRows: `repeat(${rows.length}, ${rowHeight}px)`, gridColumn: 1, gridRow: 2, left: 0 }}
       >
         {rows.map((pitch) => (
           <button
@@ -431,6 +449,7 @@ export function TeamPianoRoll({
             aria-label={`${pitchLabel(pitch)} 미리듣기`}
             title={pitchLabel(pitch)}
             onClick={() => onAudition(pitch)}
+            style={{ height: rowHeight, minHeight: rowHeight, width: keyWidth }}
           >
             {drum && <DrumPadIcon kind={drumPadFor(pitch)?.icon ?? "percussion"} />}
             <span style={{ display: "inline", position: "static", transform: "none" }}>{pitchLabel(pitch)}</span>

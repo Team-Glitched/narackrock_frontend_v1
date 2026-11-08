@@ -13,6 +13,12 @@ export function getShorts(cursor?: number, signal?: AbortSignal): Promise<Shorts
   return data(`/api/v1/shorts${query}`, { signal });
 }
 
+export function searchShorts(keyword: string, cursor?: number, signal?: AbortSignal): Promise<ShortsPageDto> {
+  const query = new URLSearchParams({ keyword });
+  if (cursor !== undefined) query.set("cursor", String(cursor));
+  return data(`/api/v1/shorts/search?${query}`, { signal });
+}
+
 export function getPopularShorts(size = 10, signal?: AbortSignal): Promise<ShortsPageDto> {
   return data(`/api/v1/shorts/popular?size=${encodeURIComponent(size)}`, { signal });
 }
@@ -98,8 +104,11 @@ export type ShortComment = {
 };
 
 /** The short comment list is not paged; it returns every top-level comment and reply. */
-export function getShortComments(shortId: number): Promise<{ shortId: number; comments: ShortComment[] }> {
-  return data(`/api/v1/shorts/${shortId}/comments`);
+export function getShortComments(
+  shortId: number,
+  signal?: AbortSignal,
+): Promise<{ shortId: number; comments: ShortComment[] }> {
+  return data(`/api/v1/shorts/${shortId}/comments`, { signal });
 }
 
 export function createShortComment(shortId: number, content: string, parentCommentId: number | null): Promise<unknown> {

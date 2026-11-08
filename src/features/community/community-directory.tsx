@@ -38,7 +38,7 @@ type DirectoryState = {
  */
 function useDirectory(): DirectoryState {
   const membership = useCommunityMembership();
-  const galleries = useGalleries(membership.revision);
+  const galleries = useGalleries();
 
   const split = useMemo(() => {
     if (galleries.status !== "ready") return { joined: [], recommended: [] };

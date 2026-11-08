@@ -179,9 +179,10 @@ export class NoteEditorSession {
     let next = this.state;
     if (contextChanged || !sameNotes(options.notes, next.history.present.notes)) {
       const snapshot = { notes: structuredClone(options.notes), selected: [] };
+      // Tool/snap/window are UI preferences: a draft (re)load or recovery resets history only. A different
+      // track or clip remounts the editor, so view defaults still apply to a genuinely new target.
       next = { ...next, history: noteHistoryTransition(next.history, { type: "reset", snapshot }),
         clipboard: [], gesture: null, error: null,
-        view: contextChanged ? initialView() : next.view,
         lastChange: this.change("reset", next.history.present.notes.map(() => null)),
       };
     }

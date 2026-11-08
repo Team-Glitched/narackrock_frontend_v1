@@ -92,7 +92,7 @@ export function SourcePlayback({
         playing={playing}
         muted={muted}
         positionMs={position * 1000}
-        durationMs={(duration ?? 0) * 1000}
+        durationMs={duration === null ? null : duration * 1000}
         disabled={loading}
         onToggle={() => void toggle()}
         onSeek={(ms) => {

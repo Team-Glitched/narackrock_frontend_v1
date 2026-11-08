@@ -1,5 +1,6 @@
 import { sharedStyles } from "@/styles/shared.styles";
 import { buttonVariants } from "@/styles/variants";
+import { cn } from "@/lib/utils";
 import { CanvasDialog } from "@/components/canvas-dialog";
 import { useEffect, useEffectEvent, useId, useState } from "react";
 import { canonicalInstrumentId } from "./instrument-catalog";
@@ -61,7 +62,7 @@ export function InstrumentDialog({
     <CanvasDialog className={sharedStyles.instrumentDialog} titleId={titleId} onClose={close}>
       <h2 id={titleId}>악기 선택</h2>
       <p>같은 악기나 보컬을 여러 명이 함께 선택할 수 있어요.</p>
-      <div role="radiogroup" aria-label="악기" className="grid max-h-[260px] gap-2 overflow-y-auto">
+      <div role="radiogroup" aria-label="악기" className="grid min-h-0 max-h-[320px] flex-1 gap-4 overflow-y-auto overscroll-contain">
         {instrumentGroups.map((group) => {
           const parts = group.instruments.filter(available);
           if (!parts.length) return null;
@@ -72,26 +73,28 @@ export function InstrumentDialog({
                 {group.label}
                 {using.length ? ` · 다른 레이어 ${using.length}개에서 사용 중 · 함께 선택 가능` : ""}
               </legend>
-              {parts.map((id) => (
-                <button
-                  key={id}
-                  type="button"
-                  role="radio"
-                  aria-checked={selected === id}
-                  onClick={() => {
-                    setSelected(id);
-                    preview(id);
-                  }}
-                >
-                  {partLabel(id)}
-                </button>
-              ))}
+              <div className="flex flex-wrap gap-2">
+                {parts.map((id) => (
+                  <button
+                    key={id}
+                    type="button"
+                    role="radio"
+                    aria-checked={selected === id}
+                    onClick={() => {
+                      setSelected(id);
+                      preview(id);
+                    }}
+                  >
+                    {partLabel(id)}
+                  </button>
+                ))}
+              </div>
             </fieldset>
           );
         })}
       </div>
       {choice.mode === "audio" && (
-        <div className="flex gap-2">
+        <div className="flex shrink-0 gap-2">
           <button
             type="button"
             className={buttonVariants({ tone: "secondary", size: "compact" })}
@@ -111,7 +114,7 @@ export function InstrumentDialog({
       )}
       {error && <p role="alert">{error}</p>}
       <button
-        className={buttonVariants({ tone: "primary", size: "compact" })}
+        className={cn(buttonVariants({ tone: "primary", size: "compact" }), "w-full shrink-0 justify-center")}
         disabled={busy || !selected || selected === canonicalInstrumentId(choice.value)}
         onClick={async () => {
           if (!selected) return;

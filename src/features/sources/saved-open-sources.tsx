@@ -1,52 +1,32 @@
 import { workspaceStyles } from "@/styles/workspace.styles";
-import { useEffect, useState } from "react";
 import { useCurrentUserId } from "@/features/auth/use-current-user";
 import { SignInRequired } from "@/features/auth/sign-in-required";
 import { SourcePlayback } from "@/features/sources/source-playback";
 import { sourceError } from "@/features/sources/source-screens";
-import { listAllSavedOpenSources, setOpenSourceSaved, type SavedOpenSource } from "@/lib/api/open-sources";
+import { loadSavedSources, savedSourcesScope, useSourceSaveMutation } from "@/features/sources/source-queries";
+
+import { usePagedItems } from "@/hooks/use-paged-items";
 
 /** The account's server-side open source library (`GET /users/me/open-sources`), including unavailable entries. */
 export function SavedOpenSources({ query, onOpen }: { query: string; onOpen: (id: number) => void }) {
   const userId = useCurrentUserId();
-  const [retry, setRetry] = useState(0);
-  const key = `${userId}:${retry}`;
-  const [loaded, setLoaded] = useState<{ key: string; items: SavedOpenSource[]; error?: string } | null>(null);
-  const [busy, setBusy] = useState<number | null>(null);
-  const [notice, setNotice] = useState("");
-  useEffect(() => {
-    if (userId === null) return;
-    const controller = new AbortController();
-    listAllSavedOpenSources(controller.signal)
-      .then((items) => setLoaded({ key, items }))
-      .catch((cause) => {
-        if (!controller.signal.aborted) setLoaded({ key, items: [], error: sourceError(cause, "보관함을 불러오지 못했습니다.") });
-      });
-    return () => controller.abort();
-  }, [key, userId]);
   if (userId === null) return <SignInRequired>저장한 오픈소스는 로그인 후 볼 수 있습니다.</SignInRequired>;
-  const current = loaded?.key === key ? loaded : null;
+  return <SavedSourceList key={userId} query={query} onOpen={onOpen} />;
+}
+
+function SavedSourceList({ query, onOpen }: { query: string; onOpen: (id: number) => void }) {
+  // Shares `sourceKeys.saved`, which every save/unsave invalidates.
+  const { state: current, more, remove } = usePagedItems(savedSourcesScope, 0, loadSavedSources);
+  const unsave = useSourceSaveMutation();
   if (!current) return <p role="status">저장한 오픈소스를 불러오는 중...</p>;
-  if (current.error)
-    return (
-      <div role="alert">
-        <p>{current.error}</p>
-        <button onClick={() => setRetry((value) => value + 1)}>다시 시도</button>
-      </div>
-    );
-  async function unsave(id: number) {
-    if (busy !== null) return;
-    setBusy(id);
-    setNotice("");
-    try {
-      const result = await setOpenSourceSaved(id, false);
-      if (!result.isSaved)
-        setLoaded((old) => (old?.key === key ? { ...old, items: old.items.filter((item) => item.openSourceId !== id) } : old));
-    } catch (cause) {
-      setNotice(sourceError(cause, "보관 해제에 실패했습니다."));
-    } finally {
-      setBusy(null);
-    }
+  const busy = unsave.isPending ? unsave.variables.sourceId : null;
+  const notice = unsave.error ? sourceError(unsave.error, "보관 해제에 실패했습니다.") : "";
+  function unsaveSource(id: number) {
+    if (unsave.isPending) return;
+    unsave.mutate({ sourceId: id, saved: false }, {
+      // The library is reread from its first page; the row leaves at once.
+      onSuccess: (result) => { if (!result.isSaved) remove((item) => item.openSourceId === id); },
+    });
   }
   const keyword = query.trim().toLocaleLowerCase();
   const items = current.items.filter(
@@ -61,7 +41,7 @@ export function SavedOpenSources({ query, onOpen }: { query: string; onOpen: (id
           {notice}
         </p>
       )}
-      {items.length === 0 && <p className={workspaceStyles.workspaceNotice}>저장한 오픈소스가 없습니다.</p>}
+      {items.length === 0 && current.next === null && !current.error && <p className={workspaceStyles.workspaceNotice}>{keyword ? "검색 결과가 없습니다." : "저장한 오픈소스가 없습니다."}</p>}
       {items.map((item) => (
         <article className={workspaceStyles.workspaceCard} key={item.openSourceId}>
           <span className={workspaceStyles.workspaceStatus}>저장한 오픈소스</span>
@@ -71,7 +51,7 @@ export function SavedOpenSources({ query, onOpen }: { query: string; onOpen: (id
               <p>{item.source.description ?? ""}</p>
               <small>{item.source.writer.nickname}</small>
               <SourcePlayback sourceId={item.openSourceId} canPreview durationMs={null} />
-              <p className={workspaceStyles.workspaceNotice}>곡에 오픈소스 넣기는 현재 서버에서 지원하지 않습니다.</p>
+              <p className={workspaceStyles.workspaceNotice}>피아노롤의 ‘+ 오픈소스’에서 내 레이어에 오디오로 넣을 수 있습니다.</p>
             </>
           ) : (
             <>
@@ -80,7 +60,7 @@ export function SavedOpenSources({ query, onOpen }: { query: string; onOpen: (id
             </>
           )}
           <div className={workspaceStyles.workspaceActions}>
-            <button disabled={busy !== null} onClick={() => void unsave(item.openSourceId)}>
+            <button disabled={busy !== null || current.busy} onClick={() => unsaveSource(item.openSourceId)}>
               {busy === item.openSourceId ? "해제 중..." : "저장 해제"}
             </button>
             {item.availability === "AVAILABLE" && (
@@ -91,6 +71,12 @@ export function SavedOpenSources({ query, onOpen }: { query: string; onOpen: (id
           </div>
         </article>
       ))}
+      {current.error && <p role="alert">{sourceError(current.error.cause, "보관함을 불러오지 못했습니다.")}</p>}
+      {current.next !== null && (
+        <button className={workspaceStyles.workspaceWide} disabled={current.busy || busy !== null} onClick={more}>
+          {current.busy ? "불러오는 중..." : current.error ? "다시 시도" : "더보기"}
+        </button>
+      )}
     </>
   );
 }

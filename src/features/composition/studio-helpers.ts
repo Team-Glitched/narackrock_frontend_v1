@@ -5,8 +5,11 @@ export type DraftScope = { origin: string; userId: number };
 export function projectDraftKey(scope?: DraftScope): string {
   return `narackrock.project-draft.v2:${scope?.origin ?? apiOrigin()}:${scope?.userId ?? getCurrentUserId() ?? "guest"}`;
 }
+// fetch reports an unreachable server or a blocked response as a bare TypeError ("Failed to fetch").
 export const errorText = (cause: unknown) =>
-  cause instanceof Error ? cause.message : "요청을 처리하지 못했습니다.";
+  cause instanceof TypeError
+    ? "서버에 연결하지 못했습니다. 네트워크를 확인한 뒤 다시 시도해주세요."
+    : cause instanceof Error ? cause.message : "요청을 처리하지 못했습니다.";
 
 export const clockTime = (ms: number) =>
   `${String(Math.floor(ms / 60000)).padStart(2, "0")}:${String(Math.floor(ms / 1000) % 60).padStart(2, "0")}`;

@@ -1,3 +1,4 @@
+import { useLoginPrompt } from "@/features/auth/login-prompt";
 import { communityStyles } from "@/styles/community.styles";
 import { buttonVariants } from "@/styles/variants";
 import { useHiddenPosts } from "@/features/community/hidden-posts";
@@ -9,29 +10,38 @@ import { ReportReasons } from "@/features/comments/report-reasons";
 import { PostActions } from "@/features/posts/post-actions";
 import { usePostInteractions } from "@/features/posts/use-post-interactions";
 import { useEffect, useRef, useState } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Asset } from "@/components/asset";
 import { Avatar } from "@/components/avatar";
-import { deletePost, fetchPost, moderateGalleryContent, updatePost } from "@/lib/api/community";
-import type { PostDetailResponse, PostListItem } from "@/lib/api/contracts";
-import { getAccessToken, getCurrentUserId } from "@/lib/api/client";
+import { deletePost, moderateGalleryContent, updatePost } from "@/lib/api/community";
+import type { PostListItem } from "@/lib/api/contracts";
+import { useCurrentUserId } from "@/features/auth/use-current-user";
+import { applyPostEdit, applyPostRemoval, postDetailQuery } from "@/features/posts/post-queries";
 import { postError, relativeTime } from "@/features/posts/post-utils";
 import { reportPost } from "@/lib/api/reports";
 
-/** A post card. `moderation` (from the gallery role) enables moderator deletion and member sanctions. */
-export function CommunityPost({
-  post,
-  onChanged,
-  onComments,
-  onProfile,
-  moderation,
-}: {
+type CommunityPostProps = {
   moderation?: ModerationScope;
   post: PostListItem;
   onChanged: () => void;
   onComments: (postId: number) => void;
   onProfile?: (userId: number) => void;
-}) {
-  const currentUserId = getCurrentUserId();
+};
+
+/** A post card. `moderation` (from the gallery role) enables moderator deletion and member sanctions. */
+export function CommunityPost(props: CommunityPostProps) {
+  const currentUserId = useCurrentUserId();
+  return <ScopedCommunityPost key={`${currentUserId}:${props.post.postId}`} {...props} currentUserId={currentUserId} />;
+}
+
+function ScopedCommunityPost({
+  post,
+  onChanged,
+  onComments,
+  onProfile,
+  moderation,
+  currentUserId,
+}: CommunityPostProps & { currentUserId: number | null }) {
   const owner = currentUserId === post.writer.userId;
   const canModerate = Boolean(moderation?.canManage);
   const canModerateMember = canSanction(moderation, currentUserId, post.writer.userId);
@@ -40,100 +50,119 @@ export function CommunityPost({
   const [moderationNotice, setModerationNotice] = useState("");
   const [menuOpen, setMenuOpen] = useState(false);
   const optionButton = useRef<HTMLButtonElement>(null);
+  const articleRef = useRef<HTMLElement>(null);
   const hiddenPosts = useHiddenPosts();
+  const { requireLogin } = useLoginPrompt();
   const [reportOpen, setReportOpen] = useState(false);
-  const [detail, setDetail] = useState<PostDetailResponse | null>(null);
+  const queryClient = useQueryClient();
+  // The detail (preview, reactions, saved state) is requested once the card nears the viewport.
+  const [nearViewport, setNearViewport] = useState(() => typeof IntersectionObserver === "undefined");
+  const detailQuery = useQuery({
+    ...postDetailQuery(currentUserId, post.postId),
+    enabled: currentUserId !== null && nearViewport,
+  });
+  const detail = detailQuery.data ?? null;
   const interactions = usePostInteractions(post.postId, detail);
+  const detailStatus = detailQuery.isError ? "unavailable" : "loading";
+  const saveStatus = currentUserId === null || interactions.bookmarked !== undefined
+    ? "ready"
+    : detailStatus;
+  const voteStatus = currentUserId === null || interactions.reaction ? "ready" : detailStatus;
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState(post.title);
   const [content, setContent] = useState("");
-  const [submitting, setSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [preview, setPreview] = useState<string | null>(null);
-  const [imageUrl, setImageUrl] = useState<string | null>(post.imageUrl);
+  const [loadingEdit, setLoadingEdit] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const error = actionError ?? (detailQuery.isLoadingError ? postError(detailQuery.error) : null);
+  const preview = detail?.content ?? null;
+  const imageUrl = detail ? detail.imageUrl : post.imageUrl;
 
   const [confirmDelete, setConfirmDelete] = useState(false);
   const moderating = canModerate && !owner;
 
+  const saving = useMutation({
+    mutationFn: (edit: { title: string; content: string }) => updatePost(post.postId, edit.title, edit.content),
+    onSuccess: (_response, edit) => {
+      applyPostEdit(queryClient, currentUserId, post.postId, edit.title, edit.content);
+      setEditing(false);
+      onChanged();
+    },
+    onError: (cause) => setActionError(postError(cause)),
+  });
+  const removal = useMutation({
+    mutationFn: (moderationScope: { galleryId: number; reason: string } | null) =>
+      moderationScope
+        ? moderateGalleryContent(moderationScope.galleryId, "posts", post.postId, moderationScope.reason)
+        : deletePost(post.postId),
+    onSuccess: () => {
+      applyPostRemoval(queryClient, currentUserId, post.postId);
+      onChanged();
+    },
+    onError: (cause) => {
+      setActionError(postError(cause));
+      setConfirmDelete(false);
+    },
+  });
+  // A deleted post stays disabled until the list reloads without it.
+  const submitting = loadingEdit || saving.isPending || removal.isPending || removal.isSuccess;
+
   useEffect(() => {
-    if (!getAccessToken()) return;
-    let cancelled = false;
-    fetchPost(post.postId)
-      .then((detail) => {
-        if (!cancelled) {
-          setDetail(detail);
-          setPreview(detail.content);
-          setImageUrl(detail.imageUrl);
-        }
-      })
-      .catch((error) => {
-        if (!cancelled) setError(postError(error));
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [post.postId, post.imageUrl]);
+    const article = articleRef.current;
+    if (currentUserId === null || nearViewport || !article) return;
+    const observer = new IntersectionObserver((entries) => {
+      if (!entries.some((entry) => entry.isIntersecting)) return;
+      observer.disconnect();
+      setNearViewport(true);
+    }, { rootMargin: "300px 0px" });
+    observer.observe(article);
+    return () => observer.disconnect();
+  }, [currentUserId, nearViewport]);
 
   async function startEdit() {
     setMenuOpen(false);
-    setError(null);
-    setSubmitting(true);
+    setActionError(null);
+    setLoadingEdit(true);
     try {
-      const detail = await fetchPost(post.postId);
-      setTitle(detail.title);
-      setContent(detail.content);
+      // Edit the server's current text, not a possibly older cached copy.
+      const fresh = await queryClient.fetchQuery({ ...postDetailQuery(currentUserId, post.postId), staleTime: 0 });
+      setTitle(fresh.title);
+      setContent(fresh.content);
       setEditing(true);
-    } catch (error) {
-      setError(postError(error));
+    } catch (cause) {
+      setActionError(postError(cause));
     } finally {
-      setSubmitting(false);
+      setLoadingEdit(false);
     }
   }
 
-  async function saveEdit() {
+  function saveEdit() {
     if (!title.trim() || !content.trim()) {
-      setError("제목과 내용을 모두 입력해주세요.");
+      setActionError("제목과 내용을 모두 입력해주세요.");
       return;
     }
-    setSubmitting(true);
-    setError(null);
-    try {
-      await updatePost(post.postId, title, content);
-      setPreview(content);
-      setEditing(false);
-      onChanged();
-    } catch (error) {
-      setError(postError(error));
-    } finally {
-      setSubmitting(false);
-    }
+    if (submitting) return;
+    setActionError(null);
+    saving.mutate({ title, content });
   }
 
-  async function remove() {
+  function remove() {
     setMenuOpen(false);
     if (moderating && !moderationReason.trim()) {
-      setError("운영 삭제 사유를 입력해주세요.");
+      setActionError("운영 삭제 사유를 입력해주세요.");
       return;
     }
-    setSubmitting(true);
-    setError(null);
-    try {
-      if (moderating && moderation)
-        await moderateGalleryContent(moderation.galleryId, "posts", post.postId, moderationReason.trim());
-      else await deletePost(post.postId);
-      onChanged();
-    } catch (error) {
-      setError(postError(error));
-      setSubmitting(false);
-      setConfirmDelete(false);
-    }
+    if (submitting) return;
+    setActionError(null);
+    removal.mutate(
+      moderating && moderation ? { galleryId: moderation.galleryId, reason: moderationReason.trim() } : null,
+    );
   }
 
   if (hiddenPosts.ids.has(post.postId)) return null;
 
   if (editing) {
     return (
-      <article className={communityStyles.communityPost} data-post-id={post.postId}>
+      <article ref={articleRef} className={communityStyles.communityPost} data-post-id={post.postId}>
         <div className={communityStyles.postForm}>
           <input
             aria-label="게시글 제목 수정"
@@ -178,7 +207,7 @@ export function CommunityPost({
   }
 
   return (
-    <article className={communityStyles.communityPost} data-post-id={post.postId}>
+    <article ref={articleRef} className={communityStyles.communityPost} data-post-id={post.postId}>
       {interactions.shareDialog}
       <div className={communityStyles.communityAuthor}>
         <button
@@ -230,7 +259,7 @@ export function CommunityPost({
           onClose={() => setMenuOpen(false)}
           onReport={() => {
             setMenuOpen(false);
-            setReportOpen(true);
+            if (requireLogin()) setReportOpen(true);
           }}
           onHide={() => {
             setMenuOpen(false);
@@ -285,13 +314,13 @@ export function CommunityPost({
           {post.title}
         </button>
       </h2>
-      {preview !== "" && (
+      {(currentUserId === null || preview) && (
         <button
           className={communityStyles.postPreview}
           onClick={() => onComments(post.postId)}
           disabled={submitting}
         >
-          {preview ?? "로그인 후 게시글 내용을 확인할 수 있어요."}
+          {currentUserId === null ? "로그인 후 게시글 내용을 확인할 수 있어요." : preview}
         </button>
       )}
       {error && (
@@ -352,13 +381,15 @@ export function CommunityPost({
       )}
       <PostActions
         likeCount={interactions.reaction?.likeCount ?? post.likeCount}
-        dislikeCount={interactions.reaction?.dislikeCount ?? 0}
+        dislikeCount={interactions.reaction?.dislikeCount}
         commentCount={post.commentCount}
         vote={interactions.reaction?.isLiked ? "like" : interactions.reaction?.isDisliked ? "dislike" : null}
+        voteStatus={voteStatus}
         busy={interactions.busy}
         onVote={(kind) => void interactions.vote(kind)}
         onComments={() => onComments(post.postId)}
         saved={interactions.bookmarked}
+        saveStatus={saveStatus}
         onSave={() => void interactions.toggleBookmark()}
         onShare={() => void interactions.share(post.title)}
       />

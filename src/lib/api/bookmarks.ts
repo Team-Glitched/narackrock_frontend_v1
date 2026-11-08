@@ -29,14 +29,23 @@ export type BookmarkedShort = {
 const data = <T>(path: string, signal?: AbortSignal) =>
   apiRequest<ApiResponse<T>>(path, { signal }).then((response) => response.data);
 
+export function listBookmarkedPosts(page: number, signal?: AbortSignal) {
+  return data<{ page: number; size: number; totalCount: number; posts: BookmarkedPost[] }>(
+    `/api/v1/users/me/bookmarks/posts?page=${page}&size=50`, signal,
+  );
+}
+
+export function listBookmarkedShorts(cursor: number | null, signal?: AbortSignal) {
+  return data<{ items: BookmarkedShort[]; page: { nextCursor: number | null; hasMore: boolean } }>(
+    `/api/v1/users/me/bookmarks/shorts?size=50${cursor === null ? "" : `&cursor=${cursor}`}`, signal,
+  );
+}
+
 /** Every bookmarked post, following page numbers until `totalCount` is reached. */
 export async function listAllBookmarkedPosts(signal?: AbortSignal): Promise<BookmarkedPost[]> {
   const posts: BookmarkedPost[] = [];
   for (let page = 0; ; page++) {
-    const result = await data<{ page: number; size: number; totalCount: number; posts: BookmarkedPost[] }>(
-      `/api/v1/users/me/bookmarks/posts?page=${page}&size=50`,
-      signal,
-    );
+    const result = await listBookmarkedPosts(page, signal);
     posts.push(...result.posts);
     if (result.posts.length === 0 || posts.length >= result.totalCount) return posts;
   }
@@ -47,10 +56,7 @@ export async function listAllBookmarkedShorts(signal?: AbortSignal): Promise<Boo
   const shorts: BookmarkedShort[] = [];
   let cursor: number | null = null;
   for (;;) {
-    const result: { items: BookmarkedShort[]; page: { nextCursor: number | null; hasMore: boolean } } = await data(
-      `/api/v1/users/me/bookmarks/shorts?size=50${cursor === null ? "" : `&cursor=${cursor}`}`,
-      signal,
-    );
+    const result = await listBookmarkedShorts(cursor, signal);
     shorts.push(...result.items);
     if (!result.page.hasMore || result.page.nextCursor === null || result.page.nextCursor === cursor) return shorts;
     cursor = result.page.nextCursor;

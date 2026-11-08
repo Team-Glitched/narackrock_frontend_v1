@@ -1,33 +1,23 @@
-import { useEffect, useState } from "react";
-import { fetchGalleries } from "@/lib/api/community";
+import { useMemo } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { useCurrentUserId } from "@/features/auth/use-current-user";
+import { galleriesQuery } from "@/features/community/community-queries";
 import { galleryToCommunity, type Community } from "@/features/community/community-card";
 
 type Result =
   | { id: number; status: "ready"; community: Community }
-  | { id: number; status: "error" | "missing" };
-export function useRouteCommunity(id: number | null) {
-  const [result, setResult] = useState<Result | null>(null);
-  useEffect(() => {
-    if (id === null) return;
-    let active = true;
-    fetchGalleries()
-      .then((galleries) => {
-        if (!active) return;
-        const gallery = galleries.find((item) => item.galleryId === id);
-        setResult(
-          gallery
-            ? { id, status: "ready", community: galleryToCommunity(gallery) }
-            : { id, status: "missing" },
-        );
-      })
-      .catch(() => {
-        if (active) setResult({ id, status: "error" });
-      });
-    return () => {
-      active = false;
-    };
-  }, [id]);
-  return result?.id === id
-    ? result
-    : { id, status: id === null ? ("missing" as const) : ("loading" as const) };
+  | { id: number | null; status: "loading" | "error" | "missing" };
+
+/** The community of a route's gallery ID, looked up in the shared gallery list. */
+export function useRouteCommunity(id: number | null): Result {
+  const userId = useCurrentUserId();
+  const { data, isError } = useQuery({ ...galleriesQuery(userId), enabled: id !== null });
+  return useMemo((): Result => {
+    if (id === null) return { id, status: "missing" };
+    if (!data) return { id, status: isError ? "error" : "loading" };
+    const gallery = data.find((item) => item.galleryId === id);
+    return gallery
+      ? { id, status: "ready", community: galleryToCommunity(gallery) }
+      : { id, status: "missing" };
+  }, [data, id, isError]);
 }

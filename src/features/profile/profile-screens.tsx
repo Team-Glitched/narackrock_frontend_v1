@@ -1,20 +1,24 @@
+import { useLoginPrompt } from "@/features/auth/login-prompt";
 import { profileStyles } from "@/styles/profile.styles";
 import { sharedStyles } from "@/styles/shared.styles";
 import { cn } from "@/lib/utils";
 import { uiLabels } from "@/lib/ui-labels";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ProfileListSheet, type ProfileListKind } from "./profile-lists";
 import { ProfilePrivacyToggle, ProfileRelationActions } from "./profile-relations";
 import { Asset } from "@/components/asset";
 import { Avatar } from "@/components/avatar";
 import { SectionTitle } from "@/components/section-title";
+import { FigmaSheet } from "@/components/figma-sheet";
 import { useCurrentUserId } from "@/features/auth/use-current-user";
 import { ApiError } from "@/lib/api/client";
-import { getProfile, updateProfile, updateProfileImage } from "@/lib/api/profile";
+import { updateFeaturedMusic, updateProfile, updateProfileImage } from "@/lib/api/profile";
 import type { UserProfile } from "@/lib/api/contracts";
-import { Link } from "react-router";
+import { Link, useNavigate } from "react-router";
 import { useMySongs } from "@/features/home/use-my-songs";
 import { songsForTab } from "@/features/home/my-songs";
+import { profileKeys, profileQuery } from "./profile-queries";
 
 function profileErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : "프로필을 불러오지 못했습니다.";
@@ -23,73 +27,17 @@ function profileErrorMessage(error: unknown): string {
 function useOwnProfile(targetUserId?: number) {
   const currentUserId = useCurrentUserId();
   const userId = targetUserId ?? currentUserId;
-  const [revision, setRevision] = useState(0);
-  const [result, setResult] = useState<{
-    userId: number;
-    profile: UserProfile | null;
-    error: string | null;
-  } | null>(null);
+  const query = useQuery({ ...profileQuery(currentUserId, userId ?? 0), enabled: userId !== null });
+  const reload = () => { if (userId !== null) void query.refetch(); };
 
-  useEffect(() => {
-    if (userId == null) return;
-
-    let cancelled = false;
-
-    getProfile(userId)
-      .then((profile) => {
-        if (!cancelled) {
-          setResult({ userId, profile, error: null });
-        }
-      })
-      .catch((cause) => {
-        if (!cancelled) {
-          setResult({
-            userId,
-            profile: null,
-            error: profileErrorMessage(cause),
-          });
-        }
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [userId, revision]);
-  const reload = () => setRevision((value) => value + 1);
-
-  const setProfile = (profile: UserProfile) => {
-    if (userId != null) {
-      setResult({ userId, profile, error: null });
-    }
-  };
-
-  if (userId == null) {
-    return {
-      profile: null,
-      loading: false,
-      error: "로그인이 필요합니다.",
-      setProfile,
-      reload,
-    };
+  if (userId === null) {
+    return { profile: null, loading: false, error: "로그인이 필요합니다.", reload };
   }
-
-  if (!result || result.userId !== userId) {
-    return {
-      profile: null,
-      loading: true,
-      error: null,
-      setProfile,
-      reload,
-    };
+  if (query.data) return { profile: query.data, loading: false, error: null, reload };
+  if (query.isError) {
+    return { profile: null, loading: false, error: profileErrorMessage(query.error), reload };
   }
-
-  return {
-    profile: result.profile,
-    loading: false,
-    error: result.error,
-    setProfile,
-    reload,
-  };
+  return { profile: null, loading: true, error: null, reload };
 }
 
 function compactCount(count: number) {
@@ -99,24 +47,33 @@ function ProfileWorks({
   title,
   songs,
   onOpen,
+  titleAction,
+  children,
+  allHref,
 }: {
   title: string;
   songs: UserProfile["activities"]["participatedShorts"];
   onOpen: (id: number) => void;
+  titleAction?: ReactNode;
+  children?: ReactNode;
+  allHref?: string;
 }) {
-  const [expanded, setExpanded] = useState(false);
+  const [showAll, setShowAll] = useState(false);
+  const navigate = useNavigate();
   return (
     <section className={profileStyles.profileWorks}>
       <SectionTitle
-        allLabel={expanded ? "접기" : "펼치기"}
-        onAll={songs.length ? () => setExpanded((current) => !current) : undefined}
+        allLabel="모두보기"
+        onAll={() => allHref ? navigate(allHref) : setShowAll(true)}
       >
-        {title}
+        <span className="flex items-center gap-2">
+          {title}
+          {titleAction}
+        </span>
       </SectionTitle>
+      {children}
       {songs.length ? (
-        <div
-          className={cn(sharedStyles.songRail, expanded ? profileStyles.profileWorksExpanded : "")}
-        >
+        <div className={sharedStyles.songRail}>
           {songs.map((song) => (
             <button
               className={sharedStyles.songCard}
@@ -138,12 +95,141 @@ function ProfileWorks({
       ) : (
         <p className={profileStyles.profileEmptyWork}>아직 등록한 곡이 없습니다.</p>
       )}
+      {showAll && (
+        <FigmaSheet title={`${title} 전체 목록`} onClose={() => setShowAll(false)}>
+          <section className={profileStyles.profileListPanel}>
+            <h1>{title}</h1>
+            {songs.length ? (
+              <ul className={profileStyles.profilePeopleList}>
+                {songs.map((song) => (
+                  <li key={song.shortId}>
+                    <button onClick={() => {
+                      setShowAll(false);
+                      onOpen(song.shortId);
+                    }}>
+                      <Avatar src={song.albumImageUrl} />
+                      <span><strong>{song.title}</strong></span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className={profileStyles.profileListEmpty}>아직 등록한 곡이 없습니다.</p>
+            )}
+          </section>
+        </FigmaSheet>
+      )}
     </section>
+  );
+}
+
+function FeaturedMusicEditor({
+  userId,
+  hasFeaturedMusic,
+  onSaved,
+  featuredSongs,
+  onOpen,
+}: {
+  userId: number;
+  hasFeaturedMusic: boolean;
+  onSaved: () => void;
+  featuredSongs: UserProfile["activities"]["pinnedShorts"];
+  onOpen: (id: number) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [selection, setSelection] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const songs = useMySongs(20, open);
+  const eligible = songsForTab(songs.items, userId, "authored")
+    .filter((song) => song.completionStatus === "COMPLETED");
+
+  async function save(shortId: number | null) {
+    setSaving(true);
+    setSaveError(null);
+    try {
+      await updateFeaturedMusic(shortId);
+      setSelection("");
+      setOpen(false);
+      onSaved();
+    } catch (cause) {
+      setSaveError(cause instanceof Error ? cause.message : "대표 음악을 변경하지 못했습니다.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <ProfileWorks
+      title={uiLabels.featuredMusic}
+      songs={[...featuredSongs].sort((a, b) => a.displayOrder - b.displayOrder)}
+      onOpen={onOpen}
+      allHref="/charts?kind=mine&tab=featured"
+      titleAction={
+      <button
+        type="button"
+        aria-expanded={open}
+        disabled={saving}
+        className="shrink-0 rounded border border-app-muted px-1.5 py-0.5 text-[12px]! font-medium leading-[16px]! tracking-normal text-app-muted"
+        onClick={() => {
+          setOpen(!open);
+          setSelection("");
+          setSaveError(null);
+        }}
+      >
+        {open ? "닫기" : "대표 음악 설정"}
+      </button>
+      }
+    >
+      {open && (
+        <div className="mx-4 mb-4 grid gap-3 text-label">
+          {songs.status === "loading" && <p role="status">내 작업물을 불러오는 중...</p>}
+          {songs.error && <p role="alert">{songs.error}</p>}
+          {songs.status === "error" && <button type="button" onClick={songs.retry}>다시 시도</button>}
+          {eligible.length > 0 && (
+            <form className="grid gap-2" onSubmit={(event) => {
+              event.preventDefault();
+              if (!saving && selection) void save(Number(selection));
+            }}>
+              <label htmlFor="featured-music-select">내 작업물에서 완성곡 선택</label>
+              <select
+                id="featured-music-select"
+                className="rounded-lg border border-app-muted bg-app-surface p-2"
+                value={selection}
+                disabled={saving}
+                onChange={(event) => setSelection(event.target.value)}
+              >
+                <option value="">곡을 선택해 주세요</option>
+                {eligible.map((song) => <option key={song.shortId} value={song.shortId}>{song.title}</option>)}
+              </select>
+              <button type="submit" className="justify-self-start rounded-lg bg-app-primary px-3 py-2" disabled={!selection || saving}>
+                저장
+              </button>
+            </form>
+          )}
+          {songs.hasMore && (
+            <button type="button" disabled={songs.appending || saving} onClick={songs.loadMore}>
+              {songs.appending ? "불러오는 중..." : "작업물 더 보기"}
+            </button>
+          )}
+          {songs.status === "ready" && !songs.hasMore && eligible.length === 0 && (
+            <p>등록할 완성곡이 없습니다. <Link className="underline" to="/studio/new">곡 만들기</Link></p>
+          )}
+          {hasFeaturedMusic && (
+            <button type="button" className="justify-self-start underline" disabled={saving} onClick={() => void save(null)}>
+              대표 음악 해제
+            </button>
+          )}
+          {saveError && <p role="alert">{saveError}</p>}
+        </div>
+      )}
+    </ProfileWorks>
   );
 }
 
 function OwnWorks({ onOpen }: { onOpen: (id: number) => void }) {
   const userId = useCurrentUserId();
+  const navigate = useNavigate();
   const songs = useMySongs(10);
   return (
     <>
@@ -151,10 +237,9 @@ function OwnWorks({ onOpen }: { onOpen: (id: number) => void }) {
         const items = userId === null ? [] : songsForTab(songs.items, userId, tab);
         return (
           <section className={profileStyles.profileWorks} key={tab}>
-            <div className="mb-4 flex items-center justify-between gap-3">
-              <h2 className="text-label font-semibold">{tab === "authored" ? "내 작업물" : "내 참가작"}</h2>
-              <Link className="shrink-0 text-caption text-app-muted" to={`/charts?kind=mine&tab=${tab}`}>모두보기</Link>
-            </div>
+            <SectionTitle onAll={() => navigate(`/charts?kind=mine&tab=${tab}`)}>
+              {tab === "authored" ? "내 작업물" : "내 참가작"}
+            </SectionTitle>
             {songs.status === "loading" && <p role="status">음악을 불러오는 중...</p>}
             {songs.status === "error" && <div role="alert"><p>{songs.error}</p><button onClick={songs.retry}>다시 시도</button></div>}
             <div className={sharedStyles.songRail}>
@@ -194,6 +279,7 @@ export function ProfileScreen({
   onChat: (id: number) => void;
 }) {
   const currentUserId = useCurrentUserId();
+  const { requireLogin } = useLoginPrompt();
   const [list, setList] = useState<ProfileListKind | null>(null);
   const own = userId === undefined || userId === currentUserId;
   const { profile, loading, error, reload } = useOwnProfile(userId);
@@ -232,28 +318,27 @@ export function ProfileScreen({
       </button>
 
       <h1>{profile.nickname}</h1>
-      {!own && currentUserId !== null && (
-        <ProfileRelationActions profile={profile} onChanged={reload} onChat={onChat} />
+      {!own && (
+        <ProfileRelationActions key={profile.userId} profile={profile} onChat={onChat} />
       )}
 
       <div className={sharedStyles.stats}>
-        <button aria-label="팔로워 목록" onClick={() => setList("followers")}>
+        <button aria-label="팔로워 목록" onClick={() => { if (requireLogin()) setList("followers"); }}>
           <strong>팔로워</strong>
           <small>{compactCount(profile.relations.followerCount)}</small>
         </button>
-        <button aria-label="팔로잉 목록" onClick={() => setList("following")}>
+        <button aria-label="팔로잉 목록" onClick={() => { if (requireLogin()) setList("following"); }}>
           <strong>팔로잉</strong>
           <small>{compactCount(profile.relations.followingCount)}</small>
         </button>
-        <button aria-label="작성한 게시글 목록" onClick={() => setList("articles")}>
+        <button aria-label="작성한 게시글 목록" onClick={() => { if (requireLogin()) setList("articles"); }}>
           <strong>게시글</strong>
           <small>{compactCount(profile.activities.postCount)}</small>
         </button>
       </div>
-      {own && <Link className="my-4 inline-block text-label text-app-fg underline" to="/profile/likes">좋아요한 게시글</Link>}
 
       {instruments.length > 0 && (
-        <div className={sharedStyles.tags}>
+        <div className={cn(sharedStyles.tags, "flex-wrap justify-center")}>
           {instruments.map((instrument) => (
             <span key={instrument}>{instrument}</span>
           ))}
@@ -265,11 +350,23 @@ export function ProfileScreen({
         <p>{profile.explanation || "아직 소개가 없습니다."}</p>
       </section>
 
-      <ProfileWorks
-        title={uiLabels.featuredMusic}
-        songs={[...profile.activities.pinnedShorts].sort((a, b) => a.displayOrder - b.displayOrder)}
-        onOpen={onOpenShort}
-      />
+      {own && currentUserId !== null ? (
+        <FeaturedMusicEditor
+          key={currentUserId}
+          userId={currentUserId}
+          hasFeaturedMusic={profile.activities.pinnedShorts.length > 0}
+          featuredSongs={profile.activities.pinnedShorts}
+          onOpen={onOpenShort}
+          onSaved={reload}
+        />
+      ) : (
+        <ProfileWorks
+          title={uiLabels.featuredMusic}
+          songs={[...profile.activities.pinnedShorts].sort((a, b) => a.displayOrder - b.displayOrder)}
+          onOpen={onOpenShort}
+          allHref={`/charts?kind=mine&tab=featured&userId=${profile.userId}`}
+        />
+      )}
       {own ? <OwnWorks onOpen={onOpenShort} /> : (
         <ProfileWorks
           title={uiLabels.participatedMusic}
@@ -291,7 +388,9 @@ export function ProfileScreen({
 }
 
 export function EditProfileScreen({ onSaved }: { onSaved: () => void }) {
-  const { profile, loading, error: loadError, setProfile } = useOwnProfile();
+  const userId = useCurrentUserId();
+  const queryClient = useQueryClient();
+  const { profile, loading, error: loadError } = useOwnProfile();
 
   if (loading) {
     return (
@@ -311,7 +410,7 @@ export function EditProfileScreen({ onSaved }: { onSaved: () => void }) {
 
   return (
     <>
-    <ProfilePrivacyToggle isPrivate={profile.isPrivate} onChanged={(isPrivate) => setProfile({ ...profile, isPrivate })} />
+    <ProfilePrivacyToggle isPrivate={profile.isPrivate} />
     <ProfileForm
       initial={{
         nickname: profile.nickname,
@@ -329,11 +428,14 @@ export function EditProfileScreen({ onSaved }: { onSaved: () => void }) {
 
         const uploaded = image ? await updateProfileImage(image) : null;
 
-        setProfile({
-          ...profile,
-          ...updated,
-          profileImageUrl: uploaded?.profileImageUrl ?? profile.profileImageUrl,
-        });
+        if (userId !== null) {
+          queryClient.setQueryData<UserProfile>(profileKeys.detail(userId, userId), (current) => current && {
+            ...current,
+            ...updated,
+            profileImageUrl: uploaded?.profileImageUrl ?? current.profileImageUrl,
+          });
+          void queryClient.invalidateQueries({ queryKey: profileKeys.all(userId) });
+        }
 
         onSaved();
       }}

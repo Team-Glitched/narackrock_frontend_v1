@@ -1,4 +1,3 @@
-import { logout } from "@/lib/api/auth";
 import { ChevronRight } from "lucide-react";
 import { uiLabels } from "@/lib/ui-labels";
 import { useAbyssPlaybackPreferences } from "@/features/abyss/playback-preferences";
@@ -55,7 +54,10 @@ const groupClass =
 const switchRowClass = "flex min-h-16 w-full items-center justify-between gap-4 py-3 text-left text-app-fg";
 const switchClass = "size-6 flex-none accent-app-primary";
 
-export function SettingsScreen({ onNavigate }: { onNavigate: (path: string) => void }) {
+export function SettingsScreen({ onNavigate, onLogout }: {
+  onNavigate: (path: string) => void;
+  onLogout: () => void;
+}) {
   const { mode, setMode, muted, setMuted } = useAbyssPlaybackPreferences();
   return (
     <section className="scrollbar-none h-full overflow-x-hidden overflow-y-auto px-5 pt-6 pb-8 text-app-fg">
@@ -115,7 +117,7 @@ export function SettingsScreen({ onNavigate }: { onNavigate: (path: string) => v
       ))}
       <button
         className="mt-2 block min-h-12 w-full rounded-none border-0 border-t border-solid border-app-surface bg-transparent py-3 text-left text-label leading-6 font-medium text-[#ff8d8d]"
-        onClick={logout}
+        onClick={onLogout}
       >
         로그아웃
       </button>

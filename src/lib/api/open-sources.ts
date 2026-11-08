@@ -8,14 +8,14 @@ async function data<T>(path: string, init?: RequestInit): Promise<T> {
 
 export type OpenSourceWriter = { userId: number; nickname: string; profileImageUrl: string | null };
 
-/** `GET /api/v1/open-sources` item. usageCount stays 0 until the backend supports project insertion. */
+/** `GET /api/v1/open-sources` item. A null usageCount means usage is not tracked. */
 export type OpenSourceSummary = {
   openSourceId: number;
   title: string;
   description: string | null;
   thumbnailUrl: string | null;
   writer: OpenSourceWriter;
-  usageCount: number;
+  usageCount: number | null;
   isSaved: boolean;
   isLiked: boolean;
   isDisliked: boolean;
@@ -140,8 +140,9 @@ export function getOpenSourceComments(
   id: number,
   parentCommentId: number | null,
   page: number,
+  signal?: AbortSignal,
 ): Promise<OpenSourceCommentPage> {
-  return data(`/api/v1/open-sources/${id}/comments${query({ parentCommentId, page })}`);
+  return data(`/api/v1/open-sources/${id}/comments${query({ parentCommentId, page })}`, { signal });
 }
 
 export function createOpenSourceComment(
@@ -190,8 +191,8 @@ export function getMyOpenSourcePublication(id: number): Promise<OpenSourcePublic
   return data(`/api/v1/users/me/open-source-publications/${id}`);
 }
 
-export function listMyOpenSourcePublications(page: number): Promise<OpenSourcePage<OpenSourcePublication>> {
-  return data(`/api/v1/users/me/open-source-publications${query({ page, size: 50 })}`);
+export function listMyOpenSourcePublications(page: number, signal?: AbortSignal): Promise<OpenSourcePage<OpenSourcePublication>> {
+  return data(`/api/v1/users/me/open-source-publications${query({ page, size: 50 })}`, { signal });
 }
 
 export function deleteOpenSource(id: number): Promise<{ openSourceId: number; isDeleted: boolean }> {

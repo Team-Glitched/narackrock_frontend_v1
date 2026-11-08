@@ -2,15 +2,12 @@ import { badgeVariants, filterChipVariants, type BadgeStatus } from "@/styles/va
 import { socialStyles } from "@/styles/social.styles";
 import { profileStyles } from "@/styles/profile.styles";
 import { useEffect, useRef, useState } from "react";
+import { useQuery, type UseQueryResult } from "@tanstack/react-query";
 import { Avatar } from "@/components/avatar";
 import { useCurrentUserId } from "@/features/auth/use-current-user";
+import { followRequestsQuery, useReviewFollowRequestMutation } from "@/features/social/social-queries";
+import { contributionInboxQuery, useReviewContributionMutation } from "@/features/workspace/workspace-queries";
 import { ApiError } from "@/lib/api/client";
-import {
-  getContributionInbox,
-  reviewContribution,
-  type ContributionNotificationDto,
-} from "@/lib/api/composition";
-import { getFollowRequests, reviewFollowRequest, type FollowRequest } from "@/lib/api/social";
 
 const badge = (status: BadgeStatus) => badgeVariants({ status });
 
@@ -21,31 +18,34 @@ const notificationFilters = [
 ] as const;
 type NotificationFilter = (typeof notificationFilters)[number]["id"];
 
-type Loaded = {
-  userId: number | null;
-  contributions: ContributionNotificationDto[];
-  follows: FollowRequest[];
-  error?: string;
-};
+function listStatus({ data, error, isFetching }: UseQueryResult<unknown>) {
+  return data ? "ready" : error && !isFetching ? "error" : "loading";
+}
 
 /**
  * Actionable server notifications only: received contribution requests and follow requests. General history
  * and read/unread state have no backend contract, so nothing is assembled from local records.
  */
-export function NotificationsScreen({
-  onBack,
-  onOpenProject,
-  onOpenProfile,
-}: {
+type NotificationProps = {
   onBack: () => void;
   onOpenProject: (id: number) => void;
   onOpenProfile: (id: number) => void;
-}) {
+};
+
+export function NotificationsScreen(props: NotificationProps) {
+  const userId = useCurrentUserId();
+  return <ScopedNotificationsScreen key={userId ?? "guest"} {...props} signedIn={userId !== null} />;
+}
+
+function ScopedNotificationsScreen({ onBack, onOpenProject, onOpenProfile, signedIn }: NotificationProps & { signedIn: boolean }) {
   const userId = useCurrentUserId();
   const [filter, setFilter] = useState<NotificationFilter>("all");
   const panel = useRef<HTMLElement>(null);
-  const [loaded, setLoaded] = useState<Loaded | null>(null);
-  const [busy, setBusy] = useState<string | null>(null);
+  const contributionList = useQuery({ ...contributionInboxQuery(userId), enabled: signedIn });
+  const followList = useQuery({ ...followRequestsQuery(userId), enabled: signedIn });
+  const contributionReview = useReviewContributionMutation();
+  const followReview = useReviewFollowRequestMutation();
+  const busy = contributionReview.isPending || followReview.isPending;
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   useEffect(() => {
@@ -53,48 +53,24 @@ export function NotificationsScreen({
     panel.current?.focus();
     return () => previous?.focus();
   }, []);
-  useEffect(() => {
-    let active = true;
-    Promise.all([getContributionInbox(), getFollowRequests()])
-      .then(([contributions, follows]) => {
-        if (active) setLoaded({ userId, contributions, follows });
-      })
-      .catch((cause) => {
-        if (active)
-          setLoaded({
-            userId,
-            contributions: [],
-            follows: [],
-            error:
-              cause instanceof ApiError && cause.status === 401
-                ? "로그인 후 알림을 확인할 수 있습니다."
-                : "알림을 불러오지 못했습니다.",
-          });
-      });
-    return () => {
-      active = false;
-    };
-  }, [userId]);
-  const current = loaded?.userId === userId ? loaded : null;
-  const loading = current === null;
-  async function act(key: string, run: () => Promise<unknown>, done: string, update: () => void) {
-    if (busy !== null) return;
-    setBusy(key);
+  /** Runs one review at a time; the reviewed request leaves its list once the server confirmed it. */
+  function act<T>(mutate: (variables: T, callbacks: { onSuccess: () => void; onError: (cause: Error) => void }) => void, variables: T, done: string) {
+    if (busy) return;
     setError(null);
     setNotice(null);
-    try {
-      await run();
-      update();
-      setNotice(done);
-    } catch (cause) {
-      setError(cause instanceof ApiError && cause.message ? cause.message : "요청을 처리하지 못했습니다.");
-    } finally {
-      setBusy(null);
-    }
+    mutate(variables, {
+      onSuccess: () => setNotice(done),
+      onError: (cause) => setError(cause instanceof ApiError && cause.message ? cause.message : "요청을 처리하지 못했습니다."),
+    });
   }
-  const contributions = filter === "follow" ? [] : (current?.contributions ?? []);
-  const follows = filter === "contribution" ? [] : (current?.follows ?? []);
+  const contributions = filter === "follow" ? [] : contributionList.data ?? [];
+  const follows = filter === "contribution" ? [] : followList.data ?? [];
   const resultCount = contributions.length + follows.length;
+  const shownLists = [
+    { id: "contribution", label: "참여 요청", status: listStatus(contributionList), retry: () => void contributionList.refetch() },
+    { id: "follow", label: "팔로우 요청", status: listStatus(followList), retry: () => void followList.refetch() },
+  ].filter(({ id }) => filter === "all" || filter === id);
+  const complete = shownLists.every(({ status }) => status === "ready");
   return (
     <div
       className={socialStyles.notificationOverlay}
@@ -155,10 +131,19 @@ export function NotificationsScreen({
             role="status"
             aria-live="polite"
           >
-            {loading ? "불러오는 중" : `${resultCount}개`}
+            {signedIn && (complete ? `${resultCount}개` : resultCount > 0 ? `확인된 알림 ${resultCount}개` : null)}
           </p>
-          {loading && <p role="status">불러오는 중...</p>}
-          {current?.error && <p role="alert">{current.error}</p>}
+          {!signedIn && <p>로그인 후 알림을 확인할 수 있습니다.</p>}
+          {signedIn && shownLists.map(({ id, label, status, retry }) =>
+            status === "loading" ? (
+              <p key={id} role="status">{label}을 불러오는 중...</p>
+            ) : status === "error" ? (
+              <div key={id}>
+                <p role="alert">{label}을 불러오지 못했습니다.</p>
+                <button type="button" onClick={retry} aria-label={`${label} 다시 시도`}>다시 시도</button>
+              </div>
+            ) : null,
+          )}
           {error && <p role="alert">{error}</p>}
           {notice && <p role="status">{notice}</p>}
           <ul className={socialStyles.notificationEvents}>
@@ -176,20 +161,12 @@ export function NotificationsScreen({
                     {(["APPROVED", "REJECTED"] as const).map((decision) => (
                       <button
                         key={decision}
-                        disabled={busy !== null}
+                        disabled={busy}
                         onClick={() =>
-                          void act(
-                            `c${item.contributionId}`,
-                            () => reviewContribution(item.projectId, item.contributionId, decision),
+                          act(
+                            contributionReview.mutate,
+                            { projectId: item.projectId, contributionId: item.contributionId, status: decision },
                             decision === "APPROVED" ? "참여 요청을 승인했습니다." : "참여 요청을 반려했습니다.",
-                            () =>
-                              setLoaded(
-                                (old) =>
-                                  old && {
-                                    ...old,
-                                    contributions: old.contributions.filter((x) => x.contributionId !== item.contributionId),
-                                  },
-                              ),
                           )
                         }
                       >
@@ -213,16 +190,12 @@ export function NotificationsScreen({
                     {(["accept", "reject"] as const).map((decision) => (
                       <button
                         key={decision}
-                        disabled={busy !== null}
+                        disabled={busy}
                         onClick={() =>
-                          void act(
-                            `f${request.requestId}`,
-                            () => reviewFollowRequest(request.requestId, decision),
+                          act(
+                            followReview.mutate,
+                            { requestId: request.requestId, decision },
                             decision === "accept" ? "팔로우 요청을 수락했습니다." : "팔로우 요청을 거절했습니다.",
-                            () =>
-                              setLoaded(
-                                (old) => old && { ...old, follows: old.follows.filter((x) => x.requestId !== request.requestId) },
-                              ),
                           )
                         }
                       >
@@ -234,7 +207,7 @@ export function NotificationsScreen({
               </li>
             ))}
           </ul>
-          {!loading && resultCount === 0 && !current?.error && (
+          {signedIn && complete && resultCount === 0 && (
             <p className={profileStyles.profileListEmpty}>
               {filter === "all" ? "새로운 알림이 없습니다." : "선택한 종류의 알림이 없습니다."}
             </p>
