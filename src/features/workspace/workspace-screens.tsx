@@ -5,10 +5,7 @@ import { SavedOpenSources } from "@/features/sources/saved-open-sources";
 import { AudioPlaybackBar } from "@/components/audio-playback-bar";
 import { uiLabels } from "@/lib/ui-labels";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
-import { useQueries, useQuery } from "@tanstack/react-query";
 import type { CompositionDto } from "@/lib/api/composition";
-import { compositionQuery } from "@/features/composition/composition-queries";
-import { contributionInboxQuery, contributionsQuery, useReviewContributionMutation } from "./workspace-queries";
 import { useCurrentUserId } from "@/features/auth/use-current-user";
 import { compositionDurationMs } from "@/features/composition/playback-duration";
 import { useCompositionPlayback } from "@/features/composition/use-composition-playback";
@@ -16,7 +13,6 @@ import { Asset } from "@/components/asset";
 import { toggleResource, useWorkspace, type Resource, type Work } from "./workspace-store";
 import { useVisitedWorks } from "./use-visited-works";
 import { apiOrigin } from "@/lib/api/client";
-const labels = { PENDING: "승인 대기", APPROVED: "승인됨", REJECTED: "반려됨" };
 function Page({
   title,
   subtitle,
@@ -152,181 +148,6 @@ export function WorkspaceScreen({
         ))
       )}
       {hasMore && <button className={workspaceStyles.workspaceWide} disabled={appending} onClick={more}>더보기</button>}
-    </Page>
-  );
-}
-export function SubmissionsScreen({
-  onSelect,
-}: {
-  onSelect: (id: number, projectId: number) => void;
-}) {
-  const { works } = useWorkspace();
-  const userId = useCurrentUserId();
-  const lists = useQueries({
-    queries: works.map((work) => ({ ...contributionsQuery(userId, work.id), enabled: userId !== null })),
-  });
-  const loading = userId !== null && lists.some((list) => list.isPending || (list.isError && list.isFetching));
-  const failed = loading ? 0 : lists.filter((list) => list.isError).length;
-  const items = lists.flatMap((list) => list.data?.filter((item) => item.userId === userId) ?? []);
-  return (
-    <Page
-      title="확인된 프로젝트의 제출"
-      subtitle="이 브라우저에서 연 프로젝트만 조회합니다. 전체 프로젝트 간 제출 목록 API는 없습니다."
-    >
-      {userId === null && <Empty>로그인 후 내 제출을 확인할 수 있습니다.</Empty>}
-      {loading && <p role="status">제출 목록을 불러오는 중입니다.</p>}
-      {!loading && !!failed && (
-        <div>
-          <p role="alert">
-            {failed === works.length
-              ? "제출 목록을 불러오지 못했습니다."
-              : `${failed}개 프로젝트의 제출을 불러오지 못했습니다.`}
-          </p>
-          <button type="button" onClick={() => lists.forEach((list) => { if (list.isError) void list.refetch(); })}>
-            다시 시도
-          </button>
-        </div>
-      )}
-      {userId !== null && !loading && !failed && !items.length && (
-        <Empty>
-          {works.length
-            ? "이 브라우저에서 연 프로젝트에 내 제출이 없습니다."
-            : "이 브라우저에서 연 프로젝트가 없습니다."}
-        </Empty>
-      )}
-      {items.map((item) => (
-        <button
-          className={workspaceStyles.workspaceCard}
-          key={`${item.projectId}:${item.contributionId}`}
-          onClick={() => onSelect(item.contributionId, item.projectId)}
-        >
-          <strong>
-            #{item.contributionId} · {labels[item.approvalStatus]}
-          </strong>
-          <p>{item.description}</p>
-          <small>{item.createdAt}</small>
-        </button>
-      ))}
-    </Page>
-  );
-}
-
-export function ReviewInboxScreen({
-  onSelect,
-}: {
-  onSelect: (id: number, projectId: number) => void;
-}) {
-  const userId = useCurrentUserId();
-  const inbox = useQuery(contributionInboxQuery(userId));
-  const items = inbox.data ?? [];
-  const error = inbox.error ? inbox.error.message || "검토 요청을 불러오지 못했습니다." : "";
-  return (
-    <Page title="받은 참여 요청" subtitle="서버의 기여 알림으로 확인한 요청입니다.">
-      {error && <p role="alert">{error}</p>}
-      {!items.length && <Empty>받은 참여 요청이 없습니다.</Empty>}
-      {items.map((item) => (
-        <button
-          className={workspaceStyles.workspaceCard}
-          key={`${item.projectId}:${item.contributionId}`}
-          onClick={() => onSelect(item.contributionId, item.projectId)}
-        >
-          <strong>
-            {item.projectTitle} · #{item.contributionId}
-          </strong>
-          <p>
-            {item.nickname} · {item.description}
-          </p>
-        </button>
-      ))}
-    </Page>
-  );
-}
-
-export function SubmissionDetailScreen({
-  id,
-  projectId,
-  onResume,
-}: {
-  id: number;
-  projectId: number | null;
-  onResume: (id: number, shortId: number | null) => void;
-}) {
-  const userId = useCurrentUserId();
-  const [comment, setComment] = useState("");
-  const contributions = useQuery({ ...contributionsQuery(userId, projectId ?? 0), enabled: projectId !== null });
-  const composition = useQuery({ ...compositionQuery(userId, projectId ?? 0), enabled: projectId !== null });
-  const review = useReviewContributionMutation();
-  const loaded = contributions.data && composition.data;
-  const item = loaded ? contributions.data.find((entry) => entry.contributionId === id) ?? null : null;
-  const canReview = composition.data?.viewerPermission.canReviewContribution ?? false;
-  const loadError = contributions.error ?? composition.error;
-  const error = review.error
-    ? review.error.message || "검토 결과를 저장하지 못했습니다."
-    : loadError
-      ? loadError.message || "제출을 불러오지 못했습니다."
-      : loaded && !item
-        ? "서버에서 제출을 찾지 못했습니다."
-        : "";
-  if (projectId === null)
-    return (
-      <Page title="제출 상세">
-        <Empty>
-          이전 링크에 프로젝트 ID가 없습니다. 로컬 가짜 ID는 서버 제출 ID로 사용할 수 없습니다.
-          설정의 복구 자료를 확인해주세요.
-        </Empty>
-      </Page>
-    );
-  return (
-    <Page title="서버 제출 상세">
-      {error && <p role="alert">{error}</p>}
-      {!item ? (
-        <p>제출을 불러오는 중입니다.</p>
-      ) : (
-        <>
-          <h2>
-            제출 #{item.contributionId} · {labels[item.approvalStatus]}
-          </h2>
-          <p>
-            {item.nickname} · {item.description}
-          </p>
-          <p>
-            프로젝트 #{projectId} · 기준 버전 {item.baseProjectVersion.display} · {item.createdAt}
-          </p>
-          <ul>
-            {item.items.map((entry, index) => (
-              <li key={index}>
-                {entry.changeType} {entry.targetType} #{entry.targetId} · {entry.itemStatus}
-              </li>
-            ))}
-          </ul>
-          <p>검토 결과: {item.reviewComment ?? "등록된 검토 의견이 없습니다."}</p>
-          <p>
-            서버는 불변 제출 음원·노트 snapshot을 제공하지 않습니다. 현재 클립을 과거 제출 음원으로
-            재생하지 않습니다.
-          </p>
-          {canReview && item.approvalStatus === "PENDING" && (
-            <div>
-              <label>
-                검토 의견
-                <textarea value={comment} onChange={(event) => setComment(event.target.value)} />
-              </label>
-              {(["APPROVED", "REJECTED"] as const).map((status) => (
-                <button
-                  key={status}
-                  disabled={review.isPending}
-                  onClick={() => {
-                    if (!review.isPending)
-                      review.mutate({ projectId, contributionId: id, status, comment: comment.trim() || null });
-                  }}
-                >
-                  {status === "APPROVED" ? "승인" : "반려"}
-                </button>
-              ))}
-            </div>
-          )}
-          <button onClick={() => onResume(projectId, null)}>현재 프로젝트 열기</button>
-        </>
-      )}
     </Page>
   );
 }

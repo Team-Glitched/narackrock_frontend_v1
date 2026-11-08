@@ -265,13 +265,22 @@ export async function listContributions(
   }
 }
 
+export type ContributionReviewDto = {
+  projectId: number;
+  contributionId: number;
+  approvalStatus: "APPROVED" | "REJECTED";
+  reviewedBy: number;
+  reviewedAt: string;
+  reviewComment: string | null;
+};
+
 export async function reviewContribution(
   projectId: number,
   contributionId: number,
   approvalStatus: "APPROVED" | "REJECTED",
   reviewComment: string | null = null,
 ) {
-  return data(`/api/v1/projects/${projectId}/contributions/${contributionId}`, {
+  return data<ContributionReviewDto>(`/api/v1/projects/${projectId}/contributions/${contributionId}`, {
     method: "PATCH",
     body: JSON.stringify({ approvalStatus, reviewComment }),
   });
