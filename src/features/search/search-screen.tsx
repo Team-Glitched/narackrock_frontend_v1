@@ -21,12 +21,13 @@ import { sourceError } from "@/features/sources/source-screens";
 import type { SearchScope } from "@/features/search/search-scope";
 import { searchCommunityPosts } from "@/features/community/post-search";
 import { queryScope } from "@/lib/query";
-const scopes: { id: SearchScope; label: string }[] = [
-  { id: "sources", label: "오픈소스" },
-  { id: "songs", label: "음악" },
-  { id: "people", label: "사용자" },
-  { id: "posts", label: "게시글" },
-  { id: "communities", label: "커뮤니티" },
+// `hint` tells first-time searchers what each tab looks for before anything is typed.
+const scopes: { id: SearchScope; label: string; hint: string }[] = [
+  { id: "sources", label: "오픈소스", hint: "오픈소스 제목이나 설명으로 검색해 보세요." },
+  { id: "songs", label: "음악", hint: "곡 제목으로 음악을 검색해 보세요." },
+  { id: "people", label: "사용자", hint: "닉네임으로 사용자를 검색해 보세요." },
+  { id: "posts", label: "게시글", hint: "제목이나 내용으로 게시글을 검색해 보세요." },
+  { id: "communities", label: "커뮤니티", hint: "이름이나 소개로 커뮤니티를 검색해 보세요." },
 ];
 type Results = {
   posts: PostListItem[];
@@ -197,7 +198,7 @@ export function ScopedSearch({
             }
             value={searchText}
             onChange={(event) => setSearchText(event.target.value)}
-            placeholder={community ? "커뮤니티 내 게시글 검색" : "검색"}
+            placeholder={community ? "커뮤니티 내 게시글 검색" : `${scopes.find((item) => item.id === scope)?.label} 검색`}
           />
           <button
             onClick={() => {
@@ -214,7 +215,7 @@ export function ScopedSearch({
       {community && (
         <p className={communityStyles.communitySearchContext}>{community.name} 내 게시글</p>
       )}
-      {!community && query.trim() && (
+      {!community && (
         <div className={socialStyles.searchScopeTabs} role="tablist" aria-label="검색 종류">
           {scopes.map((item) => (
             <button
@@ -240,6 +241,9 @@ export function ScopedSearch({
       >
         {peopleSignInRequired && (
           <SignInRequired>사용자 검색은 로그인 후 사용할 수 있습니다.</SignInRequired>
+        )}
+        {!peopleSignInRequired && !community && !keyword && (
+          <p className={socialStyles.searchResult}>{scopes.find((item) => item.id === scope)?.hint}</p>
         )}
         {!peopleSignInRequired && query.trim() && (!results || current?.pending) && <p role="status">검색 중...</p>}
         {current?.error && (
