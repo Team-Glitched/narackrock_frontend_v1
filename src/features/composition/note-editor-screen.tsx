@@ -33,6 +33,7 @@ import { compositionKeys, compositionQuery } from "./composition-queries";
 import { getOpenSourcePlayback, type OpenSourceSummary } from "@/lib/api/open-sources";
 import type { ProjectTiming } from "./timing-dialog";
 import type { InstrumentChoice } from "./instrument-dialog";
+import { openSourceStartTick, insertThenRefresh } from "./open-source-insertion";
 import { PortraitNoteEditor } from "./note-editor-portrait";
 import { MonitorSmartphone, Smartphone } from "lucide-react";
 
@@ -353,17 +354,21 @@ function LoadedNoteEditor({
   async function insertOpenSource(source: OpenSourceSummary) {
     const { projectId, bpm, ppq, maxTick: projectMaxTick } = composition.project;
     const ticksPerMs = (bpm * ppq) / 60000;
-    const durationMs = await openSourceDurationMs(source.openSourceId);
-    const startTick = Math.min(Math.max(0, Math.round(playback.positionMs * ticksPerMs)), projectMaxTick - 1);
-    const durationTick = Math.min(Math.ceil(durationMs * ticksPerMs), projectMaxTick - startTick);
+    const startTick = openSourceStartTick(positionTick, timing, projectMaxTick);
     playback.pause();
-    await insertOpenSourceClip(projectId, trackId, source.openSourceId, startTick, durationTick);
-    await queryClient.invalidateQueries(
-      { queryKey: compositionKeys.detail(context.userId, projectId) },
-      { throwOnError: true },
+    const durationMs = await openSourceDurationMs(source.openSourceId);
+    const durationTick = Math.min(Math.ceil(durationMs * ticksPerMs), projectMaxTick - startTick);
+    const refreshed = await insertThenRefresh(
+      () => insertOpenSourceClip(projectId, trackId, source.openSourceId, startTick, durationTick),
+      () => queryClient.invalidateQueries(
+        { queryKey: compositionKeys.detail(context.userId, projectId) },
+        { throwOnError: true },
+      ),
     );
     setShowSources(false);
-    setNotice(`‘${source.title}’을(를) 내 레이어에 오디오로 넣었습니다. 스튜디오에서 확인할 수 있어요.`);
+    setNotice(refreshed
+      ? `‘${source.title}’을(를) 내 레이어에 오디오로 넣었습니다. 스튜디오에서 확인할 수 있어요.`
+      : `‘${source.title}’ 삽입은 완료되었습니다. 화면을 새로 불러오지 못했으니 스튜디오에서 확인해 주세요.`);
   }
   if (clipUnavailable) return (
     <div className={cn(studioStyles.studio, studioStyles.studioState)}>
