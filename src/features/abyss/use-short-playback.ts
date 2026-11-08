@@ -12,7 +12,6 @@ import {
   ownerTracks,
   sameOwnerSelection,
   type OwnerSelection,
-  type PlaybackMode,
 } from "./short-playback-state";
 
 export type { OwnerSelection };
@@ -71,14 +70,10 @@ export function useShortPlayback({
   short,
   audioRef,
   muted,
-  mode,
-  onNext,
 }: {
   short: ShortItemDto | null;
   audioRef: RefObject<HTMLAudioElement | null>;
   muted: boolean;
-  mode: PlaybackMode;
-  onNext: () => Promise<void>;
 }): ShortPlayback {
   const userId = useCurrentUserId();
   const origin = apiOrigin();
@@ -114,7 +109,6 @@ export function useShortPlayback({
   const keyRef = useRef(key);
   const pendingStart = useRef(false);
   const pendingPatch = useRef(false);
-  const ending = useRef(false);
   const handleEndedRef = useRef<() => void>(() => {});
 
   const composition = useMemo<PlaybackComposition | null>(() => {
@@ -139,7 +133,6 @@ export function useShortPlayback({
     keyRef.current = key;
     pendingStart.current = false;
     pendingPatch.current = false;
-    ending.current = false;
   }, [key]);
 
   const setIntent = useCallback((value: boolean) => setIntentState({ key: keyRef.current, value }), []);
@@ -270,18 +263,8 @@ export function useShortPlayback({
     }
   }
 
-  // The native `ended` and the engine's `onEnded` both land here, at most once per ending.
+  // The native `ended` and the engine's `onEnded` both land here; a short repeats until the listener moves on.
   function handleEnded() {
-    if (ending.current) return;
-    if (mode === "next") {
-      ending.current = true;
-      setIntent(false);
-      const endedKey = key;
-      void onNext().finally(() => {
-        if (keyRef.current === endedKey) ending.current = false;
-      });
-      return;
-    }
     if (selection === null) {
       const audio = audioRef.current;
       if (!audio) return;
