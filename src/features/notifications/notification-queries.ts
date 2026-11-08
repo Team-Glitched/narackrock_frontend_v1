@@ -39,6 +39,8 @@ export const notificationsQuery = (
     initialPageParam: undefined as number | undefined,
     getNextPageParam: (page) => page.nextCursor ?? undefined,
     enabled: user !== null,
+    // Keep an open inbox current even when STOMP cannot connect or misses an event.
+    refetchInterval: 20_000,
   });
 export const notificationPreferencesQuery = (user: number | null) =>
   queryOptions({
