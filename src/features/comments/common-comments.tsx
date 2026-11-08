@@ -1,3 +1,4 @@
+import { useLoginPrompt } from "@/features/auth/login-prompt";
 import { communityStyles } from "@/styles/community.styles";
 import { sharedStyles } from "@/styles/shared.styles";
 import { cn } from "@/lib/utils";
@@ -69,6 +70,7 @@ export function CommonComments({
   focus?: boolean | number;
   header?: React.ReactNode;
 }) {
+  const { requireLogin, requestLogin } = useLoginPrompt();
   const writable = canWrite && currentUserId !== null;
   const userId = useCurrentUserId();
   const queryClient = useQueryClient();
@@ -126,7 +128,7 @@ export function CommonComments({
   const report = adapter.report;
   function submit(event: React.FormEvent) {
     event.preventDefault();
-    if (busy || !writable || !draft.trim()) return;
+    if (!requireLogin() || busy || !writable || !draft.trim()) return;
     create.mutate({ text: draft.trim(), parentId: reply?.threadId ?? null });
   }
   const row = (item: CommentItem, threadId: number) => (
@@ -136,12 +138,14 @@ export function CommonComments({
       owner={currentUserId === item.userId}
       adapter={adapter}
       onChanged={changed}
-      canReply={writable}
+      canReply={canWrite}
       onReply={() => {
-        if (writable) startReply(item, threadId);
+        if (requireLogin() && writable) startReply(item, threadId);
       }}
       onProfile={() => onProfile?.(item.userId)}
-      onReport={report && currentUserId !== null ? () => setReportTarget(item.id) : undefined}
+      onReport={report ? () => {
+        if (requireLogin()) setReportTarget(item.id);
+      } : undefined}
     />
   );
   return (
@@ -213,25 +217,31 @@ export function CommonComments({
             <i />
             <i />
           </span>
-          <textarea
-            ref={input}
-            rows={1}
-            aria-label="댓글 내용"
-            placeholder={
-              currentUserId === null
-                ? "로그인 후 댓글을 작성할 수 있습니다."
-                : canWrite
-                  ? "입력"
-                  : "댓글 작성은 준비 중입니다."
-            }
-            value={draft}
-            onChange={(event) => setDraft(event.target.value)}
-            disabled={busy || !writable}
-          />
+          {currentUserId === null ? (
+            <button type="button" className="min-h-11 flex-1 text-left text-app-muted" onClick={() => requestLogin()}>
+              로그인 후 댓글을 작성할 수 있습니다.
+            </button>
+          ) : (
+            <textarea
+              ref={input}
+              rows={1}
+              aria-label="댓글 내용"
+              placeholder={
+                currentUserId === null
+                  ? "로그인 후 댓글을 작성할 수 있습니다."
+                  : canWrite
+                    ? "입력"
+                    : "댓글 작성은 준비 중입니다."
+              }
+              value={draft}
+              onChange={(event) => setDraft(event.target.value)}
+              disabled={busy || !writable}
+            />
+          )}
           <button
             type="submit"
             aria-label="댓글 보내기"
-            disabled={busy || !writable || !draft.trim()}
+            disabled={busy || (currentUserId !== null && (!writable || !draft.trim()))}
           >
             <Asset name="comment-send.svg" />
           </button>
@@ -320,6 +330,7 @@ function CommentCard({
   const [confirm, setConfirm] = useState(false);
   const [hidden, setHidden] = useState(false);
   const optionButton = useRef<HTMLButtonElement>(null);
+  const { requireLogin } = useLoginPrompt();
   const react = adapter.react;
   const canEdit = owner && adapter.update !== undefined && adapter.remove !== undefined;
   const moderate = owner ? undefined : adapter.moderate;
@@ -356,7 +367,7 @@ function CommentCard({
     change.mutate({ run: () => moderate(item.id, reason), failure: "댓글을 삭제하지 못했습니다." });
   }
   function vote(kind: "like" | "dislike") {
-    if (!react || reacting) return;
+    if (!react || reacting || !requireLogin()) return;
     change.reset();
     reaction.mutate({ send: react, kind });
   }

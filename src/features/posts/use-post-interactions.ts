@@ -1,3 +1,4 @@
+import { useLoginPrompt } from "@/features/auth/login-prompt";
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { getPostShareLink, reactToPost, togglePostBookmark } from "@/lib/api/community";
@@ -15,6 +16,7 @@ import { useShareLink } from "@/hooks/use-share-link";
  * by server responses; a pending change blocks further clicks and a failure leaves the previous server state.
  */
 export function usePostInteractions(postId: number, detail: PostDetailResponse | null) {
+  const { requireLogin } = useLoginPrompt();
   const sharing = useShareLink();
   const userId = useCurrentUserId();
   const queryClient = useQueryClient();
@@ -47,10 +49,7 @@ export function usePostInteractions(postId: number, detail: PostDetailResponse |
 
   function start() {
     if (busy) return false;
-    if (userId === null) {
-      setNotice("로그인 후 이용할 수 있습니다.");
-      return false;
-    }
+    if (!requireLogin()) return false;
     setNotice(null);
     return true;
   }

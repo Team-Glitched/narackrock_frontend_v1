@@ -1,3 +1,4 @@
+import { useLoginPrompt } from "@/features/auth/login-prompt";
 import { communityStyles } from "@/styles/community.styles";
 import { buttonVariants } from "@/styles/variants";
 import { useHiddenPosts } from "@/features/community/hidden-posts";
@@ -51,6 +52,7 @@ function ScopedCommunityPost({
   const optionButton = useRef<HTMLButtonElement>(null);
   const articleRef = useRef<HTMLElement>(null);
   const hiddenPosts = useHiddenPosts();
+  const { requireLogin } = useLoginPrompt();
   const [reportOpen, setReportOpen] = useState(false);
   const queryClient = useQueryClient();
   // The detail (preview, reactions, saved state) is requested once the card nears the viewport.
@@ -257,7 +259,7 @@ function ScopedCommunityPost({
           onClose={() => setMenuOpen(false)}
           onReport={() => {
             setMenuOpen(false);
-            setReportOpen(true);
+            if (requireLogin()) setReportOpen(true);
           }}
           onHide={() => {
             setMenuOpen(false);
