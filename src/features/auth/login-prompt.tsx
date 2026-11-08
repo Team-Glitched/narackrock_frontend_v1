@@ -119,7 +119,7 @@ function LoginConfirmation({
       aria-labelledby={titleId}
       aria-describedby={descriptionId}
       aria-modal="true"
-      className="fixed inset-0 m-auto w-[calc(100%_-_32px)] max-w-[360px] rounded-panel border border-app-border bg-app-surface p-6 text-app-fg shadow-xl backdrop:bg-black/65"
+      className="fixed inset-0 m-auto w-[calc(100%_-_32px)] max-w-[360px] rounded-panel border border-app-border bg-app-surface p-0 text-app-fg shadow-xl backdrop:bg-black/65"
       onKeyDown={(event) => {
         if (event.key === "Escape") {
           event.preventDefault();
@@ -131,23 +131,26 @@ function LoginConfirmation({
         event.preventDefault();
         onCancel();
       }}
+      // Only the backdrop (the dialog element itself) cancels; the padding lives on the inner box so clicks there don't.
       onClick={(event) => {
         if (event.target === event.currentTarget) onCancel();
       }}
     >
-      <h2 id={titleId} className="text-title font-bold">
-        로그인이 필요합니다
-      </h2>
-      <p id={descriptionId} className="mt-3 text-body text-app-muted">
-        로그인하시겠습니까?
-      </p>
-      <div className="mt-6 flex justify-end gap-3">
-        <button type="button" className={buttonVariants({ tone: "secondary" })} onClick={onCancel}>
-          아니오
-        </button>
-        <button type="button" className={buttonVariants({ tone: "primary" })} onClick={onConfirm}>
-          예
-        </button>
+      <div className="p-6">
+        <h2 id={titleId} className="text-title font-bold">
+          로그인이 필요합니다
+        </h2>
+        <p id={descriptionId} className="mt-3 text-body text-app-muted">
+          로그인하시겠습니까?
+        </p>
+        <div className="mt-6 flex justify-end gap-3">
+          <button type="button" className={buttonVariants({ tone: "secondary" })} onClick={onCancel}>
+            아니오
+          </button>
+          <button type="button" className={buttonVariants({ tone: "primary" })} onClick={onConfirm}>
+            예
+          </button>
+        </div>
       </div>
     </dialog>,
     document.body,
