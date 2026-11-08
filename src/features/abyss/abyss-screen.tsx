@@ -1,3 +1,4 @@
+import { useLoginPrompt } from "@/features/auth/login-prompt";
 import { abyssStyles } from "@/styles/abyss.styles";
 import { cn } from "@/lib/utils";
 import { sharedStyles } from "@/styles/shared.styles";
@@ -46,6 +47,7 @@ export function AbyssScreen({
   muted?: boolean;
   mode?: PlaybackMode;
 }) {
+  const { requireLogin } = useLoginPrompt();
   const currentUserId = useCurrentUserId();
   const queryClient = useQueryClient();
   const sharing = useShareLink();
@@ -186,17 +188,17 @@ export function AbyssScreen({
   });
   const busy = reaction.isPending || bookmarkToggle.isPending || shareLink.isPending;
   const vote = (kind: "like" | "dislike") => {
-    if (busy) return;
+    if (busy || !requireLogin()) return;
     setFeedback(null);
     reaction.mutate({ shortId: current.shortId, kind });
   };
   const bookmark = () => {
-    if (busy) return;
+    if (busy || !requireLogin()) return;
     setFeedback(null);
     bookmarkToggle.mutate(current.shortId);
   };
   const share = () => {
-    if (busy) return;
+    if (busy || !requireLogin()) return;
     setFeedback(null);
     shareLink.mutate(current);
   };
@@ -313,7 +315,7 @@ export function AbyssScreen({
         <button
           className={abyssStyles.abyssReport}
           aria-label="신고"
-          onClick={() => setSheet("report")}
+          onClick={() => { if (requireLogin()) setSheet("report"); }}
         >
           <Asset name="short-report.svg" />
         </button>
