@@ -1,6 +1,6 @@
 import { studioStyles } from "@/styles/studio.styles";
 import { cn } from "@/lib/utils";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { CanvasDialog } from "@/components/canvas-dialog";
 import { NoteSettingsDialog } from "./note-settings-dialog";
@@ -8,6 +8,7 @@ import { useCompositionPlayback } from "./use-composition-playback";
 import { StudioSourceDialog } from "./studio-source-dialog";
 import { TeamPianoRoll } from "./team-piano-roll";
 import {
+  insertOpenSourceClip,
   updateProjectTiming,
   updateTrackInstrument,
   type CompositionDto,
@@ -22,24 +23,51 @@ import { findInstrument, invalidPitchesFor } from "./instrument-catalog";
 import { supportsMidi } from "./instrument-parts";
 import { useCurrentUserId } from "@/features/auth/use-current-user";
 import { useNoteEditor } from "./use-note-editor";
-import { NoteEditorControls } from "./note-editor-controls";
+import { NoteEditorControls, NoteTools } from "./note-editor-controls";
 import { ChordPickerDialog } from "./chord-picker-dialog";
 import { useNoteEditorShortcuts } from "./use-note-editor-shortcuts";
 import { clipLocalTiming, clipPositionTick, projectPositionMs } from "./clip-local-timing";
 import { sameNotes } from "./note-editing";
 import { compositionEndMs } from "./composition-playback-timeline";
 import { compositionKeys, compositionQuery } from "./composition-queries";
+import { getOpenSourcePlayback, type OpenSourceSummary } from "@/lib/api/open-sources";
+import type { ProjectTiming } from "./timing-dialog";
+import type { InstrumentChoice } from "./instrument-dialog";
+import { openSourceStartTick, insertThenRefresh } from "./open-source-insertion";
+import { PortraitNoteEditor } from "./note-editor-portrait";
+import { MonitorSmartphone, Smartphone } from "lucide-react";
+
+/** The playback answer may omit the length; the audio metadata is read then. */
+async function openSourceDurationMs(openSourceId: number): Promise<number> {
+  const playback = await getOpenSourcePlayback(openSourceId);
+  if (playback.durationMs && playback.durationMs > 0) return playback.durationMs;
+  const { promise, resolve, reject } = Promise.withResolvers<number>();
+  const audio = new Audio();
+  audio.preload = "metadata";
+  audio.onloadedmetadata = () =>
+    Number.isFinite(audio.duration) && audio.duration > 0
+      ? resolve(Math.round(audio.duration * 1000))
+      : reject(new Error("오픈소스 음원 길이를 확인하지 못했습니다."));
+  audio.onerror = () => reject(new Error("오픈소스 음원을 불러오지 못했습니다."));
+  audio.src = playback.audioUrl;
+  return promise;
+}
 
 export function NoteEditorScreen({
   projectId,
   trackId,
   clipId,
   onBack,
+  portrait = false,
+  onToggleLayout,
 }: {
   projectId: number | null;
   trackId: number | null;
   clipId: number | null;
   onBack: () => void;
+  /** Upright 390×844 layout instead of the landscape canvas; the page owns the choice. */
+  portrait?: boolean;
+  onToggleLayout?: () => void;
 }) {
   const currentUserId = useCurrentUserId();
   // Layer pages write without touching this cache, so the editor only opens on a response read after mounting.
@@ -82,6 +110,8 @@ export function NoteEditorScreen({
       trackId={track.trackId}
       requestedClipId={clipId}
       onBack={onBack}
+      portrait={portrait}
+      onToggleLayout={onToggleLayout}
     />
   );
 }
@@ -91,12 +121,16 @@ function LoadedNoteEditor({
   trackId,
   requestedClipId,
   onBack,
+  portrait,
+  onToggleLayout,
 }: {
   /** The live project; working notes and their base snapshot are kept apart from it. */
   composition: CompositionDto;
   trackId: number;
   requestedClipId: number | null;
   onBack: () => void;
+  portrait: boolean;
+  onToggleLayout?: () => void;
 }) {
   const currentUserId = useCurrentUserId();
   const queryClient = useQueryClient();
@@ -108,6 +142,7 @@ function LoadedNoteEditor({
   const [leaving, setLeaving] = useState(false);
   const [noteSettingsIndex, setNoteSettingsIndex] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const track = composition.tracks.find((item) => item.trackId === trackId)!;
   const clip = track.clips.find((item) => item.clipId === targetClipId && item.clipType === "MIDI");
@@ -202,7 +237,10 @@ function LoadedNoteEditor({
     session.edit({ ...current, durationTick, midiNotes: next });
     const accepted = session.getSnapshot().content;
     const success = accepted.durationTick === durationTick && sameNotes(accepted.midiNotes, next);
-    if (success) setError(null);
+    if (success) {
+      setError(null);
+      setNotice(null);
+    }
     return success;
   }
   const preview = useMemo<CompositionDto | null>(
@@ -254,6 +292,9 @@ function LoadedNoteEditor({
     editable: editable && Boolean(draft.session) && !busy && draft.state?.status !== "conflict",
     onCommit: commitNotes,
   });
+  // Each orientation opens with its own bar count: one bar keeps portrait cells wide enough to tap.
+  const { setVisibleBars } = editor;
+  useEffect(() => setVisibleBars(portrait ? 1 : 2), [portrait, setVisibleBars]);
   // Settings follow their note through accepted edits and close on delete/undo/redo/reset.
   const [seenChange, setSeenChange] = useState(editor.lastChange);
   if (seenChange !== editor.lastChange) {
@@ -310,6 +351,25 @@ function LoadedNoteEditor({
     link.click();
     URL.revokeObjectURL(url);
   }
+  async function insertOpenSource(source: OpenSourceSummary) {
+    const { projectId, bpm, ppq, maxTick: projectMaxTick } = composition.project;
+    const ticksPerMs = (bpm * ppq) / 60000;
+    const startTick = openSourceStartTick(positionTick, timing, projectMaxTick);
+    playback.pause();
+    const durationMs = await openSourceDurationMs(source.openSourceId);
+    const durationTick = Math.min(Math.ceil(durationMs * ticksPerMs), projectMaxTick - startTick);
+    const refreshed = await insertThenRefresh(
+      () => insertOpenSourceClip(projectId, trackId, source.openSourceId, startTick, durationTick),
+      () => queryClient.invalidateQueries(
+        { queryKey: compositionKeys.detail(context.userId, projectId) },
+        { throwOnError: true },
+      ),
+    );
+    setShowSources(false);
+    setNotice(refreshed
+      ? `‘${source.title}’을(를) 내 레이어에 오디오로 넣었습니다. 스튜디오에서 확인할 수 있어요.`
+      : `‘${source.title}’ 삽입은 완료되었습니다. 화면을 새로 불러오지 못했으니 스튜디오에서 확인해 주세요.`);
+  }
   if (clipUnavailable) return (
     <div className={cn(studioStyles.studio, studioStyles.studioState)}>
       <p role="alert">선택한 MIDI 클립을 찾을 수 없습니다.</p>
@@ -325,90 +385,164 @@ function LoadedNoteEditor({
     error: "저장 실패",
     conflict: "충돌",
   };
+  const onTiming = canTime
+    ? async ({ bpm, signature }: ProjectTiming) => {
+        playback.pause();
+        await updateProjectTiming(context.projectId, {
+          bpm,
+          timeSignatureNumerator: signature.numerator,
+          timeSignatureDenominator: signature.denominator,
+        });
+        // Only the shared project is re-read; working notes stay in the draft session.
+        await queryClient.invalidateQueries(
+          { queryKey: compositionKeys.detail(context.userId, context.projectId) },
+          { throwOnError: true },
+        );
+      }
+    : undefined;
+  const instrumentChoice: InstrumentChoice | undefined = editor.editable
+    ? {
+        value: track.instrument,
+        mode: "midi",
+        tracks: composition.tracks,
+        currentTrackId: trackId,
+        onPreview: playback.previewInstrument,
+        onStopPreview: playback.stopPreview,
+        onConfirm: async (instrument) => {
+          const definition = findInstrument(instrument);
+          if (
+            !definition ||
+            invalidPitchesFor(
+              definition,
+              notes.map((note) => note.pitch),
+            ).length
+          )
+            throw new Error("현재 노트에 이 악기에서 지원하지 않는 음이 있습니다.");
+          playback.pause();
+          await updateTrackInstrument(context.projectId, trackId, instrument);
+          await queryClient.invalidateQueries(
+            { queryKey: compositionKeys.detail(context.userId, context.projectId) },
+            { throwOnError: true },
+          );
+        },
+      }
+    : undefined;
+  const requestBack = () => (editable ? setLeaving(true) : onBack());
+  // The save button commits straight to the shared clip; conflicts still need the explicit choices.
+  const saveAndExit = editable
+    ? () => draft.session && draft.state?.status !== "conflict"
+      ? void action(draft.commit, true)
+      : setLeaving(true)
+    : undefined;
+  const openSources = editor.editable ? () => setShowSources(true) : undefined;
+  const openSettings = () => {
+    if (editor.selection.length === 1) setNoteSettingsIndex(editor.selection[0]);
+  };
+  const openChords = () => {
+    playback.pause();
+    setShowChords(true);
+  };
+  const statusText = editable
+    ? notice ?? (draft.state ? draftLabels[draft.state.status] : "개인 초안 불러오는 중")
+    : null;
+  const controls = editable && (
+    <NoteEditorControls
+      editor={editor}
+      positionTick={positionTick}
+      onSettings={openSettings}
+      onChord={openChords}
+      tools={!portrait}
+    />
+  );
+  const statusRow = (
+    <div className="note-editor-status flex shrink-0 items-center gap-2 px-3 py-0.5">
+      {statusText !== null && (
+        <p role="status" className="m-0 min-w-0 flex-1 truncate text-caption leading-[16px] text-app-muted">
+          {statusText}
+        </p>
+      )}
+      {onToggleLayout && (
+        <button
+          type="button"
+          className="ml-auto flex shrink-0 items-center gap-1 rounded-[6px] px-1.5 text-caption leading-[18px] text-app-muted hover:text-app-fg"
+          onClick={onToggleLayout}
+        >
+          {portrait ? <MonitorSmartphone size={13} aria-hidden="true" /> : <Smartphone size={13} aria-hidden="true" />}
+          {portrait ? "가로 모드" : "세로 모드"}
+        </button>
+      )}
+    </div>
+  );
+  const roll = (
+    <TeamPianoRoll
+      editor={editor}
+      signature={playback.signature}
+      ppq={composition.project.ppq}
+      maxTick={maxTick}
+      positionTick={positionTick}
+      onSeekTick={(tick) => playback.seek(projectPositionMs(tick, timing))}
+      playing={playback.playing}
+      instrument={track.instrument}
+      onAudition={(pitch) => void playback.audition(pitch, track.instrument)}
+      onSettings={editor.editable ? setNoteSettingsIndex : undefined}
+      initialPitch={notes[0]?.pitch ?? 60}
+      // Portrait shows fewer, larger rows and a narrower key column so each cell is easy to tap.
+      rowHeight={portrait ? 40 : undefined}
+      keyWidth={portrait ? 44 : undefined}
+    />
+  );
   return (
-    <div className={cn(studioStyles.studio, "note-editor")}>
+    <div className={cn(studioStyles.studio, portrait && studioStyles.studioPortrait, "note-editor")}>
+      {portrait ? (
+        <PortraitNoteEditor
+          title={`${track.name} · 피아노롤`}
+          bpm={composition.project.bpm}
+          signature={playback.signature}
+          onTiming={onTiming}
+          timeMs={positionTick * timing.tickMs}
+          instrument={instrumentChoice}
+          playing={playback.playing}
+          onPlay={play}
+          onPause={playback.pause}
+          onRewind={() => playback.seek(projectPositionMs(0, timing))}
+          metronome={playback.metronome}
+          onMetronome={() => playback.setMetronome((value) => !value)}
+          volume={playback.volume}
+          onVolume={playback.setVolume}
+          onBack={requestBack}
+          onSave={saveAndExit}
+          onImportSource={openSources}
+          controls={controls}
+          status={statusRow}
+          tools={editable && <NoteTools editor={editor} large />}
+          roll={roll}
+        />
+      ) : (
+      <>
       <StudioToolbar
         signature={playback.signature}
         title={`${track.name} · 피아노롤`}
         bpm={composition.project.bpm}
-        onTiming={
-          canTime
-            ? async ({ bpm, signature }) => {
-                playback.pause();
-                await updateProjectTiming(context.projectId, {
-                  bpm,
-                  timeSignatureNumerator: signature.numerator,
-                  timeSignatureDenominator: signature.denominator,
-                });
-                // Only the shared project is re-read; working notes stay in the draft session.
-                await queryClient.invalidateQueries(
-                  { queryKey: compositionKeys.detail(context.userId, context.projectId) },
-                  { throwOnError: true },
-                );
-              }
-            : undefined
-        }
-        instrument={
-          editor.editable
-            ? {
-                value: track.instrument,
-                mode: "midi",
-                tracks: composition.tracks,
-                currentTrackId: trackId,
-                onPreview: playback.previewInstrument,
-                onStopPreview: playback.stopPreview,
-                onConfirm: async (instrument) => {
-                  const definition = findInstrument(instrument);
-                  if (
-                    !definition ||
-                    invalidPitchesFor(
-                      definition,
-                      notes.map((note) => note.pitch),
-                    ).length
-                  )
-                    throw new Error("현재 노트에 이 악기에서 지원하지 않는 음이 있습니다.");
-                  playback.pause();
-                  await updateTrackInstrument(context.projectId, trackId, instrument);
-                  await queryClient.invalidateQueries(
-                    { queryKey: compositionKeys.detail(context.userId, context.projectId) },
-                    { throwOnError: true },
-                  );
-                },
-              }
-            : undefined
-        }
+        onTiming={onTiming}
+        instrument={instrumentChoice}
         playing={playback.playing}
         positionMs={positionTick * timing.tickMs}
         onPlay={play}
         onPause={playback.pause}
         onRewind={() => playback.seek(projectPositionMs(0, timing))}
-        onBack={() => (editable ? setLeaving(true) : onBack())}
+        onBack={requestBack}
         piano
         volume={playback.volume}
         onVolume={playback.setVolume}
         metronome={playback.metronome}
         onMetronome={() => playback.setMetronome((value) => !value)}
-        onImportSource={editor.editable ? () => setShowSources(true) : undefined}
-        onAdd={editable ? () => setLeaving(true) : undefined}
+        onImportSource={openSources}
+        onAdd={saveAndExit}
         addLabel="저장 및 나가기"
       />
-      {editable && (
-        <NoteEditorControls
-          editor={editor}
-          positionTick={positionTick}
-          onSettings={() => {
-            if (editor.selection.length === 1) setNoteSettingsIndex(editor.selection[0]);
-          }}
-          onChord={() => {
-            playback.pause();
-            setShowChords(true);
-          }}
-        />
-      )}
-      {editable && (
-        <p role="status" className="m-0 shrink-0 px-3 py-0.5 text-caption leading-[16px] text-app-muted">
-          {draft.state ? draftLabels[draft.state.status] : "개인 초안 불러오는 중"}
-        </p>
+      {controls}
+      {statusRow}
+      </>
       )}
       {(error || playback.error || editor.error || draft.loadError || draft.state?.error) && (
         <p className={studioStyles.studioError} role="alert">
@@ -432,7 +566,7 @@ function LoadedNoteEditor({
       {!editable && <p>내 MIDI 레이어만 수정할 수 있습니다.</p>}
       {showSources && editor.editable && (
         <StudioSourceDialog
-          midiOnly
+          onOpenSource={insertOpenSource}
           onClose={() => setShowSources(false)}
           onResource={async (resource) => {
             const after = Math.max(0, ...notes.map((note) => note.startTick + note.durationTick));
@@ -505,19 +639,7 @@ function LoadedNoteEditor({
           onApply={(note) => editor.execute({ type: "replace", index: noteSettingsIndex, note })}
         />
       )}
-      <TeamPianoRoll
-        editor={editor}
-        signature={playback.signature}
-        ppq={composition.project.ppq}
-        maxTick={maxTick}
-        positionTick={positionTick}
-        onSeekTick={(tick) => playback.seek(projectPositionMs(tick, timing))}
-        playing={playback.playing}
-        instrument={track.instrument}
-        onAudition={(pitch) => void playback.audition(pitch, track.instrument)}
-        onSettings={editor.editable ? setNoteSettingsIndex : undefined}
-        initialPitch={notes[0]?.pitch ?? 60}
-      />
+      {!portrait && roll}
     </div>
   );
 }

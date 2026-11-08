@@ -8,6 +8,7 @@ import { TimingDialog, type ProjectTiming } from "@/features/composition/timing-
 import { Asset } from "@/components/asset";
 import { defaultSignature, type TimeSignature } from "@/features/composition/time-signature";
 import { clockTime } from "./studio-helpers";
+import { findInstrument } from "./instrument-catalog";
 
 export function StudioToolbar({
   title,
@@ -128,12 +129,12 @@ export function StudioToolbar({
         )}
         {piano && instrument && (
           <button
-            className={studioStyles.studioViewSwitch}
+            className={studioStyles.studioTiming}
             aria-label="악기 선택"
             onClick={() => setInstrumentOpen(true)}
           >
-            <Asset name="studio-switch-down.svg" />
-            <Asset name="studio-switch-up.svg" />
+            <small>악기</small>
+            {findInstrument(instrument.value)?.label ?? "선택"}
           </button>
         )}
       </div>

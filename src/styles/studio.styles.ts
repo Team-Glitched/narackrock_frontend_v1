@@ -2,7 +2,7 @@
 export const studioStyles = {
   studioSourceDialog: [
     "studio-source-dialog",
-    "w-135 p-5 bg-app-bg bg-none flex flex-col gap-4 rounded-[20px] text-app-fg",
+    "w-[min(540px,_calc(100%_-_24px))] p-5 bg-app-bg bg-none flex flex-col gap-4 rounded-[20px] text-app-fg",
     "[&_header]:flex [&_header]:items-center [&_header]:justify-between [&_header]:gap-4",
     "[&_h2]:font-bold [&_h2]:text-label [&_h2]:font-sans [&_h2]:m-0 [&_h2]:leading-[22px]",
     "[&_header>button]:grid [&_header>button]:h-8 [&_header>button]:w-8 [&_header>button]:place-items-center",
@@ -66,7 +66,7 @@ export const studioStyles = {
     "[.studio-toolbar.team-original-toolbar_&_input]:w-full [.studio-toolbar.team-original-toolbar_&_input]:min-w-0",
     "[.studio-toolbar.team-original-toolbar_&_input]:accent-app-muted",
     "[.design-canvas_&_img]:h-auto [.design-canvas_&_img]:w-auto",
-    "[.design-canvas_.note-editor_&]:mr-5 [.design-canvas_.note-editor_&]:min-w-30 [.design-canvas_.note-editor_&]:flex-[0_1_188px]",
+    "[.design-canvas_.note-editor_&]:mr-5 [.design-canvas_.note-editor_&]:min-w-30 [.design-canvas_.note-editor_&]:flex-[0_1_188px] [.design-canvas_.note-editor_&]:pl-3",
   ].join(" "),
   studioReadouts: [
     "studio-readouts",
@@ -233,6 +233,19 @@ export const studioStyles = {
     "[.design-canvas_.phone-frame--source-piano_&]:bg-app-bg [.design-canvas_.phone-frame--source-piano_&]:bg-none",
     "[.design-canvas_.phone-frame--source-piano_&]:rounded-none",
   ].join(" "),
+  /** Upright phone layout of the note editor: fills the 390×844 canvas and never rotates. */
+  studioPortrait: [
+    "studio-portrait",
+    "h-full! w-full! min-w-0! transform-none!",
+    "[.design-canvas_&]:h-full! [.design-canvas_&]:w-full!",
+    // The shared note controls get the portrait's 16px margin and 36px touch targets.
+    "[&_.note-editor-controls]:gap-1 [&_.note-editor-controls]:px-4 [&_.note-editor-controls]:py-1",
+    "[&_.note-editor-controls_button]:h-9 [&_.note-editor-controls_button]:min-w-9 [&_.note-editor-controls_label]:h-9",
+    "[&_.note-editor-status]:px-4 [&_.note-editor-status]:py-1",
+    // The narrow key column leaves no room beside a black key for its name.
+    "[&_.piano-key.black_span]:invisible",
+  ].join(" "),
+  portraitRoll: ["portrait-roll", "flex min-h-0 flex-1 flex-col"].join(" "),
   studioToolbar: [
     "studio-toolbar",
     "h-auto bg-[#201d1e] bg-none flex items-center gap-[10px] p-[5px_10px] min-h-11 flex-[0_0_auto] flex-wrap",
@@ -523,13 +536,6 @@ export const studioStyles = {
     "grid h-11 w-11 place-items-center",
     "[.design-canvas_&[aria-pressed=true]]:bg-app-surface [.design-canvas_&[aria-pressed=true]]:bg-none",
     "[.design-canvas_&[aria-pressed=true]]:rounded-[8px]",
-  ].join(" "),
-  studioViewSwitch: [
-    "studio-view-switch",
-    "relative h-[30px] w-[30px] bg-app-primary bg-none rounded-[8px]",
-    "[&_img]:absolute [&_img]:h-auto [&_img]:w-auto",
-    "[&_img:first-child]:bottom-[2px] [&_img:first-child]:left-[5px]",
-    "[&_img:last-child]:top-[3px] [&_img:last-child]:right-[5px] [&_img:last-child]:transform-[rotate(180deg)]",
   ].join(" "),
   studioVolumeTrigger: [
     "studio-volume-trigger",

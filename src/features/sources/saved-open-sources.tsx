@@ -3,15 +3,9 @@ import { useCurrentUserId } from "@/features/auth/use-current-user";
 import { SignInRequired } from "@/features/auth/sign-in-required";
 import { SourcePlayback } from "@/features/sources/source-playback";
 import { sourceError } from "@/features/sources/source-screens";
-import { useSourceSaveMutation } from "@/features/sources/source-queries";
-import { listSavedOpenSources } from "@/lib/api/open-sources";
+import { loadSavedSources, savedSourcesScope, useSourceSaveMutation } from "@/features/sources/source-queries";
 
 import { usePagedItems } from "@/hooks/use-paged-items";
-
-async function loadSavedSources(page: number, signal: AbortSignal) {
-  const result = await listSavedOpenSources(page, signal);
-  return { items: result.items, next: result.hasNext ? page + 1 : null };
-}
 
 /** The account's server-side open source library (`GET /users/me/open-sources`), including unavailable entries. */
 export function SavedOpenSources({ query, onOpen }: { query: string; onOpen: (id: number) => void }) {
@@ -22,7 +16,7 @@ export function SavedOpenSources({ query, onOpen }: { query: string; onOpen: (id
 
 function SavedSourceList({ query, onOpen }: { query: string; onOpen: (id: number) => void }) {
   // Shares `sourceKeys.saved`, which every save/unsave invalidates.
-  const { state: current, more, remove } = usePagedItems(["sources", "saved"], 0, loadSavedSources);
+  const { state: current, more, remove } = usePagedItems(savedSourcesScope, 0, loadSavedSources);
   const unsave = useSourceSaveMutation();
   if (!current) return <p role="status">저장한 오픈소스를 불러오는 중...</p>;
   const busy = unsave.isPending ? unsave.variables.sourceId : null;
@@ -57,7 +51,7 @@ function SavedSourceList({ query, onOpen }: { query: string; onOpen: (id: number
               <p>{item.source.description ?? ""}</p>
               <small>{item.source.writer.nickname}</small>
               <SourcePlayback sourceId={item.openSourceId} canPreview durationMs={null} />
-              <p className={workspaceStyles.workspaceNotice}>곡에 오픈소스 넣기는 현재 서버에서 지원하지 않습니다.</p>
+              <p className={workspaceStyles.workspaceNotice}>피아노롤의 ‘+ 오픈소스’에서 내 레이어에 오디오로 넣을 수 있습니다.</p>
             </>
           ) : (
             <>

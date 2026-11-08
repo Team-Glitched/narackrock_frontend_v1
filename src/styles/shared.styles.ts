@@ -384,9 +384,10 @@ export const sharedStyles = {
     "[.team-note-workspace_.piano-key&::before]:bg-none",
     "[.design-canvas_.team-note-workspace_.piano-key&]:bg-none [.design-canvas_.team-note-workspace_.piano-key&]:bg-app-key-white",
     "[.design-canvas_.team-note-workspace_.piano-key&]:text-app-key-black [.design-canvas_.team-note-workspace_.piano-key&]:border-b-[#b9b8c2]",
-    "[.design-canvas_.team-note-workspace_.piano-key&::before]:h-[30px] [.design-canvas_.team-note-workspace_.piano-key&::before]:bg-none",
+    // Proportional to the key, so a custom row height or key width (portrait) keeps the black key shape.
+    "[.design-canvas_.team-note-workspace_.piano-key&::before]:h-full [.design-canvas_.team-note-workspace_.piano-key&::before]:bg-none",
     "[.design-canvas_.team-note-workspace_.piano-key&::before]:top-0 [.design-canvas_.team-note-workspace_.piano-key&::before]:left-0",
-    "[.design-canvas_.team-note-workspace_.piano-key&::before]:w-[58px] [.design-canvas_.team-note-workspace_.piano-key&::before]:rounded-none",
+    "[.design-canvas_.team-note-workspace_.piano-key&::before]:w-2/3 [.design-canvas_.team-note-workspace_.piano-key&::before]:rounded-none",
     "[.design-canvas_.team-note-workspace_.piano-key&::before]:bg-app-key-black",
   ].join(" "),
   midi: ["midi", "[.studio-clip&]:bg-app-primary [.studio-clip&]:bg-none"].join(" "),
@@ -638,6 +639,9 @@ export const sharedStyles = {
     "volume-dialog",
     "m-auto box-border h-25 w-[350px] max-w-[calc(100vw_-_40px)] p-5 rounded-[20px] bg-app-bg bg-none font-sans text-app-fg border-0 border-none",
     "border-current",
+    // Timing adds an apply button and notices below the row; a fixed height clipped them.
+    "[&.timing-dialog]:flex [&.timing-dialog]:h-auto [&.timing-dialog]:flex-col [&.timing-dialog]:items-start [&.timing-dialog]:gap-4",
+    "[&.timing-dialog_h2]:mb-0",
     "[&_h2]:m-[0_0_22px] [&_h2]:text-label [&_h2]:font-bold [&_h2]:leading-[19px]",
     "[&_input]:h-[5px] [&_input]:w-[178px] [&_input]:flex-[0_0_178px] [&_input]:appearance-none [&_input]:p-0 [&_input]:m-0",
     "[&_input]:rounded-[10px] [&_input]:border-0 [&_input]:border-none [&_input]:border-current",

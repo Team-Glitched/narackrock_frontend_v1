@@ -143,6 +143,20 @@ export async function createAudioClip(
   });
 }
 
+/** Places a public open source's audio on the caller's own layer; the server keeps the source owner's media. */
+export async function insertOpenSourceClip(
+  projectId: number,
+  trackId: number,
+  openSourceId: number,
+  startTick: number,
+  durationTick: number,
+) {
+  return data(`/api/v1/projects/${projectId}/tracks/${trackId}/clips/open-source`, {
+    method: "POST",
+    body: JSON.stringify({ openSourceId, startTick, durationTick }),
+  });
+}
+
 export async function transformRecordingToMidi(projectId: number, file: File) {
   const form = new FormData();
   form.append("audio", file);

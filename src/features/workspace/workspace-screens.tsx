@@ -416,8 +416,8 @@ export function SourceLibraryScreen({
       title={importing ? "MIDI 가져오기" : uiLabels.sourceLibrary}
       subtitle={
         importing
-          ? "이 브라우저의 MIDI 원본을 개인 초안으로 가져옵니다."
-          : "서버 보관 목록과 이 브라우저의 MIDI 복구 자료는 별개입니다."
+          ? "이 기기에 남아 있는 MIDI 작업을 개인 초안으로 가져옵니다."
+          : "보관한 오픈소스는 계정에, MIDI 작업은 이 기기에 저장됩니다."
       }
     >
       <label className={workspaceStyles.workspaceSearch}>
@@ -431,10 +431,10 @@ export function SourceLibraryScreen({
       </label>
       <div className={workspaceStyles.workspaceTabs}>
         {(importing
-          ? [["LOCAL", "이 브라우저 MIDI 복구"]]
+          ? [["LOCAL", "이 기기의 MIDI 작업"]]
           : [
-              ["SERVER", "서버 오픈소스 보관"],
-              ["LOCAL", "이 브라우저 MIDI 복구"],
+              ["SERVER", "보관한 오픈소스"],
+              ["LOCAL", "이 기기의 MIDI 작업"],
             ]
         ).map(([value, label]) => (
           <button key={value} aria-pressed={filter === value} onClick={() => setFilter(value)}>
@@ -449,14 +449,14 @@ export function SourceLibraryScreen({
       )}
       {filter === "LOCAL" && items.length === 0 ? (
         <Empty>
-          이 브라우저의 MIDI 복구 자료가 없습니다. 이전 작성물은 설정의 데이터 이관·복구에서 내보낼
-          수 있습니다.
+          이 기기에 남아 있는 MIDI 작업이 없습니다. 이전 작업은 설정의 데이터 이관·복구에서 내보낼 수
+          있습니다.
         </Empty>
       ) : (
         items.map((r) => (
           <article className={workspaceStyles.workspaceCard} key={r.id}>
             <span className={workspaceStyles.workspaceStatus}>
-              이 브라우저의 MIDI 원본 · 서버 보관 자료 아님
+              이 기기에 저장된 MIDI 작업
             </span>
             <h2>{r.title}</h2>
             <p>{r.description}</p>

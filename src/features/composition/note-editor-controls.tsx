@@ -28,15 +28,46 @@ function Group({ label, children }: { label: string; children: ReactNode }) {
 }
 const Divider = () => <span className="mx-0.5 h-5 w-px shrink-0 bg-app-line" aria-hidden="true" />;
 
+/** The four edit tools with icon + name; the active one is filled so the current mode is obvious at a glance. */
+export function NoteTools({ editor, large = false }: { editor: NoteEditorController; large?: boolean }) {
+  return (
+    <div
+      className={cn("flex shrink-0 items-center gap-0.5 rounded-[8px] bg-app-surface p-0.5", large && "w-full gap-1 rounded-[12px] p-1")}
+      role="group"
+      aria-label="편집 도구"
+    >
+      {tools.map(([tool, label, Icon]) => (
+        <button
+          type="button"
+          key={tool}
+          aria-pressed={editor.view.tool === tool}
+          aria-label={label}
+          title={label}
+          onClick={() => editor.setTool(tool)}
+          className={cn(
+            "flex shrink-0 items-center rounded-[6px] text-app-muted hover:text-app-fg aria-pressed:bg-app-primary aria-pressed:font-bold aria-pressed:text-app-fg",
+            large ? "h-10 flex-1 justify-center gap-1.5 rounded-[10px] text-label" : "h-6 gap-0.5 px-1.5",
+          )}
+        >
+          <Icon size={large ? 18 : 13} strokeWidth={2.2} aria-hidden="true" />
+          <span aria-hidden="true">{label}</span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
 /**
- * Grouped strip sized to fit the 844px studio canvas: the four tools always show icon + name (the active one is
- * filled); every other control is an icon with its Korean name as aria-label/title. It scrolls horizontally if needed.
+ * Grouped strip sized to fit the 844px studio canvas: the tools (unless placed elsewhere) show icon + name;
+ * every other control is an icon with its Korean name as aria-label/title. It scrolls horizontally if needed.
  */
-export function NoteEditorControls({ editor, positionTick = 0, onChord, onSettings }: {
+export function NoteEditorControls({ editor, positionTick = 0, onChord, onSettings, tools: showTools = true }: {
   editor: NoteEditorController;
   positionTick?: number;
   onChord?: () => void;
   onSettings?: () => void;
+  /** False when the layout shows `NoteTools` on its own. */
+  tools?: boolean;
 }) {
   const { view, bounds, selection } = editor;
   const drum = bounds.minPitch === 35 && bounds.maxPitch === 81;
@@ -44,31 +75,11 @@ export function NoteEditorControls({ editor, positionTick = 0, onChord, onSettin
   const lastStart = Math.max(0, bounds.maxTick - editor.windowTicks);
   return (
     <div
-      className="flex w-full shrink-0 items-center gap-0.5 overflow-x-auto border-b border-app-line bg-app-panel px-1.5 py-1.5 text-caption text-app-fg [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      className="note-editor-controls flex w-full shrink-0 items-center gap-0.5 overflow-x-auto border-b border-app-line bg-app-panel px-1.5 py-1.5 text-caption text-app-fg [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       role="toolbar"
       aria-label="노트 편집 도구"
     >
-      <div className="flex shrink-0 items-center gap-0.5 rounded-[8px] bg-app-surface p-0.5" role="group" aria-label="편집 도구">
-        {tools.map(([tool, label, Icon]) => {
-          const active = view.tool === tool;
-          // Every tool shows its icon and name; the active one is filled so the current mode is obvious at a glance.
-          return (
-            <button
-              type="button"
-              key={tool}
-              aria-pressed={active}
-              aria-label={label}
-              title={label}
-              onClick={() => editor.setTool(tool)}
-              className="flex h-6 shrink-0 items-center gap-0.5 rounded-[6px] px-1.5 text-app-muted hover:text-app-fg aria-pressed:bg-app-primary aria-pressed:font-bold aria-pressed:text-app-fg"
-            >
-              <Icon size={13} strokeWidth={2.2} aria-hidden="true" />
-              <span aria-hidden="true">{label}</span>
-            </button>
-          );
-        })}
-      </div>
-      <Divider />
+      {showTools && <><NoteTools editor={editor} /><Divider /></>}
       <Group label="실행 기록">
         <IconButton label="실행 취소" icon={Undo2} disabled={!editor.editable || !editor.canUndo} onClick={editor.undo} />
         <IconButton label="다시 실행" icon={Redo2} disabled={!editor.editable || !editor.canRedo} onClick={editor.redo} />

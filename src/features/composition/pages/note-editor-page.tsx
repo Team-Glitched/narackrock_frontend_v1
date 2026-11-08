@@ -1,13 +1,40 @@
+import { useState } from "react";
 import { DesignViewport } from "@/components/design-viewport";
 import { PageState } from "@/components/page-state";
 import { NoteEditorScreen } from "@/features/composition/note-editor-screen";
 import { useRouteComposition } from "@/features/composition/use-route-composition";
 import { readId } from "@/features/navigation/paths";
 
+/**
+ * Touch devices open the piano roll upright (390×844) and desktops in the landscape canvas, unless this browser
+ * already chose a layout with the toggle.
+ */
+const layoutKey = "narackrock.note-editor-layout";
+
+function initialPortrait() {
+  const touch = window.matchMedia("(pointer: coarse)").matches;
+  try {
+    const stored = window.localStorage.getItem(layoutKey);
+    return stored === null ? touch : stored === "portrait";
+  } catch {
+    return touch;
+  }
+}
+
 export default function NoteEditorPage() {
   const route = useRouteComposition();
+  const [portrait, setPortrait] = useState(initialPortrait);
+  function toggleLayout() {
+    const next = !portrait;
+    setPortrait(next);
+    try {
+      window.localStorage.setItem(layoutKey, next ? "portrait" : "landscape");
+    } catch {
+      // Storage may be unavailable (private mode); the choice still applies to this visit.
+    }
+  }
   return (
-    <DesignViewport landscape>
+    <DesignViewport landscape={!portrait}>
       {route.projectId === null || readId(route.params.trackId) === null ? (
         <PageState error>올바르지 않은 페이지 주소입니다.</PageState>
       ) : (
@@ -17,6 +44,8 @@ export default function NoteEditorPage() {
           trackId={route.trackId}
           clipId={route.clipId}
           onBack={() => route.to(route.studioUrl, { replace: true, state: route.studioState })}
+          portrait={portrait}
+          onToggleLayout={toggleLayout}
         />
       )}
     </DesignViewport>
