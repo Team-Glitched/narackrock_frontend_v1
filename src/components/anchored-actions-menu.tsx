@@ -16,6 +16,7 @@ export function AnchoredActionsMenu({
   onClose,
   label,
   height = 99,
+  width = 260,
   children,
 }: {
   anchorRef: RefObject<HTMLButtonElement | null>;
@@ -23,6 +24,7 @@ export function AnchoredActionsMenu({
   onClose: () => void;
   label: string;
   height?: number;
+  width?: number;
   children: ReactNode;
 }) {
   // Keep sheet actions above its backdrop and in the same coordinate system.
@@ -40,7 +42,10 @@ export function AnchoredActionsMenu({
       const h = host.getBoundingClientRect(),
         a = anchor.getBoundingClientRect();
       const scale = h.width / host.offsetWidth;
-      const left = Math.max(8, Math.min((a.right - h.left) / scale - 260, host.offsetWidth - 268));
+      const left = Math.max(
+        8,
+        Math.min((a.right - h.left) / scale - width, host.offsetWidth - width - 8),
+      );
       const below = (a.bottom - h.top) / scale + 4;
       setPosition({
         left,
@@ -71,7 +76,7 @@ export function AnchoredActionsMenu({
       window.removeEventListener("resize", place);
       document.removeEventListener("scroll", scroll, true);
     };
-  }, [host, anchorRef, height]);
+  }, [host, anchorRef, height, width]);
   if (!host) return null;
   return createPortal(
     <div
@@ -79,7 +84,7 @@ export function AnchoredActionsMenu({
       className={className}
       role="menu"
       aria-label={label}
-      style={{ height, position: "absolute", zIndex: 60, ...position }}
+      style={{ height, width, position: "absolute", zIndex: 60, ...position }}
       onKeyDown={(event) => {
         if (event.key === "Escape") {
           event.stopPropagation();

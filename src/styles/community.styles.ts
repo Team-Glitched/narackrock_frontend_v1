@@ -722,12 +722,11 @@ export const communityStyles = {
   ].join(" "),
   postUserActionsMenu: [
     "post-user-actions-menu",
-    "[.design-canvas_&]:flex [.design-canvas_&]:h-[99px] [.design-canvas_&]:w-65 [.design-canvas_&]:flex-col [.design-canvas_&]:items-start",
-    "[.design-canvas_&]:gap-5 [.design-canvas_&]:rounded-[20px] [.design-canvas_&]:p-5 [.design-canvas_&]:bg-app-bg [.design-canvas_&]:bg-none",
-    "[.design-canvas_&>button]:flex [.design-canvas_&>button]:h-5 [.design-canvas_&>button]:items-center [.design-canvas_&>button]:gap-[14px]",
-    "[.design-canvas_&>button]:font-bold [.design-canvas_&>button]:text-label [.design-canvas_&>button]:font-sans",
-    "[.design-canvas_&>button]:text-app-fg [.design-canvas_&>button]:leading-[19px]",
-    "[.design-canvas_&_img]:h-auto [.design-canvas_&_img]:w-auto [.design-canvas_&_img]:max-w-none",
+    "flex box-border flex-col gap-0.5 rounded-xl border border-solid border-white/10 bg-app-bg p-1.5 shadow-[0_8px_24px_#0005]",
+    "[&>button]:flex [&>button]:h-[34px] [&>button]:w-full [&>button]:shrink-0 [&>button]:items-center [&>button]:gap-2 [&>button]:rounded-md [&>button]:px-2.5",
+    "[&>button]:font-sans [&>button]:text-[13px] [&>button]:font-medium [&>button]:leading-[18px] [&>button]:text-app-fg [&>button]:text-left",
+    "[&>button]:transition-colors [&>button]:duration-150 [&>button:hover]:bg-white/10 [&>button:focus-visible]:bg-white/10 [&>button:active]:bg-white/15",
+    "[&_img]:h-4 [&_img]:w-4 [&_img]:shrink-0 [&_img]:object-contain",
   ].join(" "),
   postReadonlyStats: [
     "post-readonly-stats",
