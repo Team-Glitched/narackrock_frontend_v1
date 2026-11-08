@@ -39,6 +39,16 @@ export function LoginPromptProvider({ children }: { children: ReactNode }) {
     ({ nextLocation }) =>
       getCurrentUserId() === null && requiresLogin(nextLocation.pathname + nextLocation.search),
   );
+  // On the login/onboarding screens the user is already signing in, so asking again makes no sense:
+  // leaving toward a protected page lands on the public home instead.
+  const onSignInScreen = /^\/(login|onboarding)\/?$/.test(location.pathname);
+  useEffect(() => {
+    if (!onSignInScreen || blocker.state !== "blocked") return;
+    blocker.reset();
+    // The router restores the blocked history entry asynchronously; navigate once that has settled. The timer is
+    // not cleared on re-render because reset() itself changes `blocker` and re-runs this effect.
+    window.setTimeout(() => navigate("/", { replace: true }));
+  }, [onSignInScreen, blocker, navigate]);
   const requestLogin = useCallback(
     (returnTo = currentPath) => {
       setRequest({ ...loginDestination(returnTo, currentPath), locationKey: location.key });
@@ -54,7 +64,7 @@ export function LoginPromptProvider({ children }: { children: ReactNode }) {
     [requestLogin],
   );
   const activeRequest =
-    blocker.state === "blocked"
+    blocker.state === "blocked" && !onSignInScreen
       ? loginDestination(
           blocker.location.pathname + blocker.location.search + blocker.location.hash,
           currentPath,
