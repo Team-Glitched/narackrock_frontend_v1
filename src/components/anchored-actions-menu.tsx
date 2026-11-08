@@ -1,5 +1,12 @@
 import { createPortal } from "react-dom";
-import { useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type ReactNode,
+  type RefObject,
+} from "react";
 import { usePortalHost } from "./use-portal-host";
 
 /** Figma Menu / Post User Actions, 15236:41267. */
@@ -18,14 +25,15 @@ export function AnchoredActionsMenu({
   height?: number;
   children: ReactNode;
 }) {
-  const host = usePortalHost(".design-canvas");
+  // Keep sheet actions above its backdrop and in the same coordinate system.
+  const host = usePortalHost(".design-canvas", anchorRef);
   const panel = useRef<HTMLDivElement>(null);
   const [position, setPosition] = useState({ left: 0, top: 0 });
   const close = useRef(onClose);
   useEffect(() => {
     close.current = onClose;
   }, [onClose]);
-  useEffect(() => {
+  useLayoutEffect(() => {
     const anchor = anchorRef.current;
     if (!host || !anchor) return;
     const place = () => {
@@ -43,7 +51,11 @@ export function AnchoredActionsMenu({
       });
     };
     place();
-    panel.current?.querySelector<HTMLButtonElement>("button:not(:disabled)")?.focus();
+    // The portal is initially at (0, 0); focusing it must not scroll the page and
+    // trigger the scroll-to-dismiss handler before the position is committed.
+    panel.current
+      ?.querySelector<HTMLButtonElement>("button:not(:disabled)")
+      ?.focus({ preventScroll: true });
     const outside = (event: PointerEvent) => {
       if (!panel.current?.contains(event.target as Node) && !anchor.contains(event.target as Node))
         close.current();
@@ -72,7 +84,7 @@ export function AnchoredActionsMenu({
         if (event.key === "Escape") {
           event.stopPropagation();
           close.current();
-          if (anchorRef.current?.isConnected) anchorRef.current.focus();
+          if (anchorRef.current?.isConnected) anchorRef.current.focus({ preventScroll: true });
         }
         if (event.key === "Tab") close.current();
         if (event.key === "ArrowDown" || event.key === "ArrowUp") {
