@@ -2,11 +2,13 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { loginDestination, requiresLogin } from "./login-access.ts";
 
-test("requires a session for personal screens, creation, protected detail and notification overlays", () => {
+test("requires a session for personal screens, profiles, creation, protected detail and notification overlays", () => {
   for (const path of [
     "/profile",
     "/profile/edit",
     "/profile/likes",
+    // The profile API (`GET /users/profiles/:id`) requires a session, so other users' profiles do too.
+    "/users/7",
     "/settings?migration=1",
     "/saved",
     "/workspace",
@@ -38,7 +40,7 @@ test("requires a session for personal screens, creation, protected detail and no
     assert.equal(requiresLogin(path), true, path);
 });
 
-test("keeps home, public feeds, listening, other profiles, policy and login available to guests", () => {
+test("keeps home, public feeds, listening, policy and login available to guests", () => {
   for (const path of [
     "/",
     "/social",
@@ -48,7 +50,6 @@ test("keeps home, public feeds, listening, other profiles, policy and login avai
     "/abyss",
     "/abyss/7",
     "/shorts/7",
-    "/users/7",
     "/charts",
     "/charts?kind=popular",
     "/charts?kind=recommended",

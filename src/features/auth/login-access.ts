@@ -5,7 +5,7 @@ export function requiresLogin(path: string): boolean {
   const url = new URL(safeReturnPath(path), "https://narackrock.local");
   const pathname = url.pathname.replace(/\/+$/, "") || "/";
   if (
-    /^\/(profile|settings|saved|workspace|submissions|reviews|library|friends|chat|notifications|admin|studio|sources)(\/|$)/.test(
+    /^\/(profile|users|settings|saved|workspace|submissions|reviews|library|friends|chat|notifications|admin|studio|sources)(\/|$)/.test(
       pathname,
     )
   )
