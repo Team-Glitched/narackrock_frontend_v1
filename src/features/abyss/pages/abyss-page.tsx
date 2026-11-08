@@ -36,6 +36,12 @@ export default function AbyssPage() {
               onJoin={(id) => to(`/studio/shorts/${id}`, {
                 state: { studioFrom: currentPath, studioIndex: window.history.state?.idx },
               })}
+              onOpenStudio={(projectId) => to(`/studio/${projectId}`, {
+                state: { studioFrom: currentPath, studioIndex: window.history.state?.idx },
+              })}
+              onOpenRequest={(projectId, contributionId) => to(
+                contributionId == null ? "/submissions" : `/submissions/${contributionId}?projectId=${projectId}`,
+              )}
             />
           )}
         </div>
