@@ -48,9 +48,8 @@ export function RecommendedPeopleList({ full, onProfile, onAll }: { full: boolea
   const people = mergeRecommendedPeople(pages);
   const visible = full ? people : people.slice(0, 6);
   const hasMore = recommendations.hasNextPage;
-  // The summary already shows everything when six or fewer recommendations are available.
-  const showAll = !full && people.length > 0 && !loading && !syncing && !stale && !error &&
-    (people.length > visible.length || hasMore);
+  // Like the home charts, the summary always offers the full list, even when it already shows every recommendation.
+  const showAll = !full;
   return (
     <section className={socialStyles.friendsSection} aria-label="팔로우 추천">
       <SectionTitle onAll={showAll ? onAll : undefined}>팔로우 추천</SectionTitle>
