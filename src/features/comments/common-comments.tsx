@@ -1,3 +1,5 @@
+import { useSearchParams } from "react-router";
+import { readId } from "@/features/navigation/paths";
 import { useLoginPrompt } from "@/features/auth/login-prompt";
 import { communityStyles } from "@/styles/community.styles";
 import { sharedStyles } from "@/styles/shared.styles";
@@ -35,6 +37,13 @@ function useCommentPage(adapter: CommentAdapter, parentId: number | null) {
   const { data, error, isError, isFetching, isFetchNextPageError, hasNextPage, isFetchingNextPage, fetchNextPage, refetch } =
     useInfiniteQuery(commentPagesQuery(userId, adapter, parentId));
   const items = useMemo(() => (data ? loadedComments(data.pages) : null), [data]);
+  const [link] = useSearchParams();
+  const target = readId(link.get("commentId")), root = readId(link.get("parentCommentId")) ?? target;
+  const sought = parentId === null ? root : parentId === readId(link.get("parentCommentId")) ? target : null;
+  useEffect(() => {
+    if (sought && items && !items.some((item) => item.id === sought) && hasNextPage && !isFetching && !isError)
+      void fetchNextPage({ cancelRefetch: false });
+  }, [sought, items, hasNextPage, isFetching, isError, fetchNextPage]);
   return {
     items,
     total: data?.pages.at(-1)?.total ?? 0,
@@ -74,7 +83,14 @@ export function CommonComments({
   const writable = canWrite && currentUserId !== null;
   const userId = useCurrentUserId();
   const queryClient = useQueryClient();
-  const [expanded, setExpanded] = useState<Set<number>>(() => new Set());
+  const [commentLink] = useSearchParams();
+  const linkedParent = readId(commentLink.get("parentCommentId"));
+  const [expanded, setExpanded] = useState<Set<number>>(() => new Set(linkedParent ? [linkedParent] : []));
+  const [linkedThread, setLinkedThread] = useState(linkedParent);
+  if (linkedThread !== linkedParent) {
+    setLinkedThread(linkedParent);
+    if (linkedParent) setExpanded((old) => new Set([...old, linkedParent]));
+  }
   const [reply, setReply] = useState<{ threadId: number; author: string } | null>(null);
   const [draft, setDraft] = useState("");
   const [reportTarget, setReportTarget] = useState<number | null>(null);
@@ -322,6 +338,10 @@ function CommentCard({
 }) {
   const userId = useCurrentUserId();
   const queryClient = useQueryClient();
+  const [commentLink] = useSearchParams();
+  const highlighted = readId(commentLink.get("commentId")) === item.id;
+  const card = useRef<HTMLElement>(null);
+  useEffect(() => { if (highlighted) card.current?.scrollIntoView({ block: "center" }); }, [highlighted]);
   const [menu, setMenu] = useState(false);
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(item.text);
@@ -380,7 +400,7 @@ function CommentCard({
   }
   if (hidden) return null;
   return (
-    <article className={communityStyles.nrCommentCard}>
+    <article ref={card} data-comment-id={item.id} className={cn(communityStyles.nrCommentCard, highlighted && "rounded-xl bg-violet-400/10 ring-1 ring-violet-400/40")}>
       <div className={communityStyles.nrCommentAuthor}>
         <button
           className={communityStyles.nrCommentAvatar}

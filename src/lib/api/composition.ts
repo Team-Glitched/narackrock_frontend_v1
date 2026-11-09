@@ -80,7 +80,10 @@ export async function enterComposition(
   return data(`/api/v1/shorts/${shortId}/composition`, { signal });
 }
 
-export async function getComposition(projectId: number, signal?: AbortSignal): Promise<CompositionDto> {
+export async function getComposition(
+  projectId: number,
+  signal?: AbortSignal,
+): Promise<CompositionDto> {
   return data(`/api/v1/projects/${projectId}/tracks`, { signal });
 }
 
@@ -219,6 +222,24 @@ export type SubmittedContribution = {
   createdAt: string;
 };
 
+export type SentContributionDto = Pick<
+  ContributionDto,
+  "contributionId" | "projectId" | "description" | "approvalStatus" | "createdAt"
+> & { projectTitle: string };
+export type SentContributionsPage = {
+  items: SentContributionDto[];
+  page: { nextCursor: number | null; hasMore: boolean; size: number };
+};
+
+export function getSentContributions(
+  cursor?: number,
+  signal?: AbortSignal,
+): Promise<SentContributionsPage> {
+  const params = new URLSearchParams({ size: "20" });
+  if (cursor !== undefined) params.set("cursor", String(cursor));
+  return data(`/api/v1/users/me/contributions?${params}`, { signal });
+}
+
 export type ContributionNotificationDto = {
   contributionId: number;
   projectId: number;
@@ -230,7 +251,9 @@ export type ContributionNotificationDto = {
   createdAt: string;
 };
 
-export async function getContributionInbox(signal?: AbortSignal): Promise<ContributionNotificationDto[]> {
+export async function getContributionInbox(
+  signal?: AbortSignal,
+): Promise<ContributionNotificationDto[]> {
   const response = await data<{ items: ContributionNotificationDto[] }>(
     "/api/v1/notifications/contributions",
     { signal },
@@ -265,16 +288,28 @@ export async function listContributions(
   }
 }
 
+export type ContributionReviewDto = {
+  projectId: number;
+  contributionId: number;
+  approvalStatus: "APPROVED" | "REJECTED";
+  reviewedBy: number;
+  reviewedAt: string;
+  reviewComment: string | null;
+};
+
 export async function reviewContribution(
   projectId: number,
   contributionId: number,
   approvalStatus: "APPROVED" | "REJECTED",
   reviewComment: string | null = null,
 ) {
-  return data(`/api/v1/projects/${projectId}/contributions/${contributionId}`, {
-    method: "PATCH",
-    body: JSON.stringify({ approvalStatus, reviewComment }),
-  });
+  return data<ContributionReviewDto>(
+    `/api/v1/projects/${projectId}/contributions/${contributionId}`,
+    {
+      method: "PATCH",
+      body: JSON.stringify({ approvalStatus, reviewComment }),
+    },
+  );
 }
 
 export async function publishComposition(projectId: number): Promise<{ exportId: number }> {

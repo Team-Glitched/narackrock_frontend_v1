@@ -1,3 +1,4 @@
+import { withQuery } from "@/features/navigation/paths";
 import { useLocation, useNavigate } from "react-router";
 import { NotificationsScreen } from "./notifications-screen";
 import { useUrlNavigation } from "@/features/navigation/use-url-navigation";
@@ -15,7 +16,8 @@ export function NotificationPanel({ overlay = false }: { overlay?: boolean }) {
   }
   return <NotificationsScreen
     onBack={close}
-    onOpenProject={(id) => to("/studio/" + id, { state: { studioFrom: currentPath, studioIndex: window.history.state?.idx, inbox: true } })}
+    onNavigate={(path) => to(path)}
+    onOpenProject={(id, contributionId) => to(withQuery(`/studio/${id}`, { contributionId }), { state: { studioFrom: currentPath, studioIndex: window.history.state?.idx, inbox: true } })}
     onOpenProfile={(id) => to("/users/" + id)}
   />;
 }

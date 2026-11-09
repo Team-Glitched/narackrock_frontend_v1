@@ -1,7 +1,7 @@
-import { SubmissionDetailScreen } from "@/features/workspace/workspace-screens";
+import { SubmissionDetailScreen } from "@/features/workspace/contribution-requests";
 import { PageState } from "@/components/page-state";
 import { useUrlNavigation } from "@/features/navigation/use-url-navigation";
-import { readId, studioPath, withQuery } from "@/features/navigation/paths";
+import { readId, withQuery } from "@/features/navigation/paths";
 import { DesignViewport } from "@/components/design-viewport";
 import { Header } from "@/features/navigation/header";
 import { Footer } from "@/features/navigation/footer";
@@ -34,12 +34,16 @@ export default function SubmissionPage() {
             <PageState error>올바르지 않은 페이지 주소입니다.</PageState>
           ) : (
             <SubmissionDetailScreen
-              key={submissionId}
+              key={`${submissionId}:${query.get("projectId")}`}
               id={submissionId}
               projectId={readId(query.get("projectId"))}
-              onResume={(id, shortId) =>
-                to(studioPath(id, shortId), {
-                  state: { studioFrom: currentPath, studioIndex: window.history.state?.idx },
+              onResume={(id, contributionId) =>
+                to(withQuery(`/studio/${id}`, { contributionId }), {
+                  state: {
+                    studioFrom: currentPath,
+                    studioIndex: window.history.state?.idx,
+                    inbox: true,
+                  },
                 })
               }
             />

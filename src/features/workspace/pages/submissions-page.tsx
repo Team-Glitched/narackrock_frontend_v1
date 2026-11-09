@@ -1,4 +1,4 @@
-import { SubmissionsScreen } from "@/features/workspace/workspace-screens";
+import { SubmissionsScreen } from "@/features/workspace/contribution-requests";
 import { useUrlNavigation } from "@/features/navigation/use-url-navigation";
 import { readId, withQuery } from "@/features/navigation/paths";
 import { DesignViewport } from "@/components/design-viewport";

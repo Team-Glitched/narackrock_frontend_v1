@@ -25,17 +25,21 @@ export function PostUserActionsMenu({
   onSuspendMember?: () => void;
   onExpelMember?: () => void;
 }) {
+  const authorActions = onEdit && onDelete && !onModerateDelete;
+  const itemCount =
+    (authorActions ? 2 : 1 + Number(Boolean(onReport)) + Number(Boolean(onModerateDelete))) +
+    Number(Boolean(onSuspendMember)) +
+    Number(Boolean(onExpelMember));
   return (
     <AnchoredActionsMenu
       className={communityStyles.postUserActionsMenu}
       anchorRef={anchorRef}
       onClose={onClose}
       label="게시글 옵션"
-      height={
-        99 - (onReport ? 0 : 40) + (onModerateDelete ? 40 : 0) + (onSuspendMember ? 40 : 0) + (onExpelMember ? 40 : 0)
-      }
+      width={180}
+      height={14 + itemCount * 34 + (itemCount - 1) * 2}
     >
-      {onEdit && onDelete && !onModerateDelete ? (
+      {authorActions ? (
         <>
           <button role="menuitem" onClick={onEdit}>
             수정

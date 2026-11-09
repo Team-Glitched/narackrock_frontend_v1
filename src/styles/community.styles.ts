@@ -679,9 +679,17 @@ export const communityStyles = {
   ].join(" "),
   commentReportContent: [
     "comment-report-content",
-    "overflow-y-auto p-[0_20px]",
+    "flex flex-col overflow-y-auto p-[0_20px_20px]",
     "[&_h2]:m-[0_0_10px] [&_h2]:text-title [&_h2]:font-bold [&_h2]:text-[#fff] [&_h2]:leading-[18px]",
     "[&>p]:m-0 [&>p]:text-body [&>p]:text-app-muted [&>p]:leading-[18px]",
+    // The description box and submit button each take their own full-width row, so resizing
+    // or typing in the box can never push the button sideways.
+    "[&_textarea]:mt-5 [&_textarea]:box-border [&_textarea]:min-h-24 [&_textarea]:w-full [&_textarea]:resize-none",
+    "[&_textarea]:rounded-xl [&_textarea]:border [&_textarea]:border-solid [&_textarea]:border-app-border",
+    "[&_textarea]:bg-app-surface [&_textarea]:p-3 [&_textarea]:text-body [&_textarea]:leading-[20px] [&_textarea]:text-[#fff]",
+    "[&_textarea::placeholder]:text-app-muted [&_textarea:focus]:border-app-primary [&_textarea:focus]:outline-none",
+    "[&>p[role=alert]]:mt-3 [&>p[role=alert]]:text-[#ff6b6b]",
+    "[&>button]:mt-5 [&>button]:w-full",
   ].join(" "),
   commentReportReasons: [
     "comment-report-reasons",
@@ -722,12 +730,11 @@ export const communityStyles = {
   ].join(" "),
   postUserActionsMenu: [
     "post-user-actions-menu",
-    "[.design-canvas_&]:flex [.design-canvas_&]:h-[99px] [.design-canvas_&]:w-65 [.design-canvas_&]:flex-col [.design-canvas_&]:items-start",
-    "[.design-canvas_&]:gap-5 [.design-canvas_&]:rounded-[20px] [.design-canvas_&]:p-5 [.design-canvas_&]:bg-app-bg [.design-canvas_&]:bg-none",
-    "[.design-canvas_&>button]:flex [.design-canvas_&>button]:h-5 [.design-canvas_&>button]:items-center [.design-canvas_&>button]:gap-[14px]",
-    "[.design-canvas_&>button]:font-bold [.design-canvas_&>button]:text-label [.design-canvas_&>button]:font-sans",
-    "[.design-canvas_&>button]:text-app-fg [.design-canvas_&>button]:leading-[19px]",
-    "[.design-canvas_&_img]:h-auto [.design-canvas_&_img]:w-auto [.design-canvas_&_img]:max-w-none",
+    "flex box-border flex-col gap-0.5 rounded-xl border border-solid border-white/10 bg-app-bg p-1.5 shadow-[0_8px_24px_#0005]",
+    "[&>button]:flex [&>button]:h-[34px] [&>button]:w-full [&>button]:shrink-0 [&>button]:items-center [&>button]:gap-2 [&>button]:rounded-md [&>button]:px-2.5",
+    "[&>button]:font-sans [&>button]:text-[13px] [&>button]:font-medium [&>button]:leading-[18px] [&>button]:text-app-fg [&>button]:text-left",
+    "[&>button]:transition-colors [&>button]:duration-150 [&>button:hover]:bg-white/10 [&>button:focus-visible]:bg-white/10 [&>button:active]:bg-white/15",
+    "[&_img]:h-4 [&_img]:w-4 [&_img]:shrink-0 [&_img]:object-contain",
   ].join(" "),
   postReadonlyStats: [
     "post-readonly-stats",

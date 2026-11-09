@@ -9,7 +9,7 @@ import { useGalleryPosts } from "@/features/community/use-gallery-posts";
 import { DEFAULT_GALLERY_ID } from "@/lib/api/community";
 import { PostListStatus } from "@/features/posts/post-list";
 import { CommunityPost } from "@/features/posts/post-card";
-import { FriendsScreen } from "@/features/social/friends-screen";
+import { FriendsScreen, type FriendsListKind } from "@/features/social/friends-screen";
 
 import { PostListControls } from "@/features/posts/post-list-controls";
 import type { PostSort } from "@/lib/api/contracts";
@@ -26,8 +26,7 @@ export function CommunityScreen({
   onOpenCommunity,
   sort = "LATEST",
   onSortChange,
-  friendsView,
-  onRecommendations,
+  onOpenFriendsList,
 }: {
   onProfile: (id: number) => void;
   onChat: (userId: number) => void;
@@ -38,8 +37,7 @@ export function CommunityScreen({
   onOpenCommunity: (community: Community) => void;
   sort?: PostSort;
   onSortChange?: (sort: PostSort) => void;
-  friendsView?: "summary" | "recommendations";
-  onRecommendations?: () => void;
+  onOpenFriendsList?: (kind: FriendsListKind) => void;
 }) {
   const posts = useGalleryPosts(DEFAULT_GALLERY_ID, { sort });
   const { role } = useGalleryRole(DEFAULT_GALLERY_ID);
@@ -117,7 +115,7 @@ export function CommunityScreen({
           )}
         </div>
       ) : tab === "friends" ? (
-        <FriendsScreen view={friendsView} onRecommendations={onRecommendations} onProfile={onProfile} onChat={onChat} />
+        <FriendsScreen onOpenList={onOpenFriendsList} onProfile={onProfile} onChat={onChat} />
       ) : (
         <CommunityDirectory onJoined={onJoined} onOpen={onOpenCommunity} />
       )}

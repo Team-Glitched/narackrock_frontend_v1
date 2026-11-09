@@ -128,6 +128,12 @@ export const abyssStyles = {
     "h-11 w-54 rounded-[37px] bg-app-primary bg-none [font-family:Pretendard,'Pretendard_Variable',sans-serif] text-label font-semibold",
     "[.design-canvas_&]:h-11 [.design-canvas_&]:min-h-11 [.design-canvas_&]:font-semibold",
   ].join(" "),
+  /** Owner, contributor or pending request: the same slot, but a quiet secondary button. */
+  abyssJoined: [
+    "abyss-joined",
+    "bg-app-surface border border-solid border-app-border text-app-fg font-medium",
+    "[.design-canvas_&]:bg-app-surface [.design-canvas_&]:font-medium",
+  ].join(" "),
   abyssCoverEmpty: [
     "abyss-cover-empty",
     "grid place-items-center text-app-muted bg-app-surface bg-none text-[length:64px]",

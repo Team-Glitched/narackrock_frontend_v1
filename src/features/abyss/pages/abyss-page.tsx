@@ -13,7 +13,7 @@ import { sharedStyles } from "@/styles/shared.styles";
 
 export default function AbyssPage() {
   const { to, back, params, query, currentPath, state } = useUrlNavigation();
-  const { muted, setMuted, mode } = useAbyssPlaybackPreferences();
+  const { muted, setMuted } = useAbyssPlaybackPreferences();
   const shortId = readId(params.shortId);
   const invalidId = params.shortId !== undefined && shortId === null;
   const galleryId = readId(params.galleryId) ?? readId(query.get("galleryId"));
@@ -29,7 +29,6 @@ export default function AbyssPage() {
             <AbyssScreen
               onProfile={(id) => to(`/users/${id}`)}
               muted={muted}
-              mode={mode}
               initialShortId={shortId}
               onRememberShort={(id) => {
                 if (id !== shortId) to(`/abyss/${id}`, { replace: true, state });
@@ -37,6 +36,12 @@ export default function AbyssPage() {
               onJoin={(id) => to(`/studio/shorts/${id}`, {
                 state: { studioFrom: currentPath, studioIndex: window.history.state?.idx },
               })}
+              onOpenStudio={(projectId) => to(`/studio/${projectId}`, {
+                state: { studioFrom: currentPath, studioIndex: window.history.state?.idx },
+              })}
+              onOpenRequest={(projectId, contributionId) => to(
+                contributionId == null ? "/submissions" : `/submissions/${contributionId}?projectId=${projectId}`,
+              )}
             />
           )}
         </div>

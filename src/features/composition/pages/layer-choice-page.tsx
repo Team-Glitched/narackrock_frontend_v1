@@ -3,7 +3,7 @@ import {
   CompositionChoiceScreen,
   type CreationMethod,
 } from "@/features/composition/creation-screens";
-import { createMidiLayer } from "@/features/composition/composition-actions";
+import { createMidiLayer, releaseAbandonedLayer } from "@/features/composition/composition-actions";
 import { InstrumentPromptCancelled, useInstrumentPrompt } from "../use-instrument-prompt";
 import { useRouteComposition } from "@/features/composition/use-route-composition";
 import { PageState } from "@/components/page-state";
@@ -33,13 +33,15 @@ export default function LayerChoicePage() {
   const [error, setError] = useState<string | null>(null);
   async function choose(method: CreationMethod) {
     if (busy || !route.projectId) return;
-    if (method !== "note") {
-      to(route.layerUrl(method), { state: route.studioState });
-      return;
-    }
     setBusy(true);
     setError(null);
     try {
+      // A song left with an empty layer of the viewer's (from before "버리기" removed it) would refuse a new one.
+      await releaseAbandonedLayer(route.projectId);
+      if (method !== "note") {
+        to(route.layerUrl(method), { state: route.studioState });
+        return;
+      }
       const editor = await createMidiLayer(route.projectId, await instrument.ask({ mode: "midi" }));
       to(route.notesUrl(editor), { state: route.studioState });
     } catch (cause) {

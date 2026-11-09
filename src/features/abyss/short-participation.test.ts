@@ -1,40 +1,43 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { abyssStyles } from "../../styles/abyss.styles.ts";
+import { shortParticipation } from "./short-participation.ts";
 
-import { canJoinShort } from "./short-participation.ts";
-
-const joinableShort = {
+const short = {
   completionStatus: "IN_PROGRESS" as const,
   projectId: 12,
   hasPendingContribution: false,
   hasApprovedContribution: false,
-  participants: [{ userId: 7 }],
+  participants: [{ userId: 7, role: "OWNER" }, { userId: 9, role: "CONTRIBUTOR" }],
 };
 
-test("hides composition participation after the current user has already participated", () => {
-  assert.equal(canJoinShort(joinableShort, 7), false);
+test("a user with no part in an in-progress song can join it", () => {
+  assert.equal(shortParticipation(short, 8), "joinable");
+  assert.equal(shortParticipation(short, null), "joinable");
 });
 
-test("keeps composition participation for a user who has not participated", () => {
-  assert.equal(canJoinShort(joinableShort, 8), true);
+test("the song's owner sees their own song, in progress or completed", () => {
+  assert.equal(shortParticipation(short, 7), "owner");
+  assert.equal(shortParticipation({ ...short, completionStatus: "COMPLETED" }, 7), "owner");
 });
 
-test("hides composition participation while the current user's request is pending", () => {
-  assert.equal(canJoinShort({ ...joinableShort, hasPendingContribution: true }, 8), false);
+test("an approved contribution or a non-owner participant counts as contributed, even after completion", () => {
+  assert.equal(shortParticipation({ ...short, hasApprovedContribution: true }, 8), "contributed");
+  assert.equal(shortParticipation(short, 9), "contributed");
+  assert.equal(shortParticipation({ ...short, completionStatus: "COMPLETED" }, 9), "contributed");
 });
 
-test("hides composition participation after the current user's request was approved", () => {
-  assert.equal(canJoinShort({ ...joinableShort, hasApprovedContribution: true }, 8), false);
+test("a pending request is shown until it is approved", () => {
+  assert.equal(shortParticipation({ ...short, hasPendingContribution: true }, 8), "pending");
+  // A second request after an approval keeps the contributed state.
+  assert.equal(
+    shortParticipation({ ...short, hasPendingContribution: true, hasApprovedContribution: true }, 8),
+    "contributed",
+  );
 });
 
-test("does not allow participation in a completed short", () => {
-  assert.equal(canJoinShort({ ...joinableShort, completionStatus: "COMPLETED" }, 8), false);
+test("a completed song offers nothing to a user with no part in it, nor does a short without a project", () => {
+  assert.equal(shortParticipation({ ...short, completionStatus: "COMPLETED" }, 8), null);
+  assert.equal(shortParticipation({ ...short, projectId: null }, 7), null);
 });
 
-test("keeps the original short layout when only the participation button is hidden", () => {
-  const classes = new Set(abyssStyles.abyssJoinSlot.split(/\s+/));
-  assert.ok(classes.has("abyss-join-slot"));
-  assert.ok(classes.has("h-11") && classes.has("flex-[0_0_44px]"));
-});

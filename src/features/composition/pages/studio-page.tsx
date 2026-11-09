@@ -12,16 +12,16 @@ export default function StudioPage() {
   const userId = useCurrentUserId();
   const navigate = useNavigate();
   const { projectId, shortId, to, params } = route;
-  const { studioFrom, studioIndex, inbox } = route.studioState;
+  const { studioFrom, studioIndex, inbox, contributionId } = route.studioState;
   const selectProject = useCallback(
     (id: number) => {
       if (id !== projectId)
         to(studioPath(id, shortId), {
           replace: true,
-          state: { studioFrom, studioIndex, inbox },
+          state: { studioFrom, studioIndex, inbox, contributionId },
         });
     },
-    [projectId, shortId, to, studioFrom, studioIndex, inbox],
+    [projectId, shortId, to, studioFrom, studioIndex, inbox, contributionId],
   );
   const invalidAddress =
     (params.projectId !== undefined && readId(params.projectId) === null) ||
@@ -36,6 +36,7 @@ export default function StudioPage() {
           key={`${userId ?? "guest"}:${projectId}:${shortId}`}
           projectId={projectId}
           shortId={shortId}
+          contributionId={contributionId}
           onSubmitted={() => to("/submissions")}
           onExit={() => {
             const currentIndex = window.history.state?.idx;

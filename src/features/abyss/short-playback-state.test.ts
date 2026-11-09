@@ -6,9 +6,7 @@ import {
   listenerDurationMs,
   normalizeOwnerSelection,
   ownerTracks,
-  parsePlaybackMode,
   participantOwners,
-  playbackModeKey,
   sameOwnerSelection,
   toggleOwner,
 } from "./short-playback-state.ts";
@@ -77,21 +75,4 @@ test("listener length follows the original metadata within the project limit", (
   assert.equal(listenerDurationMs(null, 60_000), 60_000);
   assert.equal(listenerDurationMs(Number.NaN, 60_000), 60_000);
   assert.equal(listenerDurationMs(0, 60_000), 60_000);
-});
-
-test("playback mode falls back to repeat for missing or invalid stored values", () => {
-  assert.equal(parsePlaybackMode("next"), "next");
-  assert.equal(parsePlaybackMode("repeat"), "repeat");
-  assert.equal(parsePlaybackMode(null), "repeat");
-  assert.equal(parsePlaybackMode("NEXT"), "repeat");
-  assert.equal(parsePlaybackMode('"next"'), "repeat");
-});
-
-test("playback mode is stored per API origin and account", () => {
-  assert.equal(
-    playbackModeKey("http://127.0.0.1:18081", 1001),
-    "narackrock.abyss-playback:v1:http%3A%2F%2F127.0.0.1%3A18081:1001",
-  );
-  assert.equal(playbackModeKey("https://api.example", null), "narackrock.abyss-playback:v1:https%3A%2F%2Fapi.example:guest");
-  assert.notEqual(playbackModeKey("https://api.example", 1), playbackModeKey("https://api.example", 2));
 });

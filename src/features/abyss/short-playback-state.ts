@@ -2,7 +2,6 @@ import type { TrackDto } from "../../lib/api/composition.ts";
 
 /** null = the original full mix, empty = silent, non-empty = only these owners' approved tracks. */
 export type OwnerSelection = ReadonlySet<number> | null;
-export type PlaybackMode = "repeat" | "next";
 
 export type ParticipantOwner = {
   userId: number;
@@ -14,14 +13,6 @@ export type ParticipantOwner = {
 
 type Composer = { userId: number; nickname: string; profileImageUrl: string | null; role: string };
 type KnownPerson = { userId: number; nickname: string };
-
-export function playbackModeKey(origin: string, userId: number | null): string {
-  return `narackrock.abyss-playback:v1:${encodeURIComponent(origin)}:${userId ?? "guest"}`;
-}
-
-export function parsePlaybackMode(raw: string | null | undefined): PlaybackMode {
-  return raw === "next" ? "next" : "repeat";
-}
 
 /**
  * Composers deduplicated by userId with merged roles, followed by owners that only appear in the approved stems so

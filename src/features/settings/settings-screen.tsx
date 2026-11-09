@@ -58,28 +58,13 @@ export function SettingsScreen({ onNavigate, onLogout }: {
   onNavigate: (path: string) => void;
   onLogout: () => void;
 }) {
-  const { mode, setMode, muted, setMuted } = useAbyssPlaybackPreferences();
+  const { muted, setMuted } = useAbyssPlaybackPreferences();
   return (
     <section className="scrollbar-none h-full overflow-x-hidden overflow-y-auto px-5 pt-6 pb-8 text-app-fg">
       <h1 className="m-0 mb-7 text-title leading-8 font-bold">설정</h1>
       <section className={groupClass} aria-label="숏폼 재생">
         <h2>숏폼 재생</h2>
         <ul>
-          <li>
-            <label className={switchRowClass}>
-              <span className={copyClass}>
-                <strong>숏폼 자동 넘기기</strong>
-                <small>곡이 끝나면 다음 숏폼을 재생합니다. 끄면 같은 곡을 반복합니다.</small>
-              </span>
-              <input
-                type="checkbox"
-                role="switch"
-                className={switchClass}
-                checked={mode === "next"}
-                onChange={(event) => setMode(event.target.checked ? "next" : "repeat")}
-              />
-            </label>
-          </li>
           <li>
             <label className={switchRowClass}>
               <span className={copyClass}>
