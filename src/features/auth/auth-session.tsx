@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import type { PendingProfileSetup } from "./profile-setup";
+import { rememberSignedIn } from "./returning-user";
 import { useCurrentUserId } from "./use-current-user";
 import { getProfile } from "@/lib/api/profile";
 
@@ -22,6 +23,7 @@ function useSessionState() {
   const refreshProfile = useCallback(() => setProfileRevision((value) => value + 1), []);
   useEffect(() => {
     if (currentUserId === null) return;
+    rememberSignedIn();
     let cancelled = false;
     getProfile(currentUserId)
       .then((profile) => {
