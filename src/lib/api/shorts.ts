@@ -1,6 +1,6 @@
 import { apiRequest } from "./client.ts";
 import { getDeviceId } from "./device-id.ts";
-import type { ApiEnvelope, ContentViewResponse, ShortItemDto, ShortsPageDto } from "./contracts.ts";
+import type { ApiEnvelope, ContentViewResponse, RecommendedShortsPageDto, ShortItemDto, ShortsPageDto } from "./contracts.ts";
 import type { TrackDto } from "./composition.ts";
 
 async function data<T>(path: string, init?: RequestInit): Promise<T> {
@@ -21,6 +21,12 @@ export function searchShorts(keyword: string, cursor?: number, signal?: AbortSig
 
 export function getPopularShorts(size = 10, signal?: AbortSignal): Promise<ShortsPageDto> {
   return data(`/api/v1/shorts/popular?size=${encodeURIComponent(size)}`, { signal });
+}
+
+export function getRecommendedShorts(cursor?: string, signal?: AbortSignal): Promise<RecommendedShortsPageDto> {
+  const params = new URLSearchParams({ size: "10" });
+  if (cursor !== undefined) params.set("cursor", cursor);
+  return data(`/api/v1/shorts/recommended?${params}`, { signal });
 }
 
 export function getMyShorts(
