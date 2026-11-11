@@ -3,6 +3,8 @@ import { readId } from "@/features/navigation/paths";
 import { useLoginPrompt } from "@/features/auth/login-prompt";
 import { communityStyles } from "@/styles/community.styles";
 import { sharedStyles } from "@/styles/shared.styles";
+import { apiOrigin } from "@/lib/api/client";
+import { useHiddenIds } from "@/lib/browser/hidden-ids";
 import { cn } from "@/lib/utils";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -83,6 +85,9 @@ export function CommonComments({
   const writable = canWrite && currentUserId !== null;
   const userId = useCurrentUserId();
   const queryClient = useQueryClient();
+  const { ids: hiddenIds, hide } = useHiddenIds(
+    `narackrock.hidden-comments.${apiOrigin()}.${userId ?? "guest"}.${adapter.kind}.${adapter.targetId}`,
+  );
   const [commentLink] = useSearchParams();
   const linkedParent = readId(commentLink.get("parentCommentId"));
   const [expanded, setExpanded] = useState<Set<number>>(() => new Set(linkedParent ? [linkedParent] : []));
@@ -91,8 +96,12 @@ export function CommonComments({
     setLinkedThread(linkedParent);
     if (linkedParent) setExpanded((old) => new Set([...old, linkedParent]));
   }
-  const [reply, setReply] = useState<{ threadId: number; author: string } | null>(null);
+  const [reply, setReply] = useState<{ commentId: number; threadId: number; author: string } | null>(null);
   const [draft, setDraft] = useState("");
+  if (reply && (hiddenIds.has(reply.commentId) || hiddenIds.has(reply.threadId))) {
+    setReply(null);
+    setDraft("");
+  }
   const [reportTarget, setReportTarget] = useState<number | null>(null);
   const input = useRef<HTMLTextAreaElement>(null);
   useLayoutEffect(() => {
@@ -137,7 +146,7 @@ export function CommonComments({
       return next;
     });
   const startReply = (item: CommentItem, threadId: number) => {
-    setReply({ threadId, author: item.author });
+    setReply({ commentId: item.id, threadId, author: item.author });
     setExpanded((old) => new Set([...old, threadId]));
     input.current?.focus();
   };
@@ -154,6 +163,7 @@ export function CommonComments({
       owner={currentUserId === item.userId}
       adapter={adapter}
       onChanged={changed}
+      onHide={() => hide(item.id)}
       canReply={canWrite}
       onReply={() => {
         if (requireLogin() && writable) startReply(item, threadId);
@@ -181,7 +191,7 @@ export function CommonComments({
         {top.items?.length === 0 && (
           <p className={communityStyles.nrCommentsEmpty}>첫 댓글을 남겨보세요.</p>
         )}
-        {top.items?.map((item) => (
+        {top.items?.filter((item) => !hiddenIds.has(item.id)).map((item) => (
           <section
             className={communityStyles.nrCommentThread}
             key={item.id}
@@ -202,7 +212,7 @@ export function CommonComments({
                 key={item.id}
                 adapter={adapter}
                 parentId={item.id}
-                render={(child) => row(child, item.id)}
+                render={(child) => hiddenIds.has(child.id) ? null : row(child, item.id)}
                 onCollapse={() => toggle(item.id)}
               />
             )}
@@ -229,14 +239,10 @@ export function CommonComments({
         )}
         {error && <p role="alert">{error}</p>}
         <div className={communityStyles.nrCommentInput}>
-          <span className={communityStyles.nrCommentAttachment} aria-hidden="true">
-            <i />
-            <i />
-          </span>
           {currentUserId === null ? (
             <button
               type="button"
-              className="box-border min-h-9 min-w-0 flex-1 rounded-[20px] bg-app-surface py-2 pr-2.5 pl-[38px] text-left text-body leading-[20px] text-app-muted"
+              className="box-border min-h-9 min-w-0 flex-1 rounded-[20px] bg-app-surface py-2 pr-2.5 pl-3 text-left text-body leading-[20px] text-app-muted"
               onClick={() => requestLogin()}
             >
               로그인 후 댓글을 작성할 수 있습니다.
@@ -323,6 +329,7 @@ function CommentCard({
   owner,
   adapter,
   onChanged,
+  onHide,
   onReply,
   onProfile,
   onReport,
@@ -332,6 +339,7 @@ function CommentCard({
   owner: boolean;
   adapter: CommentAdapter;
   onChanged: () => void;
+  onHide: () => void;
   onReply: () => void;
   onProfile: () => void;
   onReport?: () => void;
@@ -346,7 +354,6 @@ function CommentCard({
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState(item.text);
   const [confirm, setConfirm] = useState(false);
-  const [hidden, setHidden] = useState(false);
   const optionButton = useRef<HTMLButtonElement>(null);
   const { requireLogin } = useLoginPrompt();
   const react = adapter.react;
@@ -398,7 +405,6 @@ function CommentCard({
       failure: "댓글을 변경하지 못했습니다.",
     });
   }
-  if (hidden) return null;
   return (
     <article ref={card} data-comment-id={item.id} className={cn(communityStyles.nrCommentCard, highlighted && "rounded-xl bg-violet-400/10 ring-1 ring-violet-400/40")}>
       <div className={communityStyles.nrCommentAuthor}>
@@ -433,10 +439,7 @@ function CommentCard({
                 }
               : undefined
           }
-          onHide={() => {
-            setMenu(false);
-            setHidden(true);
-          }}
+          onHide={onHide}
           onEdit={
             canEdit
               ? () => {
