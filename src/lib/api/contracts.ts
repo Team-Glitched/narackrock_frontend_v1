@@ -30,17 +30,8 @@ export type SongCardDto = Pick<ShortItemDto, "shortId" | "title" | "albumImageUr
   author: Pick<ShortItemDto["author"], "userId" | "nickname">;
 };
 
-export type ShortRecommendationReason =
-  | "FOLLOWED_ARTIST"
-  | "SAVED_ARTIST"
-  | "LIKED_ARTIST"
-  | "COLLABORATOR"
-  | "DISCOVERY";
-
-export type RecommendedShortDto = SongCardDto & { reason: ShortRecommendationReason };
-
 export type RecommendedShortsPageDto = {
-  items: RecommendedShortDto[];
+  items: SongCardDto[];
   page: { nextCursor: string | null; hasMore: boolean; size: number };
 };
 

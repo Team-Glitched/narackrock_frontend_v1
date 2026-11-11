@@ -1,7 +1,7 @@
 import { useInfiniteQuery, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCurrentUserId } from "@/features/auth/use-current-user";
 import { ApiError } from "@/lib/api/client";
-import type { RecommendedShortDto, ShortItemDto } from "@/lib/api/contracts";
+import type { SongCardDto, ShortItemDto } from "@/lib/api/contracts";
 import { useMySongs } from "./use-my-songs";
 import { popularSongsQuery, recommendedSongsQuery } from "./home-queries";
 import { appendUniqueSongs } from "./my-songs";
@@ -20,7 +20,7 @@ function useRecommendedSongs(userId: number | null, enabled: boolean) {
   const queryClient = useQueryClient();
   const options = recommendedSongsQuery(userId);
   const query = useInfiniteQuery({ ...options, enabled });
-  const items = query.data?.pages.reduce<RecommendedShortDto[]>(
+  const items = query.data?.pages.reduce<SongCardDto[]>(
     (all, page) => appendUniqueSongs(all, page.items),
     [],
   );

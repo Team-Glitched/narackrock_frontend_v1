@@ -37,11 +37,11 @@ test("mine defaults to a bounded first page without a synthetic cursor", async (
   assert.equal(url.searchParams.has("cursor"), false);
 });
 
-test("recommendations preserve backend reasons and send the opaque continuation cursor", async () => {
+test("recommendations preserve song cards and send the opaque continuation cursor", async () => {
   const controller = new AbortController();
   const cursor = "87b0a34c-a571-4c3c-b770-60254f0fd133:10";
   const page = {
-    items: [{ shortId: 12, title: "Song", albumImageUrl: null, author: { userId: 2, nickname: "Composer" }, reason: "SAVED_ARTIST" }],
+    items: [{ shortId: 12, title: "Song", albumImageUrl: null, author: { userId: 2, nickname: "Composer" } }],
     page: { nextCursor: null, hasMore: false, size: 10 },
   };
   globalThis.fetch = async (input, init) => {

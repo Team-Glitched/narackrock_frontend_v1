@@ -5,7 +5,6 @@ import { HomeWorkSection } from "@/features/workspace/home-work-section";
 import { uiLabels } from "@/lib/ui-labels";
 import { SectionTitle } from "@/components/section-title";
 import { SongRail } from "@/features/home/song-rail";
-import { recommendationReasonLabel } from "./recommendation-reason";
 import { useGalleryPosts } from "@/features/community/use-gallery-posts";
 import { useHomeSongs } from "@/features/home/use-home-songs";
 import { MiniPost, PostListStatus } from "@/features/posts/post-list";
@@ -251,7 +250,6 @@ function RankedSongsChart({
               <span>
                 <strong>{song.title}</strong>
                 <small>{song.author.nickname}</small>
-                {"reason" in song && <small>{recommendationReasonLabel[song.reason]}</small>}
               </span>
               </button>
               {kind === "popular" && <PopularContentActions kind="short" id={song.shortId} title={song.title} ownerId={song.author.userId} />}
