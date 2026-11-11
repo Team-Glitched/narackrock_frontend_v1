@@ -75,7 +75,7 @@ function ScopedCommunityPost({
   const [loadingEdit, setLoadingEdit] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const error = actionError ?? (detailQuery.isLoadingError ? postError(detailQuery.error) : null);
-  const preview = detail?.content ?? null;
+  const preview = detail?.content ?? post.contentPreview;
   const imageUrl = detail ? detail.imageUrl : post.imageUrl;
 
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -318,13 +318,13 @@ function ScopedCommunityPost({
         </h2>
         <PostCommunityLabel name={post.gallery?.name} />
       </div>
-      {(currentUserId === null || preview) && (
+      {preview && (
         <button
           className={communityStyles.postPreview}
           onClick={() => onComments(post.postId)}
           disabled={submitting}
         >
-          {currentUserId === null ? "로그인 후 게시글 내용을 확인할 수 있어요." : preview}
+          {preview}
         </button>
       )}
       {error && (
