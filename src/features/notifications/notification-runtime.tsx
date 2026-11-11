@@ -9,8 +9,9 @@ import {
   subscribeCurrentUserId,
 } from "@/lib/api/client";
 import { chatWebSocketUrl } from "@/lib/api/social";
+import { chatKeys } from "@/features/social/chat-queries";
 import { notificationKeys, unreadNotificationsQuery } from "./notification-queries";
-/** This connection subscribes only to service notifications. Chat delivery is independent. */
+/** Keep the header badges current from the app-wide connection. */
 export function NotificationRuntime() {
   const user = useCurrentUserId(),
     queryClient = useQueryClient();
@@ -22,6 +23,9 @@ export function NotificationRuntime() {
     const current = () => active && getCurrentUserId() === user && apiOrigin() === origin;
     const refresh = () => {
       if (current()) void queryClient.invalidateQueries({ queryKey: notificationKeys.all(user) });
+    };
+    const refreshUnreadChat = () => {
+      if (current()) void queryClient.invalidateQueries({ queryKey: chatKeys.unread(user) });
     };
     const client = new Client({
       brokerURL: chatWebSocketUrl(),
@@ -36,7 +40,9 @@ export function NotificationRuntime() {
       onConnect: () => {
         if (!current()) return;
         client.subscribe("/user/queue/notifications", refresh);
+        client.subscribe("/user/queue/chat", refreshUnreadChat);
         refresh();
+        refreshUnreadChat();
       },
     });
     const unsubscribe = subscribeCurrentUserId(() => {

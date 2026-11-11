@@ -4,6 +4,7 @@ import { getChatMessages, sendChatMessage, type ChatMessage } from "@/lib/api/so
 import { mergeChatMessages } from "@/features/social/chat-messages";
 import { createChatRefresh } from "@/features/social/chat-refresh";
 import { useChatRealtime } from "@/features/social/use-chat-realtime";
+import { useMarkChatRead } from "@/features/social/chat-unread";
 import { relationError } from "@/features/profile/profile-relations";
 
 /** REST history/sends with realtime delivery and disconnected REST recovery. */
@@ -65,6 +66,9 @@ export function useConversation(me: number, friendId: number) {
     return () => window.clearInterval(timer);
   }, [connected, scope]);
   const current = state.scope === scope ? state : { scope, messages: [], loaded: false, error: "", hasOlder: true };
+  const received = current.loaded && !current.error
+    ? current.messages.filter((message) => message.recipientId === me) : [];
+  useMarkChatRead(me, friendId, received.at(-1)?.id, received.length);
   return {
     ...current,
     connected,

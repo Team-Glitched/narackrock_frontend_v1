@@ -29,6 +29,7 @@ export default function ChatPage() {
             }}
             onBack={() => back(friendId === null ? "/friends" : "/chat")}
             onSearch={() => to(withQuery("/search", { scope, galleryId }))}
+            onNewMessage={() => to("/search?scope=people")}
             onNotifications={openNotifications}
             onSelect={(id) => {
               const next = new URLSearchParams(query);
