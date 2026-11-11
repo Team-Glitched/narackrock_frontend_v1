@@ -1,7 +1,7 @@
 import { abyssStyles } from "@/styles/abyss.styles";
-import { cn } from "@/lib/utils";
 import { useRef } from "react";
 import type { ShortItemDto } from "@/lib/api/contracts";
+import defaultCover from "./assets/shortform-default-cover.png";
 export function AlbumCarousel({
   items,
   index,
@@ -54,27 +54,17 @@ export function AlbumCarousel({
         className={abyssStyles.abyssCoverTrack}
         style={{ transform: `translateX(calc(${index} * -1 * var(--cover-step, 360px)))` }}
       >
-        {items.map((item, position) =>
-          item.albumImageUrl ? (
-            <img
-              key={item.shortId}
-              src={item.albumImageUrl}
-              alt={position === index ? `${item.title} 앨범 커버` : ""}
-              aria-hidden={position !== index}
-              className={abyssStyles.abyssCover}
-              draggable={false}
-              loading={Math.abs(position - index) > 1 ? "lazy" : "eager"}
-            />
-          ) : (
-            <div
-              key={item.shortId}
-              className={cn(abyssStyles.abyssCover, abyssStyles.abyssCoverEmpty)}
-              role="img"
-              aria-label={`${item.title} 앨범 이미지 없음`}
-              aria-hidden={position !== index}
-            />
-          ),
-        )}
+        {items.map((item, position) => (
+          <img
+            key={item.shortId}
+            src={item.albumImageUrl?.trim() || defaultCover}
+            alt={position === index ? `${item.title} 앨범 커버` : ""}
+            aria-hidden={position !== index}
+            className={abyssStyles.abyssCover}
+            draggable={false}
+            loading={Math.abs(position - index) > 1 ? "lazy" : "eager"}
+          />
+        ))}
       </div>
       <span className={"sr-only"} aria-live="polite">
         {index + 1} / {items.length}, {items[index]?.title}

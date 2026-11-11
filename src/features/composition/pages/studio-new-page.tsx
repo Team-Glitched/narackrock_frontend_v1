@@ -7,7 +7,9 @@ import { Header } from "@/features/navigation/header";
 import { NotificationsOverlay } from "@/features/notifications/notifications-overlay";
 import { resolveSearchScope } from "@/features/search/search-scope";
 import { sharedStyles } from "@/styles/shared.styles";
+import { useCurrentUserId } from "@/features/auth/use-current-user";
 export default function StudioNewPage() {
+  const userId = useCurrentUserId();
   const { to, back, state, params, query } = useUrlNavigation<StudioLocationState>();
   const studioFrom = state.studioFrom ?? safeReturnPath(state.from);
   const studioState = { studioFrom, studioIndex: state.studioIndex, inbox: state.inbox };
@@ -19,6 +21,8 @@ export default function StudioNewPage() {
         <Header onSearch={() => to(withQuery("/search", { scope, galleryId }))} onBack={() => back("/")} />
         <div className={sharedStyles.screenBody}>
           <NewProject
+            key={userId ?? "guest"}
+            userId={userId}
             onBack={() => back("/")}
             onCreated={(id) => to(`/studio/${id}/layers/new`, { state: studioState })}
             onResume={(id) => to(`/studio/${id}`, { state: studioState })}
