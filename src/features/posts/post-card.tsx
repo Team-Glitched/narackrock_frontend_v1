@@ -8,6 +8,7 @@ import { PostUserActionsMenu } from "@/features/posts/post-user-actions-menu";
 import { FigmaSheet } from "@/components/figma-sheet";
 import { ReportReasons } from "@/features/comments/report-reasons";
 import { PostActions } from "@/features/posts/post-actions";
+import { PostCommunityLabel } from "@/features/posts/post-community-label";
 import { usePostInteractions } from "@/features/posts/use-post-interactions";
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -305,15 +306,18 @@ function ScopedCommunityPost({
           }}
         />
       )}
-      <h2>
-        <button
-          className={communityStyles.postRead}
-          disabled={submitting}
-          onClick={() => onComments(post.postId)}
-        >
-          {post.title}
-        </button>
-      </h2>
+      <div className="flex items-center gap-3 [&>span]:max-w-[45%] [&>span]:shrink-0">
+        <h2 className="min-w-0 flex-1">
+          <button
+            className={communityStyles.postRead}
+            disabled={submitting}
+            onClick={() => onComments(post.postId)}
+          >
+            {post.title}
+          </button>
+        </h2>
+        <PostCommunityLabel name={post.gallery?.name} />
+      </div>
       {(currentUserId === null || preview) && (
         <button
           className={communityStyles.postPreview}

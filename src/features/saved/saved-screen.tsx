@@ -14,11 +14,12 @@ import { usePagedItems, type ItemPage } from "@/hooks/use-paged-items";
 import { ApiError } from "@/lib/api/client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { applyPostBookmark } from "@/features/posts/post-queries";
+import { PostCommunityLabel } from "@/features/posts/post-community-label";
 import { updateCachedShort } from "@/features/abyss/abyss-queries";
 
 const filterClass = filterChipVariants();
 
-type SavedItem = { id: number; kind: "post" | "song"; title: string; author: string; imageUrl: string | null };
+type SavedItem = { id: number; kind: "post" | "song"; title: string; author: string; imageUrl: string | null; galleryName?: string };
 
 const failure = (cause: unknown, fallback: string) =>
   cause instanceof ApiError ? cause.message : cause instanceof TypeError ? "서버에 연결하지 못했습니다." : fallback;
@@ -32,6 +33,7 @@ async function loadSavedPosts(page: number, signal: AbortSignal): Promise<ItemPa
       title: post.title,
       author: post.writer.nickname ?? "알 수 없는 사용자",
       imageUrl: post.imageUrl,
+      galleryName: post.gallery?.name,
     })),
     next: result.posts.length && (page + 1) * result.size < result.totalCount ? page + 1 : null,
   };
@@ -161,9 +163,10 @@ function SavedLibrary({ onOpenPost, onOpenSong }: SavedScreenProps) {
                   className={cn(
                     "flex min-w-0 flex-col gap-2 [&>strong]:text-label [&>strong]:leading-[1.3] [&>strong]:font-semibold [&>small]:text-body [&>small]:text-app-muted",
                     kind === "post" &&
-                      "gap-5 [&>strong]:line-clamp-2 [&>strong]:text-body [&>strong]:font-medium",
+                      "[&>strong]:line-clamp-2 [&>strong]:text-body [&>strong]:font-medium",
                   )}
                 >
+                  <PostCommunityLabel name={item.galleryName} />
                   <strong>{item.title}</strong>
                   {kind === "post" ? (
                     <span className="flex items-center gap-[6px] text-caption">

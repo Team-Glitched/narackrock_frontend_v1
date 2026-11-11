@@ -59,9 +59,12 @@ export type PostWriter = { userId: number; nickname: string; profileImageUrl: st
 
 export type PostSort = "LATEST" | "POPULAR" | "OLDEST";
 
+export type PostGallery = { galleryId: number; name: string };
+
 export type PostListItem = {
   contentPreview?: string;
   postId: number;
+  gallery?: PostGallery;
   writer: PostWriter;
   title: string;
   imageUrl: string | null;
@@ -82,7 +85,7 @@ export type PostListResponse = {
 
 export type PostDetailResponse = {
   postId: number;
-  gallery: { galleryId: number; name: string };
+  gallery: PostGallery;
   writer: PostWriter;
   title: string;
   content: string;
