@@ -4,7 +4,7 @@ import { Header } from "@/features/navigation/header";
 import { Footer } from "@/features/navigation/footer";
 import { NotificationsOverlay } from "@/features/notifications/notifications-overlay";
 import { useUrlNavigation } from "@/features/navigation/use-url-navigation";
-import { creationTarget } from "@/features/navigation/creation-target";
+import { ContextualCreate, contextualCreateArea } from "@/features/navigation/contextual-create";
 import { resolveSearchScope } from "@/features/search/search-scope";
 import { readId, withQuery } from "@/features/navigation/paths";
 import { sharedStyles } from "@/styles/shared.styles";
@@ -16,10 +16,9 @@ import { workspaceStyles } from "@/styles/workspace.styles";
 
 
 export default function SourcesPage() {
-  const { to, params, query, currentPath } = useUrlNavigation();
+  const { to, params, query } = useUrlNavigation();
   const galleryId = readId(params.galleryId) ?? readId(query.get("galleryId"));
   const scope = resolveSearchScope(query.get("scope"), "sources", Boolean(galleryId));
-  const target = creationTarget(scope, galleryId);
   const userId = useCurrentUserId();
   const tab = query.get("tab") === "mine" ? "mine" : query.get("tab") === "saved" ? "saved" : "feed";
   function selectTab(value: string) {
@@ -32,15 +31,14 @@ export default function SourcesPage() {
     <DesignViewport>
       <div className={sharedStyles.phoneFrame}>
         <Header onSearch={() => to(withQuery("/search", { scope, galleryId }))} />
-        <div className={sharedStyles.screenBody}>
+        <div className={contextualCreateArea}>
           <div className="flex h-full min-h-0 flex-col">
-            <nav className="flex shrink-0 flex-wrap gap-2 border-b border-app-line px-5 py-3" aria-label="오픈소스 메뉴">
+            <nav className="flex shrink-0 flex-wrap gap-2 border-b border-app-line px-5 py-3" aria-label="오픈소스 메뉴" data-create-boundary>
               {([["feed", "탐색"], ["saved", "보관함"], ["mine", "내 등록"]] as const).map(([value, label]) => (
                 <button key={value} type="button" aria-pressed={tab === value} className="min-h-11 rounded-xl px-3 text-body aria-pressed:bg-app-primary" onClick={() => selectTab(value)}>
                   {label}
                 </button>
               ))}
-              <button type="button" className="min-h-11 rounded-xl px-3 text-body" onClick={() => to("/sources/new")}>등록</button>
             </nav>
             <div key={JSON.stringify([apiOrigin(), userId, tab])} className="min-h-0 flex-1 overflow-hidden">
               {tab === "feed" ? (
@@ -58,10 +56,9 @@ export default function SourcesPage() {
               )}
             </div>
           </div>
+          <ContextualCreate scope="sources" />
         </div>
-        <Footer activeTab="opensource" createLabel={target.label} onCreate={() => to(target.path, target.path === "/studio/new" ? {
-          state: { studioFrom: currentPath, studioIndex: window.history.state?.idx },
-        } : undefined)} />
+        <Footer activeTab="opensource" />
         <NotificationsOverlay />
       </div>
     </DesignViewport>
