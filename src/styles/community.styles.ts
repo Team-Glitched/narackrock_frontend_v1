@@ -490,7 +490,8 @@ export const communityStyles = {
   ].join(" "),
   nrCommentComposer: [
     "nr-comment-composer",
-    "[.design-canvas_&]:mt-[10px] [.design-canvas_&]:flex-[0_0_auto] [.design-canvas_&]:p-[0_10px] [.design-canvas_&]:border-t",
+    // Bottom padding keeps a grown multi-line input (and its focus border) clear of the clipped bottom edge.
+    "[.design-canvas_&]:mt-[10px] [.design-canvas_&]:flex-[0_0_auto] [.design-canvas_&]:p-[8px_10px_12px] [.design-canvas_&]:border-t",
     "[.design-canvas_&]:[border-top-style:solid] [.design-canvas_&]:border-t-app-surface [.design-canvas_&]:bg-app-bg [.design-canvas_&]:bg-none",
   ].join(" "),
   nrCommentReplying: [

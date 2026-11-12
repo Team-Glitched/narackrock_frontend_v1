@@ -16,6 +16,7 @@ import { ReportReasons } from "@/features/comments/report-reasons";
 import { useCurrentUserId } from "@/features/auth/use-current-user";
 import type { CommentAdapter, CommentItem } from "./comment-model";
 import { commentKeys, commentPagesQuery, loadedComments, openCommentHideChannel, updateCachedReaction } from "./comment-queries";
+import { shouldSubmitOnEnter, usesTouchKeyboard } from "./submit-on-enter";
 
 function resizeComposer(input: HTMLTextAreaElement) {
   const style = getComputedStyle(input);
@@ -28,6 +29,14 @@ function resizeComposer(input: HTMLTextAreaElement) {
   const contentHeight = input.scrollHeight + border;
   input.style.height = `${Math.max(minHeight, Math.min(contentHeight, maxHeight))}px`;
   input.style.overflowY = contentHeight > maxHeight ? "auto" : "hidden";
+}
+
+function submitOnEnter(event: React.KeyboardEvent<HTMLTextAreaElement>) {
+  const { key, shiftKey, keyCode } = event;
+  const isComposing = event.nativeEvent.isComposing;
+  if (!shouldSubmitOnEnter({ key, shiftKey, keyCode, isComposing }, usesTouchKeyboard())) return;
+  event.preventDefault();
+  event.currentTarget.form?.requestSubmit();
 }
 
 function errorText(cause: unknown, fallback: string) {
@@ -204,7 +213,7 @@ export function CommonComments({
     if (!requireLogin() || busy || hideOnServer.isPending || !writable || !draft.trim()) return;
     create.mutate({ text: draft.trim(), parentId: reply?.threadId ?? null });
   }
-  const row = (item: CommentItem, threadId: number) => (
+  const row = (item: CommentItem, threadId?: number) => (
     <CommentCard
       key={item.id}
       item={item}
@@ -219,7 +228,7 @@ export function CommonComments({
         }
       }}
       canReply={canWrite}
-      onReply={() => {
+      onReply={threadId === undefined ? undefined : () => {
         if (requireLogin() && writable) startReply(item, threadId);
       }}
       onProfile={() => onProfile?.(item.userId)}
@@ -272,7 +281,7 @@ export function CommonComments({
                     hiddenIds={hiddenIds}
                     hiddenCount={hiddenReplyCounts.get(item.id) ?? 0}
                     onResolveHidden={(id) => hide(id, item.id)}
-                    render={(child) => row(child, item.id)}
+                    render={(child) => row(child)}
                     onCollapse={() => toggle(item.id)}
                   />
                 )}
@@ -321,6 +330,7 @@ export function CommonComments({
                 placeholder="입력"
                 value={draft}
                 onChange={(event) => setDraft(event.target.value)}
+                onKeyDown={submitOnEnter}
                 disabled={busy || !writable}
               />
             )}
@@ -422,7 +432,7 @@ function CommentCard({
   adapter: CommentAdapter;
   onChanged: () => void;
   onHide: () => void;
-  onReply: () => void;
+  onReply?: () => void;
   onProfile: () => void;
   onReport?: () => void;
 }) {
@@ -563,16 +573,19 @@ function CommentCard({
             aria-label="댓글 내용 수정"
             value={draft}
             onChange={(event) => setDraft(event.target.value)}
+            onKeyDown={submitOnEnter}
           />
           <button type="button" onClick={() => setEditing(false)}>
             취소
           </button>
           <button disabled={busy || !draft.trim()}>저장</button>
         </form>
-      ) : (
+      ) : onReply ? (
         <button className={communityStyles.nrCommentText} onClick={onReply} disabled={!canReply}>
           {item.text}
         </button>
+      ) : (
+        <p className={communityStyles.nrCommentText}>{item.text}</p>
       )}
       {confirm && (
         <div className={communityStyles.nrCommentDelete}>
@@ -620,9 +633,11 @@ function CommentCard({
             name={item.isDisliked ? "v3-comment-dislike-on.svg" : "v3-comment-dislike-off.svg"}
           />
         </button>
-        <button aria-label={`${item.author}에게 답글 작성`} disabled={!canReply} onClick={onReply}>
-          <Asset name="comment-reply.svg" />
-        </button>
+        {onReply && (
+          <button aria-label={`${item.author}에게 답글 작성`} disabled={!canReply} onClick={onReply}>
+            <Asset name="comment-reply.svg" />
+          </button>
+        )}
       </div>
     </article>
   );
