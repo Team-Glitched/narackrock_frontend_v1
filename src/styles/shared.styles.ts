@@ -701,9 +701,9 @@ export const sharedStyles = {
   canvasDialogOverlay: [
     "canvas-dialog-overlay",
     "absolute inset-0 z-[100] grid place-items-center",
-    "[&>[role=dialog]]:relative [&>[role=dialog]]:z-[1] [&>[role=dialog]]:m-0 [&>[role=dialog]]:box-border [&>[role=dialog]]:max-w-none",
-    "[.design-canvas_&>[role=dialog]]:max-h-[calc(100%_-_32px)] [.design-canvas_&>[role=dialog]]:max-w-[calc(100%_-_32px)]",
-    "[.design-canvas_&>[role=dialog]]:overflow-auto [.design-canvas_&>[role=dialog]]:overscroll-contain",
+    "[&>.canvas-dialog-panel]:relative [&>.canvas-dialog-panel]:z-[1] [&>.canvas-dialog-panel]:m-0 [&>.canvas-dialog-panel]:box-border [&>.canvas-dialog-panel]:max-w-none",
+    "[.design-canvas_&>.canvas-dialog-panel]:max-h-[calc(100%_-_32px)] [.design-canvas_&>.canvas-dialog-panel]:max-w-[calc(100%_-_32px)]",
+    "[.design-canvas_&>.canvas-dialog-panel]:overflow-auto [.design-canvas_&>.canvas-dialog-panel]:overscroll-contain",
   ].join(" "),
   canvasDialogBackdrop: [
     "canvas-dialog-backdrop",
@@ -772,13 +772,5 @@ export const sharedStyles = {
     "[&::-webkit-outer-spin-button]:m-0 [&::-webkit-outer-spin-button]:appearance-none",
     "[.design-canvas_input&:focus-visible]:[outline:2px_solid_var(--purple)] [.design-canvas_input&:focus-visible]:[outline-offset:2px]",
   ].join(" "),
-  timeSignatureFields: [
-    "time-signature-fields",
-    "flex items-center gap-[10px]",
-    "[.design-canvas_&_select]:h-[30px] [.design-canvas_&_select]:w-15 [.design-canvas_&_select]:p-[3px_8px]",
-    "[.design-canvas_&_select]:rounded-[6px] [.design-canvas_&_select]:bg-app-surface [.design-canvas_&_select]:bg-none",
-    "[.design-canvas_&_select]:text-app-fg [.design-canvas_&_select]:font-medium [.design-canvas_&_select]:text-label",
-    "[.design-canvas_&_select]:font-sans [.design-canvas_&_select]:border-0 [.design-canvas_&_select]:border-none",
-    "[.design-canvas_&_select]:border-current [.design-canvas_&_select]:leading-[20px]",
-  ].join(" "),
+  timeSignatureFields: "flex items-center gap-[10px]",
 } as const;

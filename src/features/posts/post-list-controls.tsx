@@ -1,19 +1,23 @@
+import { Dropdown } from "@/components/dropdown";
 import type { PostSort } from "@/lib/api/contracts";
+
+const sortOptions = [
+  { value: "LATEST", label: "최신순" },
+  { value: "POPULAR", label: "인기순" },
+  { value: "OLDEST", label: "오래된순" },
+] as const;
 
 export function PostListControls({ sort, onSortChange }: { sort: PostSort; onSortChange: (sort: PostSort) => void }) {
   return (
-    <label className="flex items-center justify-end gap-2 px-4 py-3 text-sm">
-      게시글 정렬
-      <select
-        aria-label="게시글 정렬"
-        className="rounded border border-current bg-transparent px-2 py-1"
+    <div className="flex items-center justify-end gap-2 px-4 py-3 text-sm">
+      <span className="text-app-muted">게시글 정렬</span>
+      <Dropdown
+        label="게시글 정렬"
+        className="min-w-32"
+        options={sortOptions}
         value={sort}
-        onChange={(event) => onSortChange(event.target.value as PostSort)}
-      >
-        <option value="LATEST">최신순</option>
-        <option value="POPULAR">인기순</option>
-        <option value="OLDEST">오래된순</option>
-      </select>
-    </label>
+        onChange={onSortChange}
+      />
+    </div>
   );
 }
