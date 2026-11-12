@@ -88,6 +88,13 @@ export function CommonComments({
   const { ids: hiddenIds, hide } = useHiddenIds(
     `narackrock.hidden-comments.${apiOrigin()}.${userId ?? "guest"}.${adapter.kind}.${adapter.targetId}`,
   );
+  const hiddenReplyCounts = useMemo(() => {
+    const counts = new Map<number, number>();
+    for (const parentId of hiddenIds.values()) {
+      if (parentId !== null) counts.set(parentId, (counts.get(parentId) ?? 0) + 1);
+    }
+    return counts;
+  }, [hiddenIds]);
   const [commentLink] = useSearchParams();
   const linkedParent = readId(commentLink.get("parentCommentId"));
   const [expanded, setExpanded] = useState<Set<number>>(() => new Set(linkedParent ? [linkedParent] : []));
@@ -163,7 +170,7 @@ export function CommonComments({
       owner={currentUserId === item.userId}
       adapter={adapter}
       onChanged={changed}
-      onHide={() => hide(item.id)}
+      onHide={() => hide(item.id, item.id === threadId ? null : threadId)}
       canReply={canWrite}
       onReply={() => {
         if (requireLogin() && writable) startReply(item, threadId);
@@ -191,33 +198,39 @@ export function CommonComments({
         {top.items?.length === 0 && (
           <p className={communityStyles.nrCommentsEmpty}>첫 댓글을 남겨보세요.</p>
         )}
-        {top.items?.filter((item) => !hiddenIds.has(item.id)).map((item) => (
-          <section
-            className={communityStyles.nrCommentThread}
-            key={item.id}
-            aria-label={`${item.author} 댓글 대화`}
-          >
-            {row(item, item.id)}
-            {item.replyCount > 0 && (
-              <button
-                className={communityStyles.nrRepliesToggle}
-                aria-expanded={expanded.has(item.id)}
-                onClick={() => toggle(item.id)}
-              >
-                {expanded.has(item.id) ? "답글 접기" : `답글 ${item.replyCount}개`}
-              </button>
-            )}
-            {expanded.has(item.id) && item.replyCount > 0 && (
-              <Replies
-                key={item.id}
-                adapter={adapter}
-                parentId={item.id}
-                render={(child) => hiddenIds.has(child.id) ? null : row(child, item.id)}
-                onCollapse={() => toggle(item.id)}
-              />
-            )}
-          </section>
-        ))}
+        {top.items?.filter((item) => !hiddenIds.has(item.id)).map((item) => {
+          const replyCount = Math.max(0, item.replyCount - (hiddenReplyCounts.get(item.id) ?? 0));
+          return (
+            <section
+              className={communityStyles.nrCommentThread}
+              key={item.id}
+              aria-label={`${item.author} 댓글 대화`}
+            >
+              {row(item, item.id)}
+              {replyCount > 0 && (
+                <button
+                  className={communityStyles.nrRepliesToggle}
+                  aria-expanded={expanded.has(item.id)}
+                  onClick={() => toggle(item.id)}
+                >
+                  {expanded.has(item.id) ? "답글 접기" : `답글 ${replyCount}개`}
+                </button>
+              )}
+              {expanded.has(item.id) && replyCount > 0 && (
+                <Replies
+                  key={item.id}
+                  adapter={adapter}
+                  parentId={item.id}
+                  hiddenIds={hiddenIds}
+                  hiddenCount={hiddenReplyCounts.get(item.id) ?? 0}
+                  onResolveHidden={(id) => hide(id, item.id)}
+                  render={(child) => row(child, item.id)}
+                  onCollapse={() => toggle(item.id)}
+                />
+              )}
+            </section>
+          );
+        })}
         {top.hasMore && (
           <button
             className={communityStyles.nrCommentsMore}
@@ -281,15 +294,30 @@ export function CommonComments({
 function Replies({
   adapter,
   parentId,
+  hiddenIds,
+  hiddenCount,
+  onResolveHidden,
   render,
   onCollapse,
 }: {
   adapter: CommentAdapter;
   parentId: number;
+  hiddenIds: ReadonlyMap<number, number | null>;
+  hiddenCount: number;
+  onResolveHidden: (id: number) => void;
   render: (item: CommentItem) => React.ReactNode;
   onCollapse: () => void;
 }) {
   const page = useCommentPage(adapter, parentId);
+  const { items } = page;
+  useEffect(() => {
+    // Older stored entries contain only the comment ID.
+    for (const item of items ?? []) {
+      if (hiddenIds.get(item.id) === null) onResolveHidden(item.id);
+    }
+  }, [items, hiddenIds, onResolveHidden]);
+  const visibleItems = items?.filter((item) => !hiddenIds.has(item.id));
+  const remaining = Math.max(0, page.total - hiddenCount - (visibleItems?.length ?? 0));
   return (
     <div className={communityStyles.nrCommentReplies}>
       <button
@@ -307,8 +335,8 @@ function Replies({
           </div>
         )}
         {!page.items && !page.error && <p role="status">답글을 불러오는 중...</p>}
-        {page.items?.map(render)}
-        {page.items && page.hasMore && (
+        {visibleItems?.map(render)}
+        {items && page.hasMore && remaining > 0 && (
           <button
             className={communityStyles.nrCommentsMore}
             disabled={page.moreBusy}
@@ -316,7 +344,7 @@ function Replies({
           >
             {page.moreBusy
               ? "불러오는 중..."
-              : `더보기 (${page.total - page.items.length})`}
+              : `더보기 (${remaining})`}
           </button>
         )}
       </div>

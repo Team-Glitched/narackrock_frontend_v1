@@ -1,7 +1,7 @@
 import { useSyncExternalStore } from "react";
 
-const empty: ReadonlySet<number> = new Set();
-const cache = new Map<string, { raw: string | null; ids: ReadonlySet<number> }>();
+const empty: ReadonlyMap<number, number | null> = new Map();
+const cache = new Map<string, { raw: string | null; ids: ReadonlyMap<number, number | null> }>();
 const listeners = new Set<() => void>();
 function subscribe(listener: () => void) {
   listeners.add(listener);
@@ -11,7 +11,7 @@ function subscribe(listener: () => void) {
     window.removeEventListener("storage", listener);
   };
 }
-function read(key: string): ReadonlySet<number> {
+function read(key: string): ReadonlyMap<number, number | null> {
   let raw: string | null;
   try {
     raw = localStorage.getItem(key);
@@ -23,8 +23,16 @@ function read(key: string): ReadonlySet<number> {
   let ids = empty;
   try {
     const parsed: unknown = JSON.parse(raw ?? "[]");
-    if (Array.isArray(parsed))
-      ids = new Set(parsed.filter((id) => Number.isSafeInteger(id) && id > 0));
+    if (Array.isArray(parsed)) {
+      const entries = new Map<number, number | null>();
+      for (const entry of parsed) {
+        const [id, parentId] = Array.isArray(entry) ? entry : [entry, null];
+        if (Number.isSafeInteger(id) && id > 0) {
+          entries.set(id, Number.isSafeInteger(parentId) && parentId > 0 ? parentId : null);
+        }
+      }
+      ids = entries;
+    }
   } catch {
     /* Ignore malformed browser storage. */
   }
@@ -38,11 +46,12 @@ export function useHiddenIds(key: string) {
     () => read(key),
     () => empty,
   );
-  function hide(id: number) {
+  function hide(id: number, parentId: number | null = null) {
     const current = read(key);
-    if (current.has(id)) return;
-    const next = new Set([...current, id]);
-    const raw = JSON.stringify([...next]);
+    if (current.has(id) && (parentId === null || current.get(id) === parentId)) return;
+    const next = new Map(current);
+    next.set(id, parentId);
+    const raw = JSON.stringify(Array.from(next, ([id, parent]) => parent === null ? id : [id, parent]));
     try {
       localStorage.setItem(key, raw);
       cache.set(key, { raw, ids: next });
