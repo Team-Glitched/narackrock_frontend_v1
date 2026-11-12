@@ -72,13 +72,6 @@ export const profileStyles = {
     "[.design-canvas_&]:text-label [.design-canvas_&]:text-app-fg [.design-canvas_&]:border [.design-canvas_&]:border-solid",
     "[.design-canvas_&]:border-app-line",
   ].join(" "),
-  authSwitch: [
-    "auth-switch",
-    "flex h-11 w-full flex-[0_0_44px] items-center justify-center text-label text-[rgba(255,255,255,.67)] leading-[1.6]",
-    "[&_strong]:ml-2 [&_strong]:font-normal [&_strong]:text-[#fff]",
-    "[.auth-screen--login_&_strong]:text-inherit",
-    "[.design-canvas_&]:text-app-muted",
-  ].join(" "),
   googleIdentityButton: [
     "google-identity-button",
     "flex min-h-11 w-full justify-center",

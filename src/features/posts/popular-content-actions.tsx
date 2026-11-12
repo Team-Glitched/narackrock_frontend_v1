@@ -11,10 +11,12 @@ import { getPostShareLink } from "@/lib/api/community";
 import { getShortShareLink } from "@/lib/api/shorts";
 import { reportPost, reportShort } from "@/lib/api/reports";
 import { postError } from "@/features/posts/post-utils";
+import { communityStyles } from "@/styles/community.styles";
 
 export function PopularContentActions({ kind, id, title, ownerId }: { kind: "post" | "short"; id: number; title: string; ownerId: number }) {
   const { requireLogin } = useLoginPrompt();
   const userId = useCurrentUserId();
+  const showReportAction = userId !== ownerId;
   const scope = JSON.stringify([apiOrigin(), userId, kind, id]);
   const latest = useRef(scope);
   useLayoutEffect(() => {
@@ -53,12 +55,34 @@ export function PopularContentActions({ kind, id, title, ownerId }: { kind: "pos
   }
   return <>
     <button ref={anchor} type="button" className="min-h-11 min-w-11 shrink-0" aria-label={`${title} 더보기`} aria-haspopup="menu" aria-expanded={menu} aria-disabled={busy} onClick={() => { if (!busy) setMenu(!menu); }}>⋯</button>
-    {menu && <AnchoredActionsMenu anchorRef={anchor} label="콘텐츠 작업" className="rounded-xl bg-white p-3 text-black shadow-xl" onClose={() => setMenu(false)}>
-      <button role="menuitem" onClick={() => void share()}>공유</button>
-      {userId !== ownerId && <button role="menuitem" onClick={() => { setMenu(false); if (authorized()) setReport(true); }}>신고</button>}
-    </AnchoredActionsMenu>}
+    {menu && (
+      <AnchoredActionsMenu
+        anchorRef={anchor}
+        label="콘텐츠 작업"
+        className={communityStyles.postUserActionsMenu}
+        width={180}
+        height={showReportAction ? 84 : 48}
+        onClose={() => setMenu(false)}
+      >
+        <button type="button" role="menuitem" onClick={() => void share()}>
+          공유
+        </button>
+        {showReportAction && (
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => {
+              setMenu(false);
+              if (authorized()) setReport(true);
+            }}
+          >
+            신고
+          </button>
+        )}
+      </AnchoredActionsMenu>
+    )}
     {notice && <span role="status">{notice}</span>}
     {sharing.dialog}
-    {report && userId !== null && userId !== ownerId && <FigmaSheet key={scope} title="신고" onClose={() => setReport(false)}><ReportReasons onSubmit={(reason, description) => (kind === "post" ? reportPost(id, reason, description) : reportShort(id, reason, description))} onDone={() => { if (latest.current === scope) setReport(false); }} /></FigmaSheet>}
+    {report && userId !== null && showReportAction && <FigmaSheet key={scope} title="신고" onClose={() => setReport(false)}><ReportReasons onSubmit={(reason, description) => (kind === "post" ? reportPost(id, reason, description) : reportShort(id, reason, description))} onDone={() => { if (latest.current === scope) setReport(false); }} /></FigmaSheet>}
   </>;
 }

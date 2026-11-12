@@ -9,6 +9,7 @@ import {
   type GoogleCredentialResponse,
 } from "@/features/auth/google-identity";
 import { profileSetupRequired } from "@/features/auth/profile-setup-required";
+import { hasSignedInBefore } from "@/features/auth/returning-user";
 import { loginWithGoogle } from "@/lib/api/auth";
 import { ApiError } from "@/lib/api/client";
 import { getProfile } from "@/lib/api/profile";
@@ -31,7 +32,7 @@ function authErrorMessage(error: unknown): string {
 
 export function AuthScreen({ onAuthenticated, onFirstLogin }: AuthScreenProps) {
   const googleButtonRef = useRef<HTMLDivElement>(null);
-  const [signup, setSignup] = useState(false);
+  const [returning] = useState(hasSignedInBefore);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const clientId = import.meta.env?.VITE_GOOGLE_CLIENT_ID?.trim() ?? "";
@@ -73,7 +74,7 @@ export function AuthScreen({ onAuthenticated, onFirstLogin }: AuthScreenProps) {
           theme: "filled_black",
           size: "large",
           shape: "rectangular",
-          text: signup ? "signup_with" : "signin_with",
+          text: "signin_with",
           width: Math.min(350, googleButtonRef.current.clientWidth || 350),
           locale: "ko",
         });
@@ -84,38 +85,40 @@ export function AuthScreen({ onAuthenticated, onFirstLogin }: AuthScreenProps) {
     return () => {
       cancelled = true;
     };
-  }, [clientId, signup, onAuthenticated, onFirstLogin]);
+  }, [clientId, onAuthenticated, onFirstLogin]);
 
   return (
     <section className={cn(profileStyles.authScreen, "auth-screen--login")} aria-label="로그인">
       <header className={profileStyles.authHeader}>
-        <Asset name="auth-logo.svg" alt="Narackrock" />
+        <Link to="/" aria-label="나락락 홈으로 이동">
+          <Asset name="auth-logo.svg" alt="" />
+        </Link>
       </header>
       <div className={profileStyles.authContent}>
         <div className={profileStyles.authIntro}>
           <h1>
-            {signup ? (
+            {returning ? (
+              "다시 만나 반가워요"
+            ) : (
               <>
                 나만의 음악,
                 <br />
                 여기서 시작해요
               </>
-            ) : (
-              "다시 만나 반가워요"
             )}
           </h1>
           <p>
-            {signup ? (
-              <>
-                Google 계정 하나로 간편하게 가입하고
-                <br />
-                나만의 곡을 만들고 나눠보세요.
-              </>
-            ) : (
+            {returning ? (
               <>
                 나락락에 로그인하고
                 <br />
                 당신만의 음악을 이어가세요.
+              </>
+            ) : (
+              <>
+                Google 계정 하나로 간편하게 가입하고
+                <br />
+                나만의 곡을 만들고 나눠보세요.
               </>
             )}
           </p>
@@ -127,7 +130,7 @@ export function AuthScreen({ onAuthenticated, onFirstLogin }: AuthScreenProps) {
             title="Google 인증 설정이 필요합니다."
           >
             <Asset name="google-g.svg" />
-            Google로 {signup ? "회원가입" : "로그인"}
+            Google로 로그인
           </button>
         )}
         {error && (
@@ -144,9 +147,6 @@ export function AuthScreen({ onAuthenticated, onFirstLogin }: AuthScreenProps) {
           개인정보처리방침
         </Link>
       </div>
-      <button className={profileStyles.authSwitch} onClick={() => setSignup((current) => !current)}>
-        {signup ? "이미 계정이 있나요? 로그인" : "처음 오셨나요? 회원가입"}
-      </button>
     </section>
   );
 }

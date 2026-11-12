@@ -58,6 +58,7 @@ export function NoteEditorScreen({
   trackId,
   clipId,
   onBack,
+  onOpenLayers,
   portrait = false,
   onToggleLayout,
 }: {
@@ -65,6 +66,7 @@ export function NoteEditorScreen({
   trackId: number | null;
   clipId: number | null;
   onBack: () => void;
+  onOpenLayers: () => void;
   /** Upright 390×844 layout instead of the landscape canvas; the page owns the choice. */
   portrait?: boolean;
   onToggleLayout?: () => void;
@@ -110,6 +112,7 @@ export function NoteEditorScreen({
       trackId={track.trackId}
       requestedClipId={clipId}
       onBack={onBack}
+      onOpenLayers={onOpenLayers}
       portrait={portrait}
       onToggleLayout={onToggleLayout}
     />
@@ -121,6 +124,7 @@ function LoadedNoteEditor({
   trackId,
   requestedClipId,
   onBack,
+  onOpenLayers,
   portrait,
   onToggleLayout,
 }: {
@@ -129,6 +133,7 @@ function LoadedNoteEditor({
   trackId: number;
   requestedClipId: number | null;
   onBack: () => void;
+  onOpenLayers: () => void;
   portrait: boolean;
   onToggleLayout?: () => void;
 }) {
@@ -139,7 +144,7 @@ function LoadedNoteEditor({
   const [targetClipId, setTargetClipId] = useState(requestedClipId);
   const [showSources, setShowSources] = useState(false);
   const [showChords, setShowChords] = useState(false);
-  const [leaving, setLeaving] = useState(false);
+  const [exitTarget, setExitTarget] = useState<"studio" | "layers" | null>(null);
   const [noteSettingsIndex, setNoteSettingsIndex] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -325,13 +330,13 @@ function LoadedNoteEditor({
   });
   const canTime = editable && !busy && Boolean(draft.session) &&
     draft.state?.status !== "conflict" && composition.project.ownerId === context.userId;
-  async function action(run: () => Promise<unknown>, leave = false) {
+  async function action(run: () => Promise<unknown>, onSuccess?: () => void) {
     if (busy) return;
     setBusy(true);
     setError(null);
     try {
       await run();
-      if (leave) onBack();
+      onSuccess?.();
     } catch (cause) {
       setError(errorText(cause));
     } finally {
@@ -427,13 +432,15 @@ function LoadedNoteEditor({
         },
       }
     : undefined;
-  const requestBack = () => (editable ? setLeaving(true) : onBack());
-  // The save button commits straight to the shared clip; conflicts still need the explicit choices.
-  const saveAndExit = editable
-    ? () => draft.session && draft.state?.status !== "conflict"
-      ? void action(draft.commit, true)
-      : setLeaving(true)
-    : undefined;
+  const requestBack = () => (editable ? setExitTarget("studio") : onBack());
+  const finishExit = exitTarget === "layers" ? onOpenLayers : onBack;
+  function openLayerList() {
+    if (busy) return;
+    if (!editable) onOpenLayers();
+    else if (draft.session && draft.state?.status !== "conflict")
+      void action(draft.commit, onOpenLayers);
+    else setExitTarget("layers");
+  }
   const openSources = editor.editable ? () => setShowSources(true) : undefined;
   const openSettings = () => {
     if (editor.selection.length === 1) setNoteSettingsIndex(editor.selection[0]);
@@ -510,7 +517,7 @@ function LoadedNoteEditor({
           volume={playback.volume}
           onVolume={playback.setVolume}
           onBack={requestBack}
-          onSave={saveAndExit}
+          onOpenLayers={openLayerList}
           onImportSource={openSources}
           controls={controls}
           status={statusRow}
@@ -537,8 +544,8 @@ function LoadedNoteEditor({
         metronome={playback.metronome}
         onMetronome={() => playback.setMetronome((value) => !value)}
         onImportSource={openSources}
-        onAdd={saveAndExit}
-        addLabel="저장 및 나가기"
+        onAdd={openLayerList}
+        addLabel="레이어 목록"
       />
       {controls}
       {statusRow}
@@ -577,12 +584,12 @@ function LoadedNoteEditor({
           }}
         />
       )}
-      {leaving && (
+      {exitTarget && (
         <CanvasDialog
           className={studioStyles.studioAudioDialogContent}
           titleId="draft-exit-title"
           onClose={() => {
-            if (!busy) setLeaving(false);
+            if (!busy) setExitTarget(null);
           }}
         >
           <h2 id="draft-exit-title">개인 초안을 어떻게 할까요?</h2>
@@ -592,7 +599,7 @@ function LoadedNoteEditor({
           </p>
           <button
             disabled={busy || !draft.session || draft.state?.status === "conflict"}
-            onClick={() => void action(draft.commit, true)}
+            onClick={() => void action(draft.commit, finishExit)}
           >
             저장 후 나가기
           </button>
@@ -605,7 +612,7 @@ function LoadedNoteEditor({
                     if (!draft.session?.getSnapshot().localProtected)
                       throw new Error("복구본을 저장하지 못했습니다. 내보내기 후 나가주세요.");
                   });
-              }, true)
+              }, finishExit)
             }
           >
             개인 초안 유지
@@ -619,13 +626,13 @@ function LoadedNoteEditor({
                 // would use up the viewer's one layer in this song.
                 await cancelEmptyLayer(context.projectId, trackId);
                 await queryClient.invalidateQueries({ queryKey: compositionKeys.detail(context.userId, context.projectId) });
-              }, true)
+              }, finishExit)
             }
           >
             버리기
           </button>
           <button onClick={exportRecovery}>복구본 내보내기</button>
-          <button disabled={busy} onClick={() => setLeaving(false)}>
+          <button disabled={busy} onClick={() => setExitTarget(null)}>
             계속 편집
           </button>
         </CanvasDialog>

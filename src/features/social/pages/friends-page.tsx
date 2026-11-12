@@ -17,7 +17,7 @@ export default function FriendsPage() {
   return (
     <DesignViewport>
       <div className={sharedStyles.phoneFrame}>
-        <Header onSearch={() => to(withQuery("/search", { scope, galleryId }))} />
+        <Header showChat onSearch={() => to(withQuery("/search", { scope, galleryId }))} />
         <div className={sharedStyles.screenBody}>
           <CommunityScreen
             tab="friends"

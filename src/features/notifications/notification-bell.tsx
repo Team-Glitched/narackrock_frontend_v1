@@ -1,6 +1,7 @@
 import { useQuery } from "@tanstack/react-query";
 import { useCurrentUserId } from "@/features/auth/use-current-user";
 import { Asset } from "@/components/asset";
+import { UnreadBadge } from "@/components/unread-badge";
 import { cn } from "@/lib/utils";
 import { unreadNotificationsQuery } from "./notification-queries";
 export function NotificationBell({
@@ -21,14 +22,7 @@ export function NotificationBell({
       aria-label={count ? `알림, 미확인 ${count}개` : "알림"}
     >
       <Asset name="v3-bell.svg" />
-      {count > 0 && (
-        <span
-          aria-hidden="true"
-          className="absolute right-0 top-0 flex min-h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-semibold leading-4 text-white ring-2 ring-[#18181c]"
-        >
-          {count > 99 ? "99+" : count}
-        </span>
-      )}
+      <UnreadBadge count={count} />
     </button>
   );
 }

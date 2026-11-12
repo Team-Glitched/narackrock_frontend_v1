@@ -17,7 +17,7 @@ export type FollowRequest = {
 };
 export type OutgoingRequest = { id: number; requesterId: number; targetId: number };
 export type ChatMessage = { id: number; senderId: number; recipientId: number; content: string; createdAt: string };
-export type ChatThread = Person & { lastMessageId: number; lastMessage: string; lastMessageAt: string; outgoing: boolean };
+export type ChatThread = Person & { lastMessageId: number; lastMessage: string; lastMessageAt: string; outgoing: boolean; unreadCount?: number };
 
 /** STOMP endpoint on the configured backend origin (ws/wss derived from http/https). */
 export function chatWebSocketUrl(): string {
@@ -55,7 +55,12 @@ export const reviewFollowRequest = (requestId: number, decision: "accept" | "rej
 export const updateProfilePrivacy = (isPrivate: boolean) =>
   data<{ isPrivate: boolean }>("/api/v1/users/me/profile/privacy", { method: "PATCH", body: JSON.stringify({ isPrivate }) });
 
-export const getChatThreads = () => data<ChatThread[]>("/api/v1/chats");
+export const getUnreadChatCount = (signal?: AbortSignal) =>
+  data<{ count: number }>("/api/v1/chats/unread-count", { signal });
+export const markChatRead = (friendId: number, throughId: number, signal?: AbortSignal) =>
+  apiRequest<void>(`/api/v1/chats/${friendId}/read`, { method: "PATCH", body: JSON.stringify({ throughId }), signal });
+
+export const getChatThreads = (signal?: AbortSignal) => data<ChatThread[]>("/api/v1/chats", { signal });
 export const getChatMessages = (friendId: number, beforeId?: number) =>
   data<ChatMessage[]>(`/api/v1/chats/${friendId}/messages?size=50${beforeId === undefined ? "" : `&beforeId=${beforeId}`}`);
 export const sendChatMessage = (friendId: number, content: string) =>

@@ -8,6 +8,11 @@ import type {
   CommentReaction,
 } from "./comment-model";
 
+export function openCommentHideChannel(userId: number, kind: CommentKind, targetId: number) {
+  if (typeof BroadcastChannel === "undefined") return null;
+  return new BroadcastChannel(JSON.stringify([...queryScope(userId), "comment-hide", kind, targetId]));
+}
+
 export const commentKeys = {
   /** Every thread of one post/source/short; invalidate this after a comment is written. */
   target: (userId: number | null, kind: CommentKind, targetId: number) =>

@@ -437,7 +437,7 @@ export const communityStyles = {
     "[.design-canvas_&_button_img]:h-auto [.design-canvas_&_button_img]:w-auto [.design-canvas_&_button_img]:max-w-none",
     "[.design-canvas_&]:relative [.design-canvas_&]:flex [.design-canvas_&]:min-h-11 [.design-canvas_&]:items-center [.design-canvas_&]:gap-1",
     "[.design-canvas_&_textarea]:box-border [.design-canvas_&_textarea]:min-h-9 [.design-canvas_&_textarea]:max-h-[116px] [.design-canvas_&_textarea]:min-w-0 [.design-canvas_&_textarea]:flex-1 [.design-canvas_&_textarea]:resize-none",
-    "[.design-canvas_&_textarea]:p-[8px_10px_8px_38px] [.design-canvas_&_textarea]:rounded-[20px] [.design-canvas_&_textarea]:bg-app-surface",
+    "[.design-canvas_&_textarea]:p-[8px_10px_8px_12px] [.design-canvas_&_textarea]:rounded-[20px] [.design-canvas_&_textarea]:bg-app-surface",
     "[.design-canvas_&_textarea]:bg-none [.design-canvas_&_textarea]:text-body [.design-canvas_&_textarea]:font-normal",
     "[.design-canvas_&_textarea]:text-app-fg [.design-canvas_&_textarea]:border-0 [.design-canvas_&_textarea]:border-none",
     "[.design-canvas_&_textarea]:border-current [.design-canvas_&_textarea]:leading-[20px] [.design-canvas_&_textarea]:overflow-y-auto",
@@ -490,7 +490,8 @@ export const communityStyles = {
   ].join(" "),
   nrCommentComposer: [
     "nr-comment-composer",
-    "[.design-canvas_&]:mt-[10px] [.design-canvas_&]:flex-[0_0_auto] [.design-canvas_&]:p-[0_10px] [.design-canvas_&]:border-t",
+    // Bottom padding keeps a grown multi-line input (and its focus border) clear of the clipped bottom edge.
+    "[.design-canvas_&]:mt-[10px] [.design-canvas_&]:flex-[0_0_auto] [.design-canvas_&]:p-[8px_10px_12px] [.design-canvas_&]:border-t",
     "[.design-canvas_&]:[border-top-style:solid] [.design-canvas_&]:border-t-app-surface [.design-canvas_&]:bg-app-bg [.design-canvas_&]:bg-none",
   ].join(" "),
   nrCommentReplying: [
@@ -500,12 +501,6 @@ export const communityStyles = {
     "[.design-canvas_&_button]:grid [.design-canvas_&_button]:h-7 [.design-canvas_&_button]:w-[30px] [.design-canvas_&_button]:place-items-center",
     "[.design-canvas_&_button]:p-0",
     "[.design-canvas_&_img]:h-auto [.design-canvas_&_img]:w-auto",
-  ].join(" "),
-  nrCommentAttachment: [
-    "nr-comment-attachment",
-    "pointer-events-none absolute top-[13px] left-[9px] h-[18px] w-[18px]",
-    "[&_i]:absolute [&_i]:top-2 [&_i]:left-0 [&_i]:h-[2px] [&_i]:w-[18px] [&_i]:bg-app-fg [&_i]:bg-none [&_i]:rounded-[2px]",
-    "[&_i+i]:transform-[rotate(90deg)]",
   ].join(" "),
   nrCommentEdit: [
     "nr-comment-edit",
@@ -552,7 +547,7 @@ export const communityStyles = {
     "[&_button:disabled]:cursor-not-allowed [&_button:disabled]:opacity-[.5]",
     "[.design-canvas_&]:relative [.design-canvas_&]:flex [.design-canvas_&]:min-h-11 [.design-canvas_&]:items-center [.design-canvas_&]:gap-1",
     "[.design-canvas_&_textarea]:m-0 [.design-canvas_&_textarea]:h-9 [.design-canvas_&_textarea]:min-h-9 [.design-canvas_&_textarea]:min-w-0",
-    "[.design-canvas_&_textarea]:flex-1 [.design-canvas_&_textarea]:p-[8px_10px_8px_38px] [.design-canvas_&_textarea]:resize-none",
+    "[.design-canvas_&_textarea]:flex-1 [.design-canvas_&_textarea]:p-[8px_10px_8px_12px] [.design-canvas_&_textarea]:resize-none",
     "[.design-canvas_&_textarea]:rounded-[20px] [.design-canvas_&_textarea]:bg-app-surface [.design-canvas_&_textarea]:bg-none",
     "[.design-canvas_&_textarea]:text-label [.design-canvas_&_textarea]:font-normal [.design-canvas_&_textarea]:text-app-fg",
     "[.design-canvas_&_textarea]:border-0 [.design-canvas_&_textarea]:border-none [.design-canvas_&_textarea]:border-current",
@@ -563,7 +558,7 @@ export const communityStyles = {
     "[.design-canvas_&>button]:items-center [.design-canvas_&>button]:justify-center",
     "[.design-canvas_&>button_img]:h-auto [.design-canvas_&>button_img]:w-auto [.design-canvas_&>button_img]:max-w-none",
     "[.design-canvas_&>button:disabled]:opacity-[1]",
-    "[.design-canvas_&_input]:h-9 [.design-canvas_&_input]:min-w-0 [.design-canvas_&_input]:flex-1 [.design-canvas_&_input]:p-[8px_10px_8px_38px]",
+    "[.design-canvas_&_input]:h-9 [.design-canvas_&_input]:min-w-0 [.design-canvas_&_input]:flex-1 [.design-canvas_&_input]:p-[8px_10px_8px_12px]",
     "[.design-canvas_&_input]:rounded-[20px] [.design-canvas_&_input]:bg-app-surface [.design-canvas_&_input]:bg-none",
     "[.design-canvas_&_input]:text-label [.design-canvas_&_input]:font-normal [.design-canvas_&_input]:text-app-fg",
     "[.design-canvas_&_input]:border-0 [.design-canvas_&_input]:border-none [.design-canvas_&_input]:border-current",

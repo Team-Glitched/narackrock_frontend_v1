@@ -1,6 +1,6 @@
 import { sharedStyles } from "@/styles/shared.styles";
 import { buttonVariants } from "@/styles/variants";
-import { useEffect, useState, useSyncExternalStore } from "react";
+import { useEffect, useId, useRef, useState, useSyncExternalStore } from "react";
 import {
   createDraftProject,
   updateProjectMetadata,
@@ -11,27 +11,54 @@ import { Link } from "react-router";
 import {
   errorText, getResumableProject, setStoredDraftId, storedDraftId, subscribeToDraft,
 } from "./studio-helpers";
+import {
+  chooseProjectTitle,
+  projectTitleHistoryKey,
+  readRecentProjectTitles,
+  rememberProjectTitle,
+  withRecentProjectTitle,
+} from "./project-title";
 
 export function NewProject({
+  userId,
   onCreated,
   onResume,
 }: {
+  userId: number | null;
   onCreated: (id: number) => void;
   onResume: (id: number) => void;
   onBack: () => void;
 }) {
   const savedDraftId = useSyncExternalStore(subscribeToDraft, storedDraftId, () => null);
-  const [title, setTitle] = useState("");
+  const titleId = useId();
+  const historyKey = projectTitleHistoryKey(apiOrigin(), userId);
+  const shownTitles = useRef<string[]>([]);
+  const selectOnFocus = useRef(true);
+  const selectOnClick = useRef(false);
+  const [suggestion, setSuggestion] = useState(() => chooseProjectTitle(readRecentProjectTitles(historyKey)));
+  const [title, setTitle] = useState(suggestion);
   const [image, setImage] = useState<File | null>(null);
   const [imageUrl, setImageUrl] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    shownTitles.current = withRecentProjectTitle(shownTitles.current, suggestion);
+    rememberProjectTitle(historyKey, suggestion);
+  }, [historyKey, suggestion]);
   useEffect(
     () => () => {
       if (imageUrl) URL.revokeObjectURL(imageUrl);
     },
     [imageUrl],
   );
+  function suggestAnotherTitle() {
+    const next = chooseProjectTitle([suggestion, ...shownTitles.current, ...readRecentProjectTitles(historyKey)]);
+    selectOnFocus.current = true;
+    selectOnClick.current = false;
+    setSuggestion(next);
+    setTitle(next);
+  }
+
   async function start(event: React.FormEvent) {
     event.preventDefault();
     if (busy || !title.trim()) return;
@@ -54,16 +81,42 @@ export function NewProject({
   }
   return (
     <form className={sharedStyles.projectCreate} onSubmit={start}>
-      <label className={sharedStyles.projectTitleField}>
-        음악명
+      <div className={sharedStyles.projectTitleField}>
+        <div className="flex items-center justify-between gap-3">
+          <label htmlFor={titleId}>음악명</label>
+          <button
+            type="button"
+            className="min-h-9 rounded-lg px-2.5 text-body font-medium text-app-muted hover:bg-app-surface hover:text-app-fg"
+            disabled={busy}
+            onClick={suggestAnotherTitle}
+          >
+            다른 제목
+          </button>
+        </div>
         <input
-          aria-label="음악명"
+          id={titleId}
+          className="w-full"
           value={title}
+          onPointerDown={() => {
+            selectOnClick.current = selectOnFocus.current;
+          }}
+          onPointerCancel={() => { selectOnClick.current = false; }}
+          onFocus={(event) => {
+            if (!selectOnFocus.current) return;
+            event.currentTarget.select();
+            selectOnFocus.current = false;
+          }}
+          onClick={(event) => {
+            // A pointer tap can place the caret after the focus handler runs.
+            if (!selectOnClick.current) return;
+            event.currentTarget.select();
+            selectOnClick.current = false;
+          }}
           onChange={(event) => setTitle(event.target.value)}
           maxLength={100}
           required
         />
-      </label>
+      </div>
       <label className={"project-artwork-field"}>
         앨범
         <span className={sharedStyles.projectArtworkPicker}>

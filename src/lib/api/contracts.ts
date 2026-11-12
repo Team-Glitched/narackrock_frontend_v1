@@ -26,6 +26,15 @@ export type ShortItemDto = {
   createdAt: string;
 };
 
+export type SongCardDto = Pick<ShortItemDto, "shortId" | "title" | "albumImageUrl"> & {
+  author: Pick<ShortItemDto["author"], "userId" | "nickname">;
+};
+
+export type RecommendedShortsPageDto = {
+  items: SongCardDto[];
+  page: { nextCursor: string | null; hasMore: boolean; size: number };
+};
+
 export type ShortsPageDto = {
   items: ShortItemDto[];
   page: { nextCursor: number | null; hasMore: boolean; size: number };
@@ -59,9 +68,12 @@ export type PostWriter = { userId: number; nickname: string; profileImageUrl: st
 
 export type PostSort = "LATEST" | "POPULAR" | "OLDEST";
 
+export type PostGallery = { galleryId: number; name: string };
+
 export type PostListItem = {
   contentPreview?: string;
   postId: number;
+  gallery?: PostGallery;
   writer: PostWriter;
   title: string;
   imageUrl: string | null;
@@ -82,7 +94,7 @@ export type PostListResponse = {
 
 export type PostDetailResponse = {
   postId: number;
-  gallery: { galleryId: number; name: string };
+  gallery: PostGallery;
   writer: PostWriter;
   title: string;
   content: string;

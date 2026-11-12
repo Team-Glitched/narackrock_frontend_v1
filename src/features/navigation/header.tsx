@@ -1,4 +1,5 @@
 import { NotificationBell } from "@/features/notifications/notification-bell";
+import { ChatShortcut } from "@/features/social/chat-shortcut";
 import type { ReactNode } from "react";
 import { useAuthSession } from "@/features/auth/auth-session";
 import { useUrlNavigation } from "./use-url-navigation";
@@ -18,6 +19,7 @@ const headerControl =
 
 export function Header({
   onSearch,
+  showChat = false,
   abyss = false,
   muted = false,
   onToggleMute,
@@ -26,6 +28,7 @@ export function Header({
   communitySelector,
 }: {
   onSearch: () => void;
+  showChat?: boolean;
   abyss?: boolean;
   muted?: boolean;
   onToggleMute?: () => void;
@@ -64,6 +67,7 @@ export function Header({
       )}
       <div className={cn("flex h-11 items-start gap-[10px] overflow-hidden", abyss && "gap-2")}>
         <NotificationBell className={headerControl} onClick={openNotifications} />
+        {showChat && currentUserId !== null && <ChatShortcut className={headerControl} onClick={() => to("/chat")} />}
         <button className={headerControl} aria-label="검색" onClick={onSearch}>
           <Asset name="v3-search.svg" />
         </button>

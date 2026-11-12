@@ -2,8 +2,9 @@ import { NotificationBell } from "@/features/notifications/notification-bell";
 import { socialStyles } from "@/styles/social.styles";
 import { sharedStyles } from "@/styles/shared.styles";
 import { communityStyles } from "@/styles/community.styles";
-import { profileStyles } from "@/styles/profile.styles";
 import { cn } from "@/lib/utils";
+import { ChevronLeft, Search, SquarePen, X } from "lucide-react";
+import { relativeTime } from "@/features/posts/post-utils";
 import { useEffect, useRef, useState } from "react";
 import { Asset } from "@/components/asset";
 import { Avatar } from "@/components/avatar";
@@ -19,18 +20,15 @@ import { apiOrigin } from "@/lib/api/client";
 import type { UserProfile } from "@/lib/api/contracts";
 import { CHAT_MESSAGE_MAX_LENGTH, chatMessageContent } from "@/features/social/chat-messages";
 
-function Inbox({ me, query, searchOpen, focusRequest, onQueryChange, onSelect }: {
+function Inbox({ me, query, onQueryChange, onSelect }: {
   me: number;
   query: string;
-  searchOpen: boolean;
-  focusRequest: number;
   onQueryChange: (query: string) => void;
   onSelect: (id: number) => void;
 }) {
   const inbox = useChatInbox(me);
   const input = useRef<HTMLInputElement>(null);
   const [searchText, setSearchText] = useState(query);
-  // Back/forward or an external query change replaces the typed text.
   const [syncedQuery, setSyncedQuery] = useState(query);
   if (syncedQuery !== query) {
     setSyncedQuery(query);
@@ -38,58 +36,91 @@ function Inbox({ me, query, searchOpen, focusRequest, onQueryChange, onSelect }:
   }
   useEffect(() => {
     if (searchText === query) return;
-    // Keep typing local; replacing the URL for every key can race controlled input updates.
     const timer = window.setTimeout(() => onQueryChange(searchText), 150);
     return () => window.clearTimeout(timer);
   }, [searchText, query, onQueryChange]);
-  useEffect(() => {
-    if (searchOpen) input.current?.focus();
-  }, [searchOpen, focusRequest]);
+
   const rows = filterChatInbox(inbox.rows, searchText);
   return (
     <>
-      {searchOpen && (
-        <div className="flex items-center gap-2 p-3">
-          <input
-            ref={input}
-            type="search"
-            aria-label="대화 상대 검색"
-            placeholder="대화 상대 검색"
-            value={searchText}
-            className="min-w-0 flex-1 rounded border border-current px-3 py-2"
-            onChange={(event) => setSearchText(event.target.value)}
-          />
-          <button type="button" disabled={!searchText} onClick={() => {
-            setSearchText("");
-            onQueryChange("");
-            input.current?.focus();
-          }}>지우기</button>
-        </div>
-      )}
-      {inbox.error && (
-        <div role="alert">
-          <p>{inbox.loaded ? `목록을 갱신하지 못했습니다. 이전 목록을 표시합니다. ${inbox.error}` : inbox.error}</p>
-          <button type="button" onClick={inbox.refresh}>다시 시도</button>
-        </div>
-      )}
-      {!inbox.loaded && !inbox.error && <p role="status">대화 목록을 불러오는 중...</p>}
-      {inbox.loaded && !inbox.connected && <p role="status">실시간 연결이 끊겨 3초마다 대화 목록을 확인합니다.</p>}
-      {inbox.loaded && rows.length === 0 && (
-        <p>{searchText.trim() ? "검색한 대화 상대가 없습니다." : "아직 대화가 없습니다. 맞팔로우한 친구와 대화를 시작해보세요."}</p>
-      )}
-      <ul className={profileStyles.profilePeopleList} aria-label="대화 목록">
-        {rows.map((row) => (
-          <li key={row.userId}>
-            <button onClick={() => onSelect(row.userId)}>
-              <Avatar src={row.profileImageUrl} />
-              <span>
-                <strong>{row.nickname}</strong>
-                <small>{row.latest ? `${row.latest.outgoing ? "나: " : ""}${row.latest.lastMessage}` : "새 대화 시작하기"}</small>
-              </span>
-            </button>
-          </li>
-        ))}
-      </ul>
+      <div className="mx-5 mb-3 flex h-11 shrink-0 items-center gap-2.5 rounded-xl bg-app-surface px-3.5 text-app-muted focus-within:ring-2 focus-within:ring-violet-500/60">
+        <Search aria-hidden="true" className="size-[17px] shrink-0" />
+        <input
+          ref={input}
+          type="search"
+          aria-label="대화 상대 검색"
+          placeholder="대화 상대 검색"
+          value={searchText}
+          className="min-w-0 flex-1 bg-transparent text-body text-app-fg outline-none placeholder:text-app-muted [&::-webkit-search-cancel-button]:appearance-none"
+          onChange={(event) => setSearchText(event.target.value)}
+        />
+        {searchText && (
+          <button
+            type="button"
+            aria-label="검색어 지우기"
+            className="grid size-8 shrink-0 place-items-center rounded-full hover:bg-white/10"
+            onClick={() => { setSearchText(""); onQueryChange(""); input.current?.focus(); }}
+          >
+            <X aria-hidden="true" className="size-4" />
+          </button>
+        )}
+      </div>
+      <div className={cn("min-h-0 flex-1 px-2", sharedStyles.scrollContent)}>
+        {inbox.error && (
+          <div className="px-3 py-4 text-body text-app-muted" role="alert">
+            <p>{inbox.loaded ? "목록을 갱신하지 못했습니다. 이전 대화를 표시합니다." : inbox.error}</p>
+            <button type="button" className="mt-2 min-h-9 font-semibold text-app-fg" onClick={inbox.refresh}>다시 시도</button>
+          </div>
+        )}
+        {!inbox.loaded && !inbox.error && <p className="px-3 py-5 text-body text-app-muted" role="status">대화 목록을 불러오는 중...</p>}
+        {inbox.loaded && !inbox.connected && <p className="px-3 py-2 text-caption text-app-muted" role="status">실시간 연결이 끊겨 대화 목록을 다시 확인하는 중입니다.</p>}
+        {inbox.loaded && rows.length === 0 && (
+          <p className="px-3 py-5 text-body text-app-muted">
+            {searchText.trim() ? "검색한 대화 상대가 없습니다." : "아직 대화가 없습니다."}
+          </p>
+        )}
+        <ul className="m-0 list-none p-0" aria-label="대화 목록">
+          {rows.map((row) => {
+            const latest = row.latest;
+            const unreadCount = latest?.unreadCount ?? 0;
+            return (
+              <li key={row.userId}>
+                <button
+                  type="button"
+                  className="grid min-h-[76px] w-full grid-cols-[56px_minmax(0,1fr)_10px] items-center gap-3 rounded-lg px-3 py-2 text-left hover:bg-white/5 active:bg-white/10"
+                  onClick={() => onSelect(row.userId)}
+                >
+                  <Avatar src={row.profileImageUrl} className="size-14 border-0" />
+                  <span className="min-w-0">
+                    <span className={cn("block truncate text-label", unreadCount > 0 ? "font-bold" : "font-medium")}>
+                      {row.nickname}
+                    </span>
+                    <span className="mt-1 flex min-w-0 items-baseline gap-1.5 text-body">
+                      <span className={cn("min-w-0 truncate", unreadCount > 0 ? "font-semibold text-app-fg" : "text-app-muted")}>
+                        {latest ? `${latest.outgoing ? "나: " : ""}${latest.lastMessage}` : "새 대화 시작하기"}
+                      </span>
+                      {latest && (
+                        <>
+                          <span aria-hidden="true" className="shrink-0 text-caption text-app-muted">·</span>
+                          <time dateTime={latest.lastMessageAt} className="shrink-0 text-caption text-app-muted">
+                            {relativeTime(latest.lastMessageAt)}
+                          </time>
+                        </>
+                      )}
+                    </span>
+                  </span>
+                  {unreadCount > 0 && (
+                    <span className="grid place-items-center">
+                      <span aria-hidden="true" className="size-2.5 rounded-full bg-violet-500" />
+                      <span className="sr-only">읽지 않은 메시지 {unreadCount}개</span>
+                    </span>
+                  )}
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      </div>
     </>
   );
 }
@@ -181,6 +212,7 @@ export function ChatScreen({
   friendId,
   onBack,
   onSearch,
+  onNewMessage,
   onNotifications,
   onSelect,
   onProfile,
@@ -190,6 +222,7 @@ export function ChatScreen({
   friendId: number | null;
   onBack: () => void;
   onSearch: () => void;
+  onNewMessage: () => void;
   onNotifications: () => void;
   onSelect: (id: number) => void;
   onProfile: (id: number) => void;
@@ -198,7 +231,8 @@ export function ChatScreen({
 }) {
   const me = useCurrentUserId();
   const [friend, setFriend] = useState<{ key: string; profile?: UserProfile; error?: string } | null>(null);
-  const [search, setSearch] = useState({ open: false, request: 0 });
+  const isInbox = friendId === null;
+  const inboxControl = "grid size-11 shrink-0 place-items-center rounded-full hover:bg-white/5";
   const key = JSON.stringify([apiOrigin(), me, friendId]);
   useEffect(() => {
     if (me === null || friendId === null) return;
@@ -217,9 +251,9 @@ export function ChatScreen({
   const current = friend?.key === key ? friend : null;
   return (
     <div className={socialStyles.chatScreen}>
-      <header className={socialStyles.chatHeader}>
-        <button aria-label="뒤로" onClick={onBack}>
-          <Asset name="return.svg" />
+      <header className={isInbox ? "flex h-16 shrink-0 items-center gap-2 px-3" : socialStyles.chatHeader}>
+        <button type="button" aria-label="뒤로" className={isInbox ? inboxControl : undefined} onClick={onBack}>
+          {isInbox ? <ChevronLeft aria-hidden="true" className="size-6" /> : <Asset name="return.svg" />}
         </button>
         {current?.profile ? (
           <button className={socialStyles.chatRecipient} onClick={() => onProfile(current.profile!.userId)}>
@@ -230,21 +264,23 @@ export function ChatScreen({
             </span>
           </button>
         ) : (
-          <h1>채팅</h1>
+          <h1 className={isInbox ? "min-w-0 flex-1 truncate text-[24px] font-bold" : undefined}>채팅</h1>
         )}
-        <NotificationBell onClick={onNotifications} />
-        <button aria-label={friendId === null ? "대화 상대 검색" : "검색"} onClick={friendId === null ? () => {
-          setSearch((previous) => ({ open: true, request: previous.request + 1 }));
-        } : onSearch}>
-          <Asset name="search.svg" />
-        </button>
+        <NotificationBell className={isInbox ? inboxControl : undefined} onClick={onNotifications} />
+        {isInbox ? (
+          <button type="button" aria-label="새 메시지" className={inboxControl} onClick={onNewMessage}>
+            <SquarePen aria-hidden="true" className="size-5" />
+          </button>
+        ) : (
+          <button type="button" aria-label="검색" onClick={onSearch}>
+            <Asset name="search.svg" />
+          </button>
+        )}
       </header>
       {me === null ? (
         <SignInRequired>채팅은 로그인 후 사용할 수 있습니다.</SignInRequired>
       ) : friendId === null ? (
-        <div className={cn(socialStyles.chatMessages, sharedStyles.scrollContent)}>
-          <Inbox key={key} me={me} query={query} searchOpen={search.open || Boolean(query)} focusRequest={search.request} onQueryChange={onQueryChange} onSelect={onSelect} />
-        </div>
+        <Inbox key={key} me={me} query={query} onQueryChange={onQueryChange} onSelect={onSelect} />
       ) : !current ? (
         <p role="status">대화를 여는 중...</p>
       ) : current.error || !current.profile ? (

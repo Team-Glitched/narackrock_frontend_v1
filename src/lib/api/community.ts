@@ -5,6 +5,7 @@ import type {
   GalleryListItem,
   GallerySubscribeResponse,
   PostCommentPage,
+  PostGallery,
   PostListItem,
 } from "./contracts";
 
@@ -169,10 +170,13 @@ export function fetchPosts(
   if (trimmed) params.set("keyword", trimmed);
   return apiRequest<ApiResponse<PostListResponse>>(
     `/api/v1/galleries/${galleryId}/posts?${params}`, { signal },
-  ).then((response) => response.data);
+  ).then(({ data }) => {
+    if (!data.galleryName?.trim()) return data;
+    const gallery = { galleryId: data.galleryId, name: data.galleryName };
+    return { ...data, posts: data.posts.map((post) => ({ ...post, gallery })) };
+  });
 }
 
-// 상세 조회는 로그인(Authorization 헤더)이 필요하다 — 백엔드가 isLiked/isDisliked를 계산하려면 요청자 식별이 필요하기 때문.
 export function fetchPost(postId: number, signal?: AbortSignal): Promise<PostDetailResponse> {
   return apiRequest<ApiResponse<PostDetailResponse>>(`/api/v1/posts/${postId}`, { signal }).then(
     (response) => response.data,
@@ -355,7 +359,7 @@ export function getMyGalleryProposals(signal?: AbortSignal): Promise<MyGalleryPr
 }
 
 export type PopularPost = PostListItem & {
-  gallery: { galleryId: number; name: string };
+  gallery: PostGallery;
   contentPreview: string;
   dislikeCount: number;
 };
