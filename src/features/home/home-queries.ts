@@ -1,5 +1,5 @@
 import { infiniteQueryOptions, queryOptions } from "@tanstack/react-query";
-import { getMyShorts, getPopularShorts, getShorts } from "@/lib/api/shorts";
+import { getMyShorts, getPopularShorts, getRecommendedShorts } from "@/lib/api/shorts";
 import { queryScope } from "@/lib/query";
 
 export const songKeys = {
@@ -16,11 +16,13 @@ export const popularSongsQuery = (userId: number | null, size: number) =>
     queryFn: ({ signal }) => getPopularShorts(size, signal),
   });
 
-/** First page of the shorts feed; the home rail re-ranks it by author. */
+/** Home and the full list share the first page and its continuation cursor. */
 export const recommendedSongsQuery = (userId: number | null) =>
-  queryOptions({
+  infiniteQueryOptions({
     queryKey: songKeys.recommended(userId),
-    queryFn: ({ signal }) => getShorts(undefined, signal),
+    queryFn: ({ pageParam, signal }) => getRecommendedShorts(pageParam, signal),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (last) => (last.page.hasMore ? last.page.nextCursor ?? undefined : undefined),
   });
 
 /** Authored and participated songs of the signed-in user, one cursor list for both tabs. */

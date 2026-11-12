@@ -72,10 +72,10 @@ export function HomeScreen({
         <SectionTitle onAll={() => onShowSongs("recommended")}>추천 음악</SectionTitle>
         {songs.recommended.status !== "ready" ? (
           <SongRailStatus state={songs.recommended.status} />
-        ) : songs.recommended.items.length === 0 ? (
+        ) : songs.recommended.firstPage.length === 0 ? (
           <SongRailStatus state="empty" />
         ) : (
-          <SongRail songs={songs.recommended.items} onOpen={onOpenShort} />
+          <SongRail songs={songs.recommended.firstPage} onOpen={onOpenShort} />
         )}
       </section>
       <section>
@@ -223,16 +223,19 @@ function RankedSongsChart({
   kind,
   onOpenShort,
 }: {
-  kind: SongChartKind;
+  kind: "popular" | "recommended";
   onOpenShort: (shortId: number) => void;
 }) {
-  const songs = useHomeSongs(100, kind);
-  const selected =
-    kind === "popular" ? songs.popular : kind === "recommended" ? songs.recommended : songs.mine;
+  const { popular, recommended } = useHomeSongs(100, kind);
+  const selected = kind === "popular" ? popular : recommended;
+  const loadMoreLabel = recommended.appending ? "불러오는 중..."
+    : recommended.expired ? "추천 다시 불러오기"
+    : recommended.appendFailed ? "다시 시도"
+    : "더 보기";
   return (
     <div className={cn(sharedStyles.listView, sharedStyles.scrollContent)}>
       <h1 className={sharedStyles.postsListTitle}>
-        {kind === "popular" ? "인기 차트" : kind === "recommended" ? "추천 음악" : uiLabels.myMusic}
+        {kind === "popular" ? "인기 차트" : "추천 음악"}
       </h1>
       <div className={sharedStyles.chartList}>
         {selected.status !== "ready" ? (
@@ -260,6 +263,28 @@ function RankedSongsChart({
           ))
         )}
       </div>
+      {kind === "recommended" && recommended.status === "error" && (
+        <div className="mt-4 px-5">
+          <button type="button" className="min-h-11 w-full rounded-lg bg-app-surface" onClick={recommended.retry}>
+            다시 시도
+          </button>
+        </div>
+      )}
+      {kind === "recommended" && recommended.hasMore && (
+        <div className="my-4 px-5">
+          {recommended.appendFailed && (
+            <p role="status">{recommended.expired ? "추천 목록이 만료됐습니다." : "다음 곡을 불러오지 못했습니다."}</p>
+          )}
+          <button
+            type="button"
+            className="min-h-11 w-full rounded-lg bg-app-surface"
+            disabled={recommended.appending}
+            onClick={recommended.loadMore}
+          >
+            {loadMoreLabel}
+          </button>
+        </div>
+      )}
     </div>
   );
 }

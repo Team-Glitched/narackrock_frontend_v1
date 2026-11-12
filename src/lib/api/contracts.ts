@@ -26,6 +26,15 @@ export type ShortItemDto = {
   createdAt: string;
 };
 
+export type SongCardDto = Pick<ShortItemDto, "shortId" | "title" | "albumImageUrl"> & {
+  author: Pick<ShortItemDto["author"], "userId" | "nickname">;
+};
+
+export type RecommendedShortsPageDto = {
+  items: SongCardDto[];
+  page: { nextCursor: string | null; hasMore: boolean; size: number };
+};
+
 export type ShortsPageDto = {
   items: ShortItemDto[];
   page: { nextCursor: number | null; hasMore: boolean; size: number };
