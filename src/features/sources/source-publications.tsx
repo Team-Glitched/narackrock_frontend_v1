@@ -78,6 +78,7 @@ function PublicationListManager({ onOpen }: { onOpen: (id: number) => void }) {
   /** Public listings, the public detail and saved libraries show what an owner edit changed. */
   function invalidatePublic(sourceId: number) {
     void queryClient.invalidateQueries({ queryKey: sourceKeys.lists(userId) });
+    void queryClient.invalidateQueries({ queryKey: sourceKeys.popular(userId) });
     void queryClient.invalidateQueries({ queryKey: sourceKeys.detail(userId, sourceId) });
     void queryClient.invalidateQueries({ queryKey: sourceKeys.saved(userId) });
   }
@@ -133,6 +134,7 @@ function PublicationListManager({ onOpen }: { onOpen: (id: number) => void }) {
       void queryClient.invalidateQueries({ queryKey: publicationsKey });
       queryClient.removeQueries({ queryKey: sourceKeys.detail(userId, openSourceId) });
       void queryClient.invalidateQueries({ queryKey: sourceKeys.lists(userId) });
+      void queryClient.invalidateQueries({ queryKey: sourceKeys.popular(userId) });
       void queryClient.invalidateQueries({ queryKey: sourceKeys.saved(userId) });
     },
   });
