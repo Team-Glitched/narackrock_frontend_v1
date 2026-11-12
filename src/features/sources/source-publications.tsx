@@ -34,7 +34,7 @@ type PublicationPages = InfiniteData<OpenSourcePage<OpenSourcePublication>, numb
 /** Owner metadata is available for both PRIVATE and PUBLIC sources without requesting public detail. */
 export function SourcePublications({ onOpen }: { onOpen: (id: number) => void }) {
   const userId = useCurrentUserId();
-  if (userId === null) return <SignInRequired>내 등록 오픈소스는 로그인 후 볼 수 있습니다.</SignInRequired>;
+  if (userId === null) return <SignInRequired>내 등록 샘플은 로그인 후 볼 수 있습니다.</SignInRequired>;
   return <PublicationListManager key={JSON.stringify([apiOrigin(), userId])} onOpen={onOpen} />;
 }
 
@@ -62,7 +62,7 @@ function PublicationListManager({ onOpen }: { onOpen: (id: number) => void }) {
     });
   }, [list.data]);
   const loading = (list.isFetching && !list.data) || list.isFetchingNextPage;
-  const listError = list.error && !loading ? sourceError(list.error, "내 등록 오픈소스를 불러오지 못했습니다.") : "";
+  const listError = list.error && !loading ? sourceError(list.error, "내 등록 샘플을 불러오지 못했습니다.") : "";
 
   function replaceItem(source: Pick<OpenSourcePublication, "openSourceId"> & Partial<OpenSourcePublication>) {
     queryClient.setQueryData<PublicationPages>(publicationsKey, (old) =>
@@ -122,7 +122,7 @@ function PublicationListManager({ onOpen }: { onOpen: (id: number) => void }) {
     mutationKey: publicationsKey,
     mutationFn: async (id: number) => {
       const result = await deleteOpenSource(id);
-      if (!result.isDeleted || result.openSourceId !== id) throw new Error("오픈소스가 삭제되지 않았습니다.");
+      if (!result.isDeleted || result.openSourceId !== id) throw new Error("샘플이 삭제되지 않았습니다.");
       return result;
     },
     onSuccess: ({ openSourceId }) => {
@@ -214,14 +214,14 @@ function PublicationListManager({ onOpen }: { onOpen: (id: number) => void }) {
         setEditor(null);
         setConfirmDelete(false);
         uploadedThumbnail.current = null;
-        setNotice("오픈소스를 삭제했습니다.");
+        setNotice("샘플을 삭제했습니다.");
       },
-      onError: (cause) => setDeleteError(sourceError(cause, "오픈소스를 삭제하지 못했습니다.")),
+      onError: (cause) => setDeleteError(sourceError(cause, "샘플을 삭제하지 못했습니다.")),
     });
   }
 
   return (
-    <section aria-label="내 등록 오픈소스" className={cn(workspaceStyles.workspacePage, sharedStyles.scrollContent)}>
+    <section aria-label="내 등록 샘플" className={cn(workspaceStyles.workspacePage, sharedStyles.scrollContent)}>
       {notice && <p role="status" className={workspaceStyles.workspaceNotice}>{notice}</p>}
       {editor ? (
         <form className={cn(workspaceStyles.workspaceCard, workspaceStyles.workspaceReview)} onSubmit={(event) => { event.preventDefault(); submit(); }}>
@@ -269,17 +269,17 @@ function PublicationListManager({ onOpen }: { onOpen: (id: number) => void }) {
           <div className={workspaceStyles.workspaceActions}>
             <button type="submit" className={workspaceStyles.workspacePrimary} disabled={busy !== null}>{busy?.kind === "save" ? "저장 중..." : "저장"}</button>
             <button type="button" onClick={closeEditor} disabled={busy !== null}>취소 / 목록으로</button>
-            <button type="button" disabled={busy !== null} onClick={() => { if (writing()) return; setDeleteError(""); setConfirmDelete(true); }}>오픈소스 삭제</button>
+            <button type="button" disabled={busy !== null} onClick={() => { if (writing()) return; setDeleteError(""); setConfirmDelete(true); }}>샘플 삭제</button>
           </div>
         </form>
       ) : (
         <>
-          {loading && <p role="status">내 등록 오픈소스를 불러오는 중...</p>}
+          {loading && <p role="status">내 등록 샘플을 불러오는 중...</p>}
           {listError && <div role="alert" className={workspaceStyles.workspaceNotice}>
             <p>{listError}</p>
             <button className={buttonVariants({ tone: "secondary", size: "compact" })} disabled={list.isFetching || busy !== null} onClick={requestPage}>다시 시도</button>
           </div>}
-          {list.data && !loading && !listError && items.length === 0 && <p className={workspaceStyles.workspaceEmpty}>아직 등록한 오픈소스가 없습니다.</p>}
+          {list.data && !loading && !listError && items.length === 0 && <p className={workspaceStyles.workspaceEmpty}>아직 등록한 샘플이 없습니다.</p>}
           {items.map((source) => (
             <article key={source.openSourceId} className={workspaceStyles.workspaceCard}>
               <span className={workspaceStyles.workspaceStatus}>{source.visibility === "PUBLIC" ? "공개" : "비공개"}</span>
@@ -298,7 +298,7 @@ function PublicationListManager({ onOpen }: { onOpen: (id: number) => void }) {
         </>
       )}
       {confirmDelete && editor && <CanvasDialog className={sharedStyles.creationDiscardDialog} titleId={deleteTitleId} onClose={() => { if (!writing()) setConfirmDelete(false); }}>
-        <h2 id={deleteTitleId}>오픈소스를 삭제할까요?</h2>
+        <h2 id={deleteTitleId}>샘플을 삭제할까요?</h2>
         <p>“{editor.source.title}”을 삭제하면 되돌릴 수 없습니다.</p>
         {deleteError && <p role="alert">{deleteError}</p>}
         <div>

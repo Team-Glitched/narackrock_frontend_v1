@@ -10,7 +10,7 @@ import { usePagedItems } from "@/hooks/use-paged-items";
 /** The account's server-side open source library (`GET /users/me/open-sources`), including unavailable entries. */
 export function SavedOpenSources({ query, onOpen }: { query: string; onOpen: (id: number) => void }) {
   const userId = useCurrentUserId();
-  if (userId === null) return <SignInRequired>저장한 오픈소스는 로그인 후 볼 수 있습니다.</SignInRequired>;
+  if (userId === null) return <SignInRequired>저장한 샘플은 로그인 후 볼 수 있습니다.</SignInRequired>;
   return <SavedSourceList key={userId} query={query} onOpen={onOpen} />;
 }
 
@@ -18,7 +18,7 @@ function SavedSourceList({ query, onOpen }: { query: string; onOpen: (id: number
   // Shares `sourceKeys.saved`, which every save/unsave invalidates.
   const { state: current, more, remove } = usePagedItems(savedSourcesScope, 0, loadSavedSources);
   const unsave = useSourceSaveMutation();
-  if (!current) return <p role="status">저장한 오픈소스를 불러오는 중...</p>;
+  if (!current) return <p role="status">저장한 샘플을 불러오는 중...</p>;
   const busy = unsave.isPending ? unsave.variables.sourceId : null;
   const notice = unsave.error ? sourceError(unsave.error, "보관 해제에 실패했습니다.") : "";
   function unsaveSource(id: number) {
@@ -41,21 +41,21 @@ function SavedSourceList({ query, onOpen }: { query: string; onOpen: (id: number
           {notice}
         </p>
       )}
-      {items.length === 0 && current.next === null && !current.error && <p className={workspaceStyles.workspaceNotice}>{keyword ? "검색 결과가 없습니다." : "저장한 오픈소스가 없습니다."}</p>}
+      {items.length === 0 && current.next === null && !current.error && <p className={workspaceStyles.workspaceNotice}>{keyword ? "검색 결과가 없습니다." : "저장한 샘플이 없습니다."}</p>}
       {items.map((item) => (
         <article className={workspaceStyles.workspaceCard} key={item.openSourceId}>
-          <span className={workspaceStyles.workspaceStatus}>저장한 오픈소스</span>
+          <span className={workspaceStyles.workspaceStatus}>저장한 샘플</span>
           {item.availability === "AVAILABLE" && item.source ? (
             <>
               <h2>{item.source.title}</h2>
               <p>{item.source.description ?? ""}</p>
               <small>{item.source.writer.nickname}</small>
               <SourcePlayback sourceId={item.openSourceId} canPreview durationMs={null} />
-              <p className={workspaceStyles.workspaceNotice}>피아노롤의 ‘+ 오픈소스’에서 내 레이어에 오디오로 넣을 수 있습니다.</p>
+              <p className={workspaceStyles.workspaceNotice}>피아노롤의 ‘+ 샘플’에서 내 레이어에 오디오로 넣을 수 있습니다.</p>
             </>
           ) : (
             <>
-              <h2>사용할 수 없는 오픈소스</h2>
+              <h2>사용할 수 없는 샘플</h2>
               <p>삭제되었거나 비공개로 전환되어 재생하거나 곡에 넣을 수 없습니다.</p>
             </>
           )}

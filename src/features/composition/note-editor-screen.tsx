@@ -47,8 +47,8 @@ async function openSourceDurationMs(openSourceId: number): Promise<number> {
   audio.onloadedmetadata = () =>
     Number.isFinite(audio.duration) && audio.duration > 0
       ? resolve(Math.round(audio.duration * 1000))
-      : reject(new Error("오픈소스 음원 길이를 확인하지 못했습니다."));
-  audio.onerror = () => reject(new Error("오픈소스 음원을 불러오지 못했습니다."));
+      : reject(new Error("샘플 음원 길이를 확인하지 못했습니다."));
+  audio.onerror = () => reject(new Error("샘플 음원을 불러오지 못했습니다."));
   audio.src = playback.audioUrl;
   return promise;
 }

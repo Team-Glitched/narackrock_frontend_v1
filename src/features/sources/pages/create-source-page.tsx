@@ -51,7 +51,7 @@ export default function CreateSourcePage() {
               }}
             />
           ) : (
-            <SignInRequired>오픈소스 등록은 로그인 후 사용할 수 있습니다.</SignInRequired>
+            <SignInRequired>샘플 등록은 로그인 후 사용할 수 있습니다.</SignInRequired>
           )}
         </div>
         <NotificationsOverlay />

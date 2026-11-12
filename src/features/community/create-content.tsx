@@ -198,10 +198,10 @@ export function SocialCreate({
         onCreated();
       } else if (kind === "source") {
         const userId = getCurrentUserId();
-        if (userId === null) throw new Error("로그인 후 오픈소스를 등록할 수 있습니다.");
+        if (userId === null) throw new Error("로그인 후 샘플을 등록할 수 있습니다.");
         if (!audio && !sourceAudioLocked) throw new Error("오디오를 먼저 선택해주세요.");
         if ([...title.trim()].length > 100 || [...content].length > 2000)
-          throw new Error("오픈소스 이름은 100자, 설명은 2000자 이내로 입력해주세요.");
+          throw new Error("샘플 이름은 100자, 설명은 2000자 이내로 입력해주세요.");
         try {
           await withSourcePublicationLock({ userId, draftKey, draftRevision }, async () => {
             // The original stays in the draft; only the framed thumbnail is uploaded.
@@ -211,10 +211,10 @@ export function SocialCreate({
             clearCreationDraft(draftStorageKey);
           });
         } catch (cause) {
-          const message = sourceError(cause, "오픈소스를 등록하지 못했습니다.");
+          const message = sourceError(cause, "샘플을 등록하지 못했습니다.");
           throw new Error(
             hasPendingPublication({ userId, draftKey })
-              ? `오픈소스 등록 기록이 있습니다. 다시 시도하면 같은 등록에서 선택한 공개 설정으로 이어서 저장합니다. (${message})`
+              ? `샘플 등록 기록이 있습니다. 다시 시도하면 같은 등록에서 선택한 공개 설정으로 이어서 저장합니다. (${message})`
               : message,
           );
         }
@@ -283,19 +283,19 @@ export function SocialCreate({
       className={cn(communityStyles.socialCreateView, sharedStyles.scrollContent)}
       onSubmit={submit}
       aria-label={
-        kind === "post" ? "게시글 작성" : kind === "community" ? "커뮤니티 생성" : "오픈소스 생성"
+        kind === "post" ? "게시글 작성" : kind === "community" ? "커뮤니티 생성" : "샘플 생성"
       }
     >
       <div className={communityStyles.socialCreateFields}>
         <label>
-          {kind === "post" ? "제목" : kind === "community" ? "커뮤니티 이름" : "오픈소스 이름"}
+          {kind === "post" ? "제목" : kind === "community" ? "커뮤니티 이름" : "샘플 이름"}
           <input
             aria-label={
               kind === "post"
                 ? "게시글 제목"
                 : kind === "community"
                   ? "커뮤니티 이름"
-                  : "오픈소스 이름"
+                  : "샘플 이름"
             }
             disabled={busy}
             value={title}

@@ -7,7 +7,7 @@ export const uiLabels = {
   workspace: "작업 중인 음악",
   submissions: "보낸 참여 요청",
   reviewInbox: "받은 참여 요청",
-  sourceLibrary: "오픈소스 보관함",
+  sourceLibrary: "샘플 보관함",
   saved: "저장한 콘텐츠",
   editProfile: "프로필 편집",
   ownLayers: "제작한 레이어",

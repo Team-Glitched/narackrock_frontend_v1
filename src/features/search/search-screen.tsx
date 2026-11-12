@@ -23,7 +23,7 @@ import { searchCommunityPosts } from "@/features/community/post-search";
 import { queryScope } from "@/lib/query";
 // `hint` tells first-time searchers what each tab looks for before anything is typed.
 const scopes: { id: SearchScope; label: string; hint: string }[] = [
-  { id: "sources", label: "오픈소스", hint: "오픈소스 제목이나 설명으로 검색해 보세요." },
+  { id: "sources", label: "샘플", hint: "샘플 제목이나 설명으로 검색해 보세요." },
   { id: "songs", label: "음악", hint: "곡 제목으로 음악을 검색해 보세요." },
   { id: "people", label: "사용자", hint: "닉네임으로 사용자를 검색해 보세요." },
   { id: "posts", label: "게시글", hint: "제목이나 내용으로 게시글을 검색해 보세요." },
@@ -168,12 +168,12 @@ export function ScopedSearch({
   const current: Loaded | null = paged || !keyword
     ? null
     : sourcesSignInRequired
-      ? { results: empty(), error: "오픈소스 검색은 로그인 후 사용할 수 있습니다." }
+      ? { results: empty(), error: "샘플 검색은 로그인 후 사용할 수 있습니다." }
       : search.error
         ? {
             results: empty(),
             error: scope === "sources"
-              ? sourceError(search.error, "오픈소스를 검색하지 못했습니다.")
+              ? sourceError(search.error, "샘플을 검색하지 못했습니다.")
               : search.error.message || "검색에 실패했습니다.",
           }
         : search.data ?? null;
