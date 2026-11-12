@@ -147,7 +147,7 @@ export function CommonComments({
     if (!requireLogin() || busy || !writable || !draft.trim()) return;
     create.mutate({ text: draft.trim(), parentId: reply?.threadId ?? null });
   }
-  const row = (item: CommentItem, threadId: number) => (
+  const row = (item: CommentItem, threadId?: number) => (
     <CommentCard
       key={item.id}
       item={item}
@@ -155,7 +155,7 @@ export function CommonComments({
       adapter={adapter}
       onChanged={changed}
       canReply={canWrite}
-      onReply={() => {
+      onReply={threadId === undefined ? undefined : () => {
         if (requireLogin() && writable) startReply(item, threadId);
       }}
       onProfile={() => onProfile?.(item.userId)}
@@ -202,7 +202,7 @@ export function CommonComments({
                 key={item.id}
                 adapter={adapter}
                 parentId={item.id}
-                render={(child) => row(child, item.id)}
+                render={(child) => row(child)}
                 onCollapse={() => toggle(item.id)}
               />
             )}
@@ -332,7 +332,7 @@ function CommentCard({
   owner: boolean;
   adapter: CommentAdapter;
   onChanged: () => void;
-  onReply: () => void;
+  onReply?: () => void;
   onProfile: () => void;
   onReport?: () => void;
 }) {
@@ -481,10 +481,12 @@ function CommentCard({
           </button>
           <button disabled={busy || !draft.trim()}>저장</button>
         </form>
-      ) : (
+      ) : onReply ? (
         <button className={communityStyles.nrCommentText} onClick={onReply} disabled={!canReply}>
           {item.text}
         </button>
+      ) : (
+        <p className={communityStyles.nrCommentText}>{item.text}</p>
       )}
       {confirm && (
         <div className={communityStyles.nrCommentDelete}>
@@ -532,9 +534,11 @@ function CommentCard({
             name={item.isDisliked ? "v3-comment-dislike-on.svg" : "v3-comment-dislike-off.svg"}
           />
         </button>
-        <button aria-label={`${item.author}에게 답글 작성`} disabled={!canReply} onClick={onReply}>
-          <Asset name="comment-reply.svg" />
-        </button>
+        {onReply && (
+          <button aria-label={`${item.author}에게 답글 작성`} disabled={!canReply} onClick={onReply}>
+            <Asset name="comment-reply.svg" />
+          </button>
+        )}
       </div>
     </article>
   );
