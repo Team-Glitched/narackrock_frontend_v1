@@ -11,6 +11,7 @@ import {
 import { createPortal } from "react-dom";
 import { useBlocker, useLocation, useNavigate } from "react-router";
 import { getCurrentUserId } from "@/lib/api/client";
+import { cn } from "@/lib/utils";
 import { buttonVariants } from "@/styles/variants";
 import { useAuthSession } from "./auth-session";
 import { loginDestination, requiresLogin } from "./login-access";
@@ -119,7 +120,7 @@ function LoginConfirmation({
       aria-labelledby={titleId}
       aria-describedby={descriptionId}
       aria-modal="true"
-      className="fixed inset-0 m-auto w-[calc(100%_-_32px)] max-w-[360px] rounded-panel border border-app-border bg-app-surface p-0 text-app-fg shadow-xl backdrop:bg-black/65"
+      className="fixed inset-0 m-auto w-[calc(100%_-_80px)] max-w-[280px] rounded-panel border border-app-border bg-app-surface p-0 text-app-fg shadow-xl backdrop:bg-black/65"
       onKeyDown={(event) => {
         if (event.key === "Escape") {
           event.preventDefault();
@@ -136,18 +137,26 @@ function LoginConfirmation({
         if (event.target === event.currentTarget) onCancel();
       }}
     >
-      <div className="p-6">
-        <h2 id={titleId} className="text-title font-bold">
+      <div className="p-5">
+        <h2 id={titleId} className="text-label font-bold">
           로그인이 필요합니다
         </h2>
-        <p id={descriptionId} className="mt-3 text-body text-app-muted">
+        <p id={descriptionId} className="mt-2 text-body text-app-muted">
           로그인하시겠습니까?
         </p>
-        <div className="mt-6 flex justify-end gap-3">
-          <button type="button" className={buttonVariants({ tone: "secondary" })} onClick={onCancel}>
+        <div className="mt-5 flex justify-end gap-2">
+          <button
+            type="button"
+            className={cn(buttonVariants({ tone: "secondary" }), "h-9 px-4 text-body")}
+            onClick={onCancel}
+          >
             아니오
           </button>
-          <button type="button" className={buttonVariants({ tone: "primary" })} onClick={onConfirm}>
+          <button
+            type="button"
+            className={cn(buttonVariants({ tone: "primary" }), "h-9 px-4 text-body")}
+            onClick={onConfirm}
+          >
             예
           </button>
         </div>
