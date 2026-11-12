@@ -28,6 +28,7 @@ export type CommentAdapter = {
   targetId: number;
   load: (parentId: number | null, page: number, signal?: AbortSignal) => Promise<CommentPage>;
   create: (text: string, parentId: number | null) => Promise<unknown>;
+  hide?: (id: number) => Promise<void>;
   update?: (id: number, text: string) => Promise<unknown>;
   remove?: (id: number) => Promise<unknown>;
   react?: (id: number, kind: "like" | "dislike") => Promise<CommentReaction>;

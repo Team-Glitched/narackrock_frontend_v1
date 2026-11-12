@@ -40,13 +40,14 @@ function read(key: string): ReadonlyMap<number, number | null> {
   return ids;
 }
 
-export function useHiddenIds(key: string) {
+export function useHiddenIds(key: string | null) {
   const ids = useSyncExternalStore(
-    subscribe,
-    () => read(key),
+    key === null ? () => () => {} : subscribe,
+    () => key === null ? empty : read(key),
     () => empty,
   );
   function hide(id: number, parentId: number | null = null) {
+    if (key === null) return;
     const current = read(key);
     if (current.has(id) && (parentId === null || current.get(id) === parentId)) return;
     const next = new Map(current);
@@ -61,5 +62,15 @@ export function useHiddenIds(key: string) {
     }
     listeners.forEach((listener) => listener());
   }
-  return { ids, hide };
+  function clear() {
+    if (key === null) return;
+    try {
+      localStorage.removeItem(key);
+    } catch {
+      return;
+    }
+    cache.delete(key);
+    listeners.forEach((listener) => listener());
+  }
+  return { ids, hide, clear };
 }
