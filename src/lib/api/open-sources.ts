@@ -198,3 +198,7 @@ export function listMyOpenSourcePublications(page: number, signal?: AbortSignal)
 export function deleteOpenSource(id: number): Promise<{ openSourceId: number; isDeleted: boolean }> {
   return data(`/api/v1/open-sources/${id}`, { method: "DELETE" });
 }
+
+export async function hideOpenSourceComment(commentId: number, signal?: AbortSignal): Promise<void> {
+  await apiRequest<void>(`/api/v1/open-sources/comments/${commentId}/hidden`, { method: "PUT", signal });
+}

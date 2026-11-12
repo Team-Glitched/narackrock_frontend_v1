@@ -3,7 +3,7 @@ import { sharedStyles } from "@/styles/shared.styles";
 import { communityStyles } from "@/styles/community.styles";
 import { buttonVariants } from "@/styles/variants";
 import { cn } from "@/lib/utils";
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { SectionTitle } from "@/components/section-title";
 import { Avatar } from "@/components/avatar";
@@ -21,6 +21,7 @@ import { relativeTime } from "@/features/posts/post-utils";
 import {
   createOpenSourceComment,
   getOpenSourceComments,
+  hideOpenSourceComment,
   getOpenSourceShare,
   reactToOpenSource,
   reactToOpenSourceComment,
@@ -284,6 +285,9 @@ export function OpensourceDetailScreen({
   const userId = useCurrentUserId();
   const queryClient = useQueryClient();
   const query = useQuery({ ...openSourceQuery(userId, sourceId), enabled: userId !== null });
+  const refreshSource = useCallback(() => {
+    void queryClient.invalidateQueries({ queryKey: sourceKeys.detail(userId, sourceId) });
+  }, [queryClient, userId, sourceId]);
   const [focus, setFocus] = useState(focusComments ? 1 : 0);
   const adapter = useMemo<CommentAdapter>(
     () => ({
@@ -312,6 +316,7 @@ export function OpensourceDetailScreen({
       },
       create: (text, parentId) => createOpenSourceComment(sourceId, text, parentId),
       react: reactToOpenSourceComment,
+      hide: hideOpenSourceComment,
     }),
     [sourceId],
   );
@@ -337,7 +342,7 @@ export function OpensourceDetailScreen({
         onProfile={onProfile}
         focus={focus}
         // The detail's comment count is server-owned: reread it after a comment is added or removed.
-        onChanged={() => void queryClient.invalidateQueries({ queryKey: sourceKeys.detail(userId, sourceId) })}
+        onChanged={refreshSource}
         header={<SourceDetail source={source} onComments={() => setFocus((value) => value + 1)} onProfile={onProfile} />}
       />
     </div>
