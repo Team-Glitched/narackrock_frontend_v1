@@ -96,9 +96,9 @@ export function PortraitNoteEditor({
         )}
         <span className={readout}><small>time</small>{`00:${clockTime(timeMs)}`}</span>
         {onImportSource && (
-          <button className={readout} aria-label="오픈소스 추가" onClick={onImportSource}>
+          <button className={readout} aria-label="샘플 추가" onClick={onImportSource}>
             <span aria-hidden="true">+</span>
-            오픈소스
+            샘플
           </button>
         )}
         {instrument && (

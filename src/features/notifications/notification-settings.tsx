@@ -6,7 +6,7 @@ const options: { key: keyof NotificationPreferences; title: string; description:
   {
     key: "followingContent",
     title: "팔로우한 창작자의 새 콘텐츠",
-    description: "새로 공개된 음악과 오픈소스",
+    description: "새로 공개된 음악과 샘플",
   },
   {
     key: "communityPosts",
@@ -15,7 +15,7 @@ const options: { key: keyof NotificationPreferences; title: string; description:
   },
   {
     key: "sourceUsage",
-    title: "내 오픈소스 사용",
+    title: "내 샘플 사용",
     description: "다른 사람의 작곡에 사용되거나 사용한 곡이 공개됐을 때",
   },
 ];
