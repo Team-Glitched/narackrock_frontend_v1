@@ -90,7 +90,9 @@ export function AuthScreen({ onAuthenticated, onFirstLogin }: AuthScreenProps) {
   return (
     <section className={cn(profileStyles.authScreen, "auth-screen--login")} aria-label="로그인">
       <header className={profileStyles.authHeader}>
-        <Asset name="auth-logo.svg" alt="Narackrock" />
+        <Link to="/" aria-label="나락락 홈으로 이동">
+          <Asset name="auth-logo.svg" alt="" />
+        </Link>
       </header>
       <div className={profileStyles.authContent}>
         <div className={profileStyles.authIntro}>
