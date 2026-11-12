@@ -390,8 +390,6 @@ export const sharedStyles = {
     "[.design-canvas_.team-note-workspace_.piano-key&::before]:w-2/3 [.design-canvas_.team-note-workspace_.piano-key&::before]:rounded-none",
     "[.design-canvas_.team-note-workspace_.piano-key&::before]:bg-app-key-black",
   ].join(" "),
-  midi: ["midi", "[.studio-clip&]:bg-app-primary [.studio-clip&]:bg-none"].join(" "),
-  audio: ["audio", "[.studio-clip&]:bg-[#20a9b1] [.studio-clip&]:bg-none"].join(" "),
   isBusy: [
     "is-busy",
     "[.google-identity-button&]:pointer-events-none [.google-identity-button&]:opacity-[.55]",

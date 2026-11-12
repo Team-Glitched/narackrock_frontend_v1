@@ -44,6 +44,12 @@ export default function NoteEditorPage() {
           trackId={route.trackId}
           clipId={route.clipId}
           onBack={() => route.to(route.studioUrl, { replace: true, state: route.studioState })}
+          onOpenLayers={() =>
+            route.to(route.studioUrl, {
+              replace: true,
+              state: { ...route.studioState, selectMidiLayer: true },
+            })
+          }
           portrait={portrait}
           onToggleLayout={toggleLayout}
         />
