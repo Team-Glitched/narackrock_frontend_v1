@@ -65,6 +65,7 @@ import {
 export function StudioScreen({
   onSubmitted,
   contributionId,
+  selectMidiLayer,
   shortId,
   projectId,
   onReturnToShort,
@@ -76,6 +77,7 @@ export function StudioScreen({
 }: {
   onSubmitted: () => void;
   contributionId?: number;
+  selectMidiLayer: boolean;
   shortId: number | null;
   projectId: number | null;
   onExit: () => void;
@@ -462,6 +464,11 @@ export function StudioScreen({
           </button>
         )}
       </StudioToolbar>
+      {selectMidiLayer && (
+        <p className="m-0 shrink-0 px-4 py-2 text-caption text-app-muted">
+          피아노롤에서 열 MIDI 레이어를 선택하세요.
+        </p>
+      )}
       {contributionId != null && (
         <div className="flex shrink-0 items-center gap-2 px-4 py-2 text-caption text-app-primary-soft" role="status">
           {requestList.isPending ? (
@@ -748,8 +755,16 @@ export function StudioScreen({
                 )}
                 <button
                   className={"track-settings-trigger"}
-                  aria-label={`${track.name} 트랙 설정`}
-                  onClick={() => setTrackSettingsId(track.trackId)}
+                  aria-label={selectMidiLayer && track.clips.some((clip) => clip.clipType === "MIDI")
+                    ? `${track.name} 피아노롤 열기`
+                    : `${track.name} 트랙 설정`}
+                  onClick={() => {
+                    const midiClip = selectMidiLayer
+                      ? track.clips.find((clip) => clip.clipType === "MIDI")
+                      : undefined;
+                    if (midiClip) onEditTrack(track.trackId, midiClip.clipId > 0 ? midiClip.clipId : null);
+                    else setTrackSettingsId(track.trackId);
+                  }}
                 >
                   <Avatar />
                 </button>
@@ -774,7 +789,7 @@ export function StudioScreen({
                     key={clip.clipId}
                     clip={clip}
                     name={track.name}
-                    color="var(--purple)"
+                    instrument={track.instrument}
                     maxTick={project.maxTick}
                     stepTick={(project.ppq * 2) / playback.signature.denominator}
                     cellPx={signatureGrid(playback.signature).cellPx}
@@ -786,6 +801,7 @@ export function StudioScreen({
                     }
                     onError={setError}
                     onSelect={() => setTrackSettingsId(track.trackId)}
+                    openOnClick={selectMidiLayer}
                     onEdit={
                       // Other participants' MIDI opens read-only; the editor never creates their drafts.
                       clip.clipType === "MIDI"

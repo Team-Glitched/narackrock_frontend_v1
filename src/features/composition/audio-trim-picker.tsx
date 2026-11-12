@@ -3,6 +3,7 @@ import { sharedStyles } from "@/styles/shared.styles";
 import { cn } from "@/lib/utils";
 import { buttonVariants } from "@/styles/variants";
 import { pointerAxes, logicalBounds } from "./pointer-coordinates";
+import { waveformPeaks } from "./waveform-peaks";
 
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { LoaderCircle } from "lucide-react";
@@ -28,25 +29,6 @@ function AudioTrimLoading({ label }: { label: string }) {
       <span>{label}</span>
     </div>
   );
-}
-
-function waveformPeaks(buffer: AudioBuffer) {
-  const peaks = Array.from({ length: waveformBars }, () => 0);
-  const channels = Array.from({ length: buffer.numberOfChannels }, (_, index) =>
-    buffer.getChannelData(index),
-  );
-  const samplesPerBar = Math.max(1, Math.floor(buffer.length / waveformBars));
-  for (let bar = 0; bar < waveformBars; bar += 1) {
-    const from = bar * samplesPerBar;
-    const to = Math.min(buffer.length, from + samplesPerBar);
-    const stride = Math.max(1, Math.floor((to - from) / 80));
-    for (let sample = from; sample < to; sample += stride) {
-      for (const channel of channels)
-        peaks[bar] = Math.max(peaks[bar], Math.abs(channel[sample] ?? 0));
-    }
-  }
-  const maximum = Math.max(...peaks, 0.01);
-  return peaks.map((peak) => Math.max(0.12, peak / maximum));
 }
 
 export function AudioTrimPicker({
@@ -87,7 +69,11 @@ export function AudioTrimPicker({
         if (signal.aborted) return;
         context = new AudioContext();
         const buffer = await context.decodeAudioData(data);
-        if (!signal.aborted) setWaveformResult({ url, peaks: waveformPeaks(buffer) });
+        if (!signal.aborted)
+          setWaveformResult({
+            url,
+            peaks: waveformPeaks(buffer, waveformBars).map((peak) => Math.max(0.12, peak)),
+          });
       } catch {
         if (!signal.aborted) setWaveformResult({ url, peaks: null });
       } finally {

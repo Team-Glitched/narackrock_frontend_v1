@@ -37,6 +37,7 @@ export default function StudioPage() {
           projectId={projectId}
           shortId={shortId}
           contributionId={contributionId}
+          selectMidiLayer={route.state.selectMidiLayer === true}
           onSubmitted={() => to("/submissions")}
           onExit={() => {
             const currentIndex = window.history.state?.idx;
@@ -53,7 +54,10 @@ export default function StudioPage() {
           onProjectSelected={selectProject}
           onAddLayer={() => to(route.layerUrl("layers/new"), { state: route.studioState })}
           onEditTrack={(trackId, clipId) =>
-            to(route.notesUrl({ trackId, clipId }), { state: route.studioState })
+            to(route.notesUrl({ trackId, clipId }), {
+              replace: route.state.selectMidiLayer === true,
+              state: route.studioState,
+            })
           }
           onImportResource={async (resource) => {
             await route.importResource(resource);
