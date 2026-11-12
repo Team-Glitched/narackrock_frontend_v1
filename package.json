@@ -14,7 +14,15 @@
     "typecheck": "tsc --noEmit",
     "test": "node scripts/run-tests.mjs",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "native:install": "npm --prefix native install",
+    "native:web": "tsc --noEmit && node scripts/build-native-web.mjs",
+    "native:prebuild": "npm --prefix native run prebuild",
+    "native:android": "npm run native:web && npm --prefix native run android",
+    "native:android:release": "npm run native:web && npm --prefix native run android:release",
+    "native:android:bundle": "npm run native:web && npm --prefix native run android:bundle",
+    "native:ios": "npm run native:web && npm --prefix native run ios",
+    "native:ios:release": "npm run native:web && npm --prefix native run ios:release"
   },
   "dependencies": {
     "@stomp/stompjs": "^7.5.0",

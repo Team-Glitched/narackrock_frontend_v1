@@ -83,6 +83,45 @@ GitHub Actions 저장소 변수 `VITE_API_BASE_URL`, `VITE_GOOGLE_CLIENT_ID`와 
 
 배포 ingress는 기존 콘텐츠의 상대 `/files/...` URL을 백엔드로 전달하고 나머지 경로는 프론트로 전달합니다. 프론트 컨테이너만 직접 실행하면 이 파일 라우팅이 없고, 로컬 `http://127.0.0.1:15173` 출처가 운영 API CORS에 허용되지 않을 수 있습니다. 운영 연동 검증은 ingress와 실제 운영 출처를 함께 사용해야 하며, 검증을 위해 운영 CORS를 임의로 넓히지 않습니다.
 
+## React Native 앱 빌드
+
+배포 우선순위는 웹 → Android → iOS입니다. 웹 빌드·배포(`npm run build`, Docker)는 앱과 무관하게 그대로이고, 앱은 같은 웹 빌드를 담는 React Native(Expo) 셸(`native/`)입니다. `native/`는 루트와 별도 패키지라 웹의 React 버전과 의존성에 영향을 주지 않습니다.
+
+앱은 Vite 빌드 결과를 번들에 포함하고, 기기 안의 로컬 정적 서버(`@dr.pogodin/react-native-static-server`)로 `http://127.0.0.1:17173`에서 제공한 뒤 `react-native-webview`로 띄웁니다. `createBrowserRouter`와 origin 단위 `localStorage`가 웹과 똑같이 동작하도록 `file://` 대신 고정 포트의 HTTP origin을 사용합니다.
+
+```sh
+cp .env.native.example .env.native   # API 주소, Google 웹 클라이언트 ID, 공유 링크용 웹 origin
+npm run native:install               # native/ 의존성 설치 (최초 1회)
+npm run native:web                   # 타입 검사 + native/web/webroot 로 웹 빌드
+npm run native:android               # Android 디버그 빌드·실행
+npm run native:android:release       # Android 릴리스 APK 빌드·실행 (업로드 키 없으면 디버그 키로 서명)
+npm run native:android:bundle        # Play 스토어 업로드용 AAB (업로드 키 필수)
+npm run native:ios                   # iOS 디버그 빌드·실행
+npm run native:ios:release
+npm run native:prebuild              # app.config.ts/플러그인 변경 후 native/android, native/ios 재생성
+```
+
+### 웹 ↔ 앱 연동
+
+- `src/lib/native-app.ts`: 앱 안에서 실행 중인지(`nativeApp()`) 판별하고, 네이티브 기능을 요청(`requestNative`)합니다. 일반 브라우저에서는 `nativeApp()`이 `null`이라 웹 동작은 바뀌지 않습니다. 앱 쪽 처리는 `native/bridge.ts`입니다.
+- Google 로그인: Google은 WebView 안의 웹 로그인을 막으므로, 앱에서는 로그인 화면이 네이티브 Google 로그인(`@react-native-google-signin/google-signin`)을 호출합니다. ID 토큰은 웹 클라이언트 ID 기준으로 발급되어 백엔드 검증은 웹과 같습니다.
+- 공유 링크: 앱의 페이지 origin은 `127.0.0.1`이므로 `VITE_PUBLIC_WEB_ORIGIN`(운영 `https://narackrock.com`)으로 만듭니다. 웹에서는 설정하지 않으면 현재 origin을 씁니다.
+- 기존 콘텐츠의 상대 `/files/...` URL은 앱의 로컬 서버가 API origin으로 리다이렉트합니다.
+
+### 배포 설정
+
+- 버전: 루트 `package.json`의 `version`을 웹과 앱이 함께 사용합니다. Android `versionCode`와 iOS `buildNumber`는 `1.2.3 → 10203`으로 계산되므로 스토어 업로드마다 루트 버전을 올립니다.
+- Android 서명: Play 업로드 키를 `~/.gradle/gradle.properties`(또는 `ORG_GRADLE_PROJECT_*` 환경 변수)에 `NARACKROCK_UPLOAD_STORE_FILE`, `NARACKROCK_UPLOAD_STORE_PASSWORD`, `NARACKROCK_UPLOAD_KEY_ALIAS`, `NARACKROCK_UPLOAD_KEY_PASSWORD`로 설정합니다. 키스토어와 비밀번호는 저장소에 넣지 않습니다.
+- Android 네트워크: 평문 HTTP는 `127.0.0.1`(앱 내부 서버), `localhost`·`10.0.2.2`(개발용 Metro)만 허용합니다.
+- Google Cloud(웹 클라이언트와 같은 프로젝트): Android OAuth 클라이언트를 패키지 `com.teamglitched.narackrock`와 서명 인증서 SHA-1(디버그 키, 업로드 키, Play 앱 서명 키)로 등록합니다. iOS는 iOS OAuth 클라이언트를 만들고 `native/.env`의 `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID`에 넣습니다(`native/.env.example` 참고).
+- 백엔드: CORS(`ADLIPS_CORS_ALLOWED_ORIGINS`)와 채팅 WebSocket 허용 origin에 `http://127.0.0.1:17173`을 추가해야 앱에서 API를 호출할 수 있습니다.
+
+### 참고
+
+- 웹 빌드는 Vite mode `native`로 수행해 `.env.native`(`.env.native.local`)가 `.env.local`보다 우선합니다. 기기에서 `localhost`는 개발 PC가 아니므로 LAN IP, Android 에뮬레이터의 `10.0.2.2`, 또는 배포 API를 사용합니다.
+- `native/android`, `native/ios`, `native/web`은 생성물이며 커밋하지 않습니다. 네이티브 설정은 `native/app.config.ts`와 `native/plugins/`에서 관리합니다.
+- 빌드 도구: Node.js, JDK 17(Android, React Native 공식 권장), Android SDK의 NDK·CMake, Homebrew `cmake`·`pkg-config`(정적 서버 네이티브 빌드), iOS는 Xcode와 CocoaPods가 필요합니다.
+
 ## 구조
 
 같은 기능의 페이지, 화면, 훅, 테스트는 `src/features/<기능>/`에서 함께 찾습니다.

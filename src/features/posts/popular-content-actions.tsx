@@ -7,6 +7,7 @@ import { useCurrentUserId } from "@/features/auth/use-current-user";
 import { useShareLink } from "@/hooks/use-share-link";
 import { ApiError, apiOrigin } from "@/lib/api/client";
 import { canonicalShareLink } from "@/lib/api/content-link";
+import { publicWebOrigin } from "@/lib/public-web-origin";
 import { getPostShareLink } from "@/lib/api/community";
 import { getShortShareLink } from "@/lib/api/shorts";
 import { reportPost, reportShort } from "@/lib/api/reports";
@@ -48,7 +49,7 @@ export function PopularContentActions({ kind, id, title, ownerId }: { kind: "pos
       const { shareUrl } = await (kind === "post" ? getPostShareLink(id) : getShortShareLink(id));
       if (latest.current !== started) return;
       anchor.current?.focus();
-      const message = await sharing.share(title, canonicalShareLink(kind, id, shareUrl, window.location.origin));
+      const message = await sharing.share(title, canonicalShareLink(kind, id, shareUrl, publicWebOrigin()));
       if (latest.current === started) setNotice(message);
     } catch (cause) { if (latest.current === started) setNotice(cause instanceof ApiError ? cause.message : postError(cause)); }
     finally { if (latest.current === started) setBusy(false); }

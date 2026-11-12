@@ -5,7 +5,17 @@ import globals from "globals";
 import { defineConfig, globalIgnores } from "eslint/config";
 
 export default defineConfig([
-  globalIgnores(["dist/**", ".next/**", ".vinext/**", "node_modules/**"]),
+  globalIgnores([
+    "dist/**",
+    ".next/**",
+    ".vinext/**",
+    "node_modules/**",
+    "native/node_modules/**",
+    "native/.expo/**",
+    "native/android/**",
+    "native/ios/**",
+    "native/web/**",
+  ]),
   js.configs.recommended,
   ...ts.configs["flat/recommended"],
   {
@@ -14,5 +24,11 @@ export default defineConfig([
   {
     files: ["src/**/*.{ts,tsx}"],
     extends: [hooks.configs.flat.recommended],
+  },
+  {
+    // Expo config plugins are loaded by Node as CommonJS.
+    files: ["native/plugins/**/*.js"],
+    languageOptions: { sourceType: "commonjs" },
+    rules: { "@typescript-eslint/no-require-imports": "off" },
   },
 ]);
