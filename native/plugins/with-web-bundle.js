@@ -9,7 +9,7 @@ const IOS_SCRIPT = [
   "set -e",
   'SRC="${PROJECT_DIR}/../web/webroot"',
   'if [ ! -f "${SRC}/index.html" ]; then',
-  '  echo "error: ${SRC}/index.html is missing. Run \\"npm run native:web\\" in the repository root first."',
+  '  echo "error: ${SRC}/index.html is missing. Run npm run native:web in the repository root first."',
   "  exit 1",
   "fi",
   'DEST="${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/webroot"',
