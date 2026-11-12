@@ -51,9 +51,13 @@ export function HomeScreen({
 }) {
   const posts = useGalleryPosts("popular");
   const songs = useHomeSongs();
+  // Guests have no works or songs of their own, so their sections are not shown at all.
+  const signedIn = useCurrentUserId() !== null;
   return (
     <div className={cn(sharedStyles.homeContent, sharedStyles.scrollContent)}>
-      <HomeWorkSection onOpenWorkspace={onOpenWorkspace} onStartSong={onStartSong} onResume={onResume} />
+      {signedIn && (
+        <HomeWorkSection onOpenWorkspace={onOpenWorkspace} onStartSong={onStartSong} onResume={onResume} />
+      )}
       <section>
         <SectionTitle onAll={() => onShowSongs("popular")}>인기 차트</SectionTitle>
         {songs.popular.status !== "ready" ? (
@@ -88,16 +92,18 @@ export function HomeScreen({
           )}
         </div>
       </section>
-      <section>
-        <SectionTitle onAll={() => onShowSongs("mine")}>{uiLabels.myMusic}</SectionTitle>
-        {songs.mine.status !== "ready" ? (
-          <SongRailStatus state={songs.mine.status} />
-        ) : songs.mine.items.length === 0 ? (
-          <SongRailStatus state="empty" />
-        ) : (
-          <SongRail songs={songs.mine.items} onOpen={onOpenShort} />
-        )}
-      </section>
+      {signedIn && (
+        <section>
+          <SectionTitle onAll={() => onShowSongs("mine")}>{uiLabels.myMusic}</SectionTitle>
+          {songs.mine.status !== "ready" ? (
+            <SongRailStatus state={songs.mine.status} />
+          ) : songs.mine.items.length === 0 ? (
+            <SongRailStatus state="empty" />
+          ) : (
+            <SongRail songs={songs.mine.items} onOpen={onOpenShort} />
+          )}
+        </section>
+      )}
     </div>
   );
 }
