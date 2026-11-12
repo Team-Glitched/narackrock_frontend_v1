@@ -44,7 +44,7 @@ export function CommunityScreen({
 
   return (
     <div className={cn(communityStyles.communityView, sharedStyles.socialScreen)}>
-      <div className={communityStyles.communityTabs} aria-label="소셜 메뉴">
+      <div className={communityStyles.communityTabs} aria-label="소셜 메뉴" data-create-boundary>
         <button
           aria-pressed={tab === "posts"}
           className={tab === "posts" ? sharedStyles.active : ""}
