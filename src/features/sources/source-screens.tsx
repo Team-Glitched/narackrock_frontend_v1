@@ -3,7 +3,7 @@ import { sharedStyles } from "@/styles/shared.styles";
 import { communityStyles } from "@/styles/community.styles";
 import { buttonVariants } from "@/styles/variants";
 import { cn } from "@/lib/utils";
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { SectionTitle } from "@/components/section-title";
 import { Avatar } from "@/components/avatar";
@@ -21,6 +21,7 @@ import { relativeTime } from "@/features/posts/post-utils";
 import {
   createOpenSourceComment,
   getOpenSourceComments,
+  hideOpenSourceComment,
   getOpenSourceShare,
   reactToOpenSource,
   reactToOpenSourceComment,
@@ -29,11 +30,11 @@ import {
 } from "@/lib/api/open-sources";
 import { openSourceListQuery, openSourceQuery, patchSource, sourceKeys, useSourceSaveMutation } from "./source-queries";
 
-export function sourceError(cause: unknown, fallback = "오픈소스를 불러오지 못했습니다.") {
+export function sourceError(cause: unknown, fallback = "샘플을 불러오지 못했습니다.") {
   if (cause instanceof ApiError) {
     if (cause.status === 401) return "로그인이 만료되었습니다. 다시 로그인해 주세요.";
-    if (cause.status === 403) return "이 오픈소스에 접근할 권한이 없습니다.";
-    if (cause.status === 404) return "삭제되었거나 비공개인 오픈소스입니다.";
+    if (cause.status === 403) return "이 샘플에 접근할 권한이 없습니다.";
+    if (cause.status === 404) return "삭제되었거나 비공개인 샘플입니다.";
     return cause.message || fallback;
   }
   return cause instanceof TypeError ? "서버에 연결하지 못했습니다. 네트워크를 확인해주세요." : fallback;
@@ -149,21 +150,21 @@ export function OpensourceScreen({
   onProfile: (id: number) => void;
 }) {
   const list = useOpenSourceList("", true);
-  if (!list.signedIn) return <SignInRequired>오픈소스는 로그인 후 볼 수 있습니다.</SignInRequired>;
+  if (!list.signedIn) return <SignInRequired>샘플은 로그인 후 볼 수 있습니다.</SignInRequired>;
   const { state } = list;
   return (
     <div className={cn(sourceStyles.opensourceView, sharedStyles.scrollContent, sourceStyles.osDiscoverySections)}>
-      <section aria-label="오픈소스 인기 차트">
+      <section aria-label="샘플 인기 차트">
         <SectionTitle>인기 차트</SectionTitle>
         <p className={sourceStyles.osDiscoveryEmpty}>인기 차트는 현재 서버에서 지원하지 않습니다.</p>
       </section>
-      <section aria-label="추천 오픈소스">
-        <SectionTitle>추천 오픈소스</SectionTitle>
-        <p className={sourceStyles.osDiscoveryEmpty}>추천 오픈소스는 현재 서버에서 지원하지 않습니다.</p>
+      <section aria-label="추천 샘플">
+        <SectionTitle>추천 샘플</SectionTitle>
+        <p className={sourceStyles.osDiscoveryEmpty}>추천 샘플은 현재 서버에서 지원하지 않습니다.</p>
       </section>
-      <section aria-label="전체 오픈소스">
-        <SectionTitle>전체 오픈소스</SectionTitle>
-        {!state && <p role="status">오픈소스를 불러오는 중...</p>}
+      <section aria-label="전체 샘플">
+        <SectionTitle>전체 샘플</SectionTitle>
+        {!state && <p role="status">샘플을 불러오는 중...</p>}
         {state?.error && (
           <div role="alert">
             <p>{state.error}</p>
@@ -173,7 +174,7 @@ export function OpensourceScreen({
           </div>
         )}
         {state && !state.error && state.items.length === 0 && (
-          <p className={sourceStyles.osDiscoveryEmpty}>아직 공개된 오픈소스가 없습니다.</p>
+          <p className={sourceStyles.osDiscoveryEmpty}>아직 공개된 샘플이 없습니다.</p>
         )}
         {state && state.items.length > 0 && (
           <div className={sourceStyles.osDiscoveryList}>
@@ -252,7 +253,7 @@ function SourceDetail({
         </button>
         <p className={sourceStyles.osDetailCopy}>{source.description ?? ""}</p>
         <SourcePlayback sourceId={source.openSourceId} canPreview={source.canPreview} durationMs={source.durationMs} />
-        <p className={sourceStyles.osDiscoveryEmpty}>보관한 뒤 피아노롤의 ‘+ 오픈소스’에서 내 레이어에 오디오로 넣을 수 있습니다.</p>
+        <p className={sourceStyles.osDiscoveryEmpty}>보관한 뒤 피아노롤의 ‘+ 샘플’에서 내 레이어에 오디오로 넣을 수 있습니다.</p>
         <PostActions
           likeCount={source.likeCount}
           dislikeCount={source.dislikeCount}
@@ -284,6 +285,9 @@ export function OpensourceDetailScreen({
   const userId = useCurrentUserId();
   const queryClient = useQueryClient();
   const query = useQuery({ ...openSourceQuery(userId, sourceId), enabled: userId !== null });
+  const refreshSource = useCallback(() => {
+    void queryClient.invalidateQueries({ queryKey: sourceKeys.detail(userId, sourceId) });
+  }, [queryClient, userId, sourceId]);
   const [focus, setFocus] = useState(focusComments ? 1 : 0);
   const adapter = useMemo<CommentAdapter>(
     () => ({
@@ -312,12 +316,13 @@ export function OpensourceDetailScreen({
       },
       create: (text, parentId) => createOpenSourceComment(sourceId, text, parentId),
       react: reactToOpenSourceComment,
+      hide: hideOpenSourceComment,
     }),
     [sourceId],
   );
-  if (userId === null) return <SignInRequired>오픈소스는 로그인 후 볼 수 있습니다.</SignInRequired>;
+  if (userId === null) return <SignInRequired>샘플은 로그인 후 볼 수 있습니다.</SignInRequired>;
   const source = query.data;
-  if (!source && (!query.error || query.isFetching)) return <PageState>오픈소스를 불러오는 중...</PageState>;
+  if (!source && (!query.error || query.isFetching)) return <PageState>샘플을 불러오는 중...</PageState>;
   if (!source)
     return (
       <PageState error>
@@ -337,7 +342,7 @@ export function OpensourceDetailScreen({
         onProfile={onProfile}
         focus={focus}
         // The detail's comment count is server-owned: reread it after a comment is added or removed.
-        onChanged={() => void queryClient.invalidateQueries({ queryKey: sourceKeys.detail(userId, sourceId) })}
+        onChanged={refreshSource}
         header={<SourceDetail source={source} onComments={() => setFocus((value) => value + 1)} onProfile={onProfile} />}
       />
     </div>

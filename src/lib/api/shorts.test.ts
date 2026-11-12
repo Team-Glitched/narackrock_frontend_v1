@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { afterEach, test } from "node:test";
-import { getMyShorts } from "./shorts.ts";
+import { getMyShorts, getRecommendedShorts } from "./shorts.ts";
 import { clearAuthSession, setAuthSession } from "./client.ts";
 
 const originalFetch = globalThis.fetch;
@@ -35,4 +35,22 @@ test("mine defaults to a bounded first page without a synthetic cursor", async (
   const url = new URL(requested, "https://example.test");
   assert.equal(url.searchParams.get("size"), "20");
   assert.equal(url.searchParams.has("cursor"), false);
+});
+
+test("recommendations preserve song cards and send the opaque continuation cursor", async () => {
+  const controller = new AbortController();
+  const cursor = "87b0a34c-a571-4c3c-b770-60254f0fd133:10";
+  const page = {
+    items: [{ shortId: 12, title: "Song", albumImageUrl: null, author: { userId: 2, nickname: "Composer" } }],
+    page: { nextCursor: null, hasMore: false, size: 10 },
+  };
+  globalThis.fetch = async (input, init) => {
+    const url = new URL(String(input), "https://example.test");
+    assert.equal(url.pathname, "/api/v1/shorts/recommended");
+    assert.equal(url.searchParams.get("cursor"), cursor);
+    assert.equal(url.searchParams.get("size"), "10");
+    assert.equal(init?.signal, controller.signal);
+    return Response.json({ success: true, message: "", data: page });
+  };
+  assert.deepEqual(await getRecommendedShorts(cursor, controller.signal), page);
 });

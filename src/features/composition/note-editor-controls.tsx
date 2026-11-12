@@ -3,6 +3,7 @@ import {
   ChevronLeft, ChevronRight, ClipboardPaste, Copy, CopyPlus, Drum, Eraser, Hand, ListChecks, Music,
   Magnet, Pencil, Redo2, SlidersHorizontal, SquareDashedMousePointer, Trash2, Undo2, X, type LucideIcon,
 } from "lucide-react";
+import { Dropdown } from "@/components/dropdown";
 import { cn } from "@/lib/utils";
 import type { NoteEditorController } from "./use-note-editor";
 
@@ -11,8 +12,8 @@ const tools: ReadonlyArray<[NoteEditorController["view"]["tool"], string, Lucide
 ];
 const iconButton = "grid h-7 w-[26px] shrink-0 place-items-center rounded-[6px] text-app-fg hover:bg-app-surface disabled:pointer-events-none disabled:opacity-35";
 const pill = "flex h-7 shrink-0 items-center gap-1 rounded-[8px] bg-app-surface px-1.5 text-caption text-app-muted";
-const selectPill = cn(pill, "has-[:focus-visible]:[outline:1px_auto_-webkit-focus-ring-color]");
-const selectInput = "cursor-pointer bg-transparent font-medium text-app-fg outline-none [color-scheme:dark] [&>option]:bg-app-panel [&>option]:text-app-fg";
+const snapOptions = ([4, 8, 16] as const).map((value) => ({ value, label: `1/${value}` }));
+const barsOptions = ([1, 2, 4] as const).map((value) => ({ value, label: `${value}마디` }));
 
 function IconButton({ label, icon: Icon, className, ...props }: {
   label: string; icon: LucideIcon; className?: string; disabled?: boolean; onClick: () => void;
@@ -86,28 +87,23 @@ export function NoteEditorControls({ editor, positionTick = 0, onChord, onSettin
       </Group>
       <Divider />
       <Group label="격자와 구간">
-        <label className={selectPill} title="스냅">
-          <Magnet size={13} aria-hidden="true" />
-          <select
-            aria-label="스냅"
-            className={selectInput}
-            value={view.snapDenominator}
-            onChange={(event) => editor.setSnapDenominator(Number(event.target.value) as 4 | 8 | 16)}
-          >
-            {[4, 8, 16].map((n) => <option key={n} value={n}>1/{n}</option>)}
-          </select>
-        </label>
-        <label className={selectPill}>
-          <select
-            aria-label="표시 마디"
-            className={selectInput}
-            value={view.visibleBars}
-            onChange={(event) => editor.setVisibleBars(Number(event.target.value) as 1 | 2 | 4)}
-          >
-            {[1, 2, 4].map((n) => <option key={n} value={n}>{n}</option>)}
-          </select>
-          마디
-        </label>
+        <Dropdown
+          label="스냅"
+          compact
+          className="shrink-0"
+          icon={<Magnet size={13} className="shrink-0 text-app-muted" aria-hidden="true" />}
+          value={view.snapDenominator}
+          options={snapOptions}
+          onChange={editor.setSnapDenominator}
+        />
+        <Dropdown
+          label="표시 마디"
+          compact
+          className="shrink-0"
+          value={view.visibleBars}
+          options={barsOptions}
+          onChange={editor.setVisibleBars}
+        />
         <IconButton label="이전 구간" icon={ChevronLeft} disabled={view.viewStartTick <= 0}
           onClick={() => editor.setViewStartTick(view.viewStartTick - editor.windowTicks)} />
         <IconButton label="다음 구간" icon={ChevronRight} disabled={view.viewStartTick >= lastStart}

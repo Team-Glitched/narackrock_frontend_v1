@@ -1,19 +1,38 @@
 import { abyssStyles } from "@/styles/abyss.styles";
-import { cn } from "@/lib/utils";
-import { useRef } from "react";
+import { useLayoutEffect, useRef } from "react";
 import type { ShortItemDto } from "@/lib/api/contracts";
+import defaultCover from "./assets/shortform-default-cover.png";
 export function AlbumCarousel({
   items,
   index,
+  cycle,
   onPrevious,
   onNext,
 }: {
   items: ShortItemDto[];
   index: number;
+  cycle: { key: number; previous: ShortItemDto; direction: "next" | "previous" } | null;
   onPrevious: () => void;
   onNext: () => void;
 }) {
   const gesture = useRef<{ x: number; y: number; id: number } | null>(null);
+  const track = useRef<HTMLDivElement>(null);
+  const leadingCover = cycle?.direction === "next";
+  const coverIndex = index + (leadingCover ? 1 : 0);
+  const covers = cycle
+    ? leadingCover ? [cycle.previous, ...items] : [...items, cycle.previous]
+    : items;
+  const cycleCoverPosition = leadingCover ? 0 : items.length;
+
+  useLayoutEffect(() => {
+    if (!cycle || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const animation = track.current?.animate(
+      [{ translate: cycle.direction === "next" ? "var(--cover-step, 320px)" : "calc(-1 * var(--cover-step, 320px))" }, { translate: "0px" }],
+      { duration: 320, easing: "cubic-bezier(.22,.61,.36,1)" },
+    );
+    return () => animation?.cancel();
+  }, [cycle]);
+
   return (
     <div
       className={abyssStyles.abyssCoverViewport}
@@ -51,30 +70,22 @@ export function AlbumCarousel({
       }}
     >
       <div
+        key={cycle?.key ?? 0}
+        ref={track}
         className={abyssStyles.abyssCoverTrack}
-        style={{ transform: `translateX(calc(${index} * -1 * var(--cover-step, 360px)))` }}
+        style={{ transform: `translateX(calc(${coverIndex} * -1 * var(--cover-step, 320px)))` }}
       >
-        {items.map((item, position) =>
-          item.albumImageUrl ? (
-            <img
-              key={item.shortId}
-              src={item.albumImageUrl}
-              alt={position === index ? `${item.title} 앨범 커버` : ""}
-              aria-hidden={position !== index}
-              className={abyssStyles.abyssCover}
-              draggable={false}
-              loading={Math.abs(position - index) > 1 ? "lazy" : "eager"}
-            />
-          ) : (
-            <div
-              key={item.shortId}
-              className={cn(abyssStyles.abyssCover, abyssStyles.abyssCoverEmpty)}
-              role="img"
-              aria-label={`${item.title} 앨범 이미지 없음`}
-              aria-hidden={position !== index}
-            />
-          ),
-        )}
+        {covers.map((item, position) => (
+          <img
+            key={cycle && position === cycleCoverPosition ? "previous-cycle" : item.shortId}
+            src={item.albumImageUrl?.trim() || defaultCover}
+            alt={position === coverIndex ? `${item.title} 앨범 커버` : ""}
+            aria-hidden={position !== coverIndex}
+            className={abyssStyles.abyssCover}
+            draggable={false}
+            loading={Math.abs(position - coverIndex) > 1 ? "lazy" : "eager"}
+          />
+        ))}
       </div>
       <span className={"sr-only"} aria-live="polite">
         {index + 1} / {items.length}, {items[index]?.title}

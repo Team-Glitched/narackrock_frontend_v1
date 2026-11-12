@@ -48,7 +48,7 @@ export function StudioSourceDialog({
       }}
     >
       <header>
-        <h2 id={id}>오픈소스 추가</h2>
+        <h2 id={id}>샘플 추가</h2>
         <button aria-label="가져오기 닫기" disabled={busy !== null} onClick={onClose}>
           <Asset name="search-close.svg" />
         </button>
@@ -56,7 +56,7 @@ export function StudioSourceDialog({
       {onOpenSource && (
         <div className="flex gap-2" role="group" aria-label="가져올 자료">
           {([
-            ["saved", "보관한 오픈소스"],
+            ["saved", "보관한 샘플"],
             ["local", "이 기기의 MIDI 작업"],
           ] as const).map(([value, label]) => (
             <button
@@ -74,13 +74,13 @@ export function StudioSourceDialog({
       )}
       <p>
         {tab === "saved"
-          ? "보관한 오픈소스를 내 레이어에 오디오로 넣습니다. 현재 재생 위치부터 들어갑니다."
+          ? "보관한 샘플을 내 레이어에 오디오로 넣습니다. 현재 재생 위치부터 들어갑니다."
           : "이 기기에 남아 있는 MIDI 작업의 노트를 지금 편집 중인 초안에 넣습니다."}
       </p>
       <label>
         <input
-          aria-label="오픈소스 검색"
-          placeholder={tab === "saved" ? "보관한 오픈소스 검색" : "MIDI 작업 검색"}
+          aria-label="샘플 검색"
+          placeholder={tab === "saved" ? "보관한 샘플 검색" : "MIDI 작업 검색"}
           value={query}
           onChange={(event) => setQuery(event.target.value)}
         />
@@ -111,7 +111,7 @@ function SavedSourceRows({ keyword, busy, onPick }: {
   onPick: (source: OpenSourceSummary) => void;
 }) {
   const { state, more } = usePagedItems(savedSourcesScope, 0, loadSavedSources);
-  if (!state) return <p role="status">보관한 오픈소스를 불러오는 중...</p>;
+  if (!state) return <p role="status">보관한 샘플을 불러오는 중...</p>;
   const sources = state.items.flatMap((item) =>
     item.availability === "AVAILABLE" && item.source &&
     `${item.source.title} ${item.source.description ?? ""}`.toLocaleLowerCase().includes(keyword)
@@ -136,9 +136,9 @@ function SavedSourceRows({ keyword, busy, onPick }: {
         </div>
       ))}
       {!sources.length && state.next === null && !state.error && (
-        <p>{keyword ? "검색 결과가 없습니다." : "보관한 오픈소스가 없습니다. 오픈소스 화면에서 마음에 드는 소리를 보관해 보세요."}</p>
+        <p>{keyword ? "검색 결과가 없습니다." : "보관한 샘플이 없습니다. 샘플 화면에서 마음에 드는 소리를 보관해 보세요."}</p>
       )}
-      {state.error && <p role="alert">보관한 오픈소스를 불러오지 못했습니다.</p>}
+      {state.error && <p role="alert">보관한 샘플을 불러오지 못했습니다.</p>}
       {state.next !== null && (
         <button disabled={state.busy || busy !== null} onClick={more}>
           {state.busy ? "불러오는 중…" : state.error ? "다시 시도" : "더보기"}

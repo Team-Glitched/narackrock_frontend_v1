@@ -1,3 +1,4 @@
+import { cn } from "@/lib/utils";
 import { sharedStyles } from "@/styles/shared.styles";
 import { createPortal } from "react-dom";
 import { useEffect, useEffectEvent, useRef, type ReactNode } from "react";
@@ -15,6 +16,7 @@ export function CanvasDialog({
   children: ReactNode;
 }) {
   const host = usePortalHost(".design-canvas");
+  const overlay = useRef<HTMLDivElement>(null);
   const panel = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
@@ -32,8 +34,9 @@ export function CanvasDialog({
   useEffect(() => {
     if (!host) return;
     const escape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape" || event.defaultPrevented) return;
       const dialogs = host.querySelectorAll('[role="dialog"]');
-      if (event.key !== "Escape" || dialogs[dialogs.length - 1] !== panel.current) return;
+      if (dialogs[dialogs.length - 1] !== overlay.current) return;
       event.preventDefault();
       closeDialog();
     };
@@ -43,18 +46,22 @@ export function CanvasDialog({
   }, [host]);
   if (!host) return null;
   return createPortal(
-    <div className={sharedStyles.canvasDialogOverlay}>
+    <div
+      ref={overlay}
+      className={sharedStyles.canvasDialogOverlay}
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby={titleId}
+    >
       <button
         className={sharedStyles.canvasDialogBackdrop}
-        aria-label="팝업 닫기"
+        aria-hidden="true"
+        tabIndex={-1}
         onClick={onClose}
       />
       <div
         ref={panel}
-        className={className}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={titleId}
+        className={cn("canvas-dialog-panel", className)}
         tabIndex={-1}
         onKeyDown={(event) => {
           if (event.key !== "Tab") return;

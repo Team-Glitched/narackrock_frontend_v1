@@ -23,7 +23,7 @@ export const postKeys = {
     [...postKeys.all(userId), "detail", postId] as const,
 };
 
-/** Post detail; the server needs a signed-in user to compute `isLiked`/`isBookmarked`. */
+/** Public post detail with account-specific reaction and bookmark state when signed in. */
 export function postDetailQuery(userId: number | null, postId: number) {
   return queryOptions({
     queryKey: postKeys.detail(userId, postId),

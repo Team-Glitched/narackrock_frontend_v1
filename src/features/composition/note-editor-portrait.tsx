@@ -21,7 +21,7 @@ const rowScroll = "overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]
  */
 export function PortraitNoteEditor({
   title, bpm, signature, onTiming, timeMs, instrument, playing, onPlay, onPause, onRewind, metronome,
-  onMetronome, volume, onVolume, onBack, onSave, onImportSource, controls, status, tools, roll,
+  onMetronome, volume, onVolume, onBack, onOpenLayers, onImportSource, controls, status, tools, roll,
 }: {
   title: string;
   bpm: number;
@@ -39,7 +39,7 @@ export function PortraitNoteEditor({
   volume: number;
   onVolume: (value: number) => void;
   onBack: () => void;
-  onSave?: () => void;
+  onOpenLayers: () => void;
   onImportSource?: () => void;
   /** Selection, history, grid actions and the status row from the landscape layout. */
   controls: ReactNode;
@@ -70,15 +70,13 @@ export function PortraitNoteEditor({
             aria-valuetext={`${volume}%`}
           />
         </label>
-        {onSave && (
-          <button
-            className={cn(studioStyles.studioAdd, "relative h-9 w-14 shrink-0 rounded-[10px] bg-app-primary [&_i]:top-[17px]! [&_i]:left-[18px]!")}
-            aria-label="저장 및 나가기"
-            onClick={onSave}
-          >
-            <i />
-          </button>
-        )}
+        <button
+          className={cn(studioStyles.studioAdd, "relative h-9 w-14 shrink-0 rounded-[10px] bg-app-primary [&_i]:top-[17px]! [&_i]:left-[18px]!")}
+          aria-label="레이어 목록"
+          onClick={onOpenLayers}
+        >
+          <i />
+        </button>
       </div>
       <div className={cn("flex h-12 shrink-0 items-center gap-2 px-4", rowScroll)}>
         {onTiming ? (
@@ -98,9 +96,9 @@ export function PortraitNoteEditor({
         )}
         <span className={readout}><small>time</small>{`00:${clockTime(timeMs)}`}</span>
         {onImportSource && (
-          <button className={readout} aria-label="오픈소스 추가" onClick={onImportSource}>
+          <button className={readout} aria-label="샘플 추가" onClick={onImportSource}>
             <span aria-hidden="true">+</span>
-            오픈소스
+            샘플
           </button>
         )}
         {instrument && (

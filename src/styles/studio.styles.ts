@@ -178,13 +178,18 @@ export const studioStyles = {
   ].join(" "),
   studioClip: [
     "studio-clip",
-    "[.design-canvas_.studio_&]:absolute [.design-canvas_.studio_&]:top-[1px] [.design-canvas_.studio_&]:h-[var(--layer-height)]",
-    "[.design-canvas_.studio_&]:overflow-hidden [.design-canvas_.studio_&]:rounded-[8px] [.design-canvas_.studio_&]:p-0",
-    "[.design-canvas_.studio_&]:bg-[image:var(--action-gradient)] [.design-canvas_.studio_&]:text-app-fg [.design-canvas_.studio_&]:border-0",
-    "[.design-canvas_.studio_&]:border-none [.design-canvas_.studio_&]:border-current",
-    "[.design-canvas_.studio_&:focus-visible]:[outline:2px_solid_var(--white)] [.design-canvas_.studio_&:focus-visible]:[outline-offset:-3px]",
-    "absolute top-[5px] h-10 overflow-hidden rounded-[5px] p-[0_6px] text-left text-caption whitespace-nowrap text-[#fff]",
+    "@container/clip absolute top-[5px] h-10 overflow-hidden rounded-[6px] text-left ring-1 ring-inset",
+    "[.design-canvas_.studio_&]:top-[1px] [.design-canvas_.studio_&]:h-[var(--layer-height)]",
+    "focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-app-fg",
   ].join(" "),
+  studioClipMidi:
+    "bg-linear-to-b from-[#342947] to-[#281f39] text-[#c7a9f4] ring-[#59466f] hover:ring-[#9276b6]",
+  studioClipAudio:
+    "bg-linear-to-b from-[#263e43] to-[#1c3037] text-[#8bd8cc] ring-[#416369] hover:ring-[#77a9a8]",
+  studioClipLabel:
+    "pointer-events-none absolute inset-x-2 top-1 hidden items-center gap-1.5 @min-[64px]/clip:flex",
+  studioClipPreview:
+    "pointer-events-none absolute inset-x-px top-[5px] bottom-[5px] @min-[64px]/clip:top-[18px]",
   studioTrackActions: [
     "studio-track-actions",
     "[.design-canvas_.studio_&]:hidden",
@@ -240,7 +245,7 @@ export const studioStyles = {
     "[.design-canvas_&]:h-full! [.design-canvas_&]:w-full!",
     // The shared note controls get the portrait's 16px margin and 36px touch targets.
     "[&_.note-editor-controls]:gap-1 [&_.note-editor-controls]:px-4 [&_.note-editor-controls]:py-1",
-    "[&_.note-editor-controls_button]:h-9 [&_.note-editor-controls_button]:min-w-9 [&_.note-editor-controls_label]:h-9",
+    "[&_.note-editor-controls_button]:h-9 [&_.note-editor-controls_button]:min-w-9",
     "[&_.note-editor-status]:px-4 [&_.note-editor-status]:py-1",
     // The narrow key column leaves no room beside a black key for its name.
     "[&_.piano-key.black_span]:invisible",

@@ -1,14 +1,16 @@
 import { studioStyles } from "@/styles/studio.styles";
-import { sharedStyles } from "@/styles/shared.styles";
 import { cn } from "@/lib/utils";
 import { useEffect, useRef, useState } from "react";
+import { AudioLines, Music2 } from "lucide-react";
 import type { ClipDto } from "@/lib/api/composition";
 import { pointerAxes } from "./pointer-coordinates";
 import { snappedClipStart } from "./timeline-move";
+import { TimelineClipPreview } from "./timeline-clip-preview";
+import { partFor } from "./instrument-parts";
 export function TimelineClip({
   clip,
   name,
-  color,
+  instrument,
   maxTick,
   stepTick,
   cellPx = 20,
@@ -16,11 +18,12 @@ export function TimelineClip({
   onMove,
   onSelect,
   onEdit,
+  openOnClick = false,
   onError,
 }: {
   clip: ClipDto;
   name: string;
-  color: string;
+  instrument: string | null;
   maxTick: number;
   stepTick: number;
   cellPx?: number;
@@ -28,6 +31,7 @@ export function TimelineClip({
   onMove: (tick: number) => Promise<void>;
   onSelect: () => void;
   onEdit?: () => void;
+  openOnClick?: boolean;
   onError: (text: string) => void;
 }) {
   const clickTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -41,6 +45,15 @@ export function TimelineClip({
     ignoreClick = useRef(false);
   const [position, setPosition] = useState<number | null>(null),
     [saving, setSaving] = useState(false);
+  const midi = clip.clipType === "MIDI";
+  const recording = clip.sourceType === "RECORDING";
+  const ClipIcon = midi ? Music2 : AudioLines;
+  const audioPart = midi ? undefined : partFor(instrument)?.label;
+  const layerName = recording && name.trim() === "녹음 레이어" ? "" : name;
+  const label = audioPart && layerName && layerName !== audioPart && !layerName.startsWith(`${audioPart} `)
+    ? `${audioPart} · ${layerName}`
+    : layerName || audioPart;
+  const clipTypeLabel = midi ? "MIDI 클립" : "오디오 클립";
   async function commit(tick: number) {
     if (tick === clip.startTick) {
       setPosition(null);
@@ -60,18 +73,17 @@ export function TimelineClip({
     <button
       className={cn(
         studioStyles.studioClip,
-        clip.clipType === "MIDI" ? sharedStyles.midi : sharedStyles.audio,
+        midi ? studioStyles.studioClipMidi : studioStyles.studioClipAudio,
         movable ? studioStyles.studioClipMovable : "",
       )}
       style={{
-        backgroundColor: color,
         left: `${((position ?? clip.startTick) / maxTick) * 100}%`,
         width: `${Math.max(0.1, (clip.durationTick / maxTick) * 100)}%`,
       }}
       disabled={saving}
-      aria-label={`${name} ${clip.clipType === "MIDI" ? "MIDI" : "오디오"} 클립`}
+      aria-label={label ? `${label} ${clipTypeLabel}` : clipTypeLabel}
       aria-busy={saving}
-      title={movable ? "끌어서 격자에 맞춰 이동 · 방향키로 한 칸 이동" : undefined}
+      title={movable ? `${name} · 끌어서 이동하거나 방향키로 한 칸 이동` : label ?? clipTypeLabel}
       onPointerDown={(event) => {
         if (!movable || saving || event.button !== 0) return;
         drag.current = {
@@ -125,7 +137,7 @@ export function TimelineClip({
           ignoreClick.current = false;
           return;
         }
-        if (onEdit && event.detail === 0) {
+        if (onEdit && (openOnClick || event.detail === 0)) {
           onEdit();
           return;
         }
@@ -136,7 +148,7 @@ export function TimelineClip({
       }}
       onDoubleClick={() => {
         if (clickTimer.current) clearTimeout(clickTimer.current);
-        onEdit?.();
+        if (!openOnClick) onEdit?.();
       }}
       onKeyDown={(event) => {
         if (!movable || saving || !["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key))
@@ -163,8 +175,14 @@ export function TimelineClip({
         void commit(tick);
       }}
     >
-      <span className={"sr-only"}>
-        {clip.clipType === "MIDI" ? `${clip.midiNotes.length} notes` : "Audio"}
+      <span className={studioStyles.studioClipLabel} aria-hidden="true">
+        <ClipIcon className="size-[11px] shrink-0" strokeWidth={1.8} />
+        {label && (
+          <span className="truncate text-[10px] leading-3 font-semibold text-app-fg">{label}</span>
+        )}
+      </span>
+      <span className={studioStyles.studioClipPreview} aria-hidden="true">
+        <TimelineClipPreview clip={clip} />
       </span>
     </button>
   );

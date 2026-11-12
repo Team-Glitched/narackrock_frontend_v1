@@ -7,8 +7,8 @@ import { getOpenSourcePlayback, type OpenSourcePlayback } from "@/lib/api/open-s
 function playbackError(cause: unknown) {
   if (cause instanceof ApiError) {
     if (cause.status === 401) return "로그인 후 재생할 수 있습니다.";
-    if (cause.status === 403) return "이 오픈소스를 재생할 권한이 없습니다.";
-    if (cause.status === 404) return "삭제되었거나 비공개로 바뀐 오픈소스입니다.";
+    if (cause.status === 403) return "이 샘플을 재생할 권한이 없습니다.";
+    if (cause.status === 404) return "삭제되었거나 비공개로 바뀐 샘플입니다.";
     return cause.message;
   }
   return "재생 정보를 불러오지 못했습니다. 네트워크를 확인해주세요.";
@@ -62,7 +62,7 @@ export function SourcePlayback({
   if (!canPreview)
     return (
       <p className={sourceStyles.osAudioError} role="status">
-        이 오픈소스는 현재 미리듣기를 사용할 수 없습니다.
+        이 샘플은 현재 미리듣기를 사용할 수 없습니다.
       </p>
     );
   return (
@@ -102,7 +102,7 @@ export function SourcePlayback({
           }
         }}
         onMute={() => setMuted((value) => !value)}
-        label="오픈소스"
+        label="샘플"
       />
       {duration === null && <small>재생 시간 정보 없음</small>}
       {error && (

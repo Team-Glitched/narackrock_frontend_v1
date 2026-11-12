@@ -10,18 +10,21 @@ const nav: { id: FooterTab; label: string; path: string }[] = [
   { id: "abyss", label: "어비스", path: "/abyss" },
   { id: "studio", label: "", path: "" },
   { id: "social", label: "소셜", path: "/social" },
-  { id: "opensource", label: "오픈소스", path: "/sources" },
+  { id: "opensource", label: "샘플", path: "/sources" },
 ];
 export function Footer({
   activeTab,
   onCreate,
-  createLabel,
+  createLabel = "곡 만들기",
 }: {
   activeTab: Exclude<FooterTab, "studio"> | null;
-  onCreate: () => void;
-  createLabel: string;
+  onCreate?: () => void;
+  createLabel?: string;
 }) {
-  const { to } = useUrlNavigation();
+  const { to, currentPath } = useUrlNavigation();
+  const create = onCreate ?? (() => {
+    to("/studio/new", { state: { studioFrom: currentPath, studioIndex: window.history.state?.idx } });
+  });
   return (
     <footer className={sharedStyles.appFooter}>
       {nav.map((item) => (
@@ -31,7 +34,7 @@ export function Footer({
             item.id === "studio" ? sharedStyles.makeButton : "",
             item.id === activeTab ? sharedStyles.active : "",
           )}
-          onClick={() => item.id === "studio" ? onCreate() : to(item.path)}
+          onClick={() => item.id === "studio" ? create() : to(item.path)}
           aria-label={item.id === "studio" ? createLabel : item.label}
           aria-current={item.id === activeTab ? "page" : undefined}
         >
