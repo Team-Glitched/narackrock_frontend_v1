@@ -1,3 +1,4 @@
+import { Dropdown } from "@/components/dropdown";
 import { useLoginPrompt } from "@/features/auth/login-prompt";
 import { profileStyles } from "@/styles/profile.styles";
 import { sharedStyles } from "@/styles/shared.styles";
@@ -192,16 +193,18 @@ function FeaturedMusicEditor({
               if (!saving && selection) void save(Number(selection));
             }}>
               <label htmlFor="featured-music-select">내 작업물에서 완성곡 선택</label>
-              <select
+              <Dropdown
                 id="featured-music-select"
-                className="rounded-lg border border-app-muted bg-app-surface p-2"
+                label="내 작업물에서 완성곡 선택"
+                className="w-full"
                 value={selection}
+                options={[
+                  { value: "", label: "곡을 선택해 주세요" },
+                  ...eligible.map((song) => ({ value: String(song.shortId), label: song.title })),
+                ]}
                 disabled={saving}
-                onChange={(event) => setSelection(event.target.value)}
-              >
-                <option value="">곡을 선택해 주세요</option>
-                {eligible.map((song) => <option key={song.shortId} value={song.shortId}>{song.title}</option>)}
-              </select>
+                onChange={setSelection}
+              />
               <button type="submit" className="justify-self-start rounded-lg bg-app-primary px-3 py-2" disabled={!selection || saving}>
                 저장
               </button>

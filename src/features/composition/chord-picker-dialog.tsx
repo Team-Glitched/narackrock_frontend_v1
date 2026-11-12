@@ -1,9 +1,18 @@
 import { useId, useState } from "react";
 import { CanvasDialog } from "@/components/canvas-dialog";
+import { Dropdown } from "@/components/dropdown";
 import { sharedStyles } from "@/styles/shared.styles";
 import { chordRoots, chordQualities, chordPitches, insertChord, type ChordQuality } from "./chord-input";
 import type { NoteEditorController } from "./use-note-editor";
 import type { TimeSignature } from "./time-signature";
+
+const octaveOptions = Array.from({ length: 10 }, (_, i) => ({ value: i - 1, label: String(i - 1) }));
+const lengthOptions = [
+  { value: "eighth", label: "1/8" },
+  { value: "quarter", label: "1/4" },
+  { value: "half", label: "1/2" },
+  { value: "bar", label: "한 마디" },
+] as const;
 
 export function ChordPickerDialog({ editor, ppq, signature, positionTick, onClose }: {
   editor: NoteEditorController; ppq: number; signature: TimeSignature; positionTick: number; onClose: () => void;
@@ -11,7 +20,7 @@ export function ChordPickerDialog({ editor, ppq, signature, positionTick, onClos
   const id = useId();
   const [octave, setOctave] = useState(4);
   const [root, setRoot] = useState(0);
-  const [length, setLength] = useState('eighth');
+  const [length, setLength] = useState<(typeof lengthOptions)[number]["value"]>("eighth");
   const [error, setError] = useState<string | null>(null);
   const durationTick = Math.max(1, Math.round(length === 'bar' ? ppq * 4 * signature.numerator / signature.denominator : ppq * (length === 'half' ? 2 : length === 'quarter' ? 1 : 0.5)));
   const rootPitch = (octave + 1) * 12 + root;
@@ -31,8 +40,14 @@ export function ChordPickerDialog({ editor, ppq, signature, positionTick, onClos
   return <CanvasDialog titleId={id} onClose={onClose} className={sharedStyles.instrumentDialog}>
     <h2 id={id}>코드 입력</h2>
     <div className="flex flex-wrap gap-3">
-      <label>옥타브<select aria-label="코드 옥타브" value={octave} onChange={(event) => setOctave(Number(event.target.value))}>{Array.from({length:10}, (_, i) => i - 1).map((n) => <option key={n} value={n}>{n}</option>)}</select></label>
-      <label>길이<select aria-label="코드 길이" value={length} onChange={(event) => setLength(event.target.value)}><option value="eighth">1/8</option><option value="quarter">1/4</option><option value="half">1/2</option><option value="bar">한 마디</option></select></label>
+      <div className="flex items-center gap-2 text-caption">
+        <span>옥타브</span>
+        <Dropdown label="코드 옥타브" compact value={octave} options={octaveOptions} onChange={setOctave} />
+      </div>
+      <div className="flex items-center gap-2 text-caption">
+        <span>길이</span>
+        <Dropdown label="코드 길이" compact value={length} options={lengthOptions} onChange={setLength} />
+      </div>
     </div>
     <div className="my-3 grid grid-cols-6 gap-2" aria-label="코드 근음">{chordRoots.map((item, index) => <button key={item.name} aria-pressed={root === index} onClick={() => setRoot(index)}>{item.name}{item.alternate ? `/${item.alternate}` : ''}</button>)}</div>
     <div className="grid grid-cols-3 gap-2">{chordQualities.map((quality) => <button className="rounded border p-2 disabled:opacity-40" key={quality.id} disabled={!allowed(quality.id)} onClick={() => choose(quality.id)} title={quality.label}>{chordRoots[root].name}{quality.suffix || ' major'}</button>)}</div>

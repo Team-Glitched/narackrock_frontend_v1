@@ -1,3 +1,4 @@
+import { Dropdown } from "@/components/dropdown";
 import { sharedStyles } from "@/styles/shared.styles";
 import { cn } from "@/lib/utils";
 import { communityStyles } from "@/styles/community.styles";
@@ -160,16 +161,15 @@ function ReportCard({ report, onDone }: { report: AdminReport; onDone: () => voi
       <small>
         신고자 {report.reporter?.nickname ?? "알 수 없음"} → 대상 {report.reportedUser?.nickname ?? "알 수 없음"} · {date(report.reportedAt)}
       </small>
-      <label>
-        처리
-        <select aria-label="신고 처리 방식" value={action} onChange={(event) => setAction(event.target.value as ReportAction)}>
-          {actions.map((value) => (
-            <option key={value} value={value}>
-              {actionLabels[value]}
-            </option>
-          ))}
-        </select>
-      </label>
+      <div className="flex items-center gap-2 py-2 text-caption">
+        <span>처리</span>
+        <Dropdown
+          label="신고 처리 방식"
+          value={action}
+          options={actions.map((value) => ({ value, label: actionLabels[value] }))}
+          onChange={setAction}
+        />
+      </div>
       {action === "BAN_USER" && (
         <input aria-label="정지 기간(일, 비우면 영구)" placeholder="정지 기간(일) · 비우면 영구" inputMode="numeric" value={days} onChange={(event) => setDays(event.target.value)} />
       )}

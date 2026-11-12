@@ -240,7 +240,7 @@ export const studioStyles = {
     "[.design-canvas_&]:h-full! [.design-canvas_&]:w-full!",
     // The shared note controls get the portrait's 16px margin and 36px touch targets.
     "[&_.note-editor-controls]:gap-1 [&_.note-editor-controls]:px-4 [&_.note-editor-controls]:py-1",
-    "[&_.note-editor-controls_button]:h-9 [&_.note-editor-controls_button]:min-w-9 [&_.note-editor-controls_label]:h-9",
+    "[&_.note-editor-controls_button]:h-9 [&_.note-editor-controls_button]:min-w-9",
     "[&_.note-editor-status]:px-4 [&_.note-editor-status]:py-1",
     // The narrow key column leaves no room beside a black key for its name.
     "[&_.piano-key.black_span]:invisible",

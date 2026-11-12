@@ -2,6 +2,7 @@ import { sharedStyles } from "@/styles/shared.styles";
 import { buttonVariants } from "@/styles/variants";
 import { cn } from "@/lib/utils";
 import { CanvasDialog } from "@/components/canvas-dialog";
+import { Dropdown } from "@/components/dropdown";
 import { DialogNumberInput } from "@/features/composition/dialog-number-input";
 import type { TimeSignature } from "@/features/composition/time-signature";
 import { useId, useState } from "react";
@@ -9,6 +10,7 @@ import { useId, useState } from "react";
 export type ProjectTiming = { bpm: number; signature: TimeSignature };
 
 const denominators = [2, 4, 8, 16];
+const denominatorOptions = denominators.map((value) => ({ value, label: String(value) }));
 
 /** Backend timing limits: BPM 30–300, numerator 1–12, denominator 2/4/8/16. */
 export function timingProblem({ bpm, signature }: ProjectTiming): string | null {
@@ -63,23 +65,20 @@ export function TimingDialog({
               }
             />
             <span>/</span>
-            <select
-              aria-label="기준 음표"
+            <Dropdown
+              label="기준 음표"
+              options={denominatorOptions}
+              compact
+              className="min-w-15"
               value={draft.signature.denominator}
               disabled={!editable}
-              onChange={(event) =>
+              onChange={(denominator) =>
                 setDraft((old) => ({
                   ...old,
-                  signature: { ...old.signature, denominator: Number(event.target.value) },
+                  signature: { ...old.signature, denominator },
                 }))
               }
-            >
-              {denominators.map((value) => (
-                <option key={value} value={value}>
-                  {value}
-                </option>
-              ))}
-            </select>
+            />
           </div>
         ) : (
           <>
