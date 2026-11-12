@@ -19,7 +19,6 @@ import { ApiError } from "@/lib/api/client";
 import { canonicalShareLink } from "@/lib/api/content-link";
 import { useShareLink } from "@/hooks/use-share-link";
 import { relativeTime } from "@/features/posts/post-utils";
-import { recommendByAuthor } from "@/features/community/discovery";
 import {
   createOpenSourceComment,
   getOpenSourceComments,
@@ -325,6 +324,23 @@ function SourceDiscoveryRail({
   );
 }
 
+function recommendSources(items: OpenSourceSummary[], viewerId: number | null) {
+  const others = items.filter((item) => item.writer.userId !== viewerId);
+  const authors = new Set<number>();
+  const first: OpenSourceSummary[] = [];
+  const rest: OpenSourceSummary[] = [];
+  for (const item of others.length ? others : items) {
+    const authorId = item.writer.userId;
+    if (authors.has(authorId)) {
+      rest.push(item);
+    } else {
+      authors.add(authorId);
+      first.push(item);
+    }
+  }
+  return [...first, ...rest].slice(0, sourceDiscoverySize);
+}
+
 export function OpensourceScreen({
   onOpen,
   onProfile,
@@ -336,8 +352,7 @@ export function OpensourceScreen({
   const popular = useQuery({ ...popularOpenSourcesQuery(list.userId), enabled: list.signedIn });
   if (!list.signedIn) return <SignInRequired>샘플은 로그인 후 볼 수 있습니다.</SignInRequired>;
   const { state } = list;
-  const recommended = list.firstPage &&
-    recommendByAuthor(list.firstPage, (item) => item.writer.userId, list.userId).slice(0, sourceDiscoverySize);
+  const recommended = list.firstPage && recommendSources(list.firstPage, list.userId);
   return (
     <div className={cn(sourceStyles.opensourceView, sharedStyles.scrollContent, sourceStyles.osDiscoverySections)}>
       <SourceDiscoveryRail
