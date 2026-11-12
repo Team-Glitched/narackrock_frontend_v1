@@ -43,11 +43,11 @@ function errorText(cause: unknown, fallback: string) {
   return cause instanceof Error ? cause.message : fallback;
 }
 
-function useCommentPage(adapter: CommentAdapter, parentId: number | null) {
+function useCommentPage(adapter: CommentAdapter, parentId: number | null, enabled = true) {
   const userId = useCurrentUserId();
   const { data, error, isError, isFetching, isFetchNextPageError, hasNextPage, isFetchingNextPage, fetchNextPage, refetch } =
-    useInfiniteQuery(commentPagesQuery(userId, adapter, parentId));
-  const items = useMemo(() => (data ? loadedComments(data.pages) : null), [data]);
+    useInfiniteQuery({ ...commentPagesQuery(userId, adapter, parentId), enabled });
+  const items = useMemo(() => (enabled && data ? loadedComments(data.pages) : null), [data, enabled]);
   const [link] = useSearchParams();
   const target = readId(link.get("commentId")), root = readId(link.get("parentCommentId")) ?? target;
   const sought = parentId === null ? root : parentId === readId(link.get("parentCommentId")) ? target : null;
@@ -58,10 +58,10 @@ function useCommentPage(adapter: CommentAdapter, parentId: number | null) {
   return {
     items,
     total: data?.pages.at(-1)?.total ?? 0,
-    hasMore: hasNextPage,
+    hasMore: enabled && hasNextPage,
     // A retried or next request hides the previous failure while it runs.
     error:
-      isError && !isFetching
+      enabled && isError && !isFetching
         ? errorText(error, isFetchNextPageError ? "답글을 더 불러오지 못했습니다." : "댓글을 불러오지 못했습니다.")
         : null,
     more: () => {
@@ -76,6 +76,7 @@ export function CommonComments({
   adapter,
   currentUserId,
   onProfile,
+  canRead = true,
   canWrite = true,
   onChanged,
   focus = false,
@@ -84,6 +85,7 @@ export function CommonComments({
   adapter: CommentAdapter;
   currentUserId: number | null;
   onProfile?: (id: number) => void;
+  canRead?: boolean;
   canWrite?: boolean;
   /** After every comment write (create, edit, delete); counts owned by the target must be re-read. */
   onChanged?: () => void;
@@ -164,7 +166,7 @@ export function CommonComments({
   useEffect(() => {
     if (focus) input.current?.focus();
   }, [focus]);
-  const top = useCommentPage(adapter, null);
+  const top = useCommentPage(adapter, null, canRead);
   // Writes change counts and threads; every cached thread of the target re-reads from the server.
   const changed = () => {
     void queryClient.invalidateQueries({ queryKey: commentKeys.target(userId, adapter.kind, adapter.targetId) });
@@ -248,7 +250,7 @@ export function CommonComments({
             <button onClick={top.retry}>다시 시도</button>
           </div>
         )}
-        {!top.items && !top.error && <p role="status">댓글을 불러오는 중...</p>}
+        {canRead && !top.items && !top.error && <p role="status">댓글을 불러오는 중...</p>}
         {top.items?.length === 0 && (
           <p className={communityStyles.nrCommentsEmpty}>첫 댓글을 남겨보세요.</p>
         )}
@@ -315,7 +317,7 @@ export function CommonComments({
               className="box-border min-h-9 min-w-0 flex-1 rounded-[20px] bg-app-surface py-2 pr-2.5 pl-3 text-left text-body leading-[20px] text-app-muted"
               onClick={() => requestLogin()}
             >
-              로그인 후 댓글을 작성할 수 있습니다.
+              {canRead ? "로그인 후 댓글을 작성할 수 있습니다." : "로그인 후 댓글을 확인하고 작성할 수 있습니다."}
             </button>
           ) : (
             <textarea

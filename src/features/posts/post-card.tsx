@@ -8,6 +8,7 @@ import { PostUserActionsMenu } from "@/features/posts/post-user-actions-menu";
 import { FigmaSheet } from "@/components/figma-sheet";
 import { ReportReasons } from "@/features/comments/report-reasons";
 import { PostActions } from "@/features/posts/post-actions";
+import { PostCommunityLabel } from "@/features/posts/post-community-label";
 import { usePostInteractions } from "@/features/posts/use-post-interactions";
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -74,7 +75,7 @@ function ScopedCommunityPost({
   const [loadingEdit, setLoadingEdit] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const error = actionError ?? (detailQuery.isLoadingError ? postError(detailQuery.error) : null);
-  const preview = detail?.content ?? null;
+  const preview = detail?.content ?? post.contentPreview;
   const imageUrl = detail ? detail.imageUrl : post.imageUrl;
 
   const [confirmDelete, setConfirmDelete] = useState(false);
@@ -305,22 +306,25 @@ function ScopedCommunityPost({
           }}
         />
       )}
-      <h2>
-        <button
-          className={communityStyles.postRead}
-          disabled={submitting}
-          onClick={() => onComments(post.postId)}
-        >
-          {post.title}
-        </button>
-      </h2>
-      {(currentUserId === null || preview) && (
+      <div className="flex items-center gap-3 [&>span]:max-w-[45%] [&>span]:shrink-0">
+        <h2 className="min-w-0 flex-1">
+          <button
+            className={communityStyles.postRead}
+            disabled={submitting}
+            onClick={() => onComments(post.postId)}
+          >
+            {post.title}
+          </button>
+        </h2>
+        <PostCommunityLabel name={post.gallery?.name} />
+      </div>
+      {preview && (
         <button
           className={communityStyles.postPreview}
           onClick={() => onComments(post.postId)}
           disabled={submitting}
         >
-          {currentUserId === null ? "로그인 후 게시글 내용을 확인할 수 있어요." : preview}
+          {preview}
         </button>
       )}
       {error && (

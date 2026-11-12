@@ -11,6 +11,7 @@ import { useGalleryPosts } from "@/features/community/use-gallery-posts";
 import type { PostListItem } from "@/lib/api/contracts";
 import { relativeTime } from "@/features/posts/post-utils";
 import { PopularContentActions } from "@/features/posts/popular-content-actions";
+import { PostCommunityLabel } from "@/features/posts/post-community-label";
 
 export function PostListStatus({ state }: { state: "loading" | "error" | "empty" }) {
   const message =
@@ -40,13 +41,20 @@ export function MiniPost({
   if (hiddenPosts.ids.has(post.postId)) return null;
   return (
     <div className={cn(communityStyles.miniPost, tall ? communityStyles.miniPostTall : "")} data-post-id={post.postId}>
-      <button type="button" className="flex min-w-0 flex-1 items-center text-left" onClick={() => onOpen(post.postId)} aria-label={`${post.title} 게시글 열기`}>
+      <button
+        type="button"
+        className="flex min-w-0 flex-1 items-center text-left"
+        onClick={() => onOpen(post.postId)}
+        aria-label={`${post.title} 게시글 열기`}
+        aria-description={post.gallery?.name ? `커뮤니티 ${post.gallery.name}` : undefined}
+      >
       <span className={communityStyles.postThumb}>
         {post.imageUrl && (
           <img src={post.imageUrl} alt="게시글 첨부 이미지" width={90} height={90} />
         )}
       </span>
       <div className={communityStyles.miniPostCopy}>
+        <PostCommunityLabel name={post.gallery?.name} />
         <strong>{excerpt}</strong>
         <div className={communityStyles.miniMeta} aria-label="게시글 통계">
           <span>{relativeTime(post.createdAt)}</span>

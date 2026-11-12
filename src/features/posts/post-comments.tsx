@@ -24,6 +24,7 @@ import {
 } from "@/lib/api/community";
 import { ApiError } from "@/lib/api/client";
 import { useCurrentUserId } from "@/features/auth/use-current-user";
+import { useLoginPrompt } from "@/features/auth/login-prompt";
 import { CommonComments } from "@/features/comments/common-comments";
 import type { CommentAdapter } from "@/features/comments/comment-model";
 import { reportPost, reportPostComment } from "@/lib/api/reports";
@@ -59,6 +60,7 @@ export function PostCommentsScreen({
 }) {
   const hiddenPosts = useHiddenPosts();
   const userId = useCurrentUserId();
+  const { requireLogin } = useLoginPrompt();
   const queryClient = useQueryClient();
   const [memberAction, setMemberAction] = useState<"suspend" | "expel" | null>(null);
   const [moderationNotice, setModerationNotice] = useState("");
@@ -110,13 +112,7 @@ export function PostCommentsScreen({
     [postId, moderationGalleryId],
   );
 
-  // 조회수는 **본문을 실제로 띄운 뒤에만** 기록한다.
-  //
-  // 화면에 들어오자마자 기록하면 상세 조회가 실패한 경우까지 집계된다. 이 화면은 인증이
-  // 필수라(비로그인은 401) 로그인 전에는 본문이 뜨지 않는데, 그때도 조회수가 오르는 것을
-  // 실제로 확인했다. 읽지 못한 글은 읽은 것이 아니다.
-  //
-  // 댓글 등록 뒤의 재조회에는 의존하지 않는다 - 같은 글을 계속 보고 있을 뿐이다.
+  // 상세 조회가 성공해 본문을 띄운 뒤 한 번만 조회수를 기록한다.
   const loadedPostId = post?.postId;
   useEffect(() => {
     if (loadedPostId !== postId) return;
@@ -154,6 +150,7 @@ export function PostCommentsScreen({
     <div className={cn(communityStyles.commentsScreen, communityStyles.communityView)}>
       {interactions.shareDialog}
       <CommonComments
+        canRead={userId !== null}
         canWrite={post !== null && !deleting}
         adapter={adapter}
         currentUserId={userId}
@@ -254,7 +251,7 @@ export function PostCommentsScreen({
                       onClose={() => setMenu(false)}
                       onReport={() => {
                         setMenu(false);
-                        setReport(true);
+                        if (requireLogin()) setReport(true);
                       }}
                       onHide={() => {
                         hiddenPosts.hide(postId);
@@ -316,7 +313,7 @@ export function PostCommentsScreen({
                     vote={interactions.reaction?.isLiked ? "like" : interactions.reaction?.isDisliked ? "dislike" : null}
                     busy={interactions.busy}
                     onVote={(kind) => void interactions.vote(kind)}
-                    onComments={() => setFocus((value) => value + 1)}
+                    onComments={() => { if (requireLogin()) setFocus((value) => value + 1); }}
                     saved={interactions.bookmarked}
                     onSave={() => void interactions.toggleBookmark()}
                     onShare={() => void interactions.share(post.title)}
