@@ -84,22 +84,15 @@ function FailedRow({ onRetry, message }: { onRetry: () => void; message: string 
   );
 }
 
-// 가입 목록은 비로그인이면 서버를 부르지 않고 비어 있다 — 빈 목록과 구분해서 안내한다.
 function JoinedList({
   state,
-  userId,
   children,
 }: {
   state: DirectoryState;
-  userId: number | null;
   children: (joined: Community[]) => ReactNode;
 }) {
   if (state.loading) return <LoadingRow />;
   if (state.failed) return <FailedRow onRetry={state.retry} message={state.failureMessage} />;
-  if (userId === null)
-    return (
-      <p className={sharedStyles.directoryNotice}>로그인하면 가입한 커뮤니티를 볼 수 있어요.</p>
-    );
   if (state.joined.length === 0)
     return <p className={communityStyles.communityDetailStatus}>아직 가입한 커뮤니티가 없어요.</p>;
   return <>{children(state.joined)}</>;
@@ -117,25 +110,28 @@ export function CommunityDirectory({
 
   return (
     <div className={communityStyles.communityDirectory}>
-      <section aria-labelledby="joined-communities-heading">
-        <div className={sharedStyles.directoryHeading}>
-          <h2 id="joined-communities-heading">가입한 커뮤니티</h2>
-          <button onClick={onJoined}>모두보기</button>
-        </div>
-        <JoinedList state={state} userId={userId}>
-          {(joined) => (
-            <ul
-              className={communityStyles.communityRail}
-              tabIndex={0}
-              aria-label="가입한 커뮤니티 목록"
-            >
-              {joined.slice(0, 4).map((community) => (
-                <CommunityRailCard key={community.id} community={community} onOpen={onOpen} />
-              ))}
-            </ul>
-          )}
-        </JoinedList>
-      </section>
+      {/* A guest has no memberships, so the joined section is not shown at all. */}
+      {userId !== null && (
+        <section aria-labelledby="joined-communities-heading">
+          <div className={sharedStyles.directoryHeading}>
+            <h2 id="joined-communities-heading">가입한 커뮤니티</h2>
+            <button onClick={onJoined}>모두보기</button>
+          </div>
+          <JoinedList state={state}>
+            {(joined) => (
+              <ul
+                className={communityStyles.communityRail}
+                tabIndex={0}
+                aria-label="가입한 커뮤니티 목록"
+              >
+                {joined.slice(0, 4).map((community) => (
+                  <CommunityRailCard key={community.id} community={community} onOpen={onOpen} />
+                ))}
+              </ul>
+            )}
+          </JoinedList>
+        </section>
+      )}
 
       <section
         className={sharedStyles.recommendedCommunities}
@@ -164,13 +160,12 @@ export function CommunityDirectory({
 // Community.pdf의 "가입한 커뮤니티" 전체 목록 화면.
 // 뒤로가기/알림/검색/프로필 헤더는 page.tsx의 공용 Header가 그린다.
 export function JoinedCommunitiesScreen({ onOpen }: { onOpen: (community: Community) => void }) {
-  const userId = useCurrentUserId();
   const state = useDirectory();
 
   return (
     <div className={cn(sharedStyles.joinedView, sharedStyles.scrollContent)}>
       <h1 className={sharedStyles.joinedTitle}>가입한 커뮤니티</h1>
-      <JoinedList state={state} userId={userId}>
+      <JoinedList state={state}>
         {(joined) => (
           <ul className={communityStyles.communityCardList} aria-label="가입한 커뮤니티 목록">
             {joined.map((community) => (

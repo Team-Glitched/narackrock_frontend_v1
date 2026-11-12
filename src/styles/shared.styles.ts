@@ -70,17 +70,17 @@ export const sharedStyles = {
     "[.design-canvas_&_h2]:text-title [.design-canvas_&_h2]:tracking-[0] [.design-canvas_&_h2]:leading-[18px]",
     "[.design-canvas_&>button]:font-medium [.design-canvas_&>button]:leading-[18px]",
   ].join(" "),
-  recommendedCommunities: ["recommended-communities", "mt-[18px]", "[.design-canvas_&]:mt-15"].join(
-    " ",
-  ),
+  recommendedCommunities: [
+    "recommended-communities",
+    "mt-[18px]",
+    "[.design-canvas_&]:mt-15",
+    // Guests have no joined section above, so the list starts at the top.
+    "first:mt-0 [.design-canvas_&:first-child]:mt-0",
+  ].join(" "),
   membershipError: [
     "membership-error",
     "m-[10px_20px_0] text-caption text-[#ff8d8d] leading-[18px]",
     "[.community-detail-info_&]:mx-0",
-  ].join(" "),
-  directoryNotice: [
-    "directory-notice",
-    "m-[16px_20px_24px] text-caption text-app-muted leading-[18px]",
   ].join(" "),
   isJoined: [
     "is-joined",
