@@ -134,12 +134,6 @@ export const abyssStyles = {
     "bg-app-surface border border-solid border-app-border text-app-fg font-medium",
     "[.design-canvas_&]:bg-app-surface [.design-canvas_&]:font-medium",
   ].join(" "),
-  abyssCoverEmpty: [
-    "abyss-cover-empty",
-    "grid place-items-center text-app-muted bg-app-surface bg-none text-[length:64px]",
-    "[&_span]:text-[length:104px] [&_span]:leading-[1]",
-    "[.design-canvas_&]:bg-app-fg [.design-canvas_&]:bg-none",
-  ].join(" "),
   abyssCoverViewport: [
     "abyss-cover-viewport",
     "relative h-80 w-full flex-none touch-pan-y overflow-hidden [outline-offset:-3px]",
