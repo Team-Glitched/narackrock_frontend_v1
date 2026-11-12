@@ -66,7 +66,7 @@ export async function withSourcePublicationLock<T>(
   locks: Pick<LockManager, "request"> | undefined = navigator.locks,
   storage: Pick<Storage, "getItem" | "setItem"> = localStorage,
 ): Promise<T> {
-  if (!locks) throw new ApiError(409, "이 브라우저에서는 오픈소스 등록을 안전하게 진행할 수 없습니다.");
+  if (!locks) throw new ApiError(409, "이 브라우저에서는 샘플 등록을 안전하게 진행할 수 없습니다.");
   return locks.request(pendingKey(input), { ifAvailable: true }, async (lock) => {
     if (!lock) throw new ApiError(409, "다른 탭에서 이 초안을 처리하고 있습니다.");
     if (getSourceDraftRevision(input, storage) !== input.draftRevision) {
@@ -126,7 +126,7 @@ async function findCreated(deps: PublishSourceDeps, mediaFileId: number): Promis
     matches.push(...result.items.filter((item) => item.mediaFileId === mediaFileId).map((item) => item.openSourceId));
     if (!result.hasNext) break;
   }
-  if (matches.length > 1) throw new Error("같은 음원으로 만든 오픈소스가 여러 개 있습니다. 내 오픈소스에서 확인해주세요.");
+  if (matches.length > 1) throw new Error("같은 음원으로 만든 샘플이 여러 개 있습니다. 내 샘플에서 확인해주세요.");
   return matches[0] ?? null;
 }
 

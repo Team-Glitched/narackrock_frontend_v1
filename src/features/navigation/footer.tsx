@@ -10,7 +10,7 @@ const nav: { id: FooterTab; label: string; path: string }[] = [
   { id: "abyss", label: "어비스", path: "/abyss" },
   { id: "studio", label: "", path: "" },
   { id: "social", label: "소셜", path: "/social" },
-  { id: "opensource", label: "오픈소스", path: "/sources" },
+  { id: "opensource", label: "샘플", path: "/sources" },
 ];
 export function Footer({
   activeTab,

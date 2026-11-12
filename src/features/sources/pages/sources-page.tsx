@@ -33,7 +33,7 @@ export default function SourcesPage() {
         <Header onSearch={() => to(withQuery("/search", { scope, galleryId }))} />
         <div className={contextualCreateArea}>
           <div className="flex h-full min-h-0 flex-col">
-            <nav className="flex shrink-0 flex-wrap gap-2 border-b border-app-line px-5 py-3" aria-label="오픈소스 메뉴" data-create-boundary>
+            <nav className="flex shrink-0 flex-wrap gap-2 border-b border-app-line px-5 py-3" aria-label="샘플 메뉴" data-create-boundary>
               {([["feed", "탐색"], ["saved", "보관함"], ["mine", "내 등록"]] as const).map(([value, label]) => (
                 <button key={value} type="button" aria-pressed={tab === value} className="min-h-11 rounded-xl px-3 text-body aria-pressed:bg-app-primary" onClick={() => selectTab(value)}>
                   {label}
@@ -48,7 +48,7 @@ export default function SourcesPage() {
                 />
               ) : tab === "saved" ? (
                 <section className={`${workspaceStyles.workspacePage} ${sharedStyles.scrollContent}`}>
-                  <h1>오픈소스 보관함</h1>
+                  <h1>샘플 보관함</h1>
                   <SavedOpenSources query="" onOpen={(id) => to(`/sources/${id}`)} />
                 </section>
               ) : (

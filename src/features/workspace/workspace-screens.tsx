@@ -238,7 +238,7 @@ export function SourceLibraryScreen({
       subtitle={
         importing
           ? "이 기기에 남아 있는 MIDI 작업을 개인 초안으로 가져옵니다."
-          : "보관한 오픈소스는 계정에, MIDI 작업은 이 기기에 저장됩니다."
+          : "보관한 샘플은 계정에, MIDI 작업은 이 기기에 저장됩니다."
       }
     >
       <label className={workspaceStyles.workspaceSearch}>
@@ -254,7 +254,7 @@ export function SourceLibraryScreen({
         {(importing
           ? [["LOCAL", "이 기기의 MIDI 작업"]]
           : [
-              ["SERVER", "보관한 오픈소스"],
+              ["SERVER", "보관한 샘플"],
               ["LOCAL", "이 기기의 MIDI 작업"],
             ]
         ).map(([value, label]) => (
@@ -315,7 +315,7 @@ export function SourceLibraryScreen({
       )}
       {!importing && (
         <button className={workspaceStyles.workspaceWide} onClick={onOpenSources}>
-          오픈소스 둘러보기
+          샘플 둘러보기
         </button>
       )}
     </Page>

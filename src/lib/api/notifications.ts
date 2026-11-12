@@ -5,7 +5,7 @@ export const notificationCategories = [
   ["CONTRIBUTION", "작곡"],
   ["COMMUNITY", "커뮤니티"],
   ["SHORT", "음악"],
-  ["OPEN_SOURCE", "오픈소스"],
+  ["OPEN_SOURCE", "샘플"],
   ["SYSTEM", "운영 안내"],
 ] as const;
 export type NotificationCategory = (typeof notificationCategories)[number][0];

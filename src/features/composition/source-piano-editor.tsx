@@ -152,7 +152,7 @@ export function SourcePianoEditor({
           setError(null);
         }}
         piano
-        title="오픈소스 피아노롤"
+        title="샘플 피아노롤"
         bpm={bpm}
         playing={player.playing}
         positionMs={player.positionMs}

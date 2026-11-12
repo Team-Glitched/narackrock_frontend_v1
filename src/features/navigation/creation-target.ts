@@ -6,6 +6,6 @@ export function creationTarget(scope: SearchScope, galleryId?: number | null): {
     case "people": return { path: "/search?scope=people", label: "친구 찾기" };
     case "posts": return { path: withQuery("/posts/new", { galleryId }), label: "게시글 작성" };
     case "communities": return { path: "/communities/new", label: "커뮤니티 생성" };
-    case "sources": return { path: "/sources/new", label: "오픈소스 생성" };
+    case "sources": return { path: "/sources/new", label: "샘플 생성" };
   }
 }

@@ -120,11 +120,11 @@ export function StudioToolbar({
         {onImportSource && (
           <button
             className={studioStyles.midiImportTrigger}
-            aria-label="오픈소스 추가"
+            aria-label="샘플 추가"
             onClick={onImportSource}
           >
             <span aria-hidden="true">+</span>
-            <span>오픈소스</span>
+            <span>샘플</span>
           </button>
         )}
         {piano && instrument && (
