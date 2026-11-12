@@ -14,10 +14,7 @@ import type { CommentAdapter } from "@/features/comments/comment-model";
 import { SignInRequired } from "@/features/auth/sign-in-required";
 import { useCurrentUserId } from "@/features/auth/use-current-user";
 import { SourcePlayback } from "@/features/sources/source-playback";
-import { commentKeys, openCommentHideChannel } from "@/features/comments/comment-queries";
-import { queryScope } from "@/lib/query";
-import { useHiddenIds } from "@/lib/browser/hidden-ids";
-import { ApiError, apiOrigin } from "@/lib/api/client";
+import { ApiError } from "@/lib/api/client";
 import { canonicalShareLink } from "@/lib/api/content-link";
 import { useShareLink } from "@/hooks/use-share-link";
 import { relativeTime } from "@/features/posts/post-utils";
@@ -288,40 +285,6 @@ export function OpensourceDetailScreen({
   const userId = useCurrentUserId();
   const queryClient = useQueryClient();
   const query = useQuery({ ...openSourceQuery(userId, sourceId), enabled: userId !== null });
-  const { ids: legacyHidden, clear: clearLegacyHidden } = useHiddenIds(
-    userId === null ? null : `narackrock.hidden-comments.${apiOrigin()}.${userId}.sources.${sourceId}`,
-  );
-  const migration = useQuery({
-    queryKey: [...queryScope(userId), "migrate-hidden-source-comments", sourceId],
-    enabled: userId !== null && legacyHidden.size > 0,
-    queryFn: async ({ signal }) => {
-      if (userId === null) return false;
-      const channel = openCommentHideChannel(userId, "sources", sourceId);
-      try {
-        for (const commentId of legacyHidden.keys()) {
-          signal.throwIfAborted();
-          try {
-            await hideOpenSourceComment(commentId, signal);
-          } catch (error) {
-            if (!(error instanceof ApiError) || error.errorCode !== "OPEN_SOURCE_COMMENT_NOT_FOUND") {
-              throw error;
-            }
-          }
-          channel?.postMessage(commentId);
-        }
-      } finally {
-        channel?.close();
-      }
-      signal.throwIfAborted();
-      await queryClient.invalidateQueries({
-        queryKey: commentKeys.target(userId, "sources", sourceId),
-      });
-      await queryClient.invalidateQueries({ queryKey: sourceKeys.detail(userId, sourceId) });
-      signal.throwIfAborted();
-      clearLegacyHidden();
-      return true;
-    },
-  });
   const refreshSource = useCallback(() => {
     void queryClient.invalidateQueries({ queryKey: sourceKeys.detail(userId, sourceId) });
   }, [queryClient, userId, sourceId]);
@@ -358,16 +321,6 @@ export function OpensourceDetailScreen({
     [sourceId],
   );
   if (userId === null) return <SignInRequired>오픈소스는 로그인 후 볼 수 있습니다.</SignInRequired>;
-  const commentsNotice = legacyHidden.size > 0 && !migration.isSuccess
-    ? migration.isError && !migration.isFetching
-      ? (
-        <PageState error>
-          <span>기존 댓글 숨김을 적용하지 못했습니다.</span>
-          <button type="button" onClick={() => void migration.refetch()}>다시 시도</button>
-        </PageState>
-      )
-      : <PageState>기존 댓글 숨김을 적용하는 중입니다.</PageState>
-    : undefined;
   const source = query.data;
   if (!source && (!query.error || query.isFetching)) return <PageState>오픈소스를 불러오는 중...</PageState>;
   if (!source)
@@ -388,7 +341,6 @@ export function OpensourceDetailScreen({
         currentUserId={userId}
         onProfile={onProfile}
         focus={focus}
-        commentsNotice={commentsNotice}
         // The detail's comment count is server-owned: reread it after a comment is added or removed.
         onChanged={refreshSource}
         header={<SourceDetail source={source} onComments={() => setFocus((value) => value + 1)} onProfile={onProfile} />}

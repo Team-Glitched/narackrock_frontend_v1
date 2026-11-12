@@ -62,15 +62,5 @@ export function useHiddenIds(key: string | null) {
     }
     listeners.forEach((listener) => listener());
   }
-  function clear() {
-    if (key === null) return;
-    try {
-      localStorage.removeItem(key);
-    } catch {
-      return;
-    }
-    cache.delete(key);
-    listeners.forEach((listener) => listener());
-  }
-  return { ids, hide, clear };
+  return { ids, hide };
 }

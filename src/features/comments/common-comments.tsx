@@ -43,18 +43,18 @@ function errorText(cause: unknown, fallback: string) {
   return cause instanceof Error ? cause.message : fallback;
 }
 
-function useCommentPage(adapter: CommentAdapter, parentId: number | null, enabled = true) {
+function useCommentPage(adapter: CommentAdapter, parentId: number | null) {
   const userId = useCurrentUserId();
   const { data, error, isError, isFetching, isFetchNextPageError, hasNextPage, isFetchingNextPage, fetchNextPage, refetch } =
-    useInfiniteQuery({ ...commentPagesQuery(userId, adapter, parentId), enabled });
+    useInfiniteQuery(commentPagesQuery(userId, adapter, parentId));
   const items = useMemo(() => (data ? loadedComments(data.pages) : null), [data]);
   const [link] = useSearchParams();
   const target = readId(link.get("commentId")), root = readId(link.get("parentCommentId")) ?? target;
   const sought = parentId === null ? root : parentId === readId(link.get("parentCommentId")) ? target : null;
   useEffect(() => {
-    if (enabled && sought && items && !items.some((item) => item.id === sought) && hasNextPage && !isFetching && !isError)
+    if (sought && items && !items.some((item) => item.id === sought) && hasNextPage && !isFetching && !isError)
       void fetchNextPage({ cancelRefetch: false });
-  }, [enabled, sought, items, hasNextPage, isFetching, isError, fetchNextPage]);
+  }, [sought, items, hasNextPage, isFetching, isError, fetchNextPage]);
   return {
     items,
     total: data?.pages.at(-1)?.total ?? 0,
@@ -80,7 +80,6 @@ export function CommonComments({
   onChanged,
   focus = false,
   header,
-  commentsNotice,
 }: {
   adapter: CommentAdapter;
   currentUserId: number | null;
@@ -90,7 +89,6 @@ export function CommonComments({
   onChanged?: () => void;
   focus?: boolean | number;
   header?: React.ReactNode;
-  commentsNotice?: React.ReactNode;
 }) {
   const { requireLogin, requestLogin } = useLoginPrompt();
   const writable = canWrite && currentUserId !== null;
@@ -150,7 +148,7 @@ export function CommonComments({
   const input = useRef<HTMLTextAreaElement>(null);
   useLayoutEffect(() => {
     if (input.current) resizeComposer(input.current);
-  }, [draft, commentsNotice]);
+  }, [draft]);
   useEffect(() => {
     const element = input.current;
     if (!element) return;
@@ -162,11 +160,11 @@ export function CommonComments({
     });
     observer.observe(element);
     return () => observer.disconnect();
-  }, [commentsNotice]);
+  }, []);
   useEffect(() => {
     if (focus) input.current?.focus();
-  }, [focus, commentsNotice]);
-  const top = useCommentPage(adapter, null, !commentsNotice);
+  }, [focus]);
+  const top = useCommentPage(adapter, null);
   // Writes change counts and threads; every cached thread of the target re-reads from the server.
   const changed = () => {
     void queryClient.invalidateQueries({ queryKey: commentKeys.target(userId, adapter.kind, adapter.targetId) });
@@ -244,106 +242,102 @@ export function CommonComments({
         aria-label="댓글 목록"
       >
         {header}
-        {commentsNotice ?? (<>
-          {top.error && (
-            <div role="alert">
-              {top.error}
-              <button onClick={top.retry}>다시 시도</button>
-            </div>
-          )}
-          {!top.items && !top.error && <p role="status">댓글을 불러오는 중...</p>}
-          {top.items?.length === 0 && (
-            <p className={communityStyles.nrCommentsEmpty}>첫 댓글을 남겨보세요.</p>
-          )}
-          {top.items?.filter((item) => !hiddenIds.has(item.id)).map((item) => {
-            const replyCount = Math.max(0, item.replyCount - (hiddenReplyCounts.get(item.id) ?? 0));
-            return (
-              <section
-                className={communityStyles.nrCommentThread}
-                key={item.id}
-                aria-label={`${item.author} 댓글 대화`}
-              >
-                {row(item, item.id)}
-                {replyCount > 0 && (
-                  <button
-                    className={communityStyles.nrRepliesToggle}
-                    aria-expanded={expanded.has(item.id)}
-                    onClick={() => toggle(item.id)}
-                  >
-                    {expanded.has(item.id) ? "답글 접기" : `답글 ${replyCount}개`}
-                  </button>
-                )}
-                {expanded.has(item.id) && replyCount > 0 && (
-                  <Replies
-                    key={item.id}
-                    adapter={adapter}
-                    parentId={item.id}
-                    hiddenIds={hiddenIds}
-                    hiddenCount={hiddenReplyCounts.get(item.id) ?? 0}
-                    onResolveHidden={(id) => hide(id, item.id)}
-                    render={(child) => row(child)}
-                    onCollapse={() => toggle(item.id)}
-                  />
-                )}
-              </section>
-            );
-          })}
-          {top.hasMore && (
-            <button
-              className={communityStyles.nrCommentsMore}
-              disabled={top.moreBusy}
-              onClick={top.more}
+        {top.error && (
+          <div role="alert">
+            {top.error}
+            <button onClick={top.retry}>다시 시도</button>
+          </div>
+        )}
+        {!top.items && !top.error && <p role="status">댓글을 불러오는 중...</p>}
+        {top.items?.length === 0 && (
+          <p className={communityStyles.nrCommentsEmpty}>첫 댓글을 남겨보세요.</p>
+        )}
+        {top.items?.filter((item) => !hiddenIds.has(item.id)).map((item) => {
+          const replyCount = Math.max(0, item.replyCount - (hiddenReplyCounts.get(item.id) ?? 0));
+          return (
+            <section
+              className={communityStyles.nrCommentThread}
+              key={item.id}
+              aria-label={`${item.author} 댓글 대화`}
             >
-              {top.moreBusy ? "불러오는 중..." : "댓글 더보기"}
-            </button>
-          )}
-        </>)}
+              {row(item, item.id)}
+              {replyCount > 0 && (
+                <button
+                  className={communityStyles.nrRepliesToggle}
+                  aria-expanded={expanded.has(item.id)}
+                  onClick={() => toggle(item.id)}
+                >
+                  {expanded.has(item.id) ? "답글 접기" : `답글 ${replyCount}개`}
+                </button>
+              )}
+              {expanded.has(item.id) && replyCount > 0 && (
+                <Replies
+                  key={item.id}
+                  adapter={adapter}
+                  parentId={item.id}
+                  hiddenIds={hiddenIds}
+                  hiddenCount={hiddenReplyCounts.get(item.id) ?? 0}
+                  onResolveHidden={(id) => hide(id, item.id)}
+                  render={(child) => row(child)}
+                  onCollapse={() => toggle(item.id)}
+                />
+              )}
+            </section>
+          );
+        })}
+        {top.hasMore && (
+          <button
+            className={communityStyles.nrCommentsMore}
+            disabled={top.moreBusy}
+            onClick={top.more}
+          >
+            {top.moreBusy ? "불러오는 중..." : "댓글 더보기"}
+          </button>
+        )}
       </div>
-      {!commentsNotice && (
-        <form className={communityStyles.nrCommentComposer} onSubmit={submit}>
-          {reply && (
-            <div className={communityStyles.nrCommentReplying}>
-              <span>{reply.author}에게 답글</span>
-              <button type="button" aria-label="답글 취소" onClick={() => setReply(null)}>
-                <Asset name="search-close.svg" />
-              </button>
-            </div>
-          )}
-          {error && <p role="alert">{error}</p>}
-          {hideOnServer.isError && (
-            <p role="alert">{errorText(hideOnServer.error, "댓글을 숨기지 못했습니다.")}</p>
-          )}
-          <div className={communityStyles.nrCommentInput}>
-            {currentUserId === null ? (
-              <button
-                type="button"
-                className="box-border min-h-9 min-w-0 flex-1 rounded-[20px] bg-app-surface py-2 pr-2.5 pl-3 text-left text-body leading-[20px] text-app-muted"
-                onClick={() => requestLogin()}
-              >
-                로그인 후 댓글을 작성할 수 있습니다.
-              </button>
-            ) : (
-              <textarea
-                ref={input}
-                rows={1}
-                aria-label="댓글 내용"
-                placeholder="입력"
-                value={draft}
-                onChange={(event) => setDraft(event.target.value)}
-                onKeyDown={submitOnEnter}
-                disabled={busy || !writable}
-              />
-            )}
-            <button
-              type="submit"
-              aria-label="댓글 보내기"
-              disabled={busy || hideOnServer.isPending || (currentUserId !== null && (!writable || !draft.trim()))}
-            >
-              <Asset name="comment-send.svg" />
+      <form className={communityStyles.nrCommentComposer} onSubmit={submit}>
+        {reply && (
+          <div className={communityStyles.nrCommentReplying}>
+            <span>{reply.author}에게 답글</span>
+            <button type="button" aria-label="답글 취소" onClick={() => setReply(null)}>
+              <Asset name="search-close.svg" />
             </button>
           </div>
-        </form>
-      )}
+        )}
+        {error && <p role="alert">{error}</p>}
+        {hideOnServer.isError && (
+          <p role="alert">{errorText(hideOnServer.error, "댓글을 숨기지 못했습니다.")}</p>
+        )}
+        <div className={communityStyles.nrCommentInput}>
+          {currentUserId === null ? (
+            <button
+              type="button"
+              className="box-border min-h-9 min-w-0 flex-1 rounded-[20px] bg-app-surface py-2 pr-2.5 pl-3 text-left text-body leading-[20px] text-app-muted"
+              onClick={() => requestLogin()}
+            >
+              로그인 후 댓글을 작성할 수 있습니다.
+            </button>
+          ) : (
+            <textarea
+              ref={input}
+              rows={1}
+              aria-label="댓글 내용"
+              placeholder="입력"
+              value={draft}
+              onChange={(event) => setDraft(event.target.value)}
+              onKeyDown={submitOnEnter}
+              disabled={busy || !writable}
+            />
+          )}
+          <button
+            type="submit"
+            aria-label="댓글 보내기"
+            disabled={busy || hideOnServer.isPending || (currentUserId !== null && (!writable || !draft.trim()))}
+          >
+            <Asset name="comment-send.svg" />
+          </button>
+        </div>
+      </form>
       {reportTarget !== null && report && (
         <FigmaSheet title="신고" onClose={() => setReportTarget(null)}>
           <ReportReasons
