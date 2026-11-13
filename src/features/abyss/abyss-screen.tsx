@@ -14,6 +14,7 @@ import { ReportReasons } from "@/features/comments/report-reasons";
 import { Asset } from "@/components/asset";
 import { IconSlot } from "@/components/icon-slot";
 import { canonicalShareLink } from "@/lib/api/content-link";
+import { publicWebOrigin } from "@/lib/public-web-origin";
 import { initialShortIndex } from "@/features/abyss/initial-short";
 import { useShareLink } from "@/hooks/use-share-link";
 import { ApiError } from "@/lib/api/client";
@@ -272,7 +273,7 @@ export function AbyssScreen({
   const shareLink = useMutation({
     mutationFn: async (short: ShortItemDto) => {
       const { shareUrl } = await getShortShareLink(short.shortId);
-      return sharing.share(short.title, canonicalShareLink("short", short.shortId, shareUrl, window.location.origin));
+      return sharing.share(short.title, canonicalShareLink("short", short.shortId, shareUrl, publicWebOrigin()));
     },
     onSuccess: setFeedback,
     onError: showError,

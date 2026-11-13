@@ -16,6 +16,7 @@ import { useCurrentUserId } from "@/features/auth/use-current-user";
 import { SourcePlayback } from "@/features/sources/source-playback";
 import { ApiError } from "@/lib/api/client";
 import { canonicalShareLink } from "@/lib/api/content-link";
+import { publicWebOrigin } from "@/lib/public-web-origin";
 import { useShareLink } from "@/hooks/use-share-link";
 import { relativeTime } from "@/features/posts/post-utils";
 import {
@@ -220,7 +221,7 @@ function SourceDetail({
     setNotice("");
     try {
       const { shareUrl } = await getOpenSourceShare(source.openSourceId);
-      const link = canonicalShareLink("source", source.openSourceId, shareUrl, window.location.origin);
+      const link = canonicalShareLink("source", source.openSourceId, shareUrl, publicWebOrigin());
       setNotice((await sharing.share(source.title, link)) ?? "");
     } catch (cause) {
       setNotice(

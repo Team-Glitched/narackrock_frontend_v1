@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { getPostShareLink, reactToPost, togglePostBookmark } from "@/lib/api/community";
 import { canonicalShareLink } from "@/lib/api/content-link";
+import { publicWebOrigin } from "@/lib/public-web-origin";
 import { queryScope } from "@/lib/query";
 import { useCurrentUserId } from "@/features/auth/use-current-user";
 import { applyPostBookmark, applyPostReaction } from "@/features/posts/post-queries";
@@ -71,7 +72,7 @@ export function usePostInteractions(postId: number, detail: PostDetailResponse |
       setSharingBusy(true);
       try {
         const { shareUrl } = await getPostShareLink(postId);
-        setNotice(await sharing.share(title, canonicalShareLink("post", postId, shareUrl, window.location.origin)));
+        setNotice(await sharing.share(title, canonicalShareLink("post", postId, shareUrl, publicWebOrigin())));
       } catch (cause) {
         setNotice(postError(cause));
       } finally {
