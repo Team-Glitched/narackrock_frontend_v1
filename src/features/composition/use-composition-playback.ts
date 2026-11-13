@@ -1,4 +1,4 @@
-import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import * as Tone from "tone";
 import type { TrackDto } from "@/lib/api/composition";
 import type { AudioSelection } from "./prepare-audio-file";
@@ -14,6 +14,7 @@ import {
 } from "./composition-playback-timeline";
 import { PlaybackGeneration, PlaybackResources } from "./composition-playback-runtime";
 import { partLabel } from "./instrument-parts";
+import { onAppBackground } from "@/lib/native-app";
 
 export type PlaybackComposition = {
   project: {
@@ -388,6 +389,12 @@ export function useCompositionPlayback(
   useLayoutEffect(() => {
     if (masterRef.current) masterRef.current.gain.value = options?.muted ? 0 : volumeRef.current / 100;
   }, [options?.muted]);
+
+  // The native app pauses playback when it leaves the foreground (web playback is unaffected).
+  useEffect(() => onAppBackground(() => {
+    pause();
+    stopPreview();
+  }), [pause, stopPreview]);
 
   return {
     signature, metronome, setMetronome, trackVolumes, setTrackVolume, mutedTrackIds, toggleTrackMute,

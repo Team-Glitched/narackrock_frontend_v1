@@ -103,22 +103,25 @@ npm run native:prebuild              # app.config.ts/플러그인 변경 후 nat
 
 ### 웹 ↔ 앱 연동
 
-- `src/lib/native-app.ts`: 앱 안에서 실행 중인지(`nativeApp()`) 판별하고, 네이티브 기능을 요청(`requestNative`)합니다. 일반 브라우저에서는 `nativeApp()`이 `null`이라 웹 동작은 바뀌지 않습니다. 앱 쪽 처리는 `native/bridge.ts`입니다.
+- `src/lib/native-app.ts`: 앱 안에서 실행 중인지(`nativeApp()`) 판별하고, 네이티브 기능을 요청(`requestNative`)합니다. 앱은 WebView User-Agent에 `NarackrockApp/<platform>`을 붙이므로 첫 렌더링부터 판별됩니다. 일반 브라우저에서는 `nativeApp()`이 `null`이라 웹 동작은 바뀌지 않습니다.
+- 웹과 앱의 메시지 형식은 `src/lib/native-bridge-protocol.ts` 하나에 정의하고, 앱(`native/bridge.ts`)은 `import type`으로 같은 타입을 씁니다. 앱은 실행마다 만든 토큰을 메인 프레임에만 주입하고, 토큰이 맞는 요청만 처리하므로 외부 iframe은 네이티브 기능을 호출할 수 없습니다.
+- 백그라운드: 앱이 백그라운드로 가면 페이지의 `<audio>`/`<video>`를 멈추고 `narackrock:app-background` 이벤트를 보냅니다. Web Audio 재생(`useCompositionPlayback`)은 `onAppBackground`로 이 이벤트를 받아 멈춥니다. 로컬 서버도 백그라운드에서 멈췄다가 돌아오면 다시 켜집니다.
 - Google 로그인: Google은 WebView 안의 웹 로그인을 막으므로, 앱에서는 로그인 화면이 네이티브 Google 로그인(`@react-native-google-signin/google-signin`)을 호출합니다. ID 토큰은 웹 클라이언트 ID 기준으로 발급되어 백엔드 검증은 웹과 같습니다.
 - 공유 링크: 앱의 페이지 origin은 `127.0.0.1`이므로 `VITE_PUBLIC_WEB_ORIGIN`(운영 `https://narackrock.com`)으로 만듭니다. 웹에서는 설정하지 않으면 현재 origin을 씁니다.
 - 기존 콘텐츠의 상대 `/files/...` URL은 앱의 로컬 서버가 API origin으로 리다이렉트합니다.
 
 ### 배포 설정
 
-- 버전: 루트 `package.json`의 `version`을 웹과 앱이 함께 사용합니다. Android `versionCode`와 iOS `buildNumber`는 `1.2.3 → 10203`으로 계산되므로 스토어 업로드마다 루트 버전을 올립니다.
+- 버전: 루트 `package.json`의 `version`을 웹과 앱이 함께 사용합니다. Android `versionCode`와 iOS `buildNumber`는 `1.2.3 → 10203`으로 계산되므로 스토어 업로드마다 루트 버전을 올립니다. minor·patch는 0~99여야 하고(아니면 설정 단계에서 오류), `-rc.1` 같은 프리릴리스 꼬리표는 빠지므로 `1.2.3-rc.1`과 `1.2.3`은 같은 번호입니다.
 - Android 서명: Play 업로드 키를 `~/.gradle/gradle.properties`(또는 `ORG_GRADLE_PROJECT_*` 환경 변수)에 `NARACKROCK_UPLOAD_STORE_FILE`, `NARACKROCK_UPLOAD_STORE_PASSWORD`, `NARACKROCK_UPLOAD_KEY_ALIAS`, `NARACKROCK_UPLOAD_KEY_PASSWORD`로 설정합니다. 키스토어와 비밀번호는 저장소에 넣지 않습니다.
-- Android 네트워크: 평문 HTTP는 `127.0.0.1`(앱 내부 서버), `localhost`·`10.0.2.2`(개발용 Metro)만 허용합니다.
+- Android 네트워크: 릴리스 빌드는 평문 HTTP를 `127.0.0.1`(앱 내부 서버), `localhost`·`10.0.2.2`(개발용 Metro)만 허용합니다. 디버그 빌드는 모든 평문 HTTP를 허용해 실기기에서 LAN API로 테스트할 수 있습니다.
+- iOS Google 로그인: `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID` 없이 prebuild하면 Release 빌드는 Xcode 빌드 단계에서 실패합니다. Debug 빌드는 되지만 로그인 버튼이 "iOS Google 로그인 설정이 필요합니다." 오류를 표시합니다.
 - Google Cloud(웹 클라이언트와 같은 프로젝트): Android OAuth 클라이언트를 패키지 `com.teamglitched.narackrock`와 서명 인증서 SHA-1(디버그 키, 업로드 키, Play 앱 서명 키)로 등록합니다. iOS는 iOS OAuth 클라이언트를 만들고 `native/.env`의 `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID`에 넣습니다(`native/.env.example` 참고).
 - 백엔드: CORS(`ADLIPS_CORS_ALLOWED_ORIGINS`)와 채팅 WebSocket 허용 origin에 `http://127.0.0.1:17173`을 추가해야 앱에서 API를 호출할 수 있습니다.
 
 ### 참고
 
-- 웹 빌드는 Vite mode `native`로 수행해 `.env.native`(`.env.native.local`)가 `.env.local`보다 우선합니다. 기기에서 `localhost`는 개발 PC가 아니므로 LAN IP, Android 에뮬레이터의 `10.0.2.2`, 또는 배포 API를 사용합니다.
+- 웹 빌드는 Vite mode `native`로 수행해 `.env.native`(`.env.native.local`)가 `.env.local`보다 우선합니다. 기기에서 `localhost`는 개발 PC가 아니므로 배포된 https API를 쓰거나, 디버그 빌드에서는 LAN IP·Android 에뮬레이터의 `10.0.2.2`를 사용합니다(Android 릴리스 빌드는 이 주소들의 평문 HTTP를 막습니다).
 - `native/android`, `native/ios`, `native/web`은 생성물이며 커밋하지 않습니다. 네이티브 설정은 `native/app.config.ts`와 `native/plugins/`에서 관리합니다.
 - 빌드 도구: Node.js, JDK 17(Android, React Native 공식 권장), Android SDK의 NDK·CMake, Homebrew `cmake`·`pkg-config`(정적 서버 네이티브 빌드), iOS는 Xcode와 CocoaPods가 필요합니다.
 

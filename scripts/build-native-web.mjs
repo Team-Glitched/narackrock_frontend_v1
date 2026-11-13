@@ -20,7 +20,8 @@ const apiHost = new URL(env.VITE_API_BASE_URL).hostname;
 if (apiHost === "localhost" || apiHost === "127.0.0.1") {
   console.warn(
     `warning: VITE_API_BASE_URL=${env.VITE_API_BASE_URL} points at the device itself, not this machine. ` +
-      "Use a LAN IP (or 10.0.2.2 on the Android emulator) or a deployed API.",
+      "Use a deployed https API, or for debug builds a LAN IP / 10.0.2.2 (Android emulator); " +
+      "Android release builds block cleartext HTTP to other hosts.",
   );
 }
 

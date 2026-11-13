@@ -67,12 +67,18 @@ export function AuthScreen({ onAuthenticated, onFirstLogin }: AuthScreenProps) {
   );
 
   const startNativeLogin = () => {
+    // Busy covers the native account picker too, so a second tap cannot start a parallel sign-in.
+    setBusy(true);
     setError(null);
     signInWithNativeGoogle(clientId)
       .then((idToken) => {
         if (idToken) completeLogin(idToken);
+        else setBusy(false);
       })
-      .catch((cause) => setError(authErrorMessage(cause)));
+      .catch((cause) => {
+        setError(authErrorMessage(cause));
+        setBusy(false);
+      });
   };
 
   useEffect(() => {

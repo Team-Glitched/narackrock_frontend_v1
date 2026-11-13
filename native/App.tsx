@@ -7,11 +7,13 @@ import {
   readFile,
   readFileAssets,
   unlink,
+  writeFile,
 } from "@dr.pogodin/react-native-fs";
 import { StatusBar } from "expo-status-bar";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ActivityIndicator,
+  AppState,
   BackHandler,
   Linking,
   Platform,
@@ -23,7 +25,14 @@ import {
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import { WebView, type WebViewMessageEvent, type WebViewNavigation } from "react-native-webview";
 
-import { handleRequest, injectedBeforeContentLoaded, parseRequest, responseScript } from "./bridge";
+import {
+  appBackgroundScript,
+  handleRequest,
+  injectedBeforeContentLoaded,
+  parseRequest,
+  responseScript,
+  userAgentToken,
+} from "./bridge";
 
 // The web app stores auth and drafts in localStorage, which is keyed by origin,
 // so the port must stay fixed across launches. The backend CORS allow-list must
@@ -44,19 +53,19 @@ async function prepareWebroot(): Promise<{ fileDir: string; manifest: WebBuildMa
     return { fileDir, manifest };
   }
 
-  // Android assets live inside the APK, so the server needs an extracted copy.
-  // Re-extract whenever the bundled build differs from the extracted one.
+  // Android assets live inside the APK, so the server needs an extracted copy. The marker naming the
+  // extracted build is written only after the copy finishes, so an interrupted copy is redone.
   const fileDir = `${DocumentDirectoryPath}/${WEBROOT}`;
-  const extractedPath = `${fileDir}/${MANIFEST_FILE}`;
+  const markerPath = `${DocumentDirectoryPath}/${WEBROOT}.build-id`;
   const manifest: WebBuildManifest = JSON.parse(
     await readFileAssets(`${WEBROOT}/${MANIFEST_FILE}`, "utf8"),
   );
-  const extracted = (await exists(extractedPath))
-    ? (JSON.parse(await readFile(extractedPath, "utf8")) as WebBuildManifest)
-    : null;
-  if (extracted?.buildId !== manifest.buildId) {
+  const extractedId = (await exists(markerPath)) ? await readFile(markerPath, "utf8") : null;
+  if (extractedId !== manifest.buildId) {
+    if (await exists(markerPath)) await unlink(markerPath);
     if (await exists(fileDir)) await unlink(fileDir);
     await copyFileAssets(WEBROOT, fileDir);
+    await writeFile(markerPath, manifest.buildId, "utf8");
   }
   return { fileDir, manifest };
 }
@@ -65,9 +74,11 @@ function serverConfig(apiOrigin: string): string {
   return [
     // History-API routes (createBrowserRouter) must resolve to the SPA entry on reload.
     'server.error-handler-404 = "/index.html"',
-    // The web ingress routes legacy relative /files/... URLs to the backend; mirror that.
+    // The web ingress routes legacy relative /files/... URLs to the backend; mirror that. 302, not
+    // lighttpd's default 301: the fixed origin would keep a permanent redirect cached across API changes.
     'server.modules += ("mod_redirect")',
     `url.redirect = ("^/files/(.*)$" => "${apiOrigin}/files/$1")`,
+    "url.redirect-code = 302",
   ].join("\n");
 }
 
@@ -86,6 +97,8 @@ function useLocalWebServer() {
         server = new Server({
           fileDir,
           port: PORT,
+          // Paired with the background pause below: playback stops first, so nothing needs the
+          // server while the app is away. The library restarts it on return.
           stopInBackground: true,
           extraConfig: serverConfig(manifest.apiOrigin),
         });
@@ -124,6 +137,14 @@ function WebShell() {
     return () => subscription.remove();
   }, []);
 
+  // Leaving the foreground pauses playback on both platforms (Android would otherwise keep playing).
+  useEffect(() => {
+    const subscription = AppState.addEventListener("change", (state) => {
+      if (state === "background") webView.current?.injectJavaScript(appBackgroundScript);
+    });
+    return () => subscription.remove();
+  }, []);
+
   const onNavigationStateChange = useCallback((state: WebViewNavigation) => {
     canGoBack.current = state.canGoBack;
   }, []);
@@ -139,11 +160,13 @@ function WebShell() {
     [origin],
   );
 
-  // Only the bundled app (not third-party frames) may call native features.
+  // Requests must come from the bundled app and carry the main-frame-only token (checked in
+  // parseRequest). Android reports the sending frame's origin (no path); iOS the page URL.
   const onMessage = useCallback(
     (event: WebViewMessageEvent) => {
-      if (!origin || !event.nativeEvent.url.startsWith(`${origin}/`)) return;
-      const request = parseRequest(event.nativeEvent.data);
+      const { url, data } = event.nativeEvent;
+      if (!origin || (url !== origin && !url.startsWith(`${origin}/`))) return;
+      const request = parseRequest(data);
       if (!request) return;
       void handleRequest(request).then((response) =>
         webView.current?.injectJavaScript(responseScript(response)),
@@ -187,7 +210,9 @@ function WebShell() {
       allowsBackForwardNavigationGestures
       setSupportMultipleWindows={false}
       webviewDebuggingEnabled={__DEV__}
+      applicationNameForUserAgent={userAgentToken}
       injectedJavaScriptBeforeContentLoaded={injectedBeforeContentLoaded}
+      injectedJavaScriptBeforeContentLoadedForMainFrameOnly
       onMessage={onMessage}
       onNavigationStateChange={onNavigationStateChange}
       onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}

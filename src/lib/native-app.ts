@@ -1,22 +1,26 @@
-/**
- * Bridge to the React Native shell in `native/`. In a regular browser `nativeApp()` is null and
- * nothing here is used. Protocol (mirrored in native/App.tsx):
- * - web → app: `ReactNativeWebView.postMessage(JSON.stringify({ id, type, ...payload }))`
- * - app → web: `window.__narackrockNativeReceive({ id, ok: true, result } | { id, ok: false, code?, message })`
- */
-export type NativeAppInfo = { platform: "android" | "ios" };
+import type {
+  AppBackgroundEvent,
+  BridgeGlobals,
+  BridgeMethod,
+  BridgeMethods,
+  BridgeResponse,
+  NativePlatform,
+} from "./native-bridge-protocol.ts";
 
-type NativeResponse =
-  | { id: number; ok: true; result: unknown }
-  | { id: number; ok: false; code?: string; message: string };
+/** Bridge to the React Native shell in `native/`; protocol in ./native-bridge-protocol.ts. */
+export type NativeAppInfo = { platform: NativePlatform };
 
 declare global {
   interface Window {
-    NarackrockNative?: NativeAppInfo;
     ReactNativeWebView?: { postMessage(message: string): void };
-    __narackrockNativeReceive?: (response: NativeResponse) => void;
+    __narackrockBridgeToken?: string;
+    __narackrockNativeReceive?: (response: BridgeResponse) => void;
   }
 }
+
+const receiveGlobal = "__narackrockNativeReceive" satisfies BridgeGlobals["receive"];
+const tokenGlobal = "__narackrockBridgeToken" satisfies BridgeGlobals["token"];
+const appBackgroundEvent = "narackrock:app-background" satisfies AppBackgroundEvent;
 
 export class NativeRequestError extends Error {
   code?: string;
@@ -27,9 +31,11 @@ export class NativeRequestError extends Error {
   }
 }
 
+/** Null in regular browsers. Read from the user agent, which the shell sets before any script runs. */
 export function nativeApp(): NativeAppInfo | null {
-  if (typeof window === "undefined" || !window.ReactNativeWebView) return null;
-  return window.NarackrockNative ?? null;
+  if (typeof navigator === "undefined") return null;
+  const platform = /\bNarackrockApp\/(android|ios)\b/.exec(navigator.userAgent)?.[1];
+  return platform === "android" || platform === "ios" ? { platform } : null;
 }
 
 const pending = new Map<
@@ -38,7 +44,7 @@ const pending = new Map<
 >();
 let nextRequestId = 1;
 
-function receive(response: NativeResponse): void {
+function receive(response: BridgeResponse): void {
   const request = pending.get(response.id);
   if (!request) return;
   pending.delete(response.id);
@@ -46,13 +52,29 @@ function receive(response: NativeResponse): void {
   else request.reject(new NativeRequestError(response.message, response.code));
 }
 
-export function requestNative<T>(type: string, payload: Record<string, unknown> = {}): Promise<T> {
-  const bridge = nativeApp() ? window.ReactNativeWebView : undefined;
-  if (!bridge) return Promise.reject(new NativeRequestError("앱에서만 사용할 수 있는 기능입니다."));
-  window.__narackrockNativeReceive ??= receive;
+export function requestNative<M extends BridgeMethod>(
+  type: M,
+  payload: BridgeMethods[M]["payload"],
+): Promise<BridgeMethods[M]["result"]> {
+  const bridge = window.ReactNativeWebView;
+  const token = window[tokenGlobal];
+  if (!nativeApp() || !bridge || !token)
+    return Promise.reject(new NativeRequestError("앱에서만 사용할 수 있는 기능입니다."));
+  window[receiveGlobal] ??= receive;
   const id = nextRequestId++;
-  return new Promise<T>((resolve, reject) => {
+  // Executor form instead of Promise.withResolvers: older iOS WebViews (< 17.4) lack it.
+  return new Promise((resolve, reject) => {
     pending.set(id, { resolve: resolve as (result: unknown) => void, reject });
-    bridge.postMessage(JSON.stringify({ ...payload, id, type }));
+    bridge.postMessage(JSON.stringify({ ...payload, id, token, type }));
   });
+}
+
+/**
+ * Runs `listener` when the native app moves to the background, so Web Audio playback can stop.
+ * The shell itself pauses `<audio>`/`<video>` elements. No-op in browsers.
+ */
+export function onAppBackground(listener: () => void): () => void {
+  if (!nativeApp()) return () => {};
+  window.addEventListener(appBackgroundEvent, listener);
+  return () => window.removeEventListener(appBackgroundEvent, listener);
 }
