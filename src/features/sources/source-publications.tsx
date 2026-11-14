@@ -18,6 +18,7 @@ import {
 } from "@/lib/api/open-sources";
 import { cn } from "@/lib/utils";
 import { sharedStyles } from "@/styles/shared.styles";
+import { sourceStyles } from "@/styles/source.styles";
 import { buttonVariants } from "@/styles/variants";
 import { workspaceStyles } from "@/styles/workspace.styles";
 
@@ -221,13 +222,14 @@ function PublicationListManager({ onOpen }: { onOpen: (id: number) => void }) {
   }
 
   return (
-    <section aria-label="내 등록 샘플" className={cn(workspaceStyles.workspacePage, sharedStyles.scrollContent)}>
+    <section aria-label="내 등록 샘플" className={cn(workspaceStyles.workspacePage, sourceStyles.libraryPage, sharedStyles.scrollContent)}>
+      {!editor && <h1>내 등록 샘플</h1>}
       {notice && <p role="status" className={workspaceStyles.workspaceNotice}>{notice}</p>}
       {editor ? (
-        <form className={cn(workspaceStyles.workspaceCard, workspaceStyles.workspaceReview)} onSubmit={(event) => { event.preventDefault(); submit(); }}>
+        <form className={cn(workspaceStyles.workspaceCard, sourceStyles.libraryCard, workspaceStyles.workspaceReview)} onSubmit={(event) => { event.preventDefault(); submit(); }}>
           <h2>등록 관리</h2>
           <p>공개 상태: {editor.source.visibility === "PUBLIC" ? "공개" : "비공개"}. 원본 음원은 변경되지 않습니다.</p>
-          <fieldset disabled={busy !== null} className="m-0 min-w-0 space-y-4 border-0 p-0">
+          <fieldset disabled={busy !== null} className="m-0 grid min-w-0 gap-2 border-0 p-0 [&>small]:text-caption [&>small]:text-app-muted">
             <label>
               제목
               <input className="w-full rounded-[10px] bg-app-surface p-3 text-body" value={editor.title} aria-describedby={`${formId}-title-count`}
@@ -266,7 +268,7 @@ function PublicationListManager({ onOpen }: { onOpen: (id: number) => void }) {
             </fieldset>
           </fieldset>
           {editorError && <p role="alert" className={workspaceStyles.workspaceNotice}>{editorError}</p>}
-          <div className={workspaceStyles.workspaceActions}>
+          <div className={cn(workspaceStyles.workspaceActions, sourceStyles.libraryActions)}>
             <button type="submit" className={workspaceStyles.workspacePrimary} disabled={busy !== null}>{busy?.kind === "save" ? "저장 중..." : "저장"}</button>
             <button type="button" onClick={closeEditor} disabled={busy !== null}>취소 / 목록으로</button>
             <button type="button" disabled={busy !== null} onClick={() => { if (writing()) return; setDeleteError(""); setConfirmDelete(true); }}>샘플 삭제</button>
@@ -281,11 +283,11 @@ function PublicationListManager({ onOpen }: { onOpen: (id: number) => void }) {
           </div>}
           {list.data && !loading && !listError && items.length === 0 && <p className={workspaceStyles.workspaceEmpty}>아직 등록한 샘플이 없습니다.</p>}
           {items.map((source) => (
-            <article key={source.openSourceId} className={workspaceStyles.workspaceCard}>
+            <article key={source.openSourceId} className={cn(workspaceStyles.workspaceCard, sourceStyles.libraryCard)}>
               <span className={workspaceStyles.workspaceStatus}>{source.visibility === "PUBLIC" ? "공개" : "비공개"}</span>
               <h2>{source.title}</h2>
-              <p className="whitespace-pre-wrap">{source.description ?? ""}</p>
-              <div className={workspaceStyles.workspaceActions}>
+              {source.description && <p className="whitespace-pre-wrap">{source.description}</p>}
+              <div className={cn(workspaceStyles.workspaceActions, sourceStyles.libraryActions)}>
                 <button disabled={busy !== null || list.isFetching} onClick={() => manageSource(source.openSourceId)}>{busy?.kind === "manage" && busy.id === source.openSourceId ? "불러오는 중..." : "관리"}</button>
                 <button disabled={busy !== null || list.isFetching} onClick={() => toggleVisibility(source)}>{busy?.kind === "visibility" && busy.id === source.openSourceId ? "변경 중..." : source.visibility === "PUBLIC" ? "비공개로 전환" : "공개하기"}</button>
                 {source.visibility === "PUBLIC" && <button disabled={busy !== null} className={workspaceStyles.workspacePrimary} onClick={() => onOpen(source.openSourceId)}>자세히 보기</button>}

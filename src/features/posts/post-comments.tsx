@@ -208,7 +208,7 @@ export function PostCommentsScreen({
                       aria-label={`${post.writer.nickname} 프로필`}
                       onClick={() => onProfile?.(post.writer.userId)}
                     >
-                      <Avatar src={post.writer.profileImageUrl} />
+                      <Avatar size="xs" src={post.writer.profileImageUrl} />
                       <strong>{post.writer.nickname || "알 수 없는 사용자"}</strong>
                     </button>
                     <span>• {time(post.createdAt)}</span>

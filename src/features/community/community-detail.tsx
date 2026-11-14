@@ -17,7 +17,6 @@ import {
 } from "./community-card";
 import { useCommunityMembership } from "./community-membership";
 import { CommunityPost } from "@/features/posts/post-card";
-import { PostListControls } from "@/features/posts/post-list-controls";
 import type { PostSort } from "@/lib/api/contracts";
 
 export function CommunityDetailScreen({
@@ -26,14 +25,12 @@ export function CommunityDetailScreen({
   onProfile,
   onManage,
   sort = "LATEST",
-  onSortChange,
 }: {
   onManage?: () => void;
   onProfile?: (userId: number) => void;
   community: Community;
   onComments: (postId: number) => void;
   sort?: PostSort;
-  onSortChange?: (sort: PostSort) => void;
 }) {
   const { role } = useGalleryRole(selected.galleryId);
   const canManage = Boolean(role?.canManage);
@@ -108,7 +105,6 @@ export function CommunityDetailScreen({
           </div>
         )}
       </section>
-      {onSortChange && <PostListControls sort={sort} onSortChange={onSortChange} />}
       {posts.status === "loading" && (
         <p className={communityStyles.communityDetailStatus} role="status">
           게시글을 불러오는 중...

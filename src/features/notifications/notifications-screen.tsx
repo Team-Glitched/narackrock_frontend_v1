@@ -8,7 +8,7 @@ import {
   type ServiceNotification,
 } from "@/lib/api/notifications";
 import { socialStyles } from "@/styles/social.styles";
-import { buttonVariants, filterChipVariants } from "@/styles/variants";
+import { buttonVariants, filterChip, filterChipRow } from "@/styles/variants";
 import { useCurrentUserId } from "@/features/auth/use-current-user";
 import { RequestTime } from "@/features/workspace/contribution-request-card";
 import { useReviewContributionMutation } from "@/features/workspace/workspace-queries";
@@ -186,7 +186,7 @@ function NotificationInbox({
             <>
               {settings && <NotificationSettings userId={userId} />}
               <div
-                className="scrollbar-none mb-4 flex gap-1.5 overflow-x-auto pb-1"
+                className={`${filterChipRow} mb-3`}
                 role="group"
                 aria-label="알림 종류"
               >
@@ -194,7 +194,7 @@ function NotificationInbox({
                   <button
                     key={id ?? "all"}
                     type="button"
-                    className={filterChipVariants({ appearance: "filled", size: "standard" })}
+                    className={filterChip}
                     aria-pressed={category === id}
                     onClick={(e) => {
                       setCategory(id);
@@ -207,16 +207,15 @@ function NotificationInbox({
                   </button>
                 ))}
               </div>
-              <div className="mb-4 flex items-center justify-between gap-2 text-caption text-app-muted">
-                <label className="flex min-h-9 cursor-pointer items-center gap-2">
-                  <input
-                    type="checkbox"
-                    className="accent-[#6500ff]"
-                    checked={unreadOnly}
-                    onChange={(e) => setUnreadOnly(e.target.checked)}
-                  />
+              <div className="mb-5 flex items-center justify-between gap-2 text-body text-app-muted">
+                <button
+                  type="button"
+                  className={filterChip}
+                  aria-pressed={unreadOnly}
+                  onClick={() => setUnreadOnly(!unreadOnly)}
+                >
                   미확인만 보기
-                </label>
+                </button>
                 <button
                   type="button"
                   className="flex min-h-9 items-center gap-1"
@@ -232,24 +231,24 @@ function NotificationInbox({
               {error && (
                 <p
                   role="alert"
-                  className="mb-4 rounded-xl bg-red-500/10 p-3 text-caption leading-5 text-red-300"
+                  className="mb-4 rounded-xl bg-red-500/10 p-3 text-body leading-5 text-red-300"
                 >
                   {error}
                 </p>
               )}
               {notice && (
-                <p role="status" className="mb-3 text-caption text-app-muted">
+                <p role="status" className="mb-3 text-body text-app-muted">
                   {notice}
                 </p>
               )}
               {list.isPending && (
-                <p role="status" className="py-10 text-center text-caption text-app-muted">
+                <p role="status" className="py-10 text-center text-body text-app-muted">
                   알림을 불러오는 중...
                 </p>
               )}
               {list.isError && (
                 <div role="alert" className="py-8 text-center">
-                  <p className="mb-3 text-caption text-app-muted">알림을 불러오지 못했습니다.</p>
+                  <p className="mb-3 text-body text-app-muted">알림을 불러오지 못했습니다.</p>
                   <button
                     onClick={() => void list.refetch()}
                     className={buttonVariants({ tone: "secondary", size: "compact" })}
@@ -280,7 +279,7 @@ function NotificationInbox({
               {list.isSuccess && groups.length === 0 && (
                 <div className="flex flex-col items-center gap-3 py-16 text-center text-app-muted">
                   <Bell size={30} strokeWidth={1.5} />
-                  <p className="text-caption">
+                  <p className="text-body">
                     {unreadOnly
                       ? "미확인 알림이 없습니다."
                       : category
@@ -333,7 +332,7 @@ function NotificationRow({
       className={`mb-3 rounded-2xl border p-4 ${unread ? "border-violet-400/20 bg-violet-400/[0.06]" : "border-white/[0.06] bg-white/[0.015]"}`}
     >
       <div className="mb-2 flex items-center justify-between gap-2">
-        <span className="flex min-w-0 items-center gap-2 text-caption font-medium text-app-muted">
+        <span className="flex min-w-0 items-center gap-2 text-label font-semibold text-app-fg">
           {unread && (
             <span aria-label="미확인" className="size-1.5 shrink-0 rounded-full bg-red-400" />
           )}
@@ -350,7 +349,7 @@ function NotificationRow({
       >
         {notificationBody(group)}
       </button>
-      <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-caption">
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-body">
         {pending && item.type === "CONTRIBUTION_CREATED" ? (
           <button
             type="button"
@@ -401,7 +400,7 @@ function NotificationRow({
         </div>
       ) : (
         item.requestStatus && (
-          <p className="mt-2 text-caption text-app-muted">
+          <p className="mt-2 text-body text-app-muted">
             {statusLabel[item.requestStatus] ?? "처리 완료"}
           </p>
         )

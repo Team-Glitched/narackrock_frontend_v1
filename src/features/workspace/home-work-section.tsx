@@ -72,8 +72,8 @@ export function HomeWorkSection({
       <SectionTitle onAll={items.length ? onOpenWorkspace : undefined}>
         이 브라우저에서 연 작업
       </SectionTitle>
-      {error && <p role="alert">{error}</p>}
-      {loading && <p role="status">방문한 작업을 불러오는 중입니다.</p>}
+      {error && <p role="alert" className="mx-5 rounded-[12px] border border-solid border-app-border bg-transparent px-4 py-3 text-body leading-[20px] text-[#ff8d8d]">{error}</p>}
+      {loading && <p role="status" className="px-5 py-4 text-body leading-[20px] text-app-muted">방문한 작업을 불러오는 중입니다.</p>}
       {items.length ? (
         <div
           className="scrollbar-none flex snap-x snap-mandatory gap-3 overflow-x-auto px-5 pb-1 [scroll-padding-inline:20px]"
@@ -84,7 +84,7 @@ export function HomeWorkSection({
             const modified = modifiedLabel(work.updatedAt);
             return (
               <button
-                className="flex min-w-0 flex-[0_0_244px] snap-start flex-col gap-4 rounded-[14px] border border-solid border-transparent bg-app-surface p-4 text-left transition-[border-color,background] duration-150 ease-[ease] hover:border-app-accent hover:bg-app-raised focus-visible:outline-2 focus-visible:-outline-offset-3 focus-visible:outline-app-accent motion-reduce:transition-none"
+                className="flex min-w-0 flex-[0_0_244px] snap-start flex-col gap-3 rounded-[12px] border border-solid border-app-border bg-transparent p-4 text-left transition-[border-color,background] duration-150 ease-[ease] hover:border-app-accent hover:bg-app-surface focus-visible:outline-2 focus-visible:-outline-offset-3 focus-visible:outline-app-accent motion-reduce:transition-none"
                 key={work.id}
                 onClick={() => onResume(work.id, work.shortId)}
                 aria-label={`${work.title} 이어서 작곡하기`}
@@ -98,7 +98,7 @@ export function HomeWorkSection({
                   <ArrowUpRight size={18} strokeWidth={1.5} aria-hidden="true" />
                 </span>
                 <DraftPreview work={work} />
-                <span className="flex w-full min-w-0 flex-col gap-2 [&>strong]:truncate [&>strong]:text-label [&>strong]:leading-[22px] [&>strong]:font-semibold [&>small]:text-caption [&>small]:leading-[18px] [&>small]:font-normal [&>small]:text-app-muted">
+                <span className="flex w-full min-w-0 flex-col gap-1 [&>strong]:truncate [&>strong]:text-label [&>strong]:leading-[22px] [&>strong]:font-semibold [&>small]:text-body [&>small]:leading-[20px] [&>small]:font-normal [&>small]:text-app-muted">
                   <strong>{work.title}</strong>
                   <small>
                     레이어 {work.composition.tracks.length}개<span aria-hidden="true"> · </span>
@@ -110,7 +110,7 @@ export function HomeWorkSection({
           })}
         </div>
       ) : !loading && !error ? (
-        <div className="mx-5 rounded-[14px] border border-solid border-app-border bg-app-panel p-5 [&>p]:m-0 [&>p]:mb-4 [&>p]:text-body [&>p]:leading-5 [&>p]:font-normal [&>p]:text-app-muted">
+        <div className="mx-5 rounded-[12px] border border-solid border-app-border bg-transparent p-5 [&>p]:m-0 [&>p]:mb-4 [&>p]:text-body [&>p]:leading-5 [&>p]:font-normal [&>p]:text-app-muted">
           <p>새 곡을 만들거나 음악에 참여해 보세요.</p>
           <button
             className={buttonVariants({

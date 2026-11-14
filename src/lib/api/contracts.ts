@@ -79,6 +79,7 @@ export type PostListItem = {
   imageUrl: string | null;
   viewCount: number;
   likeCount: number;
+  dislikeCount?: number;
   commentCount: number;
   createdAt: string;
 };

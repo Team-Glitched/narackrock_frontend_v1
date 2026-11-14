@@ -3,6 +3,7 @@ import { readId } from "@/features/navigation/paths";
 import { useLoginPrompt } from "@/features/auth/login-prompt";
 import { communityStyles } from "@/styles/community.styles";
 import { sharedStyles } from "@/styles/shared.styles";
+import { buttonVariants } from "@/styles/variants";
 import { apiOrigin } from "@/lib/api/client";
 import { useHiddenIds } from "@/lib/browser/hidden-ids";
 import { cn } from "@/lib/utils";
@@ -213,7 +214,7 @@ export function CommonComments({
     if (!requireLogin() || busy || hideOnServer.isPending || !writable || !draft.trim()) return;
     create.mutate({ text: draft.trim(), parentId: reply?.threadId ?? null });
   }
-  const row = (item: CommentItem, threadId?: number) => (
+  const row = (item: CommentItem, thread?: { count: number; open: boolean }, parentId?: number) => (
     <CommentCard
       key={item.id}
       item={item}
@@ -222,15 +223,24 @@ export function CommonComments({
       onChanged={changed}
       onHide={() => {
         if (!adapter.hide) {
-          hide(item.id, item.id === threadId ? null : threadId);
+          hide(item.id, parentId ?? null);
         } else if (!hideOnServer.isPending && requireLogin()) {
           hideOnServer.mutate(item.id);
         }
       }}
       canReply={canWrite}
-      onReply={threadId === undefined ? undefined : () => {
-        if (requireLogin() && writable) startReply(item, threadId);
-      }}
+      replyCount={thread?.count}
+      repliesExpanded={thread?.open}
+      onToggleReplies={thread?.count ? () => {
+        toggle(item.id);
+        if (!draft.trim()) {
+          if (thread.open && reply?.threadId === item.id) setReply(null);
+          else if (!thread.open && writable) setReply({ commentId: item.id, threadId: item.id, author: item.author });
+        }
+      } : undefined}
+      onReply={thread ? () => {
+        if (requireLogin() && writable) startReply(item, item.id);
+      } : undefined}
       onProfile={() => onProfile?.(item.userId)}
       onReport={report ? () => {
         if (requireLogin()) setReportTarget(item.id);
@@ -245,9 +255,15 @@ export function CommonComments({
       >
         {header}
         {top.error && (
-          <div role="alert">
-            {top.error}
-            <button onClick={top.retry}>다시 시도</button>
+          <div role="alert" className="flex flex-col items-center justify-center gap-3 px-4 py-8 text-center text-body leading-5 text-[#ff8d8d]">
+            <p className="m-0">{top.error}</p>
+            <button
+              type="button"
+              className={buttonVariants({ tone: "secondary", size: "compact" })}
+              onClick={top.retry}
+            >
+              다시 시도
+            </button>
           </div>
         )}
         {canRead && !top.items && !top.error && <p role="status">댓글을 불러오는 중...</p>}
@@ -262,16 +278,7 @@ export function CommonComments({
               key={item.id}
               aria-label={`${item.author} 댓글 대화`}
             >
-              {row(item, item.id)}
-              {replyCount > 0 && (
-                <button
-                  className={communityStyles.nrRepliesToggle}
-                  aria-expanded={expanded.has(item.id)}
-                  onClick={() => toggle(item.id)}
-                >
-                  {expanded.has(item.id) ? "답글 접기" : `답글 ${replyCount}개`}
-                </button>
-              )}
+              {row(item, { count: replyCount, open: expanded.has(item.id) })}
               {expanded.has(item.id) && replyCount > 0 && (
                 <Replies
                   key={item.id}
@@ -280,8 +287,7 @@ export function CommonComments({
                   hiddenIds={hiddenIds}
                   hiddenCount={hiddenReplyCounts.get(item.id) ?? 0}
                   onResolveHidden={(id) => hide(id, item.id)}
-                  render={(child) => row(child)}
-                  onCollapse={() => toggle(item.id)}
+                  render={(child) => row(child, undefined, item.id)}
                 />
               )}
             </section>
@@ -358,7 +364,6 @@ function Replies({
   hiddenCount,
   onResolveHidden,
   render,
-  onCollapse,
 }: {
   adapter: CommentAdapter;
   parentId: number;
@@ -366,7 +371,6 @@ function Replies({
   hiddenCount: number;
   onResolveHidden: (id: number) => void;
   render: (item: CommentItem) => React.ReactNode;
-  onCollapse: () => void;
 }) {
   const page = useCommentPage(adapter, parentId);
   const { items } = page;
@@ -380,16 +384,16 @@ function Replies({
   const remaining = Math.max(0, page.total - hiddenCount - (visibleItems?.length ?? 0));
   return (
     <div className={communityStyles.nrCommentReplies}>
-      <button
-        className={communityStyles.nrRepliesRail}
-        aria-label="답글 접기"
-        onClick={onCollapse}
-      />
+      <span className={communityStyles.nrRepliesRail} aria-hidden="true" />
       <div className={communityStyles.nrRepliesBody}>
         {page.error && (
-          <div role="alert">
-            <p>{page.error}</p>
-            <button className={communityStyles.nrCommentsMore} onClick={page.retry}>
+          <div role="alert" className="flex flex-col items-start gap-2 py-2 text-body leading-5 text-[#ff8d8d]">
+            <p className="m-0">{page.error}</p>
+            <button
+              type="button"
+              className={buttonVariants({ tone: "secondary", size: "compact" })}
+              onClick={page.retry}
+            >
               다시 시도
             </button>
           </div>
@@ -419,6 +423,9 @@ function CommentCard({
   onChanged,
   onHide,
   onReply,
+  replyCount,
+  repliesExpanded,
+  onToggleReplies,
   onProfile,
   onReport,
 }: {
@@ -429,6 +436,9 @@ function CommentCard({
   onChanged: () => void;
   onHide: () => void;
   onReply?: () => void;
+  replyCount?: number;
+  repliesExpanded?: boolean;
+  onToggleReplies?: () => void;
   onProfile: () => void;
   onReport?: () => void;
 }) {
@@ -438,8 +448,20 @@ function CommentCard({
   const highlighted = readId(commentLink.get("commentId")) === item.id;
   const card = useRef<HTMLElement>(null);
   useEffect(() => { if (highlighted) card.current?.scrollIntoView({ block: "center" }); }, [highlighted]);
+  const textRef = useRef<HTMLParagraphElement>(null);
+  const [longText, setLongText] = useState(false);
+  const [fullText, setFullText] = useState(false);
   const [menu, setMenu] = useState(false);
   const [editing, setEditing] = useState(false);
+  useLayoutEffect(() => {
+    const text = textRef.current;
+    if (!text || fullText) return;
+    const measure = () => setLongText(text.scrollHeight > text.clientHeight + 1);
+    measure();
+    const observer = new ResizeObserver(measure);
+    observer.observe(text);
+    return () => observer.disconnect();
+  }, [item.text, fullText, editing]);
   const [draft, setDraft] = useState(item.text);
   const [confirm, setConfirm] = useState(false);
   const optionButton = useRef<HTMLButtonElement>(null);
@@ -501,7 +523,7 @@ function CommentCard({
           aria-label={`${item.author} 프로필`}
           onClick={onProfile}
         >
-          <Avatar src={item.avatarUrl} />
+          <Avatar size="xs" src={item.avatarUrl} />
         </button>
         <strong>{item.author}</strong>
         <span>• {item.time}</span>
@@ -576,12 +598,15 @@ function CommentCard({
           </button>
           <button disabled={busy || !draft.trim()}>저장</button>
         </form>
-      ) : onReply ? (
-        <button className={communityStyles.nrCommentText} onClick={onReply} disabled={!canReply}>
-          {item.text}
-        </button>
       ) : (
-        <p className={communityStyles.nrCommentText}>{item.text}</p>
+        <>
+          <p ref={textRef} className={cn(communityStyles.nrCommentText, !fullText && "line-clamp-3!")}>{item.text}</p>
+          {longText && (
+            <button type="button" className="mt-1 block pl-7 text-caption text-app-muted" aria-expanded={fullText} onClick={() => setFullText(!fullText)}>
+              {fullText ? "접기" : "자세히 보기"}
+            </button>
+          )}
+        </>
       )}
       {confirm && (
         <div className={communityStyles.nrCommentDelete}>
@@ -629,9 +654,18 @@ function CommentCard({
             name={item.isDisliked ? "v3-comment-dislike-on.svg" : "v3-comment-dislike-off.svg"}
           />
         </button>
-        {onReply && (
-          <button aria-label={`${item.author}에게 답글 작성`} disabled={!canReply} onClick={onReply}>
+        {replyCount !== undefined && (
+          <button
+            type="button"
+            aria-label={onToggleReplies
+              ? (repliesExpanded ? "답글 접기" : `답글 ${replyCount}개 보기`)
+              : "답글 작성"}
+            aria-expanded={onToggleReplies ? repliesExpanded : undefined}
+            disabled={!onToggleReplies && !canReply}
+            onClick={onToggleReplies ?? onReply}
+          >
             <Asset name="comment-reply.svg" />
+            <span className="tabular-nums">{replyCount}</span>
           </button>
         )}
       </div>

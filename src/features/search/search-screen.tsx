@@ -6,6 +6,7 @@ import { buttonVariants } from "@/styles/variants";
 import { useEffect, useEffectEvent, useRef, useState } from "react";
 import { experimental_streamedQuery as streamedQuery, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Asset } from "@/components/asset";
+import { AlbumArtwork } from "@/components/music-card";
 import { Avatar } from "@/components/avatar";
 import { MiniPost } from "@/features/posts/post-list";
 import { CommunityCard, galleryToCommunity, type Community } from "../community/community-card";
@@ -184,12 +185,13 @@ export function ScopedSearch({
     <div className={cn(socialStyles.searchView, sharedStyles.scopedSearch)}>
       <div className={socialStyles.searchLine}>
         <button onClick={onBack} aria-label="돌아가기" title="돌아가기">
-          <Asset name="search-back.svg" />
+          <Asset name="return.svg" />
         </button>
-        <label>
+        <div className="search-field focus-within:ring-2 focus-within:ring-app-primary">
           <Asset name="search-input.svg" />
           <input
             ref={inputRef}
+            className="focus-visible:outline-none!"
             autoFocus
             aria-label={
               community
@@ -200,23 +202,26 @@ export function ScopedSearch({
             onChange={(event) => setSearchText(event.target.value)}
             placeholder={community ? "커뮤니티 내 게시글 검색" : `${scopes.find((item) => item.id === scope)?.label} 검색`}
           />
-          <button
-            onClick={() => {
-              setSearchText("");
-              onQuery("");
-              inputRef.current?.focus();
-            }}
-            aria-label="검색어 지우기"
-          >
-            <Asset name="search-close.svg" />
-          </button>
-        </label>
+          {searchText && (
+            <button
+              type="button"
+              onClick={() => {
+                setSearchText("");
+                onQuery("");
+                inputRef.current?.focus();
+              }}
+              aria-label="검색어 지우기"
+            >
+              <Asset name="search-close.svg" />
+            </button>
+          )}
+        </div>
       </div>
       {community && (
         <p className={communityStyles.communitySearchContext}>{community.name} 내 게시글</p>
       )}
       {!community && (
-        <div className={socialStyles.searchScopeTabs} role="tablist" aria-label="검색 종류">
+        <div className={cn(communityStyles.communityTabs, "-mx-[15px]")} role="tablist" aria-label="검색 종류">
           {scopes.map((item) => (
             <button
               role="tab"
@@ -245,10 +250,10 @@ export function ScopedSearch({
         {!peopleSignInRequired && !community && !keyword && (
           <p className={socialStyles.searchResult}>{scopes.find((item) => item.id === scope)?.hint}</p>
         )}
-        {!peopleSignInRequired && query.trim() && (!results || current?.pending) && <p role="status">검색 중...</p>}
+        {!peopleSignInRequired && query.trim() && (!results || current?.pending) && <p role="status" className="py-6 text-center text-body leading-[20px] text-app-muted">검색 중...</p>}
         {current?.error && (
-          <div role="alert">
-            <p>{current.error}</p>
+          <div role="alert" className="my-auto flex flex-1 flex-col items-center justify-center gap-4 px-5 py-12 text-center text-body leading-[20px] text-[#ff8d8d]">
+            <p className="m-0">{current.error}</p>
             <button
               className={buttonVariants({
                 tone: "secondary",
@@ -283,16 +288,10 @@ export function ScopedSearch({
               key={song.shortId}
               onClick={() => onSong(song.shortId)}
             >
-              <span className={sharedStyles.chartArt}>
-                {song.albumImageUrl ? (
-                  <AssetImage url={song.albumImageUrl} />
-                ) : (
-                  <span className={sharedStyles.emptyArtwork} />
-                )}
-              </span>
-              <span>
-                <strong>{song.title}</strong>
-                <small>{song.author.nickname}</small>
+              <AlbumArtwork src={song.albumImageUrl} title={song.title} className={sharedStyles.chartArt} />
+              <span className="flex min-w-0 flex-1 flex-col gap-[var(--supporting-copy-gap)]">
+                <strong className="truncate">{song.title}</strong>
+                <small className="truncate">{song.author.nickname}</small>
               </span>
             </button>
           ))}
@@ -303,16 +302,10 @@ export function ScopedSearch({
               key={source.openSourceId}
               onClick={() => onSource(source.openSourceId)}
             >
-              <span className={sharedStyles.chartArt}>
-                {source.thumbnailUrl ? (
-                  <AssetImage url={source.thumbnailUrl} />
-                ) : (
-                  <span className={sharedStyles.emptyArtwork} />
-                )}
-              </span>
-              <span>
-                <strong>{source.title}</strong>
-                <small>{source.writer.nickname}</small>
+              <AlbumArtwork src={source.thumbnailUrl} title={source.title} className={sharedStyles.chartArt} />
+              <span className="flex min-w-0 flex-1 flex-col gap-[var(--supporting-copy-gap)]">
+                <strong className="truncate">{source.title}</strong>
+                <small className="truncate">{source.writer.nickname}</small>
               </span>
             </button>
           ))}
@@ -323,11 +316,11 @@ export function ScopedSearch({
               key={person.userId}
               onClick={() => onProfile(person.userId)}
             >
-              <Avatar src={person.profileImageUrl} />
-              <strong>{person.nickname}</strong>
+              <Avatar size="md" src={person.profileImageUrl} />
+              <strong className="truncate text-label font-semibold leading-[22px]">{person.nickname}</strong>
             </button>
           ))}
-        {paged && pagination.state?.error && <p role="alert">검색 결과를 불러오지 못했습니다.</p>}
+        {paged && pagination.state?.error && <p role="alert" className="rounded-[12px] border border-solid border-app-border px-4 py-3 text-center text-body leading-[20px] text-[#ff8d8d]">검색 결과를 불러오지 못했습니다.</p>}
         {paged && pagination.state && pagination.state.next !== null && (
           <button type="button" className={buttonVariants({ tone: "secondary", size: "compact" })}
             disabled={pagination.state.busy} onClick={pagination.more}>
@@ -337,7 +330,4 @@ export function ScopedSearch({
       </div>
     </div>
   );
-}
-function AssetImage({ url }: { url: string }) {
-  return <img src={url} alt="앨범 커버" />;
 }

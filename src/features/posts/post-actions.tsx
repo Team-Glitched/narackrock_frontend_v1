@@ -38,6 +38,7 @@ export function PostActions({
   saveStatus = "ready",
   onSave,
   onShare,
+  onReport,
   busy = false,
   compact = false,
   readOnly = false,
@@ -53,6 +54,7 @@ export function PostActions({
   saveStatus?: LookupStatus;
   onSave?: () => void;
   onShare?: () => void;
+  onReport?: () => void;
   busy?: boolean;
   compact?: boolean;
   readOnly?: boolean;
@@ -67,7 +69,7 @@ export function PostActions({
         </span>
         <span>
           <IconSlot name="mini-dislike.svg" kind="mini" />
-          {dislikeCount}
+          {dislikeCount ?? 0}
         </span>
         <span>
           <IconSlot name="mini-comment.svg" kind="mini" />
@@ -78,22 +80,20 @@ export function PostActions({
   return (
     <div
       className={cn(
-        cn(
-          communityStyles.postActions,
-          "mt-2 flex h-[26px] w-full items-center gap-[6px] font-sans text-body leading-[22px] font-medium text-app-fg",
-        ),
+        communityStyles.postActions,
+        "mt-3 flex h-7 w-full items-center gap-1.5 font-sans text-body leading-[20px] font-medium text-app-fg",
         compact && "m-0 w-auto flex-none",
       )}
     >
       <div
         className={
-          "flex h-[26px] flex-none items-center gap-[10px] rounded-[20px] border-0 bg-app-surface px-[10px]"
+          "flex h-7 flex-none items-center gap-2 rounded-[20px] border-0 bg-app-surface px-2.5"
         }
         role="group"
         aria-label={
-          voteStatus === "loading" ? "게시글 반응 · 내 반응 확인 중"
-            : voteStatus === "unavailable" ? "게시글 반응 · 내 반응을 불러오지 못했습니다"
-              : "게시글 반응"
+          voteStatus === "loading" ? "반응 · 내 반응 확인 중"
+            : voteStatus === "unavailable" ? "반응 · 내 반응을 불러오지 못했습니다"
+              : "반응"
         }
         aria-busy={voteStatus === "loading"}
       >
@@ -101,13 +101,13 @@ export function PostActions({
           className={reactionControlVariants({ kind: "vote" })}
           onClick={() => onVote("like")}
           disabled={busy}
-          aria-label="좋아요"
+          aria-label={`좋아요 ${likeCount}개`}
           aria-pressed={voteStatus === "ready" ? vote === "like" : undefined}
         >
           <VoteIcon name={`v3-post-like-${vote === "like" ? "on" : "off"}.svg`} status={voteStatus} />
-          {likeCount}
+          <span className="tabular-nums">{likeCount}</span>
         </button>
-        <span className={"h-[22px] w-px flex-none bg-app-fg"} aria-hidden="true" />
+        <span className={"h-4 w-px flex-none bg-white/25"} aria-hidden="true" />
         <button
           className={reactionControlVariants({ kind: "vote" })}
           onClick={() => onVote("dislike")}
@@ -127,7 +127,7 @@ export function PostActions({
         aria-label={`댓글 ${commentCount}개 보기`}
       >
         <IconSlot name="post-comment.svg" kind="post" />
-        {commentCount}
+        <span className="tabular-nums">{commentCount}</span>
       </button>
       {!compact && (
         <>
@@ -158,6 +158,11 @@ export function PostActions({
               </span>
             )}
           </button>
+          {onReport && (
+            <button type="button" className={reactionControlVariants({ kind: "icon" })} aria-label="신고" onClick={onReport}>
+              <IconSlot name="short-report.svg" kind="post" />
+            </button>
+          )}
         </>
       )}
     </div>

@@ -12,7 +12,7 @@ import { AbyssComments } from "./abyss-comments";
 import { FigmaSheet } from "@/components/figma-sheet";
 import { ReportReasons } from "@/features/comments/report-reasons";
 import { Asset } from "@/components/asset";
-import { IconSlot } from "@/components/icon-slot";
+import { PostActions } from "@/features/posts/post-actions";
 import { canonicalShareLink } from "@/lib/api/content-link";
 import { publicWebOrigin } from "@/lib/public-web-origin";
 import { initialShortIndex } from "@/features/abyss/initial-short";
@@ -78,6 +78,9 @@ export function AbyssScreen({
   const advancingRef = useRef(false);
   const restartPlaybackRef = useRef<() => void>(() => {});
   const [advancing, setAdvancing] = useState(false);
+  const titleViewport = useRef<HTMLHeadingElement>(null);
+  const titleText = useRef<HTMLSpanElement>(null);
+  const [titleOverflows, setTitleOverflows] = useState(false);
   const [coverCycle, setCoverCycle] = useState<{ key: number; previous: ShortItemDto; direction: "next" | "previous" } | null>(null);
   // The selection is tracked by ID, so loaded pages and a prepended deep link never move the listener.
   const [selectedId, setSelectedId] = useState(initialShortId ?? null);
@@ -169,6 +172,17 @@ export function AbyssScreen({
   useLayoutEffect(() => {
     restartPlaybackRef.current = playback.restart;
   });
+  useLayoutEffect(() => {
+    const viewport = titleViewport.current;
+    const title = titleText.current;
+    if (!viewport || !title) return;
+    const measure = () => setTitleOverflows(title.offsetWidth > viewport.clientWidth);
+    const observer = new ResizeObserver(measure);
+    observer.observe(viewport);
+    observer.observe(title);
+    measure();
+    return () => observer.disconnect();
+  }, [current?.shortId, current?.title]);
 
   function select(short: ShortItemDto) {
     audioRef.current?.pause();
@@ -343,7 +357,15 @@ export function AbyssScreen({
           }}
         />
         <div className={abyssStyles.abyssTitle}>
-          <h1>{current.title}</h1>
+          <h1 ref={titleViewport} className="overflow-hidden">
+            <span
+              key={current.shortId}
+              className={cn("inline-flex w-max whitespace-nowrap align-top", titleOverflows && "abyss-title-marquee")}
+            >
+              <span ref={titleText}>{current.title}</span>
+              {titleOverflows && <span aria-hidden="true" className="pl-8">{current.title}</span>}
+            </span>
+          </h1>
           <p>
             <button onClick={() => openProfile(current.author.userId)}>
               {current.author.nickname}
@@ -359,63 +381,19 @@ export function AbyssScreen({
             </button>
           </p>
         </div>
-      </div>
-      <div className={abyssStyles.abyssActions}>
-        <div className={abyssStyles.abyssVote}>
-          <button
-            className={current.isLiked ? sharedStyles.active : ""}
-            aria-label={`좋아요 ${current.likeCount}개`}
-            aria-pressed={current.isLiked}
-            disabled={busy}
-            onClick={() => vote("like")}
-          >
-            <IconSlot
-              name={current.isLiked ? "v3-short-like-on.svg" : "v3-short-like-off.svg"}
-              kind="short"
-            />
-            <span className={abyssStyles.abyssLikeCount}>{current.likeCount}</span>
-          </button>
-          <i />
-          <button
-            className={abyssStyles.abyssDislike}
-            aria-label={`싫어요 ${current.dislikeCount}개`}
-            aria-pressed={current.isDisliked}
-            disabled={busy}
-            onClick={() => vote("dislike")}
-          >
-            <IconSlot
-              name={current.isDisliked ? "v3-short-dislike-on.svg" : "v3-short-dislike-off.svg"}
-              kind="short"
-            />
-          </button>
-        </div>
-        <button onClick={() => setSheet("comments")} aria-label={`댓글 ${current.commentCount}개`}>
-          <IconSlot name="abyss-comment.svg" kind="short" />
-          {current.commentCount}
-        </button>
-        <button
-          className={abyssStyles.abyssShare}
-          onClick={share}
-          aria-label="공유"
-        >
-          <IconSlot name="abyss-share.svg" kind="short-share" />
-        </button>
-        <button
-          className={sharedStyles.saveControl}
-          aria-label="저장"
-          aria-pressed={current.isBookmarked}
-          disabled={busy}
-          onClick={bookmark}
-        >
-          <IconSlot name={current.isBookmarked ? "save-on.svg" : "save-off.svg"} kind="short-save" />
-        </button>
-        <button
-          className={abyssStyles.abyssReport}
-          aria-label="신고"
-          onClick={() => { if (requireLogin()) setSheet("report"); }}
-        >
-          <Asset name="short-report.svg" />
-        </button>
+        <PostActions
+          likeCount={current.likeCount}
+          dislikeCount={current.dislikeCount}
+          commentCount={current.commentCount}
+          vote={current.isLiked ? "like" : current.isDisliked ? "dislike" : null}
+          saved={current.isBookmarked}
+          busy={busy}
+          onVote={vote}
+          onComments={() => setSheet("comments")}
+          onShare={share}
+          onSave={bookmark}
+          onReport={() => { if (requireLogin()) setSheet("report"); }}
+        />
       </div>
       <div className={abyssStyles.abyssBottomStack}>
         <div className={abyssStyles.abyssPlayer}>

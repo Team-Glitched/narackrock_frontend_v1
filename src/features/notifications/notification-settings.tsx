@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { preferenceCopy, preferenceRow, preferenceSwitch } from "@/styles/variants";
 import type { NotificationPreferences } from "@/lib/api/notifications";
 import { notificationPreferencesQuery, useNotificationMutations } from "./notification-queries";
 const options: { key: keyof NotificationPreferences; title: string; description: string }[] = [
@@ -24,11 +25,11 @@ export function NotificationSettings({ userId }: { userId: number }) {
   const { preferences } = useNotificationMutations();
   return (
     <section
-      className="mb-5 rounded-2xl border border-white/10 bg-white/[0.03] p-4"
+      className="mb-4 rounded-[12px] border border-solid border-app-border bg-transparent p-4"
       aria-label="알림 수신 설정"
     >
       <h2 className="mb-1 text-label font-semibold">알림 수신 설정</h2>
-      <p className="mb-3 text-caption leading-5 text-app-muted">
+      <p className="mb-3 text-body leading-5 text-app-muted">
         요청·처리 결과와 댓글, 운영 안내는 항상 알립니다.
       </p>
       {query.isPending && <p role="status">설정을 불러오는 중...</p>}
@@ -42,17 +43,18 @@ export function NotificationSettings({ userId }: { userId: number }) {
         options.map(({ key, title, description }) => (
           <label
             key={key}
-            className="flex cursor-pointer items-center gap-3 border-t border-white/5 py-3"
+            className={`${preferenceRow} border-t border-app-border`}
           >
-            <span className="flex-1">
-              <strong className="block text-caption font-medium">{title}</strong>
-              <small className="mt-1 block text-[11px] leading-4 text-app-muted">
+            <span className={preferenceCopy}>
+              <strong>{title}</strong>
+              <small>
                 {description}
               </small>
             </span>
             <input
               type="checkbox"
-              className="size-4 accent-[#6500ff]"
+              role="switch"
+              className={preferenceSwitch}
               checked={query.data[key]}
               disabled={preferences.isPending}
               onChange={(e) => preferences.mutate({ ...query.data!, [key]: e.target.checked })}

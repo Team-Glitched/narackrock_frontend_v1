@@ -71,3 +71,37 @@
     opacity: 0;
   }
 }
+
+@media (prefers-reduced-motion: no-preference) {
+  .abyss-title-marquee {
+    animation: abyss-title-scroll 12s linear infinite;
+  }
+
+  .abyss-title:hover .abyss-title-marquee,
+  .abyss-title:focus-within .abyss-title-marquee {
+    animation-play-state: paused;
+  }
+}
+
+@keyframes abyss-title-scroll {
+  0%, 12% {
+    transform: translateX(0);
+  }
+
+  100% {
+    transform: translateX(calc(-50% - 16px));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .abyss-title-marquee {
+    display: block;
+    width: auto;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .abyss-title-marquee [aria-hidden="true"] {
+    display: none;
+  }
+}

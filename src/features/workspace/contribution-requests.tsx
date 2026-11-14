@@ -22,10 +22,10 @@ import {
   useReviewContributionMutation,
 } from "./workspace-queries";
 
-function RequestPage({ title, children }: { title: string; children: ReactNode }) {
+function RequestPage({ title, hideTitle = false, children }: { title: string; hideTitle?: boolean; children: ReactNode }) {
   return (
-    <section className="scrollbar-none h-full overflow-y-auto px-5 pt-5 pb-8 text-app-fg">
-      <h1 className="mb-6 text-title leading-8 font-bold">{title}</h1>
+    <section className="scrollbar-none flex h-full flex-col gap-5 overflow-y-auto px-5 pt-6 pb-10 text-app-fg">
+      {!hideTitle && <h1 className="m-0 text-title leading-7 font-bold">{title}</h1>}
       {children}
     </section>
   );
@@ -33,7 +33,7 @@ function RequestPage({ title, children }: { title: string; children: ReactNode }
 
 function ReviewError({ error }: { error: Error }) {
   return (
-    <p role="alert" className="mt-4 text-body leading-6 text-[#ff8d8d]">
+    <p role="alert" className="m-0 text-label leading-6 text-[#ff8d8d]">
       {error instanceof ApiError
         ? error.message
         : "요청을 처리하지 못했습니다. 다시 시도해 주세요."}
@@ -56,15 +56,18 @@ export function ReviewInboxScreen({
   const [notice, setNotice] = useState("");
   const items = inbox.data ?? [];
   return (
-    <RequestPage title="받은 참여 요청">
+    <RequestPage title="받은 참여 요청" hideTitle={items.length === 0}>
       {inbox.isPending && (
-        <p role="status" className="text-body text-app-muted">
+        <p role="status" className="my-auto flex flex-1 items-center justify-center py-12 text-center text-label leading-6 text-app-muted">
           참여 요청을 불러오는 중...
         </p>
       )}
       {inbox.isError && (
-        <div role="alert">
-          <p>참여 요청을 불러오지 못했습니다.</p>
+        <div
+          role="alert"
+          className="my-auto flex flex-1 flex-col items-center justify-center gap-4 px-5 py-12 text-center text-label leading-6 text-app-muted"
+        >
+          <p className="m-0">참여 요청을 불러오지 못했습니다.</p>
           <button
             className={buttonVariants({ tone: "secondary" })}
             onClick={() => void inbox.refetch()}
@@ -75,12 +78,22 @@ export function ReviewInboxScreen({
       )}
       {review.isError && <ReviewError error={review.error} />}
       {notice && (
-        <p role="status" className="mb-4 text-body text-app-primary-soft">
+        <p role="status" className="m-0 text-label leading-6 text-app-primary-soft">
           {notice}
         </p>
       )}
       {!inbox.isPending && !inbox.isError && !items.length && (
-        <p className="py-12 text-center text-body text-app-muted">받은 참여 요청이 없습니다.</p>
+        <div className="my-auto flex flex-1 flex-col items-center justify-center gap-4 px-5 py-12 text-center text-label leading-6 text-app-muted">
+          <p className="m-0">받은 참여 요청이 없습니다.</p>
+          <button
+            type="button"
+            className={buttonVariants({ tone: "secondary" })}
+            disabled={inbox.isFetching}
+            onClick={() => void inbox.refetch()}
+          >
+            새로고침
+          </button>
+        </div>
       )}
       <ul className="m-0 list-none divide-y divide-app-border p-0">
         {items.map((item) => (
@@ -127,15 +140,18 @@ export function SubmissionsScreen({
   const loading = list.isPending;
   const failed = list.isError;
   return (
-    <RequestPage title="보낸 참여 요청">
+    <RequestPage title="보낸 참여 요청" hideTitle={items.length === 0}>
       {loading && (
-        <p role="status" className="text-body text-app-muted">
+        <p role="status" className="my-auto flex flex-1 items-center justify-center py-12 text-center text-label leading-6 text-app-muted">
           참여 요청을 불러오는 중...
         </p>
       )}
       {failed && (
-        <div role="alert">
-          <p>보낸 요청을 불러오지 못했습니다.</p>
+        <div
+          role="alert"
+          className="my-auto flex flex-1 flex-col items-center justify-center gap-4 px-5 py-12 text-center text-label leading-6 text-app-muted"
+        >
+          <p className="m-0">보낸 요청을 불러오지 못했습니다.</p>
           <button
             className={buttonVariants({ tone: "secondary" })}
             onClick={() =>
@@ -149,9 +165,17 @@ export function SubmissionsScreen({
         </div>
       )}
       {!loading && !failed && !items.length && (
-        <p className="py-12 text-center text-body text-app-muted">
-          아직 보낸 참여 요청이 없습니다.
-        </p>
+        <div className="my-auto flex flex-1 flex-col items-center justify-center gap-4 px-5 py-12 text-center text-label leading-6 text-app-muted">
+          <p className="m-0">아직 보낸 참여 요청이 없습니다.</p>
+          <button
+            type="button"
+            className={buttonVariants({ tone: "secondary" })}
+            disabled={list.isFetching}
+            onClick={() => void list.refetch()}
+          >
+            새로고침
+          </button>
+        </div>
       )}
       <ul className="m-0 list-none divide-y divide-app-border p-0">
         {items.map((item) => (
@@ -284,7 +308,7 @@ export function SubmissionDetailScreen({
       >
         {requestStatus[item.approvalStatus]}
       </span>
-      <h2 className="mt-3 text-title leading-8 font-semibold [overflow-wrap:anywhere]">
+      <h2 className="mt-3 text-label leading-6 font-semibold [overflow-wrap:anywhere]">
         {composition.data.project.title}
       </h2>
       {item.description?.trim() && (
@@ -294,7 +318,7 @@ export function SubmissionDetailScreen({
       )}
       {item.approvalStatus === "REJECTED" && item.reviewComment?.trim() && (
         <section className="mt-4 rounded-xl border border-app-border bg-app-surface px-4 py-3" aria-label="거절 사유">
-          <h3 className="mb-1 text-caption font-semibold text-app-muted">거절 사유</h3>
+          <h3 className="mb-1 text-label font-semibold text-app-muted">거절 사유</h3>
           <p className="m-0 whitespace-pre-wrap text-body leading-6 [overflow-wrap:anywhere]">{item.reviewComment}</p>
         </section>
       )}
@@ -308,7 +332,7 @@ export function SubmissionDetailScreen({
       {canReview && (
         <>
           <label className="mt-6 block">
-            <span className="mb-2 block text-caption font-semibold text-app-muted">거절 사유 (선택)</span>
+            <span className="mb-2 block text-label font-semibold text-app-muted">거절 사유 (선택)</span>
             <textarea
               className="box-border min-h-20 w-full resize-y rounded-xl border border-app-border bg-app-surface p-3 text-body text-app-fg"
               maxLength={500}

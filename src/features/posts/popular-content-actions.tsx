@@ -1,6 +1,7 @@
 import { useLoginPrompt } from "@/features/auth/login-prompt";
 import { useLayoutEffect, useRef, useState } from "react";
 import { AnchoredActionsMenu } from "@/components/anchored-actions-menu";
+import { Asset } from "@/components/asset";
 import { FigmaSheet } from "@/components/figma-sheet";
 import { ReportReasons } from "@/features/comments/report-reasons";
 import { useCurrentUserId } from "@/features/auth/use-current-user";
@@ -54,8 +55,19 @@ export function PopularContentActions({ kind, id, title, ownerId }: { kind: "pos
     } catch (cause) { if (latest.current === started) setNotice(cause instanceof ApiError ? cause.message : postError(cause)); }
     finally { if (latest.current === started) setBusy(false); }
   }
-  return <>
-    <button ref={anchor} type="button" className="min-h-11 min-w-11 shrink-0" aria-label={`${title} 더보기`} aria-haspopup="menu" aria-expanded={menu} aria-disabled={busy} onClick={() => { if (!busy) setMenu(!menu); }}>⋯</button>
+  return <span className="relative inline-flex shrink-0 items-center">
+    <button
+      ref={anchor}
+      type="button"
+      className="relative grid size-7 shrink-0 place-items-center rounded-full text-app-muted transition-colors hover:bg-white/10 hover:text-app-fg after:absolute after:-inset-1.5 after:content-[''] [&>img]:size-5"
+      aria-label={`${title} 더보기`}
+      aria-haspopup="menu"
+      aria-expanded={menu}
+      aria-disabled={busy}
+      onClick={() => { if (!busy) setMenu(!menu); }}
+    >
+      <Asset name="post-more.svg" />
+    </button>
     {menu && (
       <AnchoredActionsMenu
         anchorRef={anchor}
@@ -82,8 +94,15 @@ export function PopularContentActions({ kind, id, title, ownerId }: { kind: "pos
         )}
       </AnchoredActionsMenu>
     )}
-    {notice && <span role="status">{notice}</span>}
+    {notice && (
+      <span
+        role="status"
+        className="pointer-events-none absolute top-full right-0 z-20 mt-1 whitespace-nowrap rounded-lg bg-app-surface px-2.5 py-1 text-caption text-app-fg shadow-[0_4px_12px_#0006]"
+      >
+        {notice}
+      </span>
+    )}
     {sharing.dialog}
     {report && userId !== null && showReportAction && <FigmaSheet key={scope} title="신고" onClose={() => setReport(false)}><ReportReasons onSubmit={(reason, description) => (kind === "post" ? reportPost(id, reason, description) : reportShort(id, reason, description))} onDone={() => { if (latest.current === scope) setReport(false); }} /></FigmaSheet>}
-  </>;
+  </span>;
 }
