@@ -29,8 +29,8 @@ const trailingTabs: Tab[] = [
 ];
 
 // The web renders a fixed 390×844 canvas scaled to fit the WebView (src/components/design-viewport.tsx)
-// and keeps the footer's 44px row (sharedStyles.appFooter) as a placeholder at the canvas bottom.
-// The bar is laid out in canvas px and multiplied by the same scale so it covers that row exactly.
+// with its (inert) 44px footer row (sharedStyles.appFooter) at the canvas bottom. The bar is laid out
+// in canvas px and multiplied by the same scale so it covers that row exactly.
 const CANVAS = { width: 390, height: 844 };
 const FOOTER = { height: 44, paddingX: 17, gap: 34, item: 44, icon: 20, labelGap: 4 };
 const CREATE = { circle: 40, plus: 20, stroke: 2 };

@@ -22,7 +22,7 @@ export type BridgeGlobals = {
 
 export type AppBackgroundEvent = "narackrock:app-background";
 
-/** Footer tabs; the app draws them natively over the web footer, which stays as a layout placeholder. */
+/** Footer tabs; the app draws them natively over the web footer, which stays rendered but inert. */
 export type NativeFooterTab = "home" | "abyss" | "social" | "opensource";
 
 /** A footer tab or the center create button. */
@@ -39,7 +39,7 @@ export type GoogleSignInResult = { idToken: string } | { cancelled: true };
 /** Request type → payload sent by the web and result returned by the app. */
 export type BridgeMethods = {
   "google-sign-in": { payload: { webClientId: string }; result: GoogleSignInResult };
-  /** The page's footer appeared or changed; null when it left the screen. */
+  /** The page's footer appeared or changed; null when it left the screen or a web modal covers it. */
   "set-footer": { payload: { footer: NativeFooter | null }; result: null };
 };
 

@@ -132,7 +132,7 @@ function WebShell() {
   const { origin, error, retry } = useLocalWebServer();
   const webView = useRef<WebView<object>>(null);
   const canGoBack = useRef(false);
-  // The page's footer, drawn natively by TabBar over the web's placeholder row.
+  // The page's footer, drawn natively by TabBar over the web's inert footer row.
   const [footer, setFooter] = useState<NativeFooter | null>(null);
   const [viewport, setViewport] = useState<{ width: number; height: number } | null>(null);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
