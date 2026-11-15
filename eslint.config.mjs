@@ -27,7 +27,7 @@ export default defineConfig([
   },
   {
     // Expo config plugins and the Metro config are loaded by Node as CommonJS.
-    files: ["native/plugins/**/*.js", "native/metro.config.js"],
+    files: ["native/plugins/**/*.js", "native/metro.config.js", "native/svg-transformer.js"],
     languageOptions: { sourceType: "commonjs" },
     rules: { "@typescript-eslint/no-require-imports": "off" },
   },

@@ -15,6 +15,7 @@ import {
   ActivityIndicator,
   AppState,
   BackHandler,
+  Keyboard,
   Linking,
   Platform,
   Pressable,
@@ -25,15 +26,18 @@ import {
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import { WebView, type WebViewMessageEvent, type WebViewNavigation } from "react-native-webview";
 
+import type { NativeFooter } from "../src/lib/native-bridge-protocol";
 import { designTokens } from "../src/styles/tokens";
 import {
   appBackgroundScript,
+  footerPressScript,
   handleRequest,
   injectedBeforeContentLoaded,
   parseRequest,
   responseScript,
   userAgentToken,
 } from "./bridge";
+import { TabBar } from "./tab-bar";
 
 // The web app stores auth and drafts in localStorage, which is keyed by origin,
 // so the port must stay fixed across launches. The backend CORS allow-list must
@@ -128,6 +132,10 @@ function WebShell() {
   const { origin, error, retry } = useLocalWebServer();
   const webView = useRef<WebView<object>>(null);
   const canGoBack = useRef(false);
+  // The page's footer, drawn natively by TabBar over the web's placeholder row.
+  const [footer, setFooter] = useState<NativeFooter | null>(null);
+  const [viewport, setViewport] = useState<{ width: number; height: number } | null>(null);
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
 
   useEffect(() => {
     const subscription = BackHandler.addEventListener("hardwareBackPress", () => {
@@ -144,6 +152,16 @@ function WebShell() {
       if (state === "background") webView.current?.injectJavaScript(appBackgroundScript);
     });
     return () => subscription.remove();
+  }, []);
+
+  // Like a native tab bar, the footer gives way to the keyboard.
+  useEffect(() => {
+    const shown = Keyboard.addListener("keyboardDidShow", () => setKeyboardVisible(true));
+    const hidden = Keyboard.addListener("keyboardDidHide", () => setKeyboardVisible(false));
+    return () => {
+      shown.remove();
+      hidden.remove();
+    };
   }, []);
 
   const onNavigationStateChange = useCallback((state: WebViewNavigation) => {
@@ -169,7 +187,7 @@ function WebShell() {
       if (!origin || (url !== origin && !url.startsWith(`${origin}/`))) return;
       const request = parseRequest(data);
       if (!request) return;
-      void handleRequest(request).then((response) =>
+      void handleRequest(request, { setFooter }).then((response) =>
         webView.current?.injectJavaScript(responseScript(response)),
       );
     },
@@ -197,29 +215,46 @@ function WebShell() {
   }
 
   return (
-    // react-native-webview types default P to undefined, which collapses props to never.
-    <WebView<object>
-      ref={webView}
-      source={{ uri: `${origin}/` }}
+    <View
       style={styles.webView}
-      originWhitelist={["*"]}
-      javaScriptEnabled
-      domStorageEnabled
-      allowsInlineMediaPlayback
-      mediaPlaybackRequiresUserAction={false}
-      mediaCapturePermissionGrantType="grantIfSameHostElsePrompt"
-      allowsBackForwardNavigationGestures
-      setSupportMultipleWindows={false}
-      webviewDebuggingEnabled={__DEV__}
-      applicationNameForUserAgent={userAgentToken}
-      injectedJavaScriptBeforeContentLoaded={injectedBeforeContentLoaded}
-      injectedJavaScriptBeforeContentLoadedForMainFrameOnly
-      onMessage={onMessage}
-      onNavigationStateChange={onNavigationStateChange}
-      onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
-      onContentProcessDidTerminate={() => webView.current?.reload()}
-      onRenderProcessGone={() => webView.current?.reload()}
-    />
+      onLayout={(event) => {
+        const { width, height } = event.nativeEvent.layout;
+        setViewport({ width, height });
+      }}
+    >
+      {/* react-native-webview types default P to undefined, which collapses props to never. */}
+      <WebView<object>
+        ref={webView}
+        source={{ uri: `${origin}/` }}
+        style={styles.webView}
+        originWhitelist={["*"]}
+        javaScriptEnabled
+        domStorageEnabled
+        allowsInlineMediaPlayback
+        mediaPlaybackRequiresUserAction={false}
+        mediaCapturePermissionGrantType="grantIfSameHostElsePrompt"
+        allowsBackForwardNavigationGestures
+        setSupportMultipleWindows={false}
+        webviewDebuggingEnabled={__DEV__}
+        applicationNameForUserAgent={userAgentToken}
+        injectedJavaScriptBeforeContentLoaded={injectedBeforeContentLoaded}
+        injectedJavaScriptBeforeContentLoadedForMainFrameOnly
+        onMessage={onMessage}
+        onNavigationStateChange={onNavigationStateChange}
+        onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
+        // A new document starts without a footer; its page reports one again once mounted.
+        onLoadStart={() => setFooter(null)}
+        onContentProcessDidTerminate={() => webView.current?.reload()}
+        onRenderProcessGone={() => webView.current?.reload()}
+      />
+      {footer && viewport && !keyboardVisible && (
+        <TabBar
+          footer={footer}
+          viewport={viewport}
+          onPress={(press) => webView.current?.injectJavaScript(footerPressScript(press))}
+        />
+      )}
+    </View>
   );
 }
 

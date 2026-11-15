@@ -10,6 +10,10 @@ import type {
   BridgeMethods,
   BridgeRequest,
   BridgeResponse,
+  FooterPressEvent,
+  NativeFooter,
+  NativeFooterPress,
+  NativeFooterTab,
   NativeUserAgentToken,
 } from "../src/lib/native-bridge-protocol";
 import { signInWithGoogle } from "./google-sign-in";
@@ -17,6 +21,7 @@ import { signInWithGoogle } from "./google-sign-in";
 const tokenGlobal = "__narackrockBridgeToken" satisfies BridgeGlobals["token"];
 const receiveGlobal = "__narackrockNativeReceive" satisfies BridgeGlobals["receive"];
 const appBackgroundEvent = "narackrock:app-background" satisfies AppBackgroundEvent;
+const footerPressEvent = "narackrock:footer-press" satisfies FooterPressEvent;
 
 /** Appended to the WebView user agent; the web reads it with `nativeApp()`. */
 export const userAgentToken: NativeUserAgentToken =
@@ -36,14 +41,34 @@ export function responseScript(response: BridgeResponse): string {
   return `window.${receiveGlobal} && window.${receiveGlobal}(${JSON.stringify(response)}); true;`;
 }
 
-const handlers: {
-  [M in BridgeMethod]: (request: BridgeRequest<M>) => Promise<BridgeMethods[M]["result"]>;
-} = {
-  "google-sign-in": (request) => signInWithGoogle(request.webClientId),
-};
+/** Script handing a native footer press to the page's footer (see `onFooterPress` in the web). */
+export function footerPressScript(press: NativeFooterPress): string {
+  return `window.dispatchEvent(new CustomEvent(${JSON.stringify(footerPressEvent)}, { detail: ${JSON.stringify(press)} })); true;`;
+}
 
-function isMethod(type: string): type is BridgeMethod {
-  return Object.hasOwn(handlers, type);
+/** What requests need from the screen hosting the WebView. */
+export type BridgeHost = { setFooter(footer: NativeFooter | null): void };
+
+const footerTabs: readonly unknown[] = [
+  "home",
+  "abyss",
+  "social",
+  "opensource",
+] satisfies NativeFooterTab[];
+
+/** The footer in a `set-footer` payload, or undefined when malformed. */
+function readFooter(value: unknown): NativeFooter | null | undefined {
+  if (value === null) return null;
+  if (
+    !value ||
+    typeof value !== "object" ||
+    !("activeTab" in value) ||
+    (value.activeTab !== null && !footerTabs.includes(value.activeTab)) ||
+    !("createLabel" in value) ||
+    typeof value.createLabel !== "string"
+  )
+    return undefined;
+  return { activeTab: value.activeTab as NativeFooterTab | null, createLabel: value.createLabel };
 }
 
 /** Null unless `data` is a well-formed request carrying this launch's token. */
@@ -61,27 +86,47 @@ export function parseRequest(data: string): BridgeRequest | null {
     typeof parsed.id !== "number" ||
     !("token" in parsed) ||
     parsed.token !== bridgeToken ||
-    !("type" in parsed) ||
-    typeof parsed.type !== "string" ||
-    !isMethod(parsed.type)
+    !("type" in parsed)
   )
     return null;
-  if (parsed.type === "google-sign-in") {
-    if (!("webClientId" in parsed) || typeof parsed.webClientId !== "string" || !parsed.webClientId)
+  const { id } = parsed;
+  switch (parsed.type) {
+    case "google-sign-in":
+      if (
+        !("webClientId" in parsed) ||
+        typeof parsed.webClientId !== "string" ||
+        !parsed.webClientId
+      )
+        return null;
+      return { id, token: bridgeToken, type: parsed.type, webClientId: parsed.webClientId };
+    case "set-footer": {
+      const footer = "footer" in parsed ? readFooter(parsed.footer) : undefined;
+      return footer === undefined ? null : { id, token: bridgeToken, type: parsed.type, footer };
+    }
+    default:
       return null;
-    return {
-      id: parsed.id,
-      token: bridgeToken,
-      type: parsed.type,
-      webClientId: parsed.webClientId,
-    };
   }
-  return null;
 }
 
-export async function handleRequest(request: BridgeRequest): Promise<BridgeResponse> {
+async function run(
+  request: BridgeRequest,
+  host: BridgeHost,
+): Promise<BridgeMethods[BridgeMethod]["result"]> {
+  switch (request.type) {
+    case "google-sign-in":
+      return signInWithGoogle(request.webClientId);
+    case "set-footer":
+      host.setFooter(request.footer);
+      return null;
+  }
+}
+
+export async function handleRequest(
+  request: BridgeRequest,
+  host: BridgeHost,
+): Promise<BridgeResponse> {
   try {
-    return { id: request.id, ok: true, result: await handlers[request.type](request) };
+    return { id: request.id, ok: true, result: await run(request, host) };
   } catch (cause) {
     const code =
       cause && typeof cause === "object" && "code" in cause ? String(cause.code) : undefined;

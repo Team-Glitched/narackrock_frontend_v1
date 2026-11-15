@@ -4,6 +4,8 @@ import type {
   BridgeMethod,
   BridgeMethods,
   BridgeResponse,
+  FooterPressEvent,
+  NativeFooterPress,
   NativePlatform,
 } from "./native-bridge-protocol.ts";
 
@@ -21,6 +23,7 @@ declare global {
 const receiveGlobal = "__narackrockNativeReceive" satisfies BridgeGlobals["receive"];
 const tokenGlobal = "__narackrockBridgeToken" satisfies BridgeGlobals["token"];
 const appBackgroundEvent = "narackrock:app-background" satisfies AppBackgroundEvent;
+const footerPressEvent = "narackrock:footer-press" satisfies FooterPressEvent;
 
 export class NativeRequestError extends Error {
   code?: string;
@@ -77,4 +80,12 @@ export function onAppBackground(listener: () => void): () => void {
   if (!nativeApp()) return () => {};
   window.addEventListener(appBackgroundEvent, listener);
   return () => window.removeEventListener(appBackgroundEvent, listener);
+}
+
+/** Runs `listener` when the app's native footer is pressed. No-op in browsers. */
+export function onFooterPress(listener: (press: NativeFooterPress) => void): () => void {
+  if (!nativeApp()) return () => {};
+  const handle = (event: Event) => listener((event as CustomEvent<NativeFooterPress>).detail);
+  window.addEventListener(footerPressEvent, handle);
+  return () => window.removeEventListener(footerPressEvent, handle);
 }
