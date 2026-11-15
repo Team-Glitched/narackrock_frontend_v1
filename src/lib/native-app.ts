@@ -5,7 +5,9 @@ import type {
   BridgeMethods,
   BridgeResponse,
   FooterPressEvent,
+  HomeActionEvent,
   NativeFooterPress,
+  NativeHomeAction,
   NativePlatform,
 } from "./native-bridge-protocol.ts";
 
@@ -24,6 +26,7 @@ const receiveGlobal = "__narackrockNativeReceive" satisfies BridgeGlobals["recei
 const tokenGlobal = "__narackrockBridgeToken" satisfies BridgeGlobals["token"];
 const appBackgroundEvent = "narackrock:app-background" satisfies AppBackgroundEvent;
 const footerPressEvent = "narackrock:footer-press" satisfies FooterPressEvent;
+const homeActionEvent = "narackrock:home-action" satisfies HomeActionEvent;
 
 export class NativeRequestError extends Error {
   code?: string;
@@ -82,10 +85,20 @@ export function onAppBackground(listener: () => void): () => void {
   return () => window.removeEventListener(appBackgroundEvent, listener);
 }
 
+/** Runs `listener` with the `detail` of an app → web event. No-op in browsers. */
+function onNativeEvent<T>(name: string, listener: (detail: T) => void): () => void {
+  if (!nativeApp()) return () => {};
+  const handle = (event: Event) => listener((event as CustomEvent<T>).detail);
+  window.addEventListener(name, handle);
+  return () => window.removeEventListener(name, handle);
+}
+
 /** Runs `listener` when the app's native footer is pressed. No-op in browsers. */
 export function onFooterPress(listener: (press: NativeFooterPress) => void): () => void {
-  if (!nativeApp()) return () => {};
-  const handle = (event: Event) => listener((event as CustomEvent<NativeFooterPress>).detail);
-  window.addEventListener(footerPressEvent, handle);
-  return () => window.removeEventListener(footerPressEvent, handle);
+  return onNativeEvent(footerPressEvent, listener);
+}
+
+/** Runs `listener` for user actions on the app's native home. No-op in browsers. */
+export function onHomeAction(listener: (action: NativeHomeAction) => void): () => void {
+  return onNativeEvent(homeActionEvent, listener);
 }

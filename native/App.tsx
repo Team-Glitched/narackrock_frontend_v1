@@ -26,18 +26,20 @@ import {
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import { WebView, type WebViewMessageEvent, type WebViewNavigation } from "react-native-webview";
 
-import type { NativeFooter } from "../src/lib/native-bridge-protocol";
+import type { NativeFooter, NativeHome } from "../src/lib/native-bridge-protocol";
 import { designTokens } from "../src/styles/tokens";
 import {
   appBackgroundScript,
   footerPressScript,
   handleRequest,
+  homeActionScript,
   injectedBeforeContentLoaded,
   parseRequest,
   responseScript,
   userAgentToken,
 } from "./bridge";
-import { TabBar } from "./tab-bar";
+import { HomeScreen } from "./home-screen";
+import { footerFrame, TabBar, type Viewport } from "./tab-bar";
 
 // The web app stores auth and drafts in localStorage, which is keyed by origin,
 // so the port must stay fixed across launches. The backend CORS allow-list must
@@ -134,8 +136,17 @@ function WebShell() {
   const canGoBack = useRef(false);
   // The page's footer, drawn natively by TabBar over the web's inert footer row.
   const [footer, setFooter] = useState<NativeFooter | null>(null);
-  const [viewport, setViewport] = useState<{ width: number; height: number } | null>(null);
+  // The web home's last view model stays mounted (keeping its scroll) while other pages are open.
+  const [home, setHomeModel] = useState<NativeHome | null>(null);
+  const [homeOnScreen, setHomeOnScreen] = useState(false);
+  // A web modal must be visible and reachable, so native views above the WebView step aside.
+  const [modalOpen, setModalOpen] = useState(false);
+  const [viewport, setViewport] = useState<Viewport | null>(null);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
+  const setHome = useCallback((next: NativeHome | null) => {
+    if (next) setHomeModel(next);
+    setHomeOnScreen(next !== null);
+  }, []);
 
   useEffect(() => {
     const subscription = BackHandler.addEventListener("hardwareBackPress", () => {
@@ -187,11 +198,11 @@ function WebShell() {
       if (!origin || (url !== origin && !url.startsWith(`${origin}/`))) return;
       const request = parseRequest(data);
       if (!request) return;
-      void handleRequest(request, { setFooter }).then((response) =>
+      void handleRequest(request, { setFooter, setHome, setModal: setModalOpen }).then((response) =>
         webView.current?.injectJavaScript(responseScript(response)),
       );
     },
-    [origin],
+    [origin, setHome],
   );
 
   if (error) {
@@ -242,12 +253,25 @@ function WebShell() {
         onMessage={onMessage}
         onNavigationStateChange={onNavigationStateChange}
         onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
-        // A new document starts without a footer; its page reports one again once mounted.
-        onLoadStart={() => setFooter(null)}
+        // A new document starts without native views; its page reports them again once mounted.
+        onLoadStart={() => {
+          setFooter(null);
+          setHomeOnScreen(false);
+          setModalOpen(false);
+        }}
         onContentProcessDidTerminate={() => webView.current?.reload()}
         onRenderProcessGone={() => webView.current?.reload()}
       />
-      {footer && viewport && !keyboardVisible && (
+      {home && viewport && (
+        <HomeScreen
+          home={home}
+          origin={origin}
+          bottomInset={viewport.height - footerFrame(viewport).top}
+          style={!homeOnScreen || modalOpen ? styles.hidden : undefined}
+          onAction={(action) => webView.current?.injectJavaScript(homeActionScript(action))}
+        />
+      )}
+      {footer && viewport && !keyboardVisible && !modalOpen && (
         <TabBar
           footer={footer}
           viewport={viewport}
@@ -272,6 +296,7 @@ export default function App() {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: BACKGROUND },
   webView: { flex: 1, backgroundColor: BACKGROUND },
+  hidden: { display: "none" },
   center: {
     flex: 1,
     alignItems: "center",

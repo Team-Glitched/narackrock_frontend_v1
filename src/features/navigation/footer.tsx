@@ -1,4 +1,4 @@
-import { useEffect, useEffectEvent, useSyncExternalStore } from "react";
+import { useEffect, useEffectEvent } from "react";
 import { sharedStyles } from "@/styles/shared.styles";
 import { cn } from "@/lib/utils";
 import { nativeApp, onFooterPress, requestNative } from "@/lib/native-app";
@@ -15,18 +15,6 @@ const nav: { id: FooterTab; label: string; path: string }[] = [
   { id: "social", label: "소셜", path: "/social" },
   { id: "opensource", label: "샘플", path: "/sources" },
 ];
-
-// Web modals (all marked aria-modal, mounted only while open) cover the footer. The app's native
-// bar sits above the whole WebView, so it has to step aside for them.
-function subscribeModals(onChange: () => void) {
-  const observer = new MutationObserver(onChange);
-  observer.observe(document.body, { childList: true, subtree: true, attributeFilter: ["aria-modal"] });
-  return () => observer.disconnect();
-}
-const modalOpen = () => document.querySelector('[aria-modal="true"]') !== null;
-const noModals = () => () => {};
-const neverOpen = () => false;
-
 export function Footer({
   activeTab,
   onCreate,
@@ -42,10 +30,9 @@ export function Footer({
   });
 
   // The app draws the footer natively (native/tab-bar.tsx) over this one, which stays rendered but
-  // inert: it keeps the canvas layout and shows, dimmed by the backdrop, while a modal hides the
+  // inert: it keeps the canvas layout and shows, dimmed by the backdrop, while a web modal hides the
   // native bar. Native presses come back here so each page keeps its own create action.
   const inApp = nativeApp() !== null;
-  const covered = useSyncExternalStore(inApp ? subscribeModals : noModals, inApp ? modalOpen : neverOpen);
   const press = useEffectEvent((pressed: NativeFooterPress) => {
     const tab = nav.find((item) => item.id === pressed);
     if (pressed === "create") create();
@@ -53,9 +40,8 @@ export function Footer({
   });
   useEffect(() => onFooterPress((pressed) => press(pressed)), []);
   useEffect(() => {
-    if (inApp)
-      void requestNative("set-footer", { footer: covered ? null : { activeTab, createLabel } });
-  }, [inApp, covered, activeTab, createLabel]);
+    if (inApp) void requestNative("set-footer", { footer: { activeTab, createLabel } });
+  }, [inApp, activeTab, createLabel]);
   useEffect(() => {
     if (inApp) return () => void requestNative("set-footer", { footer: null });
   }, [inApp]);

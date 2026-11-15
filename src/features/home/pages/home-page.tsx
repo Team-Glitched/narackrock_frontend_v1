@@ -1,5 +1,7 @@
 import { Navigate } from "react-router";
 import { HomeScreen } from "@/features/home/home-screens";
+import { NativeHomeBridge } from "@/features/home/native-home-bridge";
+import { nativeApp } from "@/lib/native-app";
 import { DesignViewport } from "@/components/design-viewport";
 import { Header } from "@/features/navigation/header";
 import { Footer } from "@/features/navigation/footer";
@@ -17,24 +19,37 @@ export default function HomePage() {
   const target = creationTarget(scope, galleryId);
   const sharedShortId = readId(query.get("short"));
   if (sharedShortId) return <Navigate replace to={`/abyss/${sharedShortId}`} />;
+  const search = () => to(withQuery("/search", { scope, galleryId }));
+  const screen = {
+    onOpenPosts: () => to("/posts"),
+    onOpenWorkspace: () => to("/workspace"),
+    onStartSong: () => to("/studio/new", {
+      state: { studioFrom: currentPath, studioIndex: window.history.state?.idx },
+    }),
+    onOpenPost: (id: number) => to(`/posts/${id}`),
+    onOpenShort: (id: number) => to(`/abyss/${id}`),
+    onShowSongs: (kind: string) => to(`/charts?kind=${kind}`),
+    onResume: (id: number, shortId: number | null) => to(studioPath(id, shortId), {
+      state: { studioFrom: currentPath, studioIndex: window.history.state?.idx },
+    }),
+  };
   return (
     <DesignViewport>
       <div className={sharedStyles.phoneFrame}>
-        <Header showChat onSearch={() => to(withQuery("/search", { scope, galleryId }))} />
+        <Header showChat onSearch={search} />
         <div className={sharedStyles.screenBody}>
-          <HomeScreen
-            onOpenPosts={() => to("/posts")}
-            onOpenWorkspace={() => to("/workspace")}
-            onStartSong={() => to("/studio/new", {
-              state: { studioFrom: currentPath, studioIndex: window.history.state?.idx },
-            })}
-            onOpenPost={(id) => to(`/posts/${id}`)}
-            onOpenShort={(id) => to(`/abyss/${id}`)}
-            onShowSongs={(kind) => to(`/charts?kind=${kind}`)}
-            onResume={(id, shortId) => to(studioPath(id, shortId), {
-              state: { studioFrom: currentPath, studioIndex: window.history.state?.idx },
-            })}
-          />
+          <HomeScreen {...screen} />
+          {nativeApp() && (
+            <NativeHomeBridge
+              {...screen}
+              onSearch={search}
+              onNavigate={(destination) =>
+                destination === "login"
+                  ? to("/login", { state: { returnTo: currentPath } })
+                  : to(`/${destination}`)
+              }
+            />
+          )}
         </div>
         <Footer activeTab="home" createLabel={target.label} onCreate={() => to(target.path, target.path === "/studio/new" ? {
           state: { studioFrom: currentPath, studioIndex: window.history.state?.idx },

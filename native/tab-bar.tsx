@@ -38,6 +38,15 @@ const CREATE = { circle: 40, plus: 20, stroke: 2 };
 const CREATE_COLORS = { circle: designTokens.colors["blue-gray"], plus: "#d7dce2" };
 const RIPPLE = "rgba(255, 255, 255, 0.16)";
 
+export type Viewport = { width: number; height: number };
+
+/** Where the web footer row sits in a WebView of this size, and the canvas scale. */
+export function footerFrame(viewport: Viewport): { top: number; height: number; scale: number } {
+  const scale = Math.min(viewport.width / CANVAS.width, viewport.height / CANVAS.height, 1);
+  const bottom = (viewport.height + CANVAS.height * scale) / 2 - CANVAS.framePaddingBottom * scale;
+  return { top: bottom - FOOTER.height * scale, height: FOOTER.height * scale, scale };
+}
+
 export function TabBar({
   footer,
   viewport,
@@ -45,13 +54,11 @@ export function TabBar({
 }: {
   footer: NativeFooter;
   /** Size of the WebView the web canvas is fitted into. */
-  viewport: { width: number; height: number };
+  viewport: Viewport;
   onPress: (press: NativeFooterPress) => void;
 }) {
-  const scale = Math.min(viewport.width / CANVAS.width, viewport.height / CANVAS.height, 1);
-  const footerBottom =
-    (viewport.height + CANVAS.height * scale) / 2 - CANVAS.framePaddingBottom * scale;
-  const px = (value: number) => value * scale;
+  const frame = footerFrame(viewport);
+  const px = (value: number) => value * frame.scale;
 
   const renderTab = ({ id, label, on: On, off: Off }: Tab) => {
     const selected = footer.activeTab === id;
@@ -86,9 +93,7 @@ export function TabBar({
   };
 
   return (
-    <View
-      style={[styles.bar, { top: footerBottom - px(FOOTER.height), height: px(FOOTER.height) }]}
-    >
+    <View style={[styles.bar, { top: frame.top, height: frame.height }]}>
       <View style={[styles.row, { gap: px(FOOTER.gap), paddingHorizontal: px(FOOTER.paddingX) }]}>
         {leadingTabs.map(renderTab)}
         <Pressable
