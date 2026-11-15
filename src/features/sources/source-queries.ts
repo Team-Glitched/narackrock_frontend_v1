@@ -11,6 +11,7 @@ import {
   getOpenSource,
   listMyOpenSourcePublications,
   listOpenSources,
+  listPopularOpenSources,
   listSavedOpenSources,
   setOpenSourceSaved,
   type OpenSourceDetail,
@@ -23,12 +24,21 @@ export const sourceKeys = {
   all: (userId: number | null) => [...queryScope(userId), "sources"] as const,
   lists: (userId: number | null) => [...sourceKeys.all(userId), "list"] as const,
   list: (userId: number | null, keyword: string) => [...sourceKeys.lists(userId), keyword] as const,
+  popular: (userId: number | null) => [...sourceKeys.all(userId), "popular"] as const,
   detail: (userId: number | null, sourceId: number) =>
     [...sourceKeys.all(userId), "detail", sourceId] as const,
   /** The account's saved-source library; `usePagedItems(["sources", "saved"], …)` owns this key. */
   saved: (userId: number | null) => [...sourceKeys.all(userId), "saved"] as const,
   publications: (userId: number | null) => [...sourceKeys.all(userId), "publications"] as const,
 };
+
+export const sourceDiscoverySize = 10;
+
+export const popularOpenSourcesQuery = (userId: number | null) =>
+  queryOptions({
+    queryKey: sourceKeys.popular(userId),
+    queryFn: ({ signal }) => listPopularOpenSources(sourceDiscoverySize, signal),
+  });
 
 /** Public sources for a keyword in offset pages; items repeated by a shifted page are kept once. */
 export const openSourceListQuery = (userId: number | null, keyword: string) =>
@@ -68,9 +78,15 @@ export function patchSource(
   sourceId: number,
   patch: Partial<OpenSourceSummary>,
 ) {
+  const patchItem = (item: OpenSourceSummary) =>
+    item.openSourceId === sourceId ? { ...item, ...patch } : item;
   queryClient.setQueryData<OpenSourceDetail>(
     sourceKeys.detail(userId, sourceId),
     (old) => old && { ...old, ...patch },
+  );
+  queryClient.setQueryData<OpenSourcePage<OpenSourceSummary>>(
+    sourceKeys.popular(userId),
+    (old) => old && { ...old, items: old.items.map(patchItem) },
   );
   queryClient.setQueriesData<InfiniteData<OpenSourcePage<OpenSourceSummary>, number>>(
     { queryKey: sourceKeys.lists(userId) },
@@ -79,9 +95,7 @@ export function patchSource(
         ...old,
         pages: old.pages.map((page) => ({
           ...page,
-          items: page.items.map((item) =>
-            item.openSourceId === sourceId ? { ...item, ...patch } : item,
-          ),
+          items: page.items.map(patchItem),
         })),
       },
   );

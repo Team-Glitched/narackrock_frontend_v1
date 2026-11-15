@@ -1,5 +1,5 @@
 import { apiRequest } from "./client.ts";
-import type { ApiResponse } from "./contracts.ts";
+import type { ApiResponse, ContentViewResponse } from "./contracts.ts";
 
 async function data<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await apiRequest<ApiResponse<T>>(path, init);
@@ -16,6 +16,7 @@ export type OpenSourceSummary = {
   thumbnailUrl: string | null;
   writer: OpenSourceWriter;
   usageCount: number | null;
+  canPreview?: boolean;
   isSaved: boolean;
   isLiked: boolean;
   isDisliked: boolean;
@@ -104,6 +105,14 @@ export function listOpenSources(
 
 export function getOpenSource(id: number, signal?: AbortSignal): Promise<OpenSourceDetail> {
   return data(`/api/v1/open-sources/${id}`, { signal });
+}
+
+export function listPopularOpenSources(size: number, signal?: AbortSignal): Promise<OpenSourcePage<OpenSourceSummary>> {
+  return data(`/api/v1/open-sources/popular${query({ size })}`, { signal });
+}
+
+export function recordOpenSourceView(id: number): Promise<ContentViewResponse> {
+  return data(`/api/v1/open-sources/${id}/views`, { method: "POST" });
 }
 
 export function listSavedOpenSources(page: number, signal?: AbortSignal): Promise<OpenSourcePage<SavedOpenSource>> {

@@ -51,7 +51,7 @@ function SavedSourceList({ query, onOpen }: { query: string; onOpen: (id: number
               <h2>{item.source.title}</h2>
               {item.source.description && <p>{item.source.description}</p>}
               <small>{item.source.writer.nickname}</small>
-              <SourcePlayback sourceId={item.openSourceId} canPreview durationMs={null} />
+              <SourcePlayback sourceId={item.openSourceId} canPreview={item.source.canPreview ?? true} durationMs={null} />
               <p className="text-caption! leading-5! text-app-muted">피아노롤의 ‘+ 샘플’에서 내 레이어에 오디오로 넣을 수 있습니다.</p>
             </>
           ) : (
