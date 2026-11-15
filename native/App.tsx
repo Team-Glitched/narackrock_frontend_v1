@@ -239,7 +239,7 @@ function WebShell() {
     );
   }
 
-  // Screen readers must not reach the web page under the native home.
+  // The web page under it hides itself from screen readers (src/features/home/native-home-bridge.tsx).
   const homeVisible = home !== null && homeOnScreen && !modalOpen;
   return (
     <View
@@ -249,36 +249,28 @@ function WebShell() {
         setViewport({ width, height });
       }}
     >
-      {/* The flags sit on a wrapper: set on the WebView itself, Android re-exposes the page's own
-          accessibility tree after in-page navigations. */}
-      <View
+      {/* react-native-webview types default P to undefined, which collapses props to never. */}
+      <WebView<object>
+        ref={webView}
+        source={{ uri: `${origin}/` }}
         style={styles.webView}
-        importantForAccessibility={homeVisible ? "no-hide-descendants" : "auto"}
-        accessibilityElementsHidden={homeVisible}
-      >
-        {/* react-native-webview types default P to undefined, which collapses props to never. */}
-        <WebView<object>
-          ref={webView}
-          source={{ uri: `${origin}/` }}
-          style={styles.webView}
-          originWhitelist={["*"]}
-          javaScriptEnabled
-          domStorageEnabled
-          allowsInlineMediaPlayback
-          mediaPlaybackRequiresUserAction={false}
-          mediaCapturePermissionGrantType="grantIfSameHostElsePrompt"
-          allowsBackForwardNavigationGestures
-          setSupportMultipleWindows={false}
-          webviewDebuggingEnabled={__DEV__}
-          applicationNameForUserAgent={userAgentToken}
-          injectedJavaScriptBeforeContentLoaded={injectedBeforeContentLoaded}
-          injectedJavaScriptBeforeContentLoadedForMainFrameOnly
-          onMessage={onMessage}
-          onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
-          onContentProcessDidTerminate={reload}
-          onRenderProcessGone={reload}
-        />
-      </View>
+        originWhitelist={["*"]}
+        javaScriptEnabled
+        domStorageEnabled
+        allowsInlineMediaPlayback
+        mediaPlaybackRequiresUserAction={false}
+        mediaCapturePermissionGrantType="grantIfSameHostElsePrompt"
+        allowsBackForwardNavigationGestures
+        setSupportMultipleWindows={false}
+        webviewDebuggingEnabled={__DEV__}
+        applicationNameForUserAgent={userAgentToken}
+        injectedJavaScriptBeforeContentLoaded={injectedBeforeContentLoaded}
+        injectedJavaScriptBeforeContentLoadedForMainFrameOnly
+        onMessage={onMessage}
+        onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
+        onContentProcessDidTerminate={reload}
+        onRenderProcessGone={reload}
+      />
       {home && viewport && (
         <HomeScreen
           home={home}

@@ -1,3 +1,4 @@
+import { useWebModalOpen } from "@/hooks/use-web-modal-open";
 import { useEffect, useEffectEvent, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { formatDistanceToNow } from "date-fns";
@@ -146,6 +147,16 @@ export function NativeHomeBridge({
     void requestNative("set-home", { home: JSON.parse(snapshot) as NativeHome });
   }, [snapshot]);
   useEffect(() => () => void requestNative("set-home", { home: null }), []);
+
+  // The native home covers this page; screen readers must not reach it underneath. A modal hides
+  // the native home (and may live inside #root, like the notifications sheet), so it lifts this.
+  const modalOpen = useWebModalOpen();
+  useEffect(() => {
+    const root = document.getElementById("root");
+    if (!root || modalOpen) return;
+    root.setAttribute("aria-hidden", "true");
+    return () => root.removeAttribute("aria-hidden");
+  }, [modalOpen]);
 
   async function share(kind: NativeContentKind, id: number, title: string) {
     try {
