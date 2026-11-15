@@ -39,17 +39,7 @@ export default function HomePage() {
         <Header showChat onSearch={search} />
         <div className={sharedStyles.screenBody}>
           <HomeScreen {...screen} />
-          {nativeApp() && (
-            <NativeHomeBridge
-              {...screen}
-              onSearch={search}
-              onNavigate={(destination) =>
-                destination === "login"
-                  ? to("/login", { state: { returnTo: currentPath } })
-                  : to(`/${destination}`)
-              }
-            />
-          )}
+          {nativeApp() && <NativeHomeBridge {...screen} onSearch={search} />}
         </div>
         <Footer activeTab="home" createLabel={target.label} onCreate={() => to(target.path, target.path === "/studio/new" ? {
           state: { studioFrom: currentPath, studioIndex: window.history.state?.idx },

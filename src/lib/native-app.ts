@@ -5,11 +5,11 @@ import type {
   BridgeMethods,
   BridgeResponse,
   FooterPressEvent,
-  HomeActionEvent,
   NativeFooterPress,
-  NativeHomeAction,
   NativePlatform,
+  ScreenActionEvent,
 } from "./native-bridge-protocol.ts";
+import type { NativeScreenActionEvent } from "./native-screens/index.ts";
 
 /** Bridge to the React Native shell in `native/`; protocol in ./native-bridge-protocol.ts. */
 export type NativeAppInfo = { platform: NativePlatform };
@@ -26,7 +26,7 @@ const receiveGlobal = "__narackrockNativeReceive" satisfies BridgeGlobals["recei
 const tokenGlobal = "__narackrockBridgeToken" satisfies BridgeGlobals["token"];
 const appBackgroundEvent = "narackrock:app-background" satisfies AppBackgroundEvent;
 const footerPressEvent = "narackrock:footer-press" satisfies FooterPressEvent;
-const homeActionEvent = "narackrock:home-action" satisfies HomeActionEvent;
+const screenActionEvent = "narackrock:screen-action" satisfies ScreenActionEvent;
 
 export class NativeRequestError extends Error {
   code?: string;
@@ -98,7 +98,7 @@ export function onFooterPress(listener: (press: NativeFooterPress) => void): () 
   return onNativeEvent(footerPressEvent, listener);
 }
 
-/** Runs `listener` for user actions on the app's native home. No-op in browsers. */
-export function onHomeAction(listener: (action: NativeHomeAction) => void): () => void {
-  return onNativeEvent(homeActionEvent, listener);
+/** Runs `listener` for user actions on the app's native screens. No-op in browsers. */
+export function onScreenAction(listener: (event: NativeScreenActionEvent) => void): () => void {
+  return onNativeEvent(screenActionEvent, listener);
 }

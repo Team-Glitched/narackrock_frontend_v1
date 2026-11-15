@@ -11,21 +11,26 @@ import type {
   BridgeRequest,
   BridgeResponse,
   FooterPressEvent,
-  HomeActionEvent,
   NativeFooter,
   NativeFooterPress,
   NativeFooterTab,
-  NativeHome,
-  NativeHomeAction,
   NativeUserAgentToken,
+  ScreenActionEvent,
 } from "../src/lib/native-bridge-protocol";
+import type {
+  NativeScreenAction,
+  NativeScreenActionEvent,
+  NativeScreenReport,
+  NativeScreenView,
+  NativeSession,
+} from "../src/lib/native-screens";
 import { signInWithGoogle } from "./google-sign-in";
 
 const tokenGlobal = "__narackrockBridgeToken" satisfies BridgeGlobals["token"];
 const receiveGlobal = "__narackrockNativeReceive" satisfies BridgeGlobals["receive"];
 const appBackgroundEvent = "narackrock:app-background" satisfies AppBackgroundEvent;
 const footerPressEvent = "narackrock:footer-press" satisfies FooterPressEvent;
-const homeActionEvent = "narackrock:home-action" satisfies HomeActionEvent;
+const screenActionEvent = "narackrock:screen-action" satisfies ScreenActionEvent;
 
 /** Appended to the WebView user agent; the web reads it with `nativeApp()`. */
 export const userAgentToken: NativeUserAgentToken =
@@ -66,9 +71,9 @@ export function footerPressScript(press: NativeFooterPress): string {
   return eventScript(footerPressEvent, press);
 }
 
-/** Script handing a native home action to the web home (see `onHomeAction` in the web). */
-export function homeActionScript(action: NativeHomeAction): string {
-  return eventScript(homeActionEvent, action);
+/** Script handing a native screen action to its page (see `useNativeScreen` in the web). */
+export function screenActionScript(key: string, action: NativeScreenAction): string {
+  return eventScript(screenActionEvent, { key, action } satisfies NativeScreenActionEvent);
 }
 
 function eventScript(name: string, detail: unknown): string {
@@ -78,7 +83,8 @@ function eventScript(name: string, detail: unknown): string {
 /** What requests need from the screen hosting the WebView. */
 export type BridgeHost = {
   setFooter(footer: NativeFooter | null): void;
-  setHome(home: NativeHome | null): void;
+  setScreen(report: NativeScreenReport): void;
+  setSession(session: NativeSession): void;
   setModal(open: boolean): void;
   setCanGoBack(canGoBack: boolean): void;
 };
@@ -137,12 +143,32 @@ export function parseRequest(data: string): BridgeRequest | null {
       const footer = "footer" in parsed ? readFooter(parsed.footer) : undefined;
       return footer === undefined ? null : { id, token: bridgeToken, type: parsed.type, footer };
     }
-    // The home view model is typed by the shared protocol rather than re-validated field by field:
-    // it only comes from the token-holding main frame and only feeds Text, image URIs and ids that
-    // go back to the same page.
-    case "set-home":
-      if (!("home" in parsed) || typeof parsed.home !== "object") return null;
-      return { id, token: bridgeToken, type: parsed.type, home: parsed.home as NativeHome | null };
+    // View models are typed by the shared protocol rather than re-validated field by field: they
+    // only come from the token-holding main frame and only feed Text, image URIs and ids that go
+    // back to the same page.
+    case "set-screen": {
+      const screen = "screen" in parsed ? parsed.screen : null;
+      if (
+        !screen ||
+        typeof screen !== "object" ||
+        !("key" in screen) ||
+        typeof screen.key !== "string" ||
+        !("view" in screen) ||
+        typeof screen.view !== "object"
+      )
+        return null;
+      const view = screen.view as NativeScreenView | null;
+      return { id, token: bridgeToken, type: parsed.type, screen: { key: screen.key, view } };
+    }
+    case "set-session":
+      if (!("session" in parsed) || !parsed.session || typeof parsed.session !== "object")
+        return null;
+      return {
+        id,
+        token: bridgeToken,
+        type: parsed.type,
+        session: parsed.session as NativeSession,
+      };
     case "set-modal":
       if (!("open" in parsed) || typeof parsed.open !== "boolean") return null;
       return { id, token: bridgeToken, type: parsed.type, open: parsed.open };
@@ -174,8 +200,11 @@ async function run(
     case "set-footer":
       host.setFooter(request.footer);
       return null;
-    case "set-home":
-      host.setHome(request.home);
+    case "set-screen":
+      host.setScreen(request.screen);
+      return null;
+    case "set-session":
+      host.setSession(request.session);
       return null;
     case "set-modal":
       host.setModal(request.open);

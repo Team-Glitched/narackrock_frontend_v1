@@ -26,7 +26,8 @@ import {
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import { WebView, type WebViewMessageEvent } from "react-native-webview";
 
-import type { NativeFooter, NativeHome } from "../src/lib/native-bridge-protocol";
+import type { NativeFooter } from "../src/lib/native-bridge-protocol";
+import type { NativeScreenAction, NativeSession } from "../src/lib/native-screens";
 import { designTokens } from "../src/styles/tokens";
 import {
   appBackgroundScript,
@@ -34,14 +35,21 @@ import {
   footerPressScript,
   handleRequest,
   historyBackScript,
-  homeActionScript,
   injectedBeforeContentLoaded,
   parseRequest,
   responseScript,
+  screenActionScript,
   userAgentToken,
 } from "./bridge";
-import { HomeScreen } from "./home-screen";
+import { emptyStack, reduceStack, ScreenStack } from "./screen-stack";
 import { footerFrame, TabBar, type Viewport } from "./tab-bar";
+
+const signedOut: NativeSession = {
+  userId: null,
+  profileImageUrl: null,
+  unreadNotifications: 0,
+  unreadChats: 0,
+};
 
 // The web app stores auth and drafts in localStorage, which is keyed by origin,
 // so the port must stay fixed across launches. The backend CORS allow-list must
@@ -139,25 +147,26 @@ function WebShell() {
   const canGoBack = useRef(false);
   // The page's footer, drawn natively by TabBar over the web's inert footer row.
   const [footer, setFooter] = useState<NativeFooter | null>(null);
-  // The web home's last view model stays mounted (keeping its scroll) while other pages are open.
-  const [home, setHomeModel] = useState<NativeHome | null>(null);
-  const [homeOnScreen, setHomeOnScreen] = useState(false);
+  // Native screens of recent history entries (see screen-stack.tsx) and what their headers show.
+  const [stack, setStack] = useState(emptyStack);
+  const [session, setSession] = useState(signedOut);
   // A web modal must be visible and reachable, so native views above the WebView step aside.
   const [modalOpen, setModalOpen] = useState(false);
   const [viewport, setViewport] = useState<Viewport | null>(null);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
-  const setHome = useCallback((next: NativeHome | null) => {
-    if (next) setHomeModel(next);
-    setHomeOnScreen(next !== null);
-  }, []);
   // A restarted page reports its native views again once mounted.
   const reload = useCallback(() => {
     setFooter(null);
-    setHomeOnScreen(false);
+    setStack(emptyStack);
     setModalOpen(false);
     canGoBack.current = false;
     webView.current?.reload();
   }, []);
+  const onScreenAction = useCallback(
+    (key: string, action: NativeScreenAction) =>
+      webView.current?.injectJavaScript(screenActionScript(key, action)),
+    [],
+  );
 
   // Back closes an open web modal first, then walks the SPA history, then leaves the app.
   useEffect(() => {
@@ -209,14 +218,15 @@ function WebShell() {
       if (!request) return;
       void handleRequest(request, {
         setFooter,
-        setHome,
+        setScreen: (report) => setStack((state) => reduceStack(state, report)),
+        setSession,
         setModal: setModalOpen,
         setCanGoBack: (value) => {
           canGoBack.current = value;
         },
       }).then((response) => webView.current?.injectJavaScript(responseScript(response)));
     },
-    [origin, setHome],
+    [origin],
   );
 
   if (error) {
@@ -239,8 +249,9 @@ function WebShell() {
     );
   }
 
-  // The web page under it hides itself from screen readers (src/features/home/native-home-bridge.tsx).
-  const homeVisible = home !== null && homeOnScreen && !modalOpen;
+  // The web page under a native screen hides itself from screen readers (useNativeScreen).
+  // Content scrolls under the tab bar only when the page has one.
+  const bottomInset = footer && viewport ? viewport.height - footerFrame(viewport).top : 0;
   return (
     <View
       style={styles.webView}
@@ -271,15 +282,14 @@ function WebShell() {
         onContentProcessDidTerminate={reload}
         onRenderProcessGone={reload}
       />
-      {home && viewport && (
-        <HomeScreen
-          home={home}
-          origin={origin}
-          bottomInset={viewport.height - footerFrame(viewport).top}
-          style={homeVisible ? undefined : styles.hidden}
-          onAction={(action) => webView.current?.injectJavaScript(homeActionScript(action))}
-        />
-      )}
+      <ScreenStack
+        stack={stack}
+        hidden={modalOpen}
+        session={session}
+        origin={origin}
+        bottomInset={bottomInset}
+        onAction={onScreenAction}
+      />
       {footer && viewport && !keyboardVisible && !modalOpen && (
         <TabBar
           footer={footer}
@@ -305,7 +315,6 @@ export default function App() {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: BACKGROUND },
   webView: { flex: 1, backgroundColor: BACKGROUND },
-  hidden: { display: "none" },
   center: {
     flex: 1,
     alignItems: "center",
