@@ -83,46 +83,16 @@ async function* searchResults(
   yield { results };
 }
 
-export function ScopedSearch({
-  scope: requestedScope,
-  community,
-  onScope,
-  query,
-  onQuery,
-  onBack,
-  onPost,
-  onCommunity,
-  onSong,
-  onSource,
-  onProfile,
-}: {
-  community?: Pick<Community, "galleryId" | "name"> | null;
-  scope: SearchScope;
-  onScope: (scope: SearchScope) => void;
-  query: string;
-  onQuery: (value: string) => void;
-  onBack: () => void;
-  onPost: (id: number) => void;
-  onCommunity: (community: Community) => void;
-  onSong: (id: number) => void;
-  onSource: (id: number) => void;
-  onProfile: (id: number) => void;
-}) {
-  // Keep the native input stable while React Router commits query replacements.
-  const [searchText, setSearchText] = useState(query);
-  const [syncedQuery, setSyncedQuery] = useState(query);
-  if (syncedQuery !== query) {
-    setSyncedQuery(query);
-    setSearchText(query);
-  }
-  const commitQuery = useEffectEvent(onQuery);
-  useEffect(() => {
-    if (searchText === query) return;
-    const timer = window.setTimeout(() => commitQuery(searchText), 150);
-    return () => window.clearTimeout(timer);
-  }, [searchText, query]);
+/**
+ * Search results of one scope, shared by the web search screen and the app's native search.
+ * Inside a community only its posts are searched.
+ */
+export function useScopedSearch(
+  requestedScope: SearchScope,
+  query: string,
+  community: Pick<Community, "galleryId" | "name"> | null | undefined,
+) {
   const scope = community ? "posts" : requestedScope;
-  const inputRef = useRef<HTMLInputElement>(null);
   const galleryId = community?.galleryId;
   const userId = useCurrentUserId();
   const queryClient = useQueryClient();
@@ -181,6 +151,75 @@ export function ScopedSearch({
   const results = paged
     ? pagination.state && { ...empty(), people: people.state?.items ?? [], songs: songs.state?.items ?? [] }
     : current?.results ?? null;
+  return {
+    scope,
+    keyword,
+    peopleSignInRequired,
+    paged,
+    pagination,
+    current,
+    results,
+    /** Nothing was found and nothing is still loading. */
+    empty:
+      results !== null &&
+      Object.values(results).every((items) => items.length === 0) &&
+      !current?.error && !current?.pending && !pagination.state?.error && pagination.state?.next == null,
+    retry: () => void queryClient.resetQueries({ queryKey: searchKey, exact: true }),
+    hint: scopes.find((item) => item.id === scope)?.hint ?? "",
+    label: scopes.find((item) => item.id === scope)?.label ?? "",
+  };
+}
+
+export function ScopedSearch({
+  scope: requestedScope,
+  community,
+  onScope,
+  query,
+  onQuery,
+  onBack,
+  onPost,
+  onCommunity,
+  onSong,
+  onSource,
+  onProfile,
+}: {
+  community?: Pick<Community, "galleryId" | "name"> | null;
+  scope: SearchScope;
+  onScope: (scope: SearchScope) => void;
+  query: string;
+  onQuery: (value: string) => void;
+  onBack: () => void;
+  onPost: (id: number) => void;
+  onCommunity: (community: Community) => void;
+  onSong: (id: number) => void;
+  onSource: (id: number) => void;
+  onProfile: (id: number) => void;
+}) {
+  // Keep the native input stable while React Router commits query replacements.
+  const [searchText, setSearchText] = useState(query);
+  const [syncedQuery, setSyncedQuery] = useState(query);
+  if (syncedQuery !== query) {
+    setSyncedQuery(query);
+    setSearchText(query);
+  }
+  const commitQuery = useEffectEvent(onQuery);
+  useEffect(() => {
+    if (searchText === query) return;
+    const timer = window.setTimeout(() => commitQuery(searchText), 150);
+    return () => window.clearTimeout(timer);
+  }, [searchText, query]);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const {
+    scope,
+    keyword,
+    peopleSignInRequired,
+    paged,
+    pagination,
+    current,
+    results,
+    empty: noResults,
+    retry,
+  } = useScopedSearch(requestedScope, query, community);
   return (
     <div className={cn(socialStyles.searchView, sharedStyles.scopedSearch)}>
       <div className={socialStyles.searchLine}>
@@ -259,15 +298,13 @@ export function ScopedSearch({
                 tone: "secondary",
                 size: "compact",
               })}
-              onClick={() => void queryClient.resetQueries({ queryKey: searchKey, exact: true })}
+              onClick={retry}
             >
               다시 시도
             </button>
           </div>
         )}
-        {results &&
-          Object.values(results).every((items) => items.length === 0) &&
-          !current?.error && !current?.pending && !pagination.state?.error && pagination.state?.next == null && <p className={socialStyles.searchResult}>검색 결과가 없습니다.</p>}
+        {noResults && <p className={socialStyles.searchResult}>검색 결과가 없습니다.</p>}
         {scope === "posts" &&
           results?.posts.map((post) => <MiniPost key={post.postId} post={post} onOpen={onPost} />)}
         {scope === "communities" && (

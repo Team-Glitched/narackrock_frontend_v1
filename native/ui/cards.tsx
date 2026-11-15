@@ -103,7 +103,43 @@ export function SongRail({
   );
 }
 
-/** A song row of a chart list (the web's chartRow): cover, title, author, and a trailing slot. */
+/** A chart-style row (the web's chartRow): cover, title, subtitle, and a trailing slot. */
+export function MediaRow({
+  title,
+  subtitle,
+  coverUrl,
+  onOpen,
+  trailing,
+}: {
+  title: string;
+  subtitle: string;
+  coverUrl: string | null;
+  onOpen: () => void;
+  trailing?: ReactNode;
+}) {
+  return (
+    <View style={styles.row}>
+      <Touchable
+        accessibilityRole="button"
+        accessibilityLabel={`${title} 열기`}
+        style={styles.rowMain}
+        onPress={onOpen}
+      >
+        <Cover url={coverUrl} size={56} />
+        <View style={styles.rowCopy}>
+          <Text style={type.label} numberOfLines={1}>
+            {title}
+          </Text>
+          <Text style={type.muted} numberOfLines={1}>
+            {subtitle}
+          </Text>
+        </View>
+      </Touchable>
+      {trailing}
+    </View>
+  );
+}
+
 export function SongRow({
   song,
   onOpen,
@@ -114,22 +150,41 @@ export function SongRow({
   trailing?: ReactNode;
 }) {
   return (
+    <MediaRow
+      title={song.title}
+      subtitle={song.author}
+      coverUrl={song.albumImageUrl}
+      onOpen={onOpen}
+      trailing={trailing}
+    />
+  );
+}
+
+/** A user row: avatar and nickname. */
+export function PersonRow({
+  nickname,
+  profileImageUrl,
+  onOpen,
+  trailing,
+}: {
+  nickname: string;
+  profileImageUrl: string | null;
+  onOpen: () => void;
+  trailing?: ReactNode;
+}) {
+  const { uri } = useScreen();
+  return (
     <View style={styles.row}>
       <Touchable
         accessibilityRole="button"
-        accessibilityLabel={`${song.title} 열기`}
+        accessibilityLabel={`${nickname} 프로필 열기`}
         style={styles.rowMain}
         onPress={onOpen}
       >
-        <Cover url={song.albumImageUrl} size={56} />
-        <View style={styles.rowCopy}>
-          <Text style={type.label} numberOfLines={1}>
-            {song.title}
-          </Text>
-          <Text style={type.muted} numberOfLines={1}>
-            {song.author}
-          </Text>
-        </View>
+        <Avatar uri={uri(profileImageUrl)} size={40} />
+        <Text style={[type.label, styles.flex]} numberOfLines={1}>
+          {nickname}
+        </Text>
       </Touchable>
       {trailing}
     </View>
@@ -220,6 +275,7 @@ const styles = StyleSheet.create({
   row: { flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: gutter },
   rowMain: { flex: 1, flexDirection: "row", alignItems: "center", gap: 12 },
   rowCopy: { flex: 1, gap: 4 },
+  flex: { flex: 1 },
   postRow: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: gutter },
   postThumb: { borderRadius: 8, overflow: "hidden", backgroundColor: colors.surface },
   postCopy: { flex: 1, gap: 6 },

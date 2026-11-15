@@ -6,15 +6,26 @@
  */
 import type { NativeCommonAction, NativeHeader, NativeMoreAction } from "./common.ts";
 import type { NativeHome, NativeHomeAction } from "./home.ts";
+import type {
+  NativeCharts,
+  NativeChartsAction,
+  NativePostList,
+  NativePostListAction,
+  NativeSearch,
+  NativeSearchAction,
+} from "./lists.ts";
 
 export type * from "./common.ts";
 export type * from "./home.ts";
+export type * from "./lists.ts";
 
 /** Screen kind → the page's view model and the screen-specific actions it handles. */
 export type NativeScreens = {
   home: { model: NativeHome; action: NativeHomeAction };
+  charts: { model: NativeCharts; action: NativeChartsAction };
+  posts: { model: NativePostList; action: NativePostListAction };
+  search: { model: NativeSearch; action: NativeSearchAction };
 };
-
 export type NativeScreenKind = keyof NativeScreens;
 
 export type NativeScreenView = {

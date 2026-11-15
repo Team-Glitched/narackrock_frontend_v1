@@ -10,6 +10,11 @@ import {
 import { useScreen } from "./screen-context";
 import { colors } from "./theme";
 
+/** Room under the content: the tab bar, plus the floating create button when there is one. */
+function useBottomPadding(fab: boolean) {
+  return useScreen().bottomInset + (fab ? 90 : 24);
+}
+
 /** Pull-to-refresh driven by the page: the spinner runs until the page reports the refresh done. */
 function useRefresh() {
   const { act, refreshed } = useScreen();
@@ -32,15 +37,17 @@ function useRefresh() {
 export function ScreenScroll({
   children,
   scrollRef,
+  fab = false,
 }: {
   children: ReactNode;
   scrollRef?: React.Ref<ScrollViewInstance>;
+  /** Keeps the last content clear of a floating button. */
+  fab?: boolean;
 }) {
-  const { bottomInset } = useScreen();
   return (
     <ScrollView
       ref={scrollRef}
-      contentContainerStyle={{ paddingTop: 8, paddingBottom: bottomInset + 24 }}
+      contentContainerStyle={{ paddingTop: 8, paddingBottom: useBottomPadding(fab) }}
       keyboardShouldPersistTaps="handled"
       refreshControl={useRefresh()}
     >
@@ -56,19 +63,22 @@ export function ScreenScroll({
 export function ScreenList<T>({
   hasMore = false,
   busy = false,
+  fab = false,
   ...props
 }: Omit<FlatListProps<T>, "refreshControl" | "onEndReached"> & {
   hasMore?: boolean;
   /** A next page is loading or failed; `more` is not sent again until the page clears this. */
   busy?: boolean;
+  /** Keeps the last row clear of a floating button. */
+  fab?: boolean;
 }): ReactElement {
-  const { act, bottomInset } = useScreen();
+  const { act } = useScreen();
   return (
     <FlatList
       {...props}
       contentContainerStyle={[
-        { paddingTop: 8, paddingBottom: bottomInset + 24 },
         props.contentContainerStyle,
+        { paddingTop: 8, paddingBottom: useBottomPadding(fab) },
       ]}
       keyboardShouldPersistTaps="handled"
       refreshControl={useRefresh()}

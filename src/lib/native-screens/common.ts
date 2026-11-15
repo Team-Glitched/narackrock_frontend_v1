@@ -35,6 +35,31 @@ export type NativePost = {
 };
 
 /**
+ * A community card (the web's CommunityCard). `join` is the join control: the owner's fixed badge,
+ * joined/not joined, or the membership state still loading or failed (control disabled).
+ */
+export type NativeCommunity = {
+  galleryId: number;
+  name: string;
+  description: string;
+  imageUrl: string | null;
+  memberLabel: string;
+  join: "owner" | "joined" | "join" | "loading" | "failed";
+  /** A join/leave request is in flight. */
+  joinPending: boolean;
+};
+
+export type NativePerson = { userId: number; nickname: string; profileImageUrl: string | null };
+
+/** A sample (open source) row: cover, title, author. */
+export type NativeSourceRow = {
+  openSourceId: number;
+  title: string;
+  author: string;
+  thumbnailUrl: string | null;
+};
+
+/**
  * The page header. `left` is the logo (back to the top of the home), a back button or nothing;
  * `actions` are drawn right to left in this order; `account` is the login button or the avatar.
  */
@@ -43,6 +68,7 @@ export type NativeHeader = {
   title?: string;
   actions: ("notifications" | "chat" | "search" | "account")[];
 };
+
 /** Actions every native screen can send; the web handles them the same way on every page. */
 export type NativeCommonAction =
   | { type: "back" | "search" | "notifications" | "chat" | "login" | "profile" | "refresh" }

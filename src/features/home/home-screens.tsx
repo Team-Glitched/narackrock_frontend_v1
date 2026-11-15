@@ -21,7 +21,7 @@ import { updateFeaturedMusic } from "@/lib/api/profile";
 import { profileKeys, profileQuery } from "@/features/profile/profile-queries";
 import type { UserProfile } from "@/lib/api/contracts";
 
-type MusicListTab = MySongTab | "featured";
+export type MusicListTab = MySongTab | "featured";
 
 function SongRailStatus({ state }: { state: "loading" | "error" | "empty" | "signed-out" }) {
   const message =
@@ -163,12 +163,8 @@ function FeaturedStarButton({
   );
 }
 
-function MySongsChart({ tab, onTabChange, onOpenShort, featuredUserId }: {
-  tab: MusicListTab;
-  onTabChange: (tab: MusicListTab) => void;
-  onOpenShort: (shortId: number) => void;
-  featuredUserId?: number;
-}) {
+/** State of the "내 음악" chart, shared by the web chart and the app's native chart. */
+export function useMyMusic(tab: MusicListTab, featuredUserId?: number) {
   const userId = useCurrentUserId();
   const targetUserId = featuredUserId ?? userId;
   const canManageFeatured = userId !== null && targetUserId === userId;
@@ -214,6 +210,39 @@ function MySongsChart({ tab, onTabChange, onOpenShort, featuredUserId }: {
     }
   }
 
+  return {
+    targetUserId,
+    canManageFeatured,
+    profile,
+    songs,
+    items,
+    pinnedIds,
+    savingId,
+    featureNotice,
+    clearNotice: () => setFeatureNotice(null),
+    toggleFeatured,
+  };
+}
+
+function MySongsChart({ tab, onTabChange, onOpenShort, featuredUserId }: {
+  tab: MusicListTab;
+  onTabChange: (tab: MusicListTab) => void;
+  onOpenShort: (shortId: number) => void;
+  featuredUserId?: number;
+}) {
+  const {
+    targetUserId,
+    canManageFeatured,
+    profile,
+    songs,
+    items,
+    pinnedIds,
+    savingId,
+    featureNotice,
+    clearNotice,
+    toggleFeatured,
+  } = useMyMusic(tab, featuredUserId);
+
   return (
     <div className={cn(sharedStyles.listView, sharedStyles.scrollContent)}>
       <h1 className={sharedStyles.postsListTitle}>{uiLabels.myMusic}</h1>
@@ -222,7 +251,7 @@ function MySongsChart({ tab, onTabChange, onOpenShort, featuredUserId }: {
           <button key={value} type="button" aria-pressed={tab === value}
             className={filterChip}
             onClick={() => {
-              setFeatureNotice(null);
+              clearNotice();
               onTabChange(value);
             }}>
             {value === "authored" ? "내 작업물" : value === "participated" ? "내 참가작" : "대표 음악"}
