@@ -107,8 +107,18 @@ npm run native:prebuild              # app.config.ts/플러그인 변경 후 nat
 - 웹과 앱의 메시지 형식은 `src/lib/native-bridge-protocol.ts` 하나에 정의하고, 앱(`native/bridge.ts`)은 `import type`으로 같은 타입을 씁니다. 앱은 실행마다 만든 토큰을 메인 프레임에만 주입하고, 토큰이 맞는 요청만 처리하므로 외부 iframe은 네이티브 기능을 호출할 수 없습니다.
 - 백그라운드: 앱이 백그라운드로 가면 페이지의 `<audio>`/`<video>`를 멈추고 `narackrock:app-background` 이벤트를 보냅니다. Web Audio 재생(`useCompositionPlayback`)은 `onAppBackground`로 이 이벤트를 받아 멈춥니다. 로컬 서버도 백그라운드에서 멈췄다가 돌아오면 다시 켜집니다.
 - Google 로그인: Google은 WebView 안의 웹 로그인을 막으므로, 앱에서는 로그인 화면이 네이티브 Google 로그인(`@react-native-google-signin/google-signin`)을 호출합니다. ID 토큰은 웹 클라이언트 ID 기준으로 발급되어 백엔드 검증은 웹과 같습니다.
-- 공유 링크: 앱의 페이지 origin은 `127.0.0.1`이므로 `VITE_PUBLIC_WEB_ORIGIN`(운영 `https://narackrock.com`)으로 만듭니다. 웹에서는 설정하지 않으면 현재 origin을 씁니다.
+- 공유: WebView에는 Web Share API가 없으므로 `shareLink`는 앱에서 네이티브 공유 시트(`share`)를 띄웁니다. 링크는 앱의 페이지 origin이 `127.0.0.1`이므로 `VITE_PUBLIC_WEB_ORIGIN`(운영 `https://narackrock.com`)으로 만듭니다. 웹에서는 설정하지 않으면 현재 origin을 씁니다.
 - 기존 콘텐츠의 상대 `/files/...` URL은 앱의 로컬 서버가 API origin으로 리다이렉트합니다.
+
+### 네이티브 화면
+
+네이티브 화면은 웹 위에 그리는 뷰입니다. 웹 페이지가 데이터(세션·토큰 갱신·쿼리 캐시·로컬 저장소)와 동작(이동·로그인 확인·신고 양식)을 계속 맡고, 화면에 필요한 값만 브리지로 보냅니다. 앱은 그 값을 그리고 사용자 동작을 웹에 돌려줍니다. 브라우저에서는 이 경로가 모두 꺼져 웹 화면은 그대로입니다.
+
+- 하단 탭 바: 앱에서 웹 `Footer`는 레이아웃만 유지하는 비활성 줄로 남고 활성 탭·만들기 라벨을 보냅니다(`set-footer`). `native/tab-bar.tsx`가 390×844 디자인 캔버스와 같은 배율로 그 줄 위에 그리고, 누르면 `narackrock:footer-press`로 페이지의 만들기 동작을 그대로 실행합니다. 키보드가 열리면 숨깁니다.
+- 홈: `src/features/home/native-home-bridge.tsx`가 웹 홈과 같은 훅으로 만든 뷰 모델을 보내고(`set-home`), `native/home-screen.tsx`가 그립니다. 동작은 `narackrock:home-action`으로 돌아옵니다. 다른 화면에 다녀와도 네이티브 홈은 마운트된 채 스크롤을 유지하고, 덮여 있는 웹 홈은 `#root`에 `aria-hidden`을 걸어 화면 낭독기에서 숨깁니다.
+- 웹 모달: `aria-modal` 요소가 열리면(`set-modal`) 네이티브 홈과 탭 바가 비켜서 웹 대화창을 보이고 누를 수 있게 합니다. 새 대화창도 `aria-modal`을 붙여야 합니다.
+- 뒤로가기(Android): 열린 웹 모달에 Escape를 보내 닫고, 없으면 웹 history를 되돌리고, 첫 화면이면 앱을 닫습니다. `WebView.canGoBack()`은 페이지 안 사용자 제스처 없이 추가된 항목(네이티브 버튼으로 시작한 이동)을 건너뛰므로, 웹이 react-router history 위치를 보냅니다(`set-history`).
+- 아이콘: 네이티브 화면은 `public/figma/*.svg`를 웹과 함께 쓰고, `native/svg-transformer.js`가 SVGR로 `react-native-svg` 컴포넌트로 바꿉니다. 색·글꼴 크기는 `src/styles/tokens.ts`를 씁니다.
 
 ### 배포 설정
 
