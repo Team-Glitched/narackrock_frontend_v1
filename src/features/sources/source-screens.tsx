@@ -3,7 +3,8 @@ import { sharedStyles } from "@/styles/shared.styles";
 import { communityStyles } from "@/styles/community.styles";
 import { buttonVariants } from "@/styles/variants";
 import { cn } from "@/lib/utils";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useId, useMemo, useRef, useState, type PointerEvent } from "react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { SectionTitle } from "@/components/section-title";
 import { Avatar } from "@/components/avatar";
@@ -29,7 +30,15 @@ import {
   type OpenSourceDetail,
   type OpenSourceSummary,
 } from "@/lib/api/open-sources";
-import { openSourceListQuery, openSourceQuery, patchSource, sourceKeys, useSourceSaveMutation } from "./source-queries";
+import {
+  openSourceListQuery,
+  openSourceQuery,
+  patchSource,
+  popularOpenSourcesQuery,
+  sourceDiscoverySize,
+  sourceKeys,
+  useSourceSaveMutation,
+} from "./source-queries";
 
 export function sourceError(cause: unknown, fallback = "샘플을 불러오지 못했습니다.") {
   if (cause instanceof ApiError) {
@@ -93,6 +102,13 @@ function OpenSourceCard({
       <button className={sourceStyles.osBody} onClick={() => onOpen(source.openSourceId)}>
         {source.description ?? ""}
       </button>
+      <SourcePlayback
+        sourceId={source.openSourceId}
+        canPreview={source.canPreview ?? true}
+        durationMs={null}
+        label={source.title}
+        showDurationHint={false}
+      />
       <div className={sourceStyles.osFoot}>
         <button className={sourceStyles.osFootAuthor} onClick={() => onProfile(source.writer.userId)}>
           <Avatar src={source.writer.profileImageUrl} />
@@ -134,6 +150,8 @@ export function useOpenSourceList(keyword: string, enabled: boolean) {
       : null;
   return {
     state,
+    firstPage: data?.pages[0]?.items,
+    userId,
     more: () => {
       if (hasNextPage && !isFetchingNextPage) void fetchNextPage();
     },
@@ -141,6 +159,187 @@ export function useOpenSourceList(keyword: string, enabled: boolean) {
     retry: () => void queryClient.resetQueries({ queryKey: options.queryKey, exact: true }),
     signedIn: userId !== null,
   };
+}
+
+function discoveryCardStep(track: HTMLDivElement) {
+  const nextCard = track.children[1];
+  return nextCard instanceof HTMLElement ? nextCard.offsetLeft : track.clientWidth;
+}
+
+function SourceDiscoveryRail({
+  title,
+  items,
+  error,
+  retry,
+  onOpen,
+  onProfile,
+}: {
+  title: string;
+  items?: OpenSourceSummary[];
+  error?: string;
+  retry: () => void;
+  onOpen: (id: number, comments?: boolean) => void;
+  onProfile: (id: number) => void;
+}) {
+  const railId = useId();
+  const rail = useRef<HTMLDivElement>(null);
+  const drag = useRef<{
+    pointerId: number;
+    x: number;
+    left: number;
+    scale: number;
+    active: boolean;
+  } | null>(null);
+  const suppressClick = useRef(false);
+  const [page, setPage] = useState(0);
+  const count = items?.length ?? 0;
+  const index = Math.max(0, Math.min(page, count - 1));
+
+  function moveTo(next: number) {
+    const track = rail.current;
+    if (track) track.scrollTo({ left: next * discoveryCardStep(track) });
+  }
+
+  function startDrag(event: PointerEvent<HTMLDivElement>) {
+    suppressClick.current = false;
+    if (count < 2 || event.pointerType !== "mouse" || event.button !== 0) return;
+    if (event.target instanceof Element && event.target.closest("input")) return;
+    const track = event.currentTarget;
+    drag.current = {
+      pointerId: event.pointerId,
+      x: event.clientX,
+      left: track.scrollLeft,
+      scale: track.getBoundingClientRect().width / track.clientWidth,
+      active: false,
+    };
+  }
+
+  function updateDrag(event: PointerEvent<HTMLDivElement>) {
+    const start = drag.current;
+    if (!start || start.pointerId !== event.pointerId) return;
+    const distance = (start.x - event.clientX) / start.scale;
+    const track = event.currentTarget;
+    if (!start.active) {
+      if (Math.abs(distance) < 6) return;
+      start.active = true;
+      suppressClick.current = true;
+      track.setPointerCapture(event.pointerId);
+      track.dataset.dragging = "true";
+    }
+    track.scrollTo({ left: start.left + distance, behavior: "instant" });
+  }
+
+  function finishDrag(event: PointerEvent<HTMLDivElement>) {
+    const start = drag.current;
+    if (!start || start.pointerId !== event.pointerId) return;
+    drag.current = null;
+    if (!start.active) return;
+    const track = event.currentTarget;
+    const step = discoveryCardStep(track);
+    const initial = Math.round(start.left / step);
+    const nearest = Math.round(track.scrollLeft / step);
+    const distance = (start.x - event.clientX) / start.scale;
+    // A short mouse swipe advances a card even if it stops before the midpoint.
+    const next = event.type === "pointerup" && nearest === initial && Math.abs(distance) >= 40
+      ? initial + Math.sign(distance)
+      : nearest;
+    delete track.dataset.dragging;
+    moveTo(Math.max(0, Math.min(next, count - 1)));
+  }
+
+  return (
+    <section aria-label={title}>
+      <div className="mb-4 flex min-h-9 items-center justify-between gap-2">
+        <h2 className="m-0 text-title leading-6 font-bold tracking-[-0.4px]">{title}</h2>
+        {count > 1 && (
+          <div className="flex shrink-0 items-center gap-1.5">
+            <span role="status" className="mr-1 text-caption text-app-muted tabular-nums">
+              <span className="sr-only">{title} </span>
+              {index + 1} / {count}
+            </span>
+            <button
+              type="button"
+              className={sourceStyles.osDiscoveryArrow}
+              aria-label={`${title} 이전 카드`}
+              aria-controls={railId}
+              disabled={index === 0}
+              onClick={() => moveTo(index - 1)}
+            >
+              <ChevronLeft size={18} aria-hidden="true" />
+            </button>
+            <button
+              type="button"
+              className={sourceStyles.osDiscoveryArrow}
+              aria-label={`${title} 다음 카드`}
+              aria-controls={railId}
+              disabled={index === count - 1}
+              onClick={() => moveTo(index + 1)}
+            >
+              <ChevronRight size={18} aria-hidden="true" />
+            </button>
+          </div>
+        )}
+      </div>
+      {!items && (
+        error ? (
+          <div role="alert">
+            <p>{error}</p>
+            <button className={buttonVariants({ tone: "secondary", size: "compact" })} onClick={retry}>
+              다시 시도
+            </button>
+          </div>
+        ) : <p role="status">샘플을 불러오는 중...</p>
+      )}
+      {items?.length === 0 && <p className={sourceStyles.osDiscoveryEmpty}>표시할 샘플이 없습니다.</p>}
+      {!!items?.length && (
+        <div
+          id={railId}
+          ref={rail}
+          className={sourceStyles.osDiscoveryRail}
+          data-paged={count > 1}
+          onScroll={({ currentTarget: track }) => {
+            const step = discoveryCardStep(track);
+            if (step) setPage(Math.round(track.scrollLeft / step));
+          }}
+          onPointerDown={startDrag}
+          onPointerMove={updateDrag}
+          onPointerUp={finishDrag}
+          onPointerCancel={finishDrag}
+          onLostPointerCapture={finishDrag}
+          onPointerLeave={(event) => {
+            if (drag.current?.pointerId === event.pointerId && !drag.current.active) drag.current = null;
+          }}
+          onClickCapture={(event) => {
+            if (!suppressClick.current || event.detail === 0) return;
+            suppressClick.current = false;
+            event.preventDefault();
+            event.stopPropagation();
+          }}
+        >
+          {items.map((source) => (
+            <OpenSourceCard key={source.openSourceId} source={source} onOpen={onOpen} onProfile={onProfile} />
+          ))}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function recommendSources(items: OpenSourceSummary[], viewerId: number | null) {
+  const others = items.filter((item) => item.writer.userId !== viewerId);
+  const authors = new Set<number>();
+  const first: OpenSourceSummary[] = [];
+  const rest: OpenSourceSummary[] = [];
+  for (const item of others.length ? others : items) {
+    const authorId = item.writer.userId;
+    if (authors.has(authorId)) {
+      rest.push(item);
+    } else {
+      authors.add(authorId);
+      first.push(item);
+    }
+  }
+  return [...first, ...rest].slice(0, sourceDiscoverySize);
 }
 
 export function OpensourceScreen({
@@ -151,18 +350,28 @@ export function OpensourceScreen({
   onProfile: (id: number) => void;
 }) {
   const list = useOpenSourceList("", true);
+  const popular = useQuery({ ...popularOpenSourcesQuery(list.userId), enabled: list.signedIn });
   if (!list.signedIn) return <SignInRequired>샘플은 로그인 후 볼 수 있습니다.</SignInRequired>;
   const { state } = list;
+  const recommended = list.firstPage && recommendSources(list.firstPage, list.userId);
   return (
     <div className={cn(sourceStyles.opensourceView, sharedStyles.scrollContent, sourceStyles.osDiscoverySections)}>
-      <section aria-label="샘플 인기 차트">
-        <SectionTitle>인기 차트</SectionTitle>
-        <p className={sourceStyles.osDiscoveryEmpty}>인기 차트는 현재 서버에서 지원하지 않습니다.</p>
-      </section>
-      <section aria-label="추천 샘플">
-        <SectionTitle>추천 샘플</SectionTitle>
-        <p className={sourceStyles.osDiscoveryEmpty}>추천 샘플은 현재 서버에서 지원하지 않습니다.</p>
-      </section>
+      <SourceDiscoveryRail
+        title="인기 오픈소스"
+        items={popular.data?.items}
+        error={popular.error ? sourceError(popular.error) : undefined}
+        retry={() => void popular.refetch()}
+        onOpen={onOpen}
+        onProfile={onProfile}
+      />
+      <SourceDiscoveryRail
+        title="추천 오픈소스"
+        items={recommended}
+        error={state?.error}
+        retry={list.retry}
+        onOpen={onOpen}
+        onProfile={onProfile}
+      />
       <section aria-label="전체 샘플">
         <SectionTitle>전체 샘플</SectionTitle>
         {!state && <p role="status">샘플을 불러오는 중...</p>}
@@ -209,7 +418,10 @@ function SourceDetail({
   const queryClient = useQueryClient();
   const reaction = useMutation({
     mutationFn: (kind: "like" | "dislike") => reactToOpenSource(source.openSourceId, kind),
-    onSuccess: (result) => patchSource(queryClient, userId, source.openSourceId, result),
+    onSuccess: (result) => {
+      patchSource(queryClient, userId, source.openSourceId, result);
+      void queryClient.invalidateQueries({ queryKey: sourceKeys.popular(userId) });
+    },
   });
   const [notice, setNotice] = useState("");
   function vote(kind: "like" | "dislike") {
