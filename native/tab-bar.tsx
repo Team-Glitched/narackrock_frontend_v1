@@ -28,10 +28,11 @@ const trailingTabs: Tab[] = [
   { id: "opensource", label: "샘플", on: SourcesOn, off: SourcesOff },
 ];
 
-// The web renders a fixed 390×844 canvas scaled to fit the WebView (src/components/design-viewport.tsx)
-// with its (inert) 44px footer row (sharedStyles.appFooter) at the canvas bottom. The bar is laid out
-// in canvas px and multiplied by the same scale so it covers that row exactly.
-const CANVAS = { width: 390, height: 844 };
+// The web renders a fixed 390×844 canvas scaled to fit the WebView (src/components/design-viewport.tsx).
+// Every footer page lays out in sharedStyles.phoneFrame, whose 20px bottom padding sits under the
+// (inert) 44px footer row (sharedStyles.appFooter). The bar is laid out in canvas px and multiplied
+// by the same scale so it covers that row exactly.
+const CANVAS = { width: 390, height: 844, framePaddingBottom: 20 };
 const FOOTER = { height: 44, paddingX: 17, gap: 34, item: 44, icon: 20, labelGap: 4 };
 const CREATE = { circle: 40, plus: 20, stroke: 2 };
 const CREATE_COLORS = { circle: designTokens.colors["blue-gray"], plus: "#d7dce2" };
@@ -48,7 +49,8 @@ export function TabBar({
   onPress: (press: NativeFooterPress) => void;
 }) {
   const scale = Math.min(viewport.width / CANVAS.width, viewport.height / CANVAS.height, 1);
-  const canvasBottom = (viewport.height + CANVAS.height * scale) / 2;
+  const footerBottom =
+    (viewport.height + CANVAS.height * scale) / 2 - CANVAS.framePaddingBottom * scale;
   const px = (value: number) => value * scale;
 
   const renderTab = ({ id, label, on: On, off: Off }: Tab) => {
@@ -85,7 +87,7 @@ export function TabBar({
 
   return (
     <View
-      style={[styles.bar, { top: canvasBottom - px(FOOTER.height), height: px(FOOTER.height) }]}
+      style={[styles.bar, { top: footerBottom - px(FOOTER.height), height: px(FOOTER.height) }]}
     >
       <View style={[styles.row, { gap: px(FOOTER.gap), paddingHorizontal: px(FOOTER.paddingX) }]}>
         {leadingTabs.map(renderTab)}
