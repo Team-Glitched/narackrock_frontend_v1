@@ -25,6 +25,7 @@ import {
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import { WebView, type WebViewMessageEvent, type WebViewNavigation } from "react-native-webview";
 
+import { designTokens } from "../src/styles/tokens";
 import {
   appBackgroundScript,
   handleRequest,
@@ -41,7 +42,7 @@ const PORT = 17173;
 const WEBROOT = "webroot";
 // Written by scripts/build-native-web.mjs next to index.html.
 const MANIFEST_FILE = "native-build.json";
-const BACKGROUND = "#1d1d1d";
+const BACKGROUND = designTokens.colors.bg;
 
 type WebBuildManifest = { buildId: string; apiOrigin: string };
 

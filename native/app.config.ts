@@ -1,6 +1,8 @@
 import type { ConfigContext, ExpoConfig } from "expo/config";
 
 import rootPackage from "../package.json";
+// Explicit extension: the Expo config loader does not resolve extensionless .ts imports.
+import { designTokens } from "../src/styles/tokens.ts";
 
 // One version for web and app (root package.json). Store build numbers derive from it
 // (1.2.3 → 10203), so bump the root version before every Play/App Store upload. Prerelease tags are
@@ -48,7 +50,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   orientation: "portrait",
   icon: "./assets/icon.png",
   userInterfaceStyle: "dark",
-  backgroundColor: "#1d1d1d",
+  backgroundColor: designTokens.colors.bg,
   android: {
     package: appId,
     versionCode: buildNumber,

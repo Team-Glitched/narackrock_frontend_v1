@@ -26,8 +26,8 @@ export default defineConfig([
     extends: [hooks.configs.flat.recommended],
   },
   {
-    // Expo config plugins are loaded by Node as CommonJS.
-    files: ["native/plugins/**/*.js"],
+    // Expo config plugins and the Metro config are loaded by Node as CommonJS.
+    files: ["native/plugins/**/*.js", "native/metro.config.js"],
     languageOptions: { sourceType: "commonjs" },
     rules: { "@typescript-eslint/no-require-imports": "off" },
   },
