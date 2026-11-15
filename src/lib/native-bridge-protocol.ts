@@ -124,6 +124,12 @@ export type BridgeMethods = {
   "set-home": { payload: { home: NativeHome | null }; result: null };
   /** Whether a web modal (aria-modal) is open; native views above the WebView step aside for it. */
   "set-modal": { payload: { open: boolean }; result: null };
+  /**
+   * Whether the SPA has an earlier entry to return to (react-router's history index). The app's
+   * back button uses this and `history.back()`: WebView.canGoBack() skips entries pushed without a
+   * user gesture in the page, which is every navigation started from a native view.
+   */
+  "set-history": { payload: { canGoBack: boolean }; result: null };
   /** Native share sheet (the WebView has no Web Share API). */
   "share": { payload: { title: string; url: string }; result: { shared: boolean } };
 };

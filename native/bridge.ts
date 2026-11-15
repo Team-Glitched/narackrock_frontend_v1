@@ -40,6 +40,22 @@ export const injectedBeforeContentLoaded = `window.${tokenGlobal} = ${JSON.strin
 export const appBackgroundScript = `document.querySelectorAll("audio, video").forEach(function (media) { media.pause(); });
 window.dispatchEvent(new Event(${JSON.stringify(appBackgroundEvent)})); true;`;
 
+/**
+ * Back button while a web modal is open: Escape on the topmost one (on its focused control, so the
+ * dialogs' own keydown handlers see it). Every web dialog closes on Escape except the studio's,
+ * which stay open rather than losing work.
+ */
+export const closeModalScript = `(function () {
+  var modals = document.querySelectorAll('[aria-modal="true"]');
+  var top = modals[modals.length - 1];
+  if (!top) return;
+  var target = top.contains(document.activeElement) ? document.activeElement : top;
+  target.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
+})(); true;`;
+
+/** Back button otherwise: the SPA's own history (see `set-history` in the bridge protocol). */
+export const historyBackScript = "history.back(); true;";
+
 /** Script delivering a response to the waiting web request. */
 export function responseScript(response: BridgeResponse): string {
   return `window.${receiveGlobal} && window.${receiveGlobal}(${JSON.stringify(response)}); true;`;
@@ -64,6 +80,7 @@ export type BridgeHost = {
   setFooter(footer: NativeFooter | null): void;
   setHome(home: NativeHome | null): void;
   setModal(open: boolean): void;
+  setCanGoBack(canGoBack: boolean): void;
 };
 
 const footerTabs: readonly unknown[] = [
@@ -129,6 +146,9 @@ export function parseRequest(data: string): BridgeRequest | null {
     case "set-modal":
       if (!("open" in parsed) || typeof parsed.open !== "boolean") return null;
       return { id, token: bridgeToken, type: parsed.type, open: parsed.open };
+    case "set-history":
+      if (!("canGoBack" in parsed) || typeof parsed.canGoBack !== "boolean") return null;
+      return { id, token: bridgeToken, type: parsed.type, canGoBack: parsed.canGoBack };
     case "share":
       if (
         !("title" in parsed) ||
@@ -159,6 +179,9 @@ async function run(
       return null;
     case "set-modal":
       host.setModal(request.open);
+      return null;
+    case "set-history":
+      host.setCanGoBack(request.canGoBack);
       return null;
     case "share": {
       // Android shares `message` (the link); iOS also takes `url` for rich previews.

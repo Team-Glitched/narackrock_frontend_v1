@@ -24,14 +24,16 @@ import {
   View,
 } from "react-native";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
-import { WebView, type WebViewMessageEvent, type WebViewNavigation } from "react-native-webview";
+import { WebView, type WebViewMessageEvent } from "react-native-webview";
 
 import type { NativeFooter, NativeHome } from "../src/lib/native-bridge-protocol";
 import { designTokens } from "../src/styles/tokens";
 import {
   appBackgroundScript,
+  closeModalScript,
   footerPressScript,
   handleRequest,
+  historyBackScript,
   homeActionScript,
   injectedBeforeContentLoaded,
   parseRequest,
@@ -133,6 +135,7 @@ function useLocalWebServer() {
 function WebShell() {
   const { origin, error, retry } = useLocalWebServer();
   const webView = useRef<WebView<object>>(null);
+  // Reported by the web (set-history); see that method in the bridge protocol.
   const canGoBack = useRef(false);
   // The page's footer, drawn natively by TabBar over the web's inert footer row.
   const [footer, setFooter] = useState<NativeFooter | null>(null);
@@ -147,15 +150,25 @@ function WebShell() {
     if (next) setHomeModel(next);
     setHomeOnScreen(next !== null);
   }, []);
+  // A restarted page reports its native views again once mounted.
+  const reload = useCallback(() => {
+    setFooter(null);
+    setHomeOnScreen(false);
+    setModalOpen(false);
+    canGoBack.current = false;
+    webView.current?.reload();
+  }, []);
 
+  // Back closes an open web modal first, then walks the SPA history, then leaves the app.
   useEffect(() => {
     const subscription = BackHandler.addEventListener("hardwareBackPress", () => {
-      if (!canGoBack.current) return false;
-      webView.current?.goBack();
+      if (modalOpen) webView.current?.injectJavaScript(closeModalScript);
+      else if (canGoBack.current) webView.current?.injectJavaScript(historyBackScript);
+      else return false;
       return true;
     });
     return () => subscription.remove();
-  }, []);
+  }, [modalOpen]);
 
   // Leaving the foreground pauses playback on both platforms (Android would otherwise keep playing).
   useEffect(() => {
@@ -173,10 +186,6 @@ function WebShell() {
       shown.remove();
       hidden.remove();
     };
-  }, []);
-
-  const onNavigationStateChange = useCallback((state: WebViewNavigation) => {
-    canGoBack.current = state.canGoBack;
   }, []);
 
   // Keep the app on its own origin; send top-level navigation elsewhere to the system browser.
@@ -198,9 +207,14 @@ function WebShell() {
       if (!origin || (url !== origin && !url.startsWith(`${origin}/`))) return;
       const request = parseRequest(data);
       if (!request) return;
-      void handleRequest(request, { setFooter, setHome, setModal: setModalOpen }).then((response) =>
-        webView.current?.injectJavaScript(responseScript(response)),
-      );
+      void handleRequest(request, {
+        setFooter,
+        setHome,
+        setModal: setModalOpen,
+        setCanGoBack: (value) => {
+          canGoBack.current = value;
+        },
+      }).then((response) => webView.current?.injectJavaScript(responseScript(response)));
     },
     [origin, setHome],
   );
@@ -225,6 +239,8 @@ function WebShell() {
     );
   }
 
+  // Screen readers must not reach the web page under the native home.
+  const homeVisible = home !== null && homeOnScreen && !modalOpen;
   return (
     <View
       style={styles.webView}
@@ -233,41 +249,42 @@ function WebShell() {
         setViewport({ width, height });
       }}
     >
-      {/* react-native-webview types default P to undefined, which collapses props to never. */}
-      <WebView<object>
-        ref={webView}
-        source={{ uri: `${origin}/` }}
+      {/* The flags sit on a wrapper: set on the WebView itself, Android re-exposes the page's own
+          accessibility tree after in-page navigations. */}
+      <View
         style={styles.webView}
-        originWhitelist={["*"]}
-        javaScriptEnabled
-        domStorageEnabled
-        allowsInlineMediaPlayback
-        mediaPlaybackRequiresUserAction={false}
-        mediaCapturePermissionGrantType="grantIfSameHostElsePrompt"
-        allowsBackForwardNavigationGestures
-        setSupportMultipleWindows={false}
-        webviewDebuggingEnabled={__DEV__}
-        applicationNameForUserAgent={userAgentToken}
-        injectedJavaScriptBeforeContentLoaded={injectedBeforeContentLoaded}
-        injectedJavaScriptBeforeContentLoadedForMainFrameOnly
-        onMessage={onMessage}
-        onNavigationStateChange={onNavigationStateChange}
-        onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
-        // A new document starts without native views; its page reports them again once mounted.
-        onLoadStart={() => {
-          setFooter(null);
-          setHomeOnScreen(false);
-          setModalOpen(false);
-        }}
-        onContentProcessDidTerminate={() => webView.current?.reload()}
-        onRenderProcessGone={() => webView.current?.reload()}
-      />
+        importantForAccessibility={homeVisible ? "no-hide-descendants" : "auto"}
+        accessibilityElementsHidden={homeVisible}
+      >
+        {/* react-native-webview types default P to undefined, which collapses props to never. */}
+        <WebView<object>
+          ref={webView}
+          source={{ uri: `${origin}/` }}
+          style={styles.webView}
+          originWhitelist={["*"]}
+          javaScriptEnabled
+          domStorageEnabled
+          allowsInlineMediaPlayback
+          mediaPlaybackRequiresUserAction={false}
+          mediaCapturePermissionGrantType="grantIfSameHostElsePrompt"
+          allowsBackForwardNavigationGestures
+          setSupportMultipleWindows={false}
+          webviewDebuggingEnabled={__DEV__}
+          applicationNameForUserAgent={userAgentToken}
+          injectedJavaScriptBeforeContentLoaded={injectedBeforeContentLoaded}
+          injectedJavaScriptBeforeContentLoadedForMainFrameOnly
+          onMessage={onMessage}
+          onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
+          onContentProcessDidTerminate={reload}
+          onRenderProcessGone={reload}
+        />
+      </View>
       {home && viewport && (
         <HomeScreen
           home={home}
           origin={origin}
           bottomInset={viewport.height - footerFrame(viewport).top}
-          style={!homeOnScreen || modalOpen ? styles.hidden : undefined}
+          style={homeVisible ? undefined : styles.hidden}
           onAction={(action) => webView.current?.injectJavaScript(homeActionScript(action))}
         />
       )}
