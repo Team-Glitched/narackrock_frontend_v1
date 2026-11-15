@@ -43,6 +43,9 @@ export type ScreenActionEvent = "narackrock:screen-action";
 
 export type GoogleSignInResult = { idToken: string } | { cancelled: true };
 
+/** An image chosen in the platform picker, as base64 so the web can build a File from it. */
+export type NativePickedImage = { name: string; type: string; base64: string };
+
 /** Request type → payload sent by the web and result returned by the app. */
 export type BridgeMethods = {
   "google-sign-in": { payload: { webClientId: string }; result: GoogleSignInResult };
@@ -62,6 +65,11 @@ export type BridgeMethods = {
   "set-history": { payload: { canGoBack: boolean }; result: null };
   /** Native share sheet (the WebView has no Web Share API). */
   "share": { payload: { title: string; url: string }; result: { shared: boolean } };
+  /**
+   * The platform photo picker, for native screens (they cannot use a web file input). Null when
+   * cancelled. The web turns the result into a File (`pickNativeImage`) and uploads it as usual.
+   */
+  "pick-image": { payload: Record<never, never>; result: { image: NativePickedImage | null } };
 };
 
 export type BridgeMethod = keyof BridgeMethods;

@@ -76,6 +76,14 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     "./plugins/with-android-network-security",
     "./plugins/with-android-release-signing",
     "./plugins/with-ios-google-sign-in-release-check",
+    [
+      "expo-image-picker",
+      {
+        photosPermission: "게시글과 프로필에 올릴 사진을 고르기 위해 사진 보관함을 사용합니다.",
+        cameraPermission: false,
+        microphonePermission: false,
+      },
+    ],
     ...(iosGoogleUrlScheme
       ? [
           ["@react-native-google-signin/google-signin", { iosUrlScheme: iosGoogleUrlScheme }] as [

@@ -75,6 +75,14 @@ export function requestNative<M extends BridgeMethod>(
   });
 }
 
+/** Lets the user pick an image in the platform picker; null when cancelled. App only. */
+export async function pickNativeImage(): Promise<File | null> {
+  const { image } = await requestNative("pick-image", {});
+  if (!image) return null;
+  const bytes = Uint8Array.from(atob(image.base64), (char) => char.charCodeAt(0));
+  return new File([bytes], image.name, { type: image.type });
+}
+
 /**
  * Runs `listener` when the native app moves to the background, so Web Audio playback can stop.
  * The shell itself pauses `<audio>`/`<video>` elements. No-op in browsers.

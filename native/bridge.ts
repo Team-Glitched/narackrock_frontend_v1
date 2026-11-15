@@ -25,6 +25,7 @@ import type {
   NativeSession,
 } from "../src/lib/native-screens";
 import { signInWithGoogle } from "./google-sign-in";
+import { pickImage } from "./pick-image";
 
 const tokenGlobal = "__narackrockBridgeToken" satisfies BridgeGlobals["token"];
 const receiveGlobal = "__narackrockNativeReceive" satisfies BridgeGlobals["receive"];
@@ -185,6 +186,8 @@ export function parseRequest(data: string): BridgeRequest | null {
       )
         return null;
       return { id, token: bridgeToken, type: parsed.type, title: parsed.title, url: parsed.url };
+    case "pick-image":
+      return { id, token: bridgeToken, type: parsed.type };
     default:
       return null;
   }
@@ -220,6 +223,8 @@ async function run(
       );
       return { shared: action === Share.sharedAction };
     }
+    case "pick-image":
+      return { image: await pickImage() };
   }
 }
 
