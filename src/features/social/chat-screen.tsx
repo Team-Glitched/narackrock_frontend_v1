@@ -2,6 +2,7 @@ import { NotificationBell } from "@/features/notifications/notification-bell";
 import { socialStyles } from "@/styles/social.styles";
 import { sharedStyles } from "@/styles/shared.styles";
 import { communityStyles } from "@/styles/community.styles";
+import { buttonVariants } from "@/styles/variants";
 import { cn } from "@/lib/utils";
 import { ChevronLeft, Search, SquarePen, X } from "lucide-react";
 import { relativeTime } from "@/features/posts/post-utils";
@@ -67,15 +68,22 @@ function Inbox({ me, query, onQueryChange, onSelect }: {
       </div>
       <div className={cn("min-h-0 flex-1 px-2", sharedStyles.scrollContent)}>
         {inbox.error && (
-          <div className="px-3 py-4 text-body text-app-muted" role="alert">
+          <div className="mx-3 my-2 min-h-[76px] rounded-lg bg-app-surface px-4 py-3 text-body text-app-muted" role="alert">
             <p>{inbox.loaded ? "목록을 갱신하지 못했습니다. 이전 대화를 표시합니다." : inbox.error}</p>
             <button type="button" className="mt-2 min-h-9 font-semibold text-app-fg" onClick={inbox.refresh}>다시 시도</button>
           </div>
         )}
-        {!inbox.loaded && !inbox.error && <p className="px-3 py-5 text-body text-app-muted" role="status">대화 목록을 불러오는 중...</p>}
+        {!inbox.loaded && !inbox.error && <div className="mx-3 my-2 flex min-h-[76px] items-center gap-3 rounded-lg bg-app-surface px-4" role="status">
+          <span className="sr-only">대화 목록을 불러오는 중...</span>
+          <span aria-hidden="true" className="size-11 shrink-0 rounded-full bg-app-line motion-safe:animate-pulse" />
+          <span aria-hidden="true" className="flex flex-1 flex-col gap-2 motion-safe:animate-pulse">
+            <span className="h-3 w-20 rounded-full bg-app-line" />
+            <span className="h-3 w-36 max-w-full rounded-full bg-app-line" />
+          </span>
+        </div>}
         {inbox.loaded && !inbox.connected && <p className="px-3 py-2 text-caption text-app-muted" role="status">실시간 연결이 끊겨 대화 목록을 다시 확인하는 중입니다.</p>}
-        {inbox.loaded && rows.length === 0 && (
-          <p className="px-3 py-5 text-body text-app-muted">
+        {inbox.loaded && !inbox.error && rows.length === 0 && (
+          <p className="mx-3 my-2 flex min-h-[76px] items-center rounded-lg bg-app-surface px-4 py-3 text-body text-app-muted">
             {searchText.trim() ? "검색한 대화 상대가 없습니다." : "아직 대화가 없습니다."}
           </p>
         )}
@@ -141,7 +149,18 @@ function Conversation({ me, friend }: { me: number; friend: UserProfile }) {
     <>
       <div className={socialStyles.chatMessages} aria-label="대화 내용" aria-live="polite">
         {!chat.connected && chat.loaded && <p role="status">실시간 연결이 끊겨 3초마다 새 메시지를 확인합니다.</p>}
-        {chat.error && <p role="alert">{chat.error} <button onClick={chat.refresh}>다시 시도</button></p>}
+        {chat.error && (
+          <div role="alert" className="flex w-full flex-col items-center justify-center gap-3 py-6 text-center text-body leading-5 text-[#ff8d8d]">
+            <p className="m-0">{chat.error}</p>
+            <button
+              type="button"
+              className={buttonVariants({ tone: "secondary", size: "compact" })}
+              onClick={chat.refresh}
+            >
+              다시 시도
+            </button>
+          </div>
+        )}
         {chat.loaded && chat.hasOlder && chat.messages.length >= 50 && (
           <button className={communityStyles.nrCommentsMore} onClick={() => void chat.loadOlder()}>
             이전 메시지 더보기
@@ -264,7 +283,7 @@ export function ChatScreen({
             </span>
           </button>
         ) : (
-          <h1 className={isInbox ? "min-w-0 flex-1 truncate text-[24px] font-bold" : undefined}>채팅</h1>
+          <h1 className={isInbox ? "min-w-0 flex-1 truncate text-title font-bold" : undefined}>채팅</h1>
         )}
         <NotificationBell className={isInbox ? inboxControl : undefined} onClick={onNotifications} />
         {isInbox ? (

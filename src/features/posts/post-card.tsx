@@ -216,7 +216,7 @@ function ScopedCommunityPost({
           aria-label={`${post.writer.nickname} 프로필`}
           onClick={() => onProfile?.(post.writer.userId)}
         >
-          <Avatar src={post.writer.profileImageUrl} />
+          <Avatar size="xs" src={post.writer.profileImageUrl} />
           <strong>{post.writer.nickname || "알 수 없는 사용자"}</strong>
         </button>
         <span>• {relativeTime(post.createdAt)}</span>
@@ -306,8 +306,8 @@ function ScopedCommunityPost({
           }}
         />
       )}
-      <div className="flex items-center gap-3 [&>span]:max-w-[45%] [&>span]:shrink-0">
-        <h2 className="min-w-0 flex-1">
+      <div className="mt-3.5 mb-2.5 flex items-center justify-between gap-3 [&>span]:max-w-[45%] [&>span]:shrink-0">
+        <h2 className="m-0! min-w-0 flex-1">
           <button
             className={communityStyles.postRead}
             disabled={submitting}

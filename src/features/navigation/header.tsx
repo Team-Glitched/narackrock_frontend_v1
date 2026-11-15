@@ -42,8 +42,8 @@ export function Header({
   return (
     <header
       className={cn(
-        "flex h-11 flex-[0_0_44px] items-center justify-between pr-1 pl-[15px]",
-        abyss && "px-2",
+        "flex h-12 flex-[0_0_48px] items-center justify-between pr-2 pl-4",
+        (onBack || abyss) && "pl-1.5",
       )}
     >
       {onBack ? (
@@ -61,11 +61,11 @@ export function Header({
           <Asset name={muted ? "sound-muted.svg" : "sound.svg"} />
         </button>
       ) : (
-        <button className={"block h-[43px] w-17"} aria-label="홈으로" onClick={() => to("/")}>
+        <button className={"block h-[43px] w-17 shrink-0"} aria-label="홈으로" onClick={() => to("/")}>
           <Logo />
         </button>
       )}
-      <div className={cn("flex h-11 items-start gap-[10px] overflow-hidden", abyss && "gap-2")}>
+      <div className="flex h-11 items-center gap-1 overflow-hidden">
         <NotificationBell className={headerControl} onClick={openNotifications} />
         {showChat && currentUserId !== null && <ChatShortcut className={headerControl} onClick={() => to("/chat")} />}
         <button className={headerControl} aria-label="검색" onClick={onSearch}>
@@ -73,7 +73,7 @@ export function Header({
         </button>
         {currentUserId === null ? (
           <button
-            className={cn(buttonVariants({ tone: "primary", size: "compact" }), "my-auto")}
+            className={cn(buttonVariants({ tone: "primary", size: "compact" }), "mr-2 shrink-0")}
             onClick={() => to("/login", { state: { returnTo: currentPath } })}
           >
             로그인
@@ -82,10 +82,10 @@ export function Header({
           (communitySelector ?? (
             <button
               aria-label={onSettings ? "설정" : "프로필"}
-              className={cn(headerControl, !onSettings && "p-[7px] [&_.avatar]:border-0")}
+              className={cn(headerControl, !onSettings && "p-1.5 [&_.avatar]:border-0")}
               onClick={onSettings ?? (() => to("/profile"))}
             >
-              {onSettings ? <Asset name="settings.svg" /> : <Avatar src={headerProfileImageUrl} />}
+              {onSettings ? <Asset name="settings.svg" /> : <Avatar size="md" src={headerProfileImageUrl} />}
             </button>
           ))
         )}

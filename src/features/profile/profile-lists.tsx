@@ -1,6 +1,7 @@
 import { profileStyles } from "@/styles/profile.styles";
 import { communityStyles } from "@/styles/community.styles";
-import { buttonVariants } from "@/styles/variants";
+import { buttonVariants, filterChip, filterChipRow } from "@/styles/variants";
+import { cn } from "@/lib/utils";
 import { useState } from "react";
 import { useQueries, useQuery } from "@tanstack/react-query";
 import { FigmaSheet } from "@/components/figma-sheet";
@@ -50,15 +51,60 @@ export function ProfileListSheet({ kind, profile, onClose, onProfile, onPost }: 
     <FigmaSheet title={title} onClose={onClose}>
       <section className={profileStyles.profileListPanel}>
         <h1>{title}</h1>
-        {ownFollowers && <div role="group" aria-label="팔로워 필터"><button className={buttonVariants({ tone: filter === "all" ? "primary" : "secondary", size: "compact" })} aria-pressed={filter === "all"} onClick={() => setFilter("all")}>전체</button><button className={buttonVariants({ tone: filter === "mutual" ? "primary" : "secondary", size: "compact" })} aria-pressed={filter === "mutual"} disabled={mutualIds === null} onClick={() => setFilter("mutual")}>맞팔로우</button></div>}
-        {ownFollowers && mutualIds === null && !mutualError && <p role="status">맞팔로우 확인 중...</p>}
-        {ownFollowers && mutualError && <div role="alert"><p>{mutualError}</p><button onClick={() => void mutual.refetch()}>다시 확인</button></div>}
-        {state === "loading" && <p role="status">불러오는 중...</p>}
-        {error && <p role="alert">{error}</p>}
-        {error && state !== "loading" && (
-          <button onClick={retry}>
-            다시 시도
-          </button>
+        {ownFollowers && (
+          <div role="group" aria-label="팔로워 필터" className={cn(filterChipRow, "mb-4")}>
+            <button
+              className={filterChip}
+              aria-pressed={filter === "all"}
+              onClick={() => setFilter("all")}
+            >
+              전체
+            </button>
+            <button
+              className={filterChip}
+              aria-pressed={filter === "mutual"}
+              disabled={mutualIds === null}
+              onClick={() => setFilter("mutual")}
+            >
+              맞팔로우
+            </button>
+          </div>
+        )}
+        {ownFollowers && mutualIds === null && !mutualError && (
+          <p role="status" className="py-6 text-center text-label leading-6 text-app-muted">
+            맞팔로우 확인 중...
+          </p>
+        )}
+        {ownFollowers && mutualError && (
+          <div
+            role="alert"
+            className="my-3 flex flex-col items-center justify-center gap-3 rounded-xl border border-solid border-app-border px-4 py-5 text-center text-label leading-6 text-app-muted"
+          >
+            <p className="m-0">{mutualError}</p>
+            <button
+              className={buttonVariants({ tone: "secondary", size: "compact" })}
+              onClick={() => void mutual.refetch()}
+            >
+              다시 확인
+            </button>
+          </div>
+        )}
+        {state === "loading" && (
+          <p role="status" className="py-10 text-center text-label leading-6 text-app-muted">
+            불러오는 중...
+          </p>
+        )}
+        {error && (
+          <div className="my-6 flex flex-col items-center justify-center gap-4 px-5 py-8 text-center text-label leading-6 text-app-muted">
+            <p role="alert" className="m-0 text-[#ff8d8d]">
+              {error}
+            </p>
+            {state !== "loading" && (
+              <button className={buttonVariants({ tone: "secondary" })} onClick={retry}>
+                다시 시도
+              </button>
+            )}
+          </div>
         )}
         {kind === "articles" ? (
           <div className={communityStyles.miniPostList}>

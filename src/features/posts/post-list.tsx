@@ -11,7 +11,6 @@ import { useGalleryPosts } from "@/features/community/use-gallery-posts";
 import type { PostListItem } from "@/lib/api/contracts";
 import { relativeTime } from "@/features/posts/post-utils";
 import { PopularContentActions } from "@/features/posts/popular-content-actions";
-import { PostCommunityLabel } from "@/features/posts/post-community-label";
 
 export function PostListStatus({ state }: { state: "loading" | "error" | "empty" }) {
   const message =
@@ -50,26 +49,29 @@ export function MiniPost({
       >
       <span className={communityStyles.postThumb}>
         {post.imageUrl && (
-          <img src={post.imageUrl} alt="게시글 첨부 이미지" width={90} height={90} />
+          <img src={post.imageUrl} alt="게시글 첨부 이미지" width={104} height={104} />
         )}
       </span>
       <div className={communityStyles.miniPostCopy}>
-        <PostCommunityLabel name={post.gallery?.name} />
         <strong>{excerpt}</strong>
+        <div className={communityStyles.miniAuthor}>
+          <Avatar size="xs" src={post.writer.profileImageUrl} />
+          <span>{post.writer.nickname}</span>
+        </div>
         <div className={communityStyles.miniMeta} aria-label="게시글 통계">
-          <span>{relativeTime(post.createdAt)}</span>
+          <span className="mini-meta-time">{relativeTime(post.createdAt)}</span>
           <span>
             <IconSlot name="like.svg" kind="mini" />
             {post.likeCount}
           </span>
           <span>
+            <IconSlot name="mini-dislike.svg" kind="mini" />
+            {post.dislikeCount ?? 0}
+          </span>
+          <span>
             <IconSlot name="mini-comment.svg" kind="mini" />
             {post.commentCount}
           </span>
-        </div>
-        <div className={communityStyles.miniAuthor}>
-          <Avatar src={post.writer.profileImageUrl} />
-          <span>{post.writer.nickname}</span>
         </div>
       </div>
       </button>

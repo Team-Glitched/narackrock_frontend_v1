@@ -1,5 +1,6 @@
 import { useLoginPrompt } from "@/features/auth/login-prompt";
-import { buttonVariants } from "@/styles/variants";
+import { cn } from "@/lib/utils";
+import { buttonVariants, preferenceCopy, preferenceRow, preferenceSwitch } from "@/styles/variants";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ApiError } from "@/lib/api/client";
@@ -47,7 +48,20 @@ export function ProfileRelationActions({ profile, onChat }: { profile: UserProfi
       <button className={buttonVariants({ tone: state ? "secondary" : "primary" })} disabled={busy || (authenticated && !known)} aria-pressed={known ? state !== null : undefined} onClick={change}>
         {label}
       </button>
-      {outgoingError && <div role="alert"><p>{outgoingError}</p><button onClick={() => void outgoingQuery.refetch()}>다시 확인</button></div>}
+      {outgoingError && (
+        <div
+          role="alert"
+          className="mt-2 flex basis-full flex-col items-center justify-center gap-3 rounded-xl bg-app-panel px-4 py-4 text-center text-label leading-6 text-app-muted"
+        >
+          <p className="m-0">{outgoingError}</p>
+          <button
+            className={buttonVariants({ tone: "secondary", size: "compact" })}
+            onClick={() => void outgoingQuery.refetch()}
+          >
+            다시 확인
+          </button>
+        </div>
+      )}
       {canSendChatTo(profile) && (
         <button className={buttonVariants({ tone: "secondary" })} onClick={() => { if (requireLogin(`/chat?userId=${profile.userId}`)) onChat(profile.userId); }}>
           채팅
@@ -70,15 +84,16 @@ export function ProfilePrivacyToggle({ isPrivate }: { isPrivate: boolean }) {
     },
   });
   return (
-    <label className="flex items-center justify-between gap-3 px-5 py-3 text-body">
-      <span>
-        비공개 계정
-        <small className="block text-caption text-app-muted">켜면 팔로우는 승인 후에만 이뤄지고 관계 목록이 숨겨집니다.</small>
-        {privacy.isError && <small role="alert" className="block text-caption">{relationError(privacy.error, "공개 설정을 바꾸지 못했습니다.")}</small>}
+    <label className={cn("preference-row", preferenceRow, "border-b border-app-border pt-1 pb-6!")}>
+      <span className={preferenceCopy}>
+        <strong className="text-title! leading-[26px]! font-bold!">비공개 계정</strong>
+        <small>켜면 팔로우는 승인 후에만 이뤄지고 관계 목록이 숨겨집니다.</small>
+        {privacy.isError && <small role="alert" className="block text-body text-[#ff8d8d]">{relationError(privacy.error, "공개 설정을 바꾸지 못했습니다.")}</small>}
       </span>
       <input
         type="checkbox"
         role="switch"
+        className={preferenceSwitch}
         checked={isPrivate}
         disabled={privacy.isPending}
         onChange={(event) => privacy.mutate(event.target.checked)}

@@ -1,6 +1,7 @@
 import { sharedStyles } from "@/styles/shared.styles";
 import { communityStyles } from "@/styles/community.styles";
 import { buttonVariants } from "@/styles/variants";
+import { SectionTitle } from "@/components/section-title";
 import { cn } from "@/lib/utils";
 import { useMemo } from "react";
 import type { ReactNode } from "react";
@@ -113,10 +114,13 @@ export function CommunityDirectory({
       {/* A guest has no memberships, so the joined section is not shown at all. */}
       {userId !== null && (
         <section aria-labelledby="joined-communities-heading">
-          <div className={sharedStyles.directoryHeading}>
-            <h2 id="joined-communities-heading">가입한 커뮤니티</h2>
-            <button onClick={onJoined}>모두보기</button>
-          </div>
+          <SectionTitle
+            id="joined-communities-heading"
+            className="directory-heading"
+            onAll={onJoined}
+          >
+            가입한 커뮤니티
+          </SectionTitle>
           <JoinedList state={state}>
             {(joined) => (
               <ul
@@ -133,25 +137,32 @@ export function CommunityDirectory({
         </section>
       )}
 
-      <section
-        className={sharedStyles.recommendedCommunities}
-        aria-labelledby="recommended-communities-heading"
-      >
-        <div className={sharedStyles.directoryHeading}>
-          <h2 id="recommended-communities-heading">추천 커뮤니티</h2>
-        </div>
-        {state.failed ? null : state.loading ? (
-          <LoadingRow />
-        ) : state.recommended.length === 0 ? (
-          <p className={communityStyles.communityDetailStatus}>가입하지 않은 커뮤니티가 없어요.</p>
-        ) : (
-          <ul className={communityStyles.communityCardList} aria-label="추천 커뮤니티 목록">
-            {state.recommended.map((community) => (
-              <CommunityCard key={community.id} community={community} onOpen={onOpen} />
-            ))}
-          </ul>
-        )}
-      </section>
+      {(userId === null || state.recommended.length > 0) && (
+        <section
+          className={sharedStyles.recommendedCommunities}
+          aria-labelledby="recommended-communities-heading"
+        >
+          <SectionTitle
+            id="recommended-communities-heading"
+            className="directory-heading"
+          >
+            추천 커뮤니티
+          </SectionTitle>
+          {state.failed && userId === null ? (
+            <FailedRow onRetry={state.retry} message={state.failureMessage} />
+          ) : !state.failed && state.loading && userId === null && state.recommended.length === 0 ? (
+            <LoadingRow />
+          ) : state.recommended.length === 0 ? (
+            <p className={communityStyles.communityDetailStatus}>가입하지 않은 커뮤니티가 없어요.</p>
+          ) : (
+            <ul className={communityStyles.communityCardList} aria-label="추천 커뮤니티 목록">
+              {state.recommended.map((community) => (
+                <CommunityCard key={community.id} community={community} onOpen={onOpen} />
+              ))}
+            </ul>
+          )}
+        </section>
+      )}
       <MembershipError />
     </div>
   );

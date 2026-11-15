@@ -25,13 +25,19 @@ export const designTokens = {
   fontFamily: 'Pretendard,"Pretendard Variable",sans-serif',
   fontSize: {
     navigation: "10px",
-    caption: "12px",
+    caption: "14px",
     body: "14px",
     label: "16px",
     title: "20px",
   },
   radius: { control: "12px", card: "14px", panel: "20px", pill: "999px" },
-  spacing: { gutter: "20px", control: "44px" },
+  spacing: {
+    gutter: "20px",
+    control: "44px",
+    sectionGap: "24px",
+    cardGap: "12px",
+    supportingCopyGap: "4px",
+  },
 } as const;
 
 export const cssVariables = {

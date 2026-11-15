@@ -8,7 +8,7 @@ import { resolveSearchScope } from "@/features/search/search-scope";
 import { ContextualCreate, contextualCreateArea } from "@/features/navigation/contextual-create";
 import { sharedStyles } from "@/styles/shared.styles";
 import { CommunityScreen } from "@/features/social/social-screen";
-import { parsePostSort, postSortQuery } from "@/features/posts/post-sort";
+import { parsePostSort } from "@/features/posts/post-sort";
 
 export default function SocialPage() {
   const { to, params, query } = useUrlNavigation();
@@ -22,7 +22,6 @@ export default function SocialPage() {
           <CommunityScreen
             tab="posts"
             sort={parsePostSort(query.get("sort"))}
-            onSortChange={(sort) => to(`/social?${postSortQuery(query, sort)}`)}
             onProfile={(id) => to(`/users/${id}`)}
             onChat={(id) => to(`/chat?userId=${id}`)}
             onJoined={() => to("/communities/joined")}

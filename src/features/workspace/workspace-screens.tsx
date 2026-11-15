@@ -116,8 +116,8 @@ export function WorkspaceScreen({
       title="이 브라우저에서 연 작업"
       subtitle="전체 서버 프로젝트 목록이 아닌 방문 이력입니다. 기존 브라우저 자료는 설정의 데이터 이관에서 확인하세요."
     >
-      {error && <p role="alert">{error}</p>}
-      {loading && <p role="status">방문한 프로젝트의 현재 접근권을 확인하는 중입니다.</p>}
+      {error && <p role="alert" className={workspaceStyles.workspaceNotice}>{error}</p>}
+      {loading && <p role="status" className={workspaceStyles.workspaceEmpty}>방문한 프로젝트의 현재 접근권을 확인하는 중입니다.</p>}
       <div className={workspaceStyles.workspaceHeading}>
         <h2>음악 목록</h2>
         <button className={workspaceStyles.workspacePrimary} onClick={onStartSong}>
@@ -202,8 +202,8 @@ export function SourceLibraryScreen({
         <button className={workspaceStyles.workspaceWide} onClick={() => setTargetResource(null)}>
           리소스 목록으로 돌아가기
         </button>
-        {workError && <p role="alert">{workError}</p>}
-        {loading && <p role="status">작업을 불러오는 중입니다.</p>}
+        {workError && <p role="alert" className={workspaceStyles.workspaceNotice}>{workError}</p>}
+        {loading && <p role="status" className={workspaceStyles.workspaceEmpty}>작업을 불러오는 중입니다.</p>}
         {works.length === 0 ? (!loading && !hasMore && !workError && (
           <Empty>
             작업 중인 곡이 없습니다. 새 곡을 만든 뒤 레이어 추가에서 보관함을 열어주세요.

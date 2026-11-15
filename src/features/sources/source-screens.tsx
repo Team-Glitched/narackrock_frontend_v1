@@ -7,6 +7,7 @@ import { useCallback, useId, useMemo, useRef, useState, type PointerEvent } from
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { SectionTitle } from "@/components/section-title";
+import { AlbumArtwork } from "@/components/music-card";
 import { Avatar } from "@/components/avatar";
 import { PageState } from "@/components/page-state";
 import { PostActions } from "@/features/posts/post-actions";
@@ -90,15 +91,15 @@ function OpenSourceCard({
     <article className={sourceStyles.osCard}>
       <div className={sourceStyles.osHead}>
         <button className={sourceStyles.osAuthor} onClick={() => onOpen(source.openSourceId)} aria-label={`${source.title} 보기`}>
-          <Avatar src={source.thumbnailUrl} />
-          <span>
-            <strong>{source.title}</strong>
+          <AlbumArtwork src={source.thumbnailUrl} title={source.title} className="size-11 shrink-0 rounded-[8px]" />
+          <span className="min-w-0 flex-1">
+            <strong className="truncate">{source.title}</strong>
             {source.usageCount != null && <small>사용 수 {source.usageCount.toLocaleString("ko-KR")}</small>}
           </span>
         </button>
         <SaveButton save={save} />
       </div>
-      {save.error && <p role="alert">{save.error}</p>}
+      {save.error && <p role="alert" className="text-body leading-[20px] text-[#ff8d8d]">{save.error}</p>}
       <button className={sourceStyles.osBody} onClick={() => onOpen(source.openSourceId)}>
         {source.description ?? ""}
       </button>
@@ -110,9 +111,9 @@ function OpenSourceCard({
         showDurationHint={false}
       />
       <div className={sourceStyles.osFoot}>
-        <button className={sourceStyles.osFootAuthor} onClick={() => onProfile(source.writer.userId)}>
-          <Avatar src={source.writer.profileImageUrl} />
-          <span>{source.writer.nickname}</span>
+        <button className={cn(sourceStyles.osFootAuthor, "min-w-0")} onClick={() => onProfile(source.writer.userId)}>
+          <Avatar size="xs" src={source.writer.profileImageUrl} />
+          <span className="truncate">{source.writer.nickname}</span>
         </button>
         <PostActions
           compact
@@ -249,7 +250,7 @@ function SourceDiscoveryRail({
 
   return (
     <section aria-label={title}>
-      <div className="mb-4 flex min-h-9 items-center justify-between gap-2">
+      <div className="flex min-h-9 items-center justify-between gap-2">
         <h2 className="m-0 text-title leading-6 font-bold tracking-[-0.4px]">{title}</h2>
         {count > 1 && (
           <div className="flex shrink-0 items-center gap-1.5">
@@ -373,11 +374,11 @@ export function OpensourceScreen({
         onProfile={onProfile}
       />
       <section aria-label="전체 샘플">
-        <SectionTitle>전체 샘플</SectionTitle>
-        {!state && <p role="status">샘플을 불러오는 중...</p>}
+        <SectionTitle className="mb-0! px-0">전체 샘플</SectionTitle>
+        {!state && <p role="status" className="px-1 py-2 text-body leading-[20px] text-app-muted">샘플을 불러오는 중...</p>}
         {state?.error && (
-          <div role="alert">
-            <p>{state.error}</p>
+          <div role="alert" className="rounded-[10px] bg-app-panel p-4 text-body leading-[20px] text-[#ff8d8d]">
+            <p className="mb-3">{state.error}</p>
             <button className={buttonVariants({ tone: "secondary", size: "compact" })} onClick={list.retry}>
               다시 시도
             </button>
@@ -451,17 +452,17 @@ function SourceDetail({
       <section className={sourceStyles.osDetailArticle}>
         <div className={sourceStyles.osDetailTitleRow}>
           <div className={sourceStyles.osDetailTitle}>
-            <Avatar src={source.thumbnailUrl} />
-            <span>
-              <strong>{source.title}</strong>
+            <AlbumArtwork src={source.thumbnailUrl} title={source.title} className="size-11 shrink-0 rounded-[8px]" />
+            <span className="min-w-0 flex-1">
+              <strong className="break-words">{source.title}</strong>
               {source.usageCount != null && <small>사용 수 {source.usageCount.toLocaleString("ko-KR")}</small>}
             </span>
           </div>
           <SaveButton save={save} />
         </div>
-        {save.error && <p role="alert">{save.error}</p>}
+        {save.error && <p role="alert" className="mt-2 text-body leading-[20px] text-[#ff8d8d]">{save.error}</p>}
         <button className={sourceStyles.osDetailByline} onClick={() => onProfile(source.writer.userId)}>
-          <Avatar src={source.writer.profileImageUrl} />
+          <Avatar size="xs" src={source.writer.profileImageUrl} />
           <span>{source.writer.nickname}</span>
         </button>
         <p className={sourceStyles.osDetailCopy}>{source.description ?? ""}</p>

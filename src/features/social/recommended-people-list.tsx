@@ -52,7 +52,7 @@ export function RecommendedPeopleList({ full, onProfile, onAll }: { full: boolea
   const showAll = !full;
   return (
     <section className={socialStyles.friendsSection} aria-label="팔로우 추천">
-      <SectionTitle onAll={showAll ? onAll : undefined}>팔로우 추천</SectionTitle>
+      <SectionTitle className="px-0" onAll={showAll ? onAll : undefined}>팔로우 추천</SectionTitle>
       {checking && <p className={socialStyles.friendsEmpty} role="status">보낸 팔로우 요청 확인 중...</p>}
       {outgoingError && <div role="alert"><p>확인 실패: {outgoingError}</p><button disabled={checking} onClick={() => void outgoingQuery.refetch()}>다시 확인</button></div>}
       {error && <div role="alert"><p>{error}</p>{stale && <p>목록이 최신 상태가 아닙니다. 동기화 후 더 불러올 수 있습니다.</p>}<button disabled={loading || syncing || busy} onClick={() => { if (recommendations.isFetchNextPageError) more(); else void recommendations.refetch(); }}>{stale ? "다시 동기화" : "다시 시도"}</button></div>}
@@ -65,7 +65,7 @@ export function RecommendedPeopleList({ full, onProfile, onAll }: { full: boolea
           const known = outgoing !== null && !checking;
           return (
             <div className={socialStyles.person} key={person.userId}>
-              <button className={socialStyles.personLink} onClick={() => onProfile(person.userId)}><Avatar src={person.profileImageUrl} /><span><strong>{person.nickname}</strong><small>{person.primaryInstrument ?? ""}</small></span></button>
+              <button className={socialStyles.personLink} onClick={() => onProfile(person.userId)}><Avatar size="md" src={person.profileImageUrl} /><span><strong className="truncate">{person.nickname}</strong><small className="truncate">{person.primaryInstrument ?? ""}</small></span></button>
               <button className={buttonVariants({ tone: state ? "secondary" : "primary" })} disabled={!known || loading || syncing || stale || busy} aria-pressed={known ? state !== null : undefined} aria-label={`${person.nickname} ${!known ? "팔로우 상태 확인" : state === "PENDING" ? "요청 취소" : state === "FOLLOWING" ? "팔로우 해제" : "팔로우"}`} onClick={() => change(person.userId, state)}>{!known ? "확인 중" : state === "FOLLOWING" ? "팔로잉" : state === "PENDING" ? "요청됨" : "팔로우"}</button>
             </div>
           );

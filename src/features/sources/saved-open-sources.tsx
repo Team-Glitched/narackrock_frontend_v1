@@ -1,3 +1,4 @@
+import { sourceStyles } from "@/styles/source.styles";
 import { workspaceStyles } from "@/styles/workspace.styles";
 import { useCurrentUserId } from "@/features/auth/use-current-user";
 import { SignInRequired } from "@/features/auth/sign-in-required";
@@ -18,7 +19,7 @@ function SavedSourceList({ query, onOpen }: { query: string; onOpen: (id: number
   // Shares `sourceKeys.saved`, which every save/unsave invalidates.
   const { state: current, more, remove } = usePagedItems(savedSourcesScope, 0, loadSavedSources);
   const unsave = useSourceSaveMutation();
-  if (!current) return <p role="status">저장한 샘플을 불러오는 중...</p>;
+  if (!current) return <p role="status" className={workspaceStyles.workspaceEmpty}>저장한 샘플을 불러오는 중...</p>;
   const busy = unsave.isPending ? unsave.variables.sourceId : null;
   const notice = unsave.error ? sourceError(unsave.error, "보관 해제에 실패했습니다.") : "";
   function unsaveSource(id: number) {
@@ -41,17 +42,17 @@ function SavedSourceList({ query, onOpen }: { query: string; onOpen: (id: number
           {notice}
         </p>
       )}
-      {items.length === 0 && current.next === null && !current.error && <p className={workspaceStyles.workspaceNotice}>{keyword ? "검색 결과가 없습니다." : "저장한 샘플이 없습니다."}</p>}
+      {items.length === 0 && current.next === null && !current.error && <p className={workspaceStyles.workspaceEmpty}>{keyword ? "검색 결과가 없습니다." : "저장한 샘플이 없습니다."}</p>}
       {items.map((item) => (
-        <article className={workspaceStyles.workspaceCard} key={item.openSourceId}>
+        <article className={`${workspaceStyles.workspaceCard} ${sourceStyles.libraryCard}`} key={item.openSourceId}>
           <span className={workspaceStyles.workspaceStatus}>저장한 샘플</span>
           {item.availability === "AVAILABLE" && item.source ? (
             <>
               <h2>{item.source.title}</h2>
-              <p>{item.source.description ?? ""}</p>
+              {item.source.description && <p>{item.source.description}</p>}
               <small>{item.source.writer.nickname}</small>
               <SourcePlayback sourceId={item.openSourceId} canPreview={item.source.canPreview ?? true} durationMs={null} />
-              <p className={workspaceStyles.workspaceNotice}>피아노롤의 ‘+ 샘플’에서 내 레이어에 오디오로 넣을 수 있습니다.</p>
+              <p className="text-caption! leading-5! text-app-muted">피아노롤의 ‘+ 샘플’에서 내 레이어에 오디오로 넣을 수 있습니다.</p>
             </>
           ) : (
             <>
@@ -59,7 +60,7 @@ function SavedSourceList({ query, onOpen }: { query: string; onOpen: (id: number
               <p>삭제되었거나 비공개로 전환되어 재생하거나 곡에 넣을 수 없습니다.</p>
             </>
           )}
-          <div className={workspaceStyles.workspaceActions}>
+          <div className={`${workspaceStyles.workspaceActions} ${sourceStyles.libraryActions}`}>
             <button disabled={busy !== null || current.busy} onClick={() => unsaveSource(item.openSourceId)}>
               {busy === item.openSourceId ? "해제 중..." : "저장 해제"}
             </button>
@@ -71,7 +72,7 @@ function SavedSourceList({ query, onOpen }: { query: string; onOpen: (id: number
           </div>
         </article>
       ))}
-      {current.error && <p role="alert">{sourceError(current.error.cause, "보관함을 불러오지 못했습니다.")}</p>}
+      {current.error && <p role="alert" className={workspaceStyles.workspaceNotice}>{sourceError(current.error.cause, "보관함을 불러오지 못했습니다.")}</p>}
       {current.next !== null && (
         <button className={workspaceStyles.workspaceWide} disabled={current.busy || busy !== null} onClick={more}>
           {current.busy ? "불러오는 중..." : current.error ? "다시 시도" : "더보기"}

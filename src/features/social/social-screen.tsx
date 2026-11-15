@@ -11,7 +11,6 @@ import { PostListStatus } from "@/features/posts/post-list";
 import { CommunityPost } from "@/features/posts/post-card";
 import { FriendsScreen, type FriendsListKind } from "@/features/social/friends-screen";
 
-import { PostListControls } from "@/features/posts/post-list-controls";
 import type { PostSort } from "@/lib/api/contracts";
 export type CommunityTab = "posts" | "community" | "friends";
 
@@ -25,7 +24,6 @@ export function CommunityScreen({
   onComments,
   onOpenCommunity,
   sort = "LATEST",
-  onSortChange,
   onOpenFriendsList,
 }: {
   onProfile: (id: number) => void;
@@ -36,7 +34,6 @@ export function CommunityScreen({
   onComments: (postId: number) => void;
   onOpenCommunity: (community: Community) => void;
   sort?: PostSort;
-  onSortChange?: (sort: PostSort) => void;
   onOpenFriendsList?: (kind: FriendsListKind) => void;
 }) {
   const posts = useGalleryPosts(DEFAULT_GALLERY_ID, { sort });
@@ -69,7 +66,6 @@ export function CommunityScreen({
       </div>
       {tab === "posts" ? (
         <div className={cn(sharedStyles.socialPostFeed, sharedStyles.scrollContent)}>
-          {onSortChange && <PostListControls sort={sort} onSortChange={onSortChange} />}
           {posts.status !== "ready" ? (
             <div role="status">
               <PostListStatus state={posts.status} />

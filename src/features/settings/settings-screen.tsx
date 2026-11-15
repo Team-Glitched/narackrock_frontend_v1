@@ -1,4 +1,5 @@
 import { ChevronRight } from "lucide-react";
+import { preferenceCopy, preferenceRow, preferenceSwitch } from "@/styles/variants";
 import { uiLabels } from "@/lib/ui-labels";
 import { useAbyssPlaybackPreferences } from "@/features/abyss/playback-preferences";
 
@@ -45,14 +46,8 @@ const groups = [
   },
 ] as const;
 
-const rowClass =
-  "flex min-h-16 w-full items-center justify-between gap-4 py-3 text-left text-app-fg no-underline active:rounded-lg active:bg-app-surface [&>svg]:shrink-0";
-const copyClass =
-  "flex min-w-0 flex-col gap-2 [&>strong]:text-label [&>strong]:leading-6 [&>strong]:font-medium [&>strong]:[overflow-wrap:anywhere] [&>small]:text-caption [&>small]:leading-[18px] [&>small]:font-normal [&>small]:text-app-muted";
 const groupClass =
-  "mb-6 [&>h2]:mb-2 [&>h2]:text-caption [&>h2]:leading-[18px] [&>h2]:font-semibold [&>h2]:text-app-muted [&>ul]:m-0 [&>ul]:list-none [&>ul]:p-0 [&_li+li]:border-t [&_li+li]:border-app-surface";
-const switchRowClass = "flex min-h-16 w-full items-center justify-between gap-4 py-3 text-left text-app-fg";
-const switchClass = "size-6 flex-none accent-app-primary";
+  "mb-10 [&>h2]:mb-3.5 [&>h2]:text-title [&>h2]:leading-[26px] [&>h2]:font-bold [&>h2]:tracking-[-0.4px] [&>h2]:text-app-fg [&>ul]:m-0 [&>ul]:list-none [&>ul]:p-0 [&_li+li]:border-t [&_li+li]:border-app-surface";
 
 export function SettingsScreen({ onNavigate, onLogout }: {
   onNavigate: (path: string) => void;
@@ -60,21 +55,21 @@ export function SettingsScreen({ onNavigate, onLogout }: {
 }) {
   const { muted, setMuted } = useAbyssPlaybackPreferences();
   return (
-    <section className="scrollbar-none h-full overflow-x-hidden overflow-y-auto px-5 pt-6 pb-8 text-app-fg">
-      <h1 className="m-0 mb-7 text-title leading-8 font-bold">설정</h1>
+    <section className="scrollbar-none h-full overflow-x-hidden overflow-y-auto px-5 pt-7 pb-10 text-app-fg">
+      <h1 className="m-0 mb-8 text-title leading-8 font-bold">설정</h1>
       <section className={groupClass} aria-label="숏폼 재생">
         <h2>숏폼 재생</h2>
         <ul>
           <li>
-            <label className={switchRowClass}>
-              <span className={copyClass}>
+            <label className={preferenceRow}>
+              <span className={preferenceCopy}>
                 <strong>숏폼 음소거</strong>
                 <small>숏폼 화면 상단의 소리 버튼과 같은 설정입니다.</small>
               </span>
               <input
                 type="checkbox"
                 role="switch"
-                className={switchClass}
+                className={preferenceSwitch}
                 checked={muted}
                 onChange={(event) => setMuted(event.target.checked)}
               />
@@ -88,8 +83,11 @@ export function SettingsScreen({ onNavigate, onLogout }: {
           <ul>
             {group.items.map((item) => (
               <li key={item.path}>
-                <button className={rowClass} onClick={() => onNavigate(item.path)}>
-                  <span className={copyClass}>
+                <button
+                  className={`${preferenceRow} active:rounded-lg active:bg-app-surface [&>svg]:shrink-0`}
+                  onClick={() => onNavigate(item.path)}
+                >
+                  <span className={preferenceCopy}>
                     <strong>{item.label}</strong>
                     <small>{item.description}</small>
                   </span>

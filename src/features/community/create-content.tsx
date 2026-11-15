@@ -339,7 +339,7 @@ export function SocialCreate({
           </p>
         ) : kind === "source" && image ? (
           // Not inside a <label>: a click or drag in the editor must not reopen the file picker.
-          <div className="flex flex-col gap-[10px] text-label font-bold text-app-fg">
+          <div className="flex flex-col gap-[10px] text-title leading-[26px] font-bold text-app-fg">
             앨범
             <ThumbnailCropper file={image.file} crop={imageCrop} onChange={setImageCrop} disabled={busy} />
             <div className="flex justify-center gap-4 text-body font-medium text-app-muted">
@@ -394,7 +394,7 @@ export function SocialCreate({
       </div>
       {kind === "source" && (
         <fieldset className="m-0 flex w-full max-w-[350px] min-w-0 shrink-0 flex-wrap gap-4 border-0 p-0 text-body [&_input]:h-4 [&_input]:w-4 [&_input]:shrink-0" disabled={busy}>
-          <legend className="mb-2">등록 공개 설정</legend>
+          <legend className="mb-2 text-title leading-[26px] font-bold text-app-fg">등록 공개 설정</legend>
           <label className="flex items-center gap-2">
             <input type="radio" name="source-visibility" value="PUBLIC" checked={sourceVisibility === "PUBLIC"} onChange={() => setSourceVisibility("PUBLIC")} />
             공개 등록
