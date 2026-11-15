@@ -42,6 +42,7 @@ const commonActions: Record<NativeCommonAction["type"], true> = {
   chat: true,
   login: true,
   profile: true,
+  settings: true,
   refresh: true,
   share: true,
   report: true,
@@ -88,7 +89,9 @@ export function useNativeScreen<K extends NativeScreenKind>(
   // Sent only when it changes; the app keeps the last one after the page leaves.
   const snapshot = JSON.stringify({ kind, model, header, refreshed });
   useEffect(() => {
-    void requestNative("set-screen", { screen: { key, view: JSON.parse(snapshot) as NativeScreenView } });
+    void requestNative("set-screen", {
+      screen: { key, view: JSON.parse(snapshot) as NativeScreenView },
+    });
   }, [key, snapshot]);
   useEffect(() => () => void requestNative("set-screen", { screen: { key, view: null } }), [key]);
 
@@ -126,6 +129,8 @@ export function useNativeScreen<K extends NativeScreenKind>(
         return to("/login", { state: { returnTo: currentPath } });
       case "profile":
         return to("/profile");
+      case "settings":
+        return to("/settings");
       case "refresh":
         // Resolves once the active queries refetched, whether or not they succeeded.
         void queryClient
@@ -157,7 +162,9 @@ export function useNativeScreen<K extends NativeScreenKind>(
     <FigmaSheet key={`${report.kind}-${report.id}`} title="신고" onClose={() => setReport(null)}>
       <ReportReasons
         onSubmit={(reason, description) =>
-          report.kind === "post" ? reportPost(report.id, reason, description) : reportShort(report.id, reason, description)
+          report.kind === "post"
+            ? reportPost(report.id, reason, description)
+            : reportShort(report.id, reason, description)
         }
         onDone={() => setReport(null)}
       />

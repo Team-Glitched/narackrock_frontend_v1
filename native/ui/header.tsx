@@ -4,6 +4,7 @@ import { StyleSheet, Text, View } from "react-native";
 import ChatIcon from "../../public/figma/abyss-comment.svg";
 import Logo from "../../public/figma/auth-logo.svg";
 import BackIcon from "../../public/figma/return.svg";
+import SettingsIcon from "../../public/figma/settings.svg";
 import BellIcon from "../../public/figma/v3-bell.svg";
 import SearchIcon from "../../public/figma/v3-search.svg";
 import type { NativeHeader } from "../../src/lib/native-screens";
@@ -70,11 +71,8 @@ export function AppHeader({ header, onLogo }: { header: NativeHeader; onLogo?: (
                 </HeaderButton>
               );
             case "account":
-              return signedIn ? (
-                <HeaderButton key={action} label="프로필" onPress={() => act({ type: "profile" })}>
-                  <Avatar uri={uri(session.profileImageUrl)} size={32} />
-                </HeaderButton>
-              ) : (
+            case "settings":
+              return !signedIn ? (
                 <Touchable
                   key={action}
                   accessibilityRole="button"
@@ -83,6 +81,14 @@ export function AppHeader({ header, onLogo }: { header: NativeHeader; onLogo?: (
                 >
                   <Text style={styles.loginText}>로그인</Text>
                 </Touchable>
+              ) : action === "settings" ? (
+                <HeaderButton key={action} label="설정" onPress={() => act({ type: "settings" })}>
+                  <SettingsIcon width={24} height={24} />
+                </HeaderButton>
+              ) : (
+                <HeaderButton key={action} label="프로필" onPress={() => act({ type: "profile" })}>
+                  <Avatar uri={uri(session.profileImageUrl)} size={32} />
+                </HeaderButton>
               );
           }
         })}

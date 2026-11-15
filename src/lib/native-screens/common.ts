@@ -61,17 +61,28 @@ export type NativeSourceRow = {
 
 /**
  * The page header. `left` is the logo (back to the top of the home), a back button or nothing;
- * `actions` are drawn right to left in this order; `account` is the login button or the avatar.
+ * `actions` are drawn right to left in this order. `account` is the login button or the avatar;
+ * `settings` is the login button or the settings gear (the web Header's `onSettings`).
  */
 export type NativeHeader = {
   left: "logo" | "back" | "none";
   title?: string;
-  actions: ("notifications" | "chat" | "search" | "account")[];
+  actions: ("notifications" | "chat" | "search" | "account" | "settings")[];
 };
 
 /** Actions every native screen can send; the web handles them the same way on every page. */
 export type NativeCommonAction =
-  | { type: "back" | "search" | "notifications" | "chat" | "login" | "profile" | "refresh" }
+  | {
+      type:
+        | "back"
+        | "search"
+        | "notifications"
+        | "chat"
+        | "login"
+        | "profile"
+        | "settings"
+        | "refresh";
+    }
   | { type: "share" | "report"; kind: NativeContentKind; id: number; title: string };
 
 /** Loads the next page of the screen's paged list; handled by the page. */
