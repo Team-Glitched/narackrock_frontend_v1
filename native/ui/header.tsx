@@ -97,7 +97,7 @@ export function AppHeader({ header, onLogo }: { header: NativeHeader; onLogo?: (
   );
 }
 
-function HeaderButton({
+export function HeaderButton({
   label,
   count = 0,
   onPress,
