@@ -25,7 +25,7 @@ export function profileErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : "프로필을 불러오지 못했습니다.";
 }
 
-function useOwnProfile(targetUserId?: number) {
+export function useOwnProfile(targetUserId?: number) {
   const currentUserId = useCurrentUserId();
   const userId = targetUserId ?? currentUserId;
   const query = useQuery({ ...profileQuery(currentUserId, userId ?? 0), enabled: userId !== null });
@@ -40,9 +40,27 @@ function useOwnProfile(targetUserId?: number) {
   return { profile: null, loading: true, error: null };
 }
 
-function compactCount(count: number) {
+export function compactCount(count: number) {
   return count >= 1000 ? `${Number((count / 1000).toFixed(1))}k` : String(count);
 }
+
+export function profileInstruments(profile: UserProfile): string[] {
+  return (
+    profile.primaryInstrument
+      ?.split(",")
+      .map((item) => item.trim())
+      .filter(Boolean) ?? []
+  );
+}
+
+export function featuredSongs(profile: UserProfile) {
+  return [...profile.activities.pinnedShorts].sort((a, b) => a.displayOrder - b.displayOrder);
+}
+
+export function featuredChartPath(profile: UserProfile, own: boolean) {
+  return own ? "/charts?kind=mine&tab=featured" : `/charts?kind=mine&tab=featured&userId=${profile.userId}`;
+}
+
 function ProfileWorks({
   title,
   songs,
@@ -107,21 +125,41 @@ function ProfileWorks({
   );
 }
 
-function OwnWorks({ onOpen }: { onOpen: (id: number) => void }) {
+export const ownWorkTabs = ["authored", "participated"] as const;
+
+/** "내 작업물" / "내 참가작" of the signed-in user's profile: the first songs of each kind. */
+export function useOwnWorks() {
   const userId = useCurrentUserId();
-  const navigate = useNavigate();
   const songs = useMySongs(10);
+  return {
+    songs,
+    sections: ownWorkTabs.map((tab) => ({
+      tab,
+      title: tab === "authored" ? "내 작업물" : "내 참가작",
+      allPath: `/charts?kind=mine&tab=${tab}`,
+      items: userId === null ? [] : songsForTab(songs.items, userId, tab).slice(0, 6),
+      emptyMessage: songs.hasMore
+        ? "전체 목록에서 더 많은 곡을 확인해 주세요."
+        : tab === "authored"
+          ? "아직 작성한 곡이 없습니다."
+          : "아직 참가한 곡이 없습니다.",
+    })),
+  };
+}
+
+function OwnWorks({ onOpen }: { onOpen: (id: number) => void }) {
+  const navigate = useNavigate();
+  const { songs, sections } = useOwnWorks();
   return (
     <>
-      {(["authored", "participated"] as const).map((tab) => {
-        const items = userId === null ? [] : songsForTab(songs.items, userId, tab);
+      {sections.map(({ tab, title, allPath, items, emptyMessage }) => {
         return (
           <section className={profileStyles.profileSection} key={tab}>
             <SectionTitle
               className="mb-0! px-0!"
-              onAll={() => navigate(`/charts?kind=mine&tab=${tab}`)}
+              onAll={() => navigate(allPath)}
             >
-              {tab === "authored" ? "내 작업물" : "내 참가작"}
+              {title}
             </SectionTitle>
             {songs.status === "loading" && (
               <p role="status" className={profileStyles.profileDescription}>음악을 불러오는 중...</p>
@@ -140,7 +178,7 @@ function OwnWorks({ onOpen }: { onOpen: (id: number) => void }) {
             )}
             {items.length > 0 && (
               <div className={cn(sharedStyles.songRail, profileStyles.profileSongRail)}>
-                {items.slice(0, 6).map((song) => (
+                {items.map((song) => (
                   <MusicCard
                     key={song.shortId}
                     title={song.title}
@@ -152,7 +190,7 @@ function OwnWorks({ onOpen }: { onOpen: (id: number) => void }) {
             )}
             {songs.status === "ready" && items.length === 0 && (
               <p className={profileStyles.profileDescription}>
-                {songs.hasMore ? "전체 목록에서 더 많은 곡을 확인해 주세요." : tab === "authored" ? "아직 작성한 곡이 없습니다." : "아직 참가한 곡이 없습니다."}
+                {emptyMessage}
               </p>
             )}
           </section>
@@ -199,11 +237,7 @@ export function ProfileScreen({
     );
   }
 
-  const instruments =
-    profile.primaryInstrument
-      ?.split(",")
-      .map((item) => item.trim())
-      .filter(Boolean) ?? [];
+  const instruments = profileInstruments(profile);
 
   return (
     <div className={cn(profileStyles.profileView, sharedStyles.scrollContent)}>
@@ -254,9 +288,9 @@ export function ProfileScreen({
 
         <ProfileWorks
           title={uiLabels.featuredMusic}
-          songs={[...profile.activities.pinnedShorts].sort((a, b) => a.displayOrder - b.displayOrder)}
+          songs={featuredSongs(profile)}
           onOpen={onOpenShort}
-          allHref={own ? "/charts?kind=mine&tab=featured" : `/charts?kind=mine&tab=featured&userId=${profile.userId}`}
+          allHref={featuredChartPath(profile, own)}
         />
         {own ? <OwnWorks onOpen={onOpenShort} /> : (
           <ProfileWorks
@@ -279,9 +313,34 @@ export function ProfileScreen({
   );
 }
 
-export function EditProfileScreen({ onSaved }: { onSaved: () => void }) {
+/** Saves the signed-in user's profile edits (and new photo) and updates the cached profile. */
+export function useSaveProfile(onSaved: () => void) {
   const userId = useCurrentUserId();
   const queryClient = useQueryClient();
+  return async ({ nickname, instrument, explanation, image }: ProfileDraft) => {
+    const updated = await updateProfile({
+      nickname,
+      primaryInstrument: instrument,
+      explanation,
+    });
+
+    const uploaded = image ? await updateProfileImage(image) : null;
+
+    if (userId !== null) {
+      queryClient.setQueryData<UserProfile>(profileKeys.detail(userId, userId), (current) => current && {
+        ...current,
+        ...updated,
+        profileImageUrl: uploaded?.profileImageUrl ?? current.profileImageUrl,
+      });
+      void queryClient.invalidateQueries({ queryKey: profileKeys.all(userId) });
+    }
+
+    onSaved();
+  };
+}
+
+export function EditProfileScreen({ onSaved }: { onSaved: () => void }) {
+  const save = useSaveProfile(onSaved);
   const { profile, loading, error: loadError } = useOwnProfile();
 
   if (loading) {
@@ -310,31 +369,12 @@ export function EditProfileScreen({ onSaved }: { onSaved: () => void }) {
         imageUrl: profile.profileImageUrl,
       }}
       submitLabel="프로필 저장"
-      onSubmit={async ({ nickname, instrument, explanation, image }) => {
-        const updated = await updateProfile({
-          nickname,
-          primaryInstrument: instrument,
-          explanation,
-        });
-
-        const uploaded = image ? await updateProfileImage(image) : null;
-
-        if (userId !== null) {
-          queryClient.setQueryData<UserProfile>(profileKeys.detail(userId, userId), (current) => current && {
-            ...current,
-            ...updated,
-            profileImageUrl: uploaded?.profileImageUrl ?? current.profileImageUrl,
-          });
-          void queryClient.invalidateQueries({ queryKey: profileKeys.all(userId) });
-        }
-
-        onSaved();
-      }}
+      onSubmit={save}
     />
   );
 }
 
-type ProfileDraft = {
+export type ProfileDraft = {
   nickname: string;
   instrument: string;
   explanation: string;
@@ -351,25 +391,8 @@ function validateProfileImage(file: File): void {
   }
 }
 
-export function ProfileForm({
-  topSlot,
-  initial,
-  submitLabel,
-  onSubmit,
-}: {
-  topSlot?: ReactNode;
-  initial: {
-    nickname: string;
-    instrument: string;
-    explanation: string;
-    imageUrl: string | null;
-  };
-  submitLabel: string;
-  onSubmit: (draft: ProfileDraft) => Promise<void>;
-}) {
-  const [nickname, setNickname] = useState(initial.nickname);
-  const [instrument, setInstrument] = useState(initial.instrument);
-  const [explanation, setExplanation] = useState(initial.explanation);
+/** Photo, saving and error state of the profile form; the caller keeps the text fields. */
+export function useProfileForm(onSubmit: (draft: ProfileDraft) => Promise<void>) {
   const [image, setImage] = useState<{
     file: File;
     previewUrl: string;
@@ -386,7 +409,28 @@ export function ProfileForm({
     [image],
   );
 
-  async function save() {
+  function pick(file: File) {
+    try {
+      validateProfileImage(file);
+
+      setImage((current) => {
+        if (current) {
+          URL.revokeObjectURL(current.previewUrl);
+        }
+
+        return {
+          file,
+          previewUrl: URL.createObjectURL(file),
+        };
+      });
+
+      setError(null);
+    } catch (cause) {
+      setError(profileErrorMessage(cause));
+    }
+  }
+
+  async function save({ nickname, instrument, explanation }: Omit<ProfileDraft, "image">) {
     if (!nickname.trim()) {
       setError("이름을 입력해 주세요.");
       return;
@@ -408,6 +452,30 @@ export function ProfileForm({
       setSaving(false);
     }
   }
+
+  return { image, saving, error, pick, save };
+}
+
+export function ProfileForm({
+  topSlot,
+  initial,
+  submitLabel,
+  onSubmit,
+}: {
+  topSlot?: ReactNode;
+  initial: {
+    nickname: string;
+    instrument: string;
+    explanation: string;
+    imageUrl: string | null;
+  };
+  submitLabel: string;
+  onSubmit: (draft: ProfileDraft) => Promise<void>;
+}) {
+  const [nickname, setNickname] = useState(initial.nickname);
+  const [instrument, setInstrument] = useState(initial.instrument);
+  const [explanation, setExplanation] = useState(initial.explanation);
+  const { image, saving, error, pick, save } = useProfileForm(onSubmit);
 
   return (
     <div className={cn(profileStyles.editView, sharedStyles.scrollContent)}>
@@ -432,24 +500,7 @@ export function ProfileForm({
 
             if (!file) return;
 
-            try {
-              validateProfileImage(file);
-
-              setImage((current) => {
-                if (current) {
-                  URL.revokeObjectURL(current.previewUrl);
-                }
-
-                return {
-                  file,
-                  previewUrl: URL.createObjectURL(file),
-                };
-              });
-
-              setError(null);
-            } catch (cause) {
-              setError(profileErrorMessage(cause));
-            }
+            pick(file);
           }}
         />
       </label>
@@ -492,7 +543,7 @@ export function ProfileForm({
       <button
         className={profileStyles.profileSaveButton}
         disabled={saving}
-        onClick={() => void save()}
+        onClick={() => void save({ nickname, instrument, explanation })}
       >
         {saving ? "저장 중..." : submitLabel}
       </button>

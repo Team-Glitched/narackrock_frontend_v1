@@ -40,19 +40,33 @@ export function NotificationsScreen(props: NotificationProps) {
   const userId = useCurrentUserId();
   return <NotificationInbox key={userId ?? "guest"} {...props} userId={userId} />;
 }
-function NotificationInbox({
-  userId,
-  onBack,
-  onOpenProject,
-  onOpenProfile,
-  onNavigate,
-}: NotificationProps & { userId: number | null }) {
+/** A notification row's state: unread, and whether it is a request still waiting for accept/decline. */
+export function notificationRowState(group: NotificationGroup) {
+  const item = group.first;
+  return {
+    unread: group.items.some((n) => !n.readAt),
+    pending:
+      item.available &&
+      item.requestStatus === "PENDING" &&
+      item.requestId !== null &&
+      (item.type === "CONTRIBUTION_CREATED" || item.type === "FOLLOW_REQUESTED"),
+  };
+}
+
+export function notificationStatusLabel(requestStatus: string) {
+  return statusLabel[requestStatus] ?? "처리 완료";
+}
+
+/** The notification inbox: filters, list and the read / open / accept / decline actions. */
+export function useNotificationInbox(
+  userId: number | null,
+  { onOpenProject, onOpenProfile, onNavigate }: Omit<NotificationProps, "onBack">,
+) {
   const [category, setCategory] = useState<NotificationCategory | null>(null);
   const [unreadOnly, setUnreadOnly] = useState(false);
   const [settings, setSettings] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
-  const panel = useRef<HTMLElement>(null);
   const list = useInfiniteQuery(notificationsQuery(userId, category, unreadOnly));
   const count = useQuery(unreadNotificationsQuery(userId));
   const { read, readAll, refresh } = useNotificationMutations();
@@ -63,11 +77,6 @@ function NotificationInbox({
   const items = useMemo(() => list.data?.pages.flatMap((page) => page.items) ?? [], [list.data]);
   const groups = useMemo(() => notificationGroups(items), [items]);
   const throughId = list.data?.pages[0]?.throughId;
-  useEffect(() => {
-    const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    panel.current?.focus();
-    return () => previous?.focus();
-  }, []);
   async function act(operation: () => Promise<unknown>, message?: string) {
     if (busy) return;
     setError(null);
@@ -116,6 +125,62 @@ function NotificationInbox({
       accept ? "요청을 수락했습니다." : "요청을 거절했습니다.",
     );
   }
+  function chooseCategory(id: NotificationCategory | null) {
+    setCategory(id);
+    setError(null);
+    setNotice(null);
+  }
+  function openProject(group: NotificationGroup) {
+    if (group.first.projectId && group.first.requestId)
+      void act(async () => {
+        await mark(group);
+        onOpenProject(group.first.projectId!, group.first.requestId!);
+      });
+  }
+  return {
+    category,
+    chooseCategory,
+    unreadOnly,
+    setUnreadOnly,
+    settings,
+    setSettings,
+    error,
+    notice,
+    list,
+    count,
+    busy,
+    groups,
+    readAllDisabled: busy || !throughId || count.data?.count === 0,
+    readAllNow: () => void act(() => readAll.mutateAsync(throughId!), "알림을 모두 읽었습니다."),
+    open,
+    markRead: (group: NotificationGroup) => void act(() => mark(group)),
+    review: (group: NotificationGroup, accept: boolean) => void review(group, accept),
+    openProject,
+    emptyMessage: unreadOnly
+      ? "미확인 알림이 없습니다."
+      : category
+        ? "선택한 종류의 알림이 없습니다."
+        : "새로운 알림이 없습니다.",
+  };
+}
+
+function NotificationInbox({
+  userId,
+  onBack,
+  onOpenProject,
+  onOpenProfile,
+  onNavigate,
+}: NotificationProps & { userId: number | null }) {
+  const {
+    category, chooseCategory, unreadOnly, setUnreadOnly, settings, setSettings, error, notice, list, count,
+    busy, groups, readAllDisabled, readAllNow, open, markRead, review, openProject, emptyMessage,
+  } = useNotificationInbox(userId, { onOpenProject, onOpenProfile, onNavigate });
+  const panel = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    panel.current?.focus();
+    return () => previous?.focus();
+  }, []);
   return (
     <div
       className={socialStyles.notificationOverlay}
@@ -197,9 +262,7 @@ function NotificationInbox({
                     className={filterChip}
                     aria-pressed={category === id}
                     onClick={(e) => {
-                      setCategory(id);
-                      setError(null);
-                      setNotice(null);
+                      chooseCategory(id);
                       e.currentTarget.scrollIntoView({ block: "nearest", inline: "nearest" });
                     }}
                   >
@@ -219,10 +282,8 @@ function NotificationInbox({
                 <button
                   type="button"
                   className="flex min-h-9 items-center gap-1"
-                  disabled={busy || !throughId || count.data?.count === 0}
-                  onClick={() =>
-                    void act(() => readAll.mutateAsync(throughId!), "알림을 모두 읽었습니다.")
-                  }
+                  disabled={readAllDisabled}
+                  onClick={readAllNow}
                 >
                   <Check size={14} />
                   모두 읽음
@@ -264,15 +325,9 @@ function NotificationInbox({
                     group={group}
                     busy={busy}
                     onOpen={() => open(group)}
-                    onRead={() => void act(() => mark(group))}
-                    onReview={(accept) => void review(group, accept)}
-                    onProject={() => {
-                      if (group.first.projectId && group.first.requestId)
-                        void act(async () => {
-                          await mark(group);
-                          onOpenProject(group.first.projectId!, group.first.requestId!);
-                        });
-                    }}
+                    onRead={() => markRead(group)}
+                    onReview={(accept) => review(group, accept)}
+                    onProject={() => openProject(group)}
                   />
                 ))}
               </ul>
@@ -280,11 +335,7 @@ function NotificationInbox({
                 <div className="flex flex-col items-center gap-3 py-16 text-center text-app-muted">
                   <Bell size={30} strokeWidth={1.5} />
                   <p className="text-body">
-                    {unreadOnly
-                      ? "미확인 알림이 없습니다."
-                      : category
-                        ? "선택한 종류의 알림이 없습니다."
-                        : "새로운 알림이 없습니다."}
+                    {emptyMessage}
                   </p>
                 </div>
               )}
@@ -321,12 +372,7 @@ function NotificationRow({
   onProject: () => void;
 }) {
   const item: ServiceNotification = group.first;
-  const unread = group.items.some((n) => !n.readAt);
-  const pending =
-    item.available &&
-    item.requestStatus === "PENDING" &&
-    item.requestId !== null &&
-    (item.type === "CONTRIBUTION_CREATED" || item.type === "FOLLOW_REQUESTED");
+  const { unread, pending } = notificationRowState(group);
   return (
     <li
       className={`mb-3 rounded-2xl border p-4 ${unread ? "border-violet-400/20 bg-violet-400/[0.06]" : "border-white/[0.06] bg-white/[0.015]"}`}
@@ -401,7 +447,7 @@ function NotificationRow({
       ) : (
         item.requestStatus && (
           <p className="mt-2 text-body text-app-muted">
-            {statusLabel[item.requestStatus] ?? "처리 완료"}
+            {notificationStatusLabel(item.requestStatus)}
           </p>
         )
       )}

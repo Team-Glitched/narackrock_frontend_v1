@@ -17,7 +17,8 @@ import { relationsQuery } from "./profile-queries";
 export type ProfileListKind = "followers" | "following" | "articles";
 type ProfileListProps = { kind: ProfileListKind; profile: UserProfile; onClose: () => void; onProfile: (id: number) => void; onPost: (id: number) => void };
 
-export function ProfileListSheet({ kind, profile, onClose, onProfile, onPost }: ProfileListProps) {
+/** Data of the followers / following / posts sheet; shared by the web sheet and the app. */
+export function useProfileList(kind: ProfileListKind, profile: UserProfile) {
   const userId = useCurrentUserId();
   const ownFollowers = userId === profile.userId && kind === "followers";
   const relations = useQuery({ ...relationsQuery(userId, profile.userId, kind === "articles" ? "followers" : kind), enabled: kind !== "articles" });
@@ -47,6 +48,19 @@ export function ProfileListSheet({ kind, profile, onClose, onProfile, onPost }: 
   const people = relations.data ?? [];
   const shownPeople = ownFollowers && filter === "mutual" ? people.filter((person) => mutualIds?.has(person.userId)) : people;
   const title = { followers: "팔로워", following: "팔로잉", articles: "게시글" }[kind];
+  const emptyMessage =
+    state === "ready" && !error && (kind === "articles" ? posts : shownPeople).length === 0
+      ? kind === "articles" ? "작성한 게시글이 없습니다." : filter === "mutual" ? "맞팔로우한 팔로워가 없습니다." : `${title}가 없습니다.`
+      : null;
+  return {
+    ownFollowers, filter, setFilter, mutualIds, mutualError, retryMutual: () => void mutual.refetch(),
+    state, error, retry, posts, shownPeople, title, emptyMessage,
+  };
+}
+
+export function ProfileListSheet({ kind, profile, onClose, onProfile, onPost }: ProfileListProps) {
+  const { ownFollowers, filter, setFilter, mutualIds, mutualError, retryMutual, state, error, retry, posts, shownPeople, title, emptyMessage } =
+    useProfileList(kind, profile);
   return (
     <FigmaSheet title={title} onClose={onClose}>
       <section className={profileStyles.profileListPanel}>
@@ -83,7 +97,7 @@ export function ProfileListSheet({ kind, profile, onClose, onProfile, onPost }: 
             <p className="m-0">{mutualError}</p>
             <button
               className={buttonVariants({ tone: "secondary", size: "compact" })}
-              onClick={() => void mutual.refetch()}
+              onClick={retryMutual}
             >
               다시 확인
             </button>
@@ -113,7 +127,7 @@ export function ProfileListSheet({ kind, profile, onClose, onProfile, onPost }: 
         ) : state === "ready" && (
           <ul className={profileStyles.profilePeopleList}>{shownPeople.map((person) => <li key={person.userId}><button onClick={() => { onClose(); onProfile(person.userId); }}><Avatar src={person.profileImageUrl} /><span><strong>{person.nickname}</strong><small>{person.primaryInstrument || ""}</small></span></button></li>)}</ul>
         )}
-        {state === "ready" && !error && (kind === "articles" ? posts : shownPeople).length === 0 && <p className={profileStyles.profileListEmpty}>{kind === "articles" ? "작성한 게시글이 없습니다." : filter === "mutual" ? "맞팔로우한 팔로워가 없습니다." : `${title}가 없습니다.`}</p>}
+        {emptyMessage && <p className={profileStyles.profileListEmpty}>{emptyMessage}</p>}
       </section>
     </FigmaSheet>
   );

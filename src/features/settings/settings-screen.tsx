@@ -3,7 +3,8 @@ import { preferenceCopy, preferenceRow, preferenceSwitch } from "@/styles/varian
 import { uiLabels } from "@/lib/ui-labels";
 import { useAbyssPlaybackPreferences } from "@/features/abyss/playback-preferences";
 
-const groups = [
+/** Navigation rows of the settings page, by group. */
+export const settingsGroups = [
   {
     title: "계정",
     items: [
@@ -77,7 +78,7 @@ export function SettingsScreen({ onNavigate, onLogout }: {
           </li>
         </ul>
       </section>
-      {groups.map((group) => (
+      {settingsGroups.map((group) => (
         <section className={groupClass} key={group.title} aria-label={group.title}>
           <h2>{group.title}</h2>
           <ul>

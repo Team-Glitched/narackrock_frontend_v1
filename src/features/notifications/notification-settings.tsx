@@ -2,7 +2,7 @@ import { useQuery } from "@tanstack/react-query";
 import { preferenceCopy, preferenceRow, preferenceSwitch } from "@/styles/variants";
 import type { NotificationPreferences } from "@/lib/api/notifications";
 import { notificationPreferencesQuery, useNotificationMutations } from "./notification-queries";
-const options: { key: keyof NotificationPreferences; title: string; description: string }[] = [
+export const notificationPreferenceOptions: { key: keyof NotificationPreferences; title: string; description: string }[] = [
   { key: "reactions", title: "좋아요", description: "내 콘텐츠와 댓글에 받은 좋아요" },
   {
     key: "followingContent",
@@ -20,9 +20,20 @@ const options: { key: keyof NotificationPreferences; title: string; description:
     description: "다른 사람의 작곡에 사용되거나 사용한 곡이 공개됐을 때",
   },
 ];
-export function NotificationSettings({ userId }: { userId: number }) {
+/** Notification preferences of the signed-in user and their save state. */
+export function useNotificationPreferences(userId: number) {
   const query = useQuery(notificationPreferencesQuery(userId));
   const { preferences } = useNotificationMutations();
+  return {
+    query,
+    preferences,
+    set: (key: keyof NotificationPreferences, value: boolean) =>
+      preferences.mutate({ ...query.data!, [key]: value }),
+  };
+}
+
+export function NotificationSettings({ userId }: { userId: number }) {
+  const { query, preferences, set } = useNotificationPreferences(userId);
   return (
     <section
       className="mb-4 rounded-[12px] border border-solid border-app-border bg-transparent p-4"
@@ -40,7 +51,7 @@ export function NotificationSettings({ userId }: { userId: number }) {
         </p>
       )}
       {query.data &&
-        options.map(({ key, title, description }) => (
+        notificationPreferenceOptions.map(({ key, title, description }) => (
           <label
             key={key}
             className={`${preferenceRow} border-t border-app-border`}
@@ -57,7 +68,7 @@ export function NotificationSettings({ userId }: { userId: number }) {
               className={preferenceSwitch}
               checked={query.data[key]}
               disabled={preferences.isPending}
-              onChange={(e) => preferences.mutate({ ...query.data!, [key]: e.target.checked })}
+              onChange={(e) => set(key, e.target.checked)}
             />
           </label>
         ))}

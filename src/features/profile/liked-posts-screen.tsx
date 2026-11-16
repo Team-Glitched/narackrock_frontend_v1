@@ -12,7 +12,8 @@ import { likedPostIdsQuery } from "./profile-queries";
 
 const PAGE_SIZE = 20;
 
-export function LikedPostsScreen({ onOpenPost }: { onOpenPost: (postId: number) => void }) {
+/** The signed-in user's liked posts, loaded PAGE_SIZE details at a time. */
+export function useLikedPosts() {
   const userId = useCurrentUserId();
   const idsQuery = useQuery({ ...likedPostIdsQuery(userId), enabled: userId !== null });
   const [requested, setRequested] = useState(PAGE_SIZE);
@@ -28,6 +29,11 @@ export function LikedPostsScreen({ onOpenPost }: { onOpenPost: (postId: number) 
   const failed = details.filter((detail) => detail.isError && status(detail.error) === "failed");
   const forbidden = details.some((detail) => detail.isError && status(detail.error) === "forbidden");
   const posts = details.flatMap((detail) => detail.data ? [detail.data] : []);
+  return { idsQuery, ids, loaded, loading, idsError, failed, forbidden, posts, more: () => setRequested(loaded + PAGE_SIZE) };
+}
+
+export function LikedPostsScreen({ onOpenPost }: { onOpenPost: (postId: number) => void }) {
+  const { idsQuery, ids, loaded, loading, idsError, failed, forbidden, posts, more } = useLikedPosts();
   return (
     <section className={cn(sharedStyles.listView, sharedStyles.scrollContent, "flex flex-col gap-4 pb-10")}>
       {posts.length > 0 && <h1 className={cn(sharedStyles.postsListTitle, "mb-0!")}>좋아요한 게시글</h1>}
@@ -96,7 +102,7 @@ export function LikedPostsScreen({ onOpenPost }: { onOpenPost: (postId: number) 
         <button
           className="mx-5 my-2 min-h-11 rounded-full bg-app-surface px-5 py-2.5 text-label font-medium text-app-fg disabled:opacity-50"
           disabled={loading}
-          onClick={() => setRequested(loaded + PAGE_SIZE)}
+          onClick={more}
         >
           {loading ? "불러오는 중..." : "더보기"}
         </button>

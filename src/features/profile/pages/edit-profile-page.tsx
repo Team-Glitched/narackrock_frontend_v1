@@ -1,4 +1,6 @@
 import { EditProfileScreen } from "@/features/profile/profile-screens";
+import { NativeEditProfileBridge } from "@/features/profile/native-profile-bridge";
+import { nativeApp } from "@/lib/native-app";
 import { useAuthSession } from "@/features/auth/auth-session";
 import { DesignViewport } from "@/components/design-viewport";
 import { Header } from "@/features/navigation/header";
@@ -16,16 +18,26 @@ export default function EditProfilePage() {
   const galleryId = readId(params.galleryId) ?? readId(query.get("galleryId"));
   const scope = resolveSearchScope(query.get("scope"), "people", Boolean(galleryId));
   const target = creationTarget("songs");
+  const search = () => to(withQuery("/search", { scope, galleryId }));
+  const saved = () => {
+    refreshProfile();
+    back("/profile");
+  };
   return (
     <DesignViewport>
       <div className={sharedStyles.phoneFrame}>
         <Header onBack={() => back("/profile")} onSettings={() => to("/settings")}
-          onSearch={() => to(withQuery("/search", { scope, galleryId }))} />
+          onSearch={search} />
         <div className={sharedStyles.screenBody}>
-          <EditProfileScreen onSaved={() => {
-            refreshProfile();
-            back("/profile");
-          }} />
+          <EditProfileScreen onSaved={saved} />
+          {nativeApp() && (
+            <NativeEditProfileBridge
+              onSaved={saved}
+              onPrivacyPolicy={() => to("/privacy")}
+              onSearch={search}
+              onBack={() => back("/profile")}
+            />
+          )}
         </div>
         <Footer activeTab={null} createLabel={target.label} onCreate={() => to(target.path, {
           state: { studioFrom: currentPath, studioIndex: window.history.state?.idx },

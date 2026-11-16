@@ -1,4 +1,6 @@
 import { SavedScreen } from "@/features/saved/saved-screen";
+import { NativeSavedBridge } from "@/features/saved/native-saved-bridge";
+import { nativeApp } from "@/lib/native-app";
 import { DesignViewport } from "@/components/design-viewport";
 import { Header } from "@/features/navigation/header";
 import { Footer } from "@/features/navigation/footer";
@@ -14,13 +16,19 @@ export default function SavedPage() {
   const galleryId = readId(params.galleryId) ?? readId(query.get("galleryId"));
   const scope = resolveSearchScope(query.get("scope"), "songs", Boolean(galleryId));
   const target = creationTarget(scope, galleryId);
+  const search = () => to(withQuery("/search", { scope, galleryId }));
+  const open = {
+    onOpenPost: (id: number) => to(`/posts/${id}`),
+    onOpenSong: (id: number) => to(`/abyss/${id}`),
+  };
   return (
     <DesignViewport>
       <div className={sharedStyles.phoneFrame}>
         <Header onBack={() => back("/settings")} onSettings={() => to("/settings")}
-          onSearch={() => to(withQuery("/search", { scope, galleryId }))} />
+          onSearch={search} />
         <div className={sharedStyles.screenBody}>
-          <SavedScreen onOpenPost={(id) => to(`/posts/${id}`)} onOpenSong={(id) => to(`/abyss/${id}`)} />
+          <SavedScreen {...open} />
+          {nativeApp() && <NativeSavedBridge {...open} onSearch={search} onBack={() => back("/settings")} />}
         </div>
         <Footer activeTab={null} createLabel={target.label} onCreate={() => to(target.path, target.path === "/studio/new" ? {
           state: { studioFrom: currentPath, studioIndex: window.history.state?.idx },

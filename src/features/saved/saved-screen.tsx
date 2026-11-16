@@ -64,7 +64,8 @@ export function SavedScreen(props: SavedScreenProps) {
   return <SavedLibrary key={userId} {...props} />;
 }
 
-function SavedLibrary({ onOpenPost, onOpenSong }: SavedScreenProps) {
+/** The signed-in user's saved posts and abyss songs, with the unsave action and option menu. */
+export function useSavedLibrary() {
   const hiddenPosts = useHiddenPosts();
   const [kind, setKind] = useState<"post" | "song">("post");
   const [openedSongs, setOpenedSongs] = useState(false);
@@ -94,6 +95,28 @@ function SavedLibrary({ onOpenPost, onOpenSong }: SavedScreenProps) {
   });
   const busy = unsave.isPending;
   const error = unsave.isError ? failure(unsave.error, "저장 해제에 실패했습니다.") : null;
+  function select(next: "post" | "song") {
+    if (next === "song") setOpenedSongs(true);
+    setKind(next);
+    setMenu(null);
+    unsave.reset();
+  }
+  return {
+    kind,
+    select,
+    list,
+    visible,
+    menu,
+    setMenu,
+    unsave,
+    busy,
+    error,
+    listError: list.state?.error ? failure(list.state.error.cause, "저장 목록을 불러오지 못했습니다.") : null,
+  };
+}
+
+function SavedLibrary({ onOpenPost, onOpenSong }: SavedScreenProps) {
+  const { kind, select, list, visible, menu, setMenu, unsave, busy, error, listError } = useSavedLibrary();
 
   return (
     <section
@@ -105,23 +128,14 @@ function SavedLibrary({ onOpenPost, onOpenSong }: SavedScreenProps) {
         <button
           className={filterClass}
           aria-pressed={kind === "post"}
-          onClick={() => {
-            setKind("post");
-            setMenu(null);
-            unsave.reset();
-          }}
+          onClick={() => select("post")}
         >
           게시글
         </button>
         <button
           className={filterClass}
           aria-pressed={kind === "song"}
-          onClick={() => {
-            setOpenedSongs(true);
-            setKind("song");
-            setMenu(null);
-            unsave.reset();
-          }}
+          onClick={() => select("song")}
         >
           어비스
         </button>
@@ -196,7 +210,7 @@ function SavedLibrary({ onOpenPost, onOpenSong }: SavedScreenProps) {
       {list.state?.error && (
         <div className="my-auto flex flex-1 flex-col items-center justify-center gap-4 px-5 py-12 text-center text-label leading-6 text-app-muted">
           <p role="alert" className="m-0 text-[#ff8d8d]">
-            {failure(list.state.error.cause, "저장 목록을 불러오지 못했습니다.")}
+            {listError}
           </p>
           {list.state.next !== null && (
             <button
