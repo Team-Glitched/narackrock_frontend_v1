@@ -22,6 +22,7 @@ import { cancelEmptyLayer, resourceNotes } from "./composition-actions";
 import { findInstrument, invalidPitchesFor } from "./instrument-catalog";
 import { supportsMidi } from "./instrument-parts";
 import { useCurrentUserId } from "@/features/auth/use-current-user";
+import { JsonNoteImportControl } from "./json-note-import-control";
 import { useNoteEditor } from "./use-note-editor";
 import { NoteEditorControls, NoteTools } from "./note-editor-controls";
 import { ChordPickerDialog } from "./chord-picker-dialog";
@@ -573,6 +574,7 @@ function LoadedNoteEditor({
       {!editable && <p>내 MIDI 레이어만 수정할 수 있습니다.</p>}
       {showSources && editor.editable && (
         <StudioSourceDialog
+          localFileImport={<JsonNoteImportControl editor={editor} ppq={composition.project.ppq} onAdded={() => setShowSources(false)} />}
           onOpenSource={insertOpenSource}
           onClose={() => setShowSources(false)}
           onResource={async (resource) => {

@@ -1,6 +1,6 @@
 import { studioStyles } from "@/styles/studio.styles";
 import { buttonVariants } from "@/styles/variants";
-import { useId, useState } from "react";
+import { useId, useState, type ReactNode } from "react";
 import { CanvasDialog } from "@/components/canvas-dialog";
 import { Asset } from "@/components/asset";
 import { useWorkspace, type Resource } from "@/features/workspace/workspace-store";
@@ -9,14 +9,16 @@ import { usePagedItems } from "@/hooks/use-paged-items";
 import type { OpenSourceSummary } from "@/lib/api/open-sources";
 import { errorText } from "./studio-helpers";
 
-type Tab = "saved" | "local";
+type Tab = "saved" | "local" | "upload";
 
 export function StudioSourceDialog({
   onClose,
   onResource,
   onOpenSource,
+  localFileImport,
 }: {
   onClose: () => void;
+  localFileImport?: ReactNode;
   /** Imports a MIDI work kept in this browser. */
   onResource: (resource: Resource) => Promise<void>;
   /** Places a saved server open source on the edited layer; omitted where no own layer exists. */
@@ -53,11 +55,12 @@ export function StudioSourceDialog({
           <Asset name="search-close.svg" />
         </button>
       </header>
-      {onOpenSource && (
-        <div className="flex gap-2" role="group" aria-label="가져올 자료">
+      {(onOpenSource || localFileImport) && (
+        <div className="flex flex-wrap items-start gap-2" role="group" aria-label="가져올 자료">
           {([
-            ["saved", "보관한 샘플"],
+            ...(onOpenSource ? [["saved", "보관한 샘플"]] as const : []),
             ["local", "이 기기의 MIDI 작업"],
+            ...(localFileImport ? [["upload", "이 기기에서 업로드"]] as const : []),
           ] as const).map(([value, label]) => (
             <button
               key={value}
@@ -72,34 +75,38 @@ export function StudioSourceDialog({
           ))}
         </div>
       )}
-      <p>
-        {tab === "saved"
-          ? "보관한 샘플을 내 레이어에 오디오로 넣습니다. 현재 재생 위치부터 들어갑니다."
-          : "이 기기에 남아 있는 MIDI 작업의 노트를 지금 편집 중인 초안에 넣습니다."}
-      </p>
-      <label>
-        <input
-          aria-label="샘플 검색"
-          placeholder={tab === "saved" ? "보관한 샘플 검색" : "MIDI 작업 검색"}
-          value={query}
-          onChange={(event) => setQuery(event.target.value)}
-        />
-      </label>
-      <div className={studioStyles.studioSourceResults}>
-        {tab === "saved" && onOpenSource ? (
-          <SavedSourceRows
-            keyword={keyword}
-            busy={busy}
-            onPick={(source) => run(`saved:${source.openSourceId}`, () => onOpenSource(source))}
-          />
-        ) : (
-          <LocalResourceRows
-            keyword={keyword}
-            busy={busy}
-            onPick={(resource) => run(`local:${resource.id}`, () => onResource(resource))}
-          />
-        )}
-      </div>
+      {tab === "upload" ? localFileImport : (
+        <>
+          <p>
+            {tab === "saved"
+              ? "보관한 샘플을 현재 재생 위치에 추가할 수 있습니다."
+              : "이 기기에 저장된 MIDI 작업에서 음표를 가져올 수 있습니다."}
+          </p>
+          <label>
+            <input
+              aria-label="샘플 검색"
+              placeholder={tab === "saved" ? "보관한 샘플 검색" : "MIDI 작업 검색"}
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+            />
+          </label>
+          <div className={studioStyles.studioSourceResults}>
+            {tab === "saved" && onOpenSource ? (
+              <SavedSourceRows
+                keyword={keyword}
+                busy={busy}
+                onPick={(source) => run(`saved:${source.openSourceId}`, () => onOpenSource(source))}
+              />
+            ) : (
+              <LocalResourceRows
+                keyword={keyword}
+                busy={busy}
+                onPick={(resource) => run(`local:${resource.id}`, () => onResource(resource))}
+              />
+            )}
+          </div>
+        </>
+      )}
       {error && <p role="alert">{error}</p>}
     </CanvasDialog>
   );
@@ -177,7 +184,7 @@ function LocalResourceRows({ keyword, busy, onPick }: {
           </button>
         </div>
       ))}
-      {!midi.length && <p>{keyword ? "검색 결과가 없습니다." : "이 기기에 남아 있는 MIDI 작업이 없습니다."}</p>}
+      {!midi.length && <p>{keyword ? "검색 결과가 없습니다." : "이 기기에 저장된 MIDI 작업이 없습니다."}</p>}
     </>
   );
 }
