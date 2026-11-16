@@ -13,6 +13,7 @@
  *   and native screen actions as `narackrock:screen-action`.
  * - Native screens are views over the web (see ./native-screens/index.ts).
  */
+import type { MidiNoteDto, TrackDto } from "./api/composition.ts";
 import type { NativeScreenReport, NativeSession } from "./native-screens/index.ts";
 
 export type NativePlatform = "android" | "ios";
@@ -41,10 +42,67 @@ export type FooterPressEvent = "narackrock:footer-press";
 /** app → web window event; its `detail` is a `NativeScreenActionEvent`. */
 export type ScreenActionEvent = "narackrock:screen-action";
 
+/** app → web window event; its `detail` is a `NativeAudioState`. */
+export type AudioStateEvent = "narackrock:audio-state";
+
 export type GoogleSignInResult = { idToken: string } | { cancelled: true };
 
 /** An image chosen in the platform picker, as base64 so the web can build a File from it. */
 export type NativePickedImage = { name: string; type: string; base64: string };
+
+/** An audio file crossing the bridge as base64: recordings, rendered notes, audio to audition. */
+export type NativeAudioFile = { name: string; type: string; base64: string };
+
+/** What a native audio engine plays: the web's `PlaybackComposition` (use-composition-playback.ts). */
+export type NativeAudioComposition = {
+  project: {
+    bpm: number;
+    ppq: number;
+    maxDurationMs: number;
+    timeSignatureNumerator?: number;
+    timeSignatureDenominator?: number;
+  };
+  tracks: TrackDto[];
+};
+
+/** Master and per-track levels (0–100), as the web hook keeps them. */
+export type NativeAudioMix = {
+  volume: number;
+  muted: boolean;
+  trackVolumes: Record<number, number>;
+  mutedTrackIds: number[];
+  metronome: boolean;
+};
+
+/**
+ * One command to the app's audio engine instance `engine` (one per `useCompositionPlayback` scope).
+ * Mirrors the web hook: the same timeline, sampler, mixer, metronome and preview rules.
+ */
+export type NativeAudioCommand =
+  | { type: "load"; composition: NativeAudioComposition | null; durationMs: number | null }
+  | { type: "mix"; mix: NativeAudioMix }
+  | { type: "play"; positionMs: number }
+  | { type: "pause" }
+  | { type: "seek"; positionMs: number }
+  | {
+      type: "preview-notes";
+      instrumentId: string;
+      pitches: number[];
+      spacingMs: number;
+      durationMs: number;
+    }
+  | { type: "preview-audio"; audio: NativeAudioFile; startMs: number | null; endMs: number | null }
+  | { type: "stop-preview" }
+  | { type: "dispose" };
+
+/** app → web: an engine's transport; sent on start, pause, seek, end and about 4 times a second while playing. */
+export type NativeAudioState = {
+  engine: string;
+  playing: boolean;
+  positionMs: number;
+  /** Playback reached the end (the web hook's `onEnded`). */
+  ended: boolean;
+};
 
 /** Request type → payload sent by the web and result returned by the app. */
 export type BridgeMethods = {
@@ -64,12 +122,40 @@ export type BridgeMethods = {
    */
   "set-history": { payload: { canGoBack: boolean }; result: null };
   /** Native share sheet (the WebView has no Web Share API). */
-  "share": { payload: { title: string; url: string }; result: { shared: boolean } };
+  share: { payload: { title: string; url: string }; result: { shared: boolean } };
   /**
    * The platform photo picker, for native screens (they cannot use a web file input). Null when
    * cancelled. The web turns the result into a File (`pickNativeImage`) and uploads it as usual.
    */
   "pick-image": { payload: Record<never, never>; result: { image: NativePickedImage | null } };
+  /**
+   * The platform document picker limited to audio, for native screens (a web file input cannot be
+   * opened from a native tap). Null when cancelled; the web builds a File (`pickNativeAudio`).
+   */
+  "pick-audio": { payload: Record<never, never>; result: { audio: NativeAudioFile | null } };
+  /**
+   * Exports a generated file (recovery JSON, original audio): the app writes it to its cache and
+   * opens the share sheet (Save to Files, Drive, …), since the WebView drops blob downloads.
+   */
+  "share-file": { payload: { file: NativeAudioFile }; result: null };
+  /**
+   * The app's audio engine (react-native-audio-api). Resolves once the command took effect; rejects
+   * with the web's Korean message when loading or playing fails (missing instrument, bad file, …).
+   */
+  "audio-engine": { payload: { engine: string; command: NativeAudioCommand }; result: null };
+  /** Renders authored notes to a WAV with the piano samples (the web's `renderPianoAudio`). */
+  "audio-render-notes": {
+    payload: { notes: MidiNoteDto[]; bpm: number };
+    result: { audio: NativeAudioFile };
+  };
+  /**
+   * Microphone recording. `start` asks for the permission and starts (null result); `stop` returns
+   * the recording; `cancel` discards it.
+   */
+  "audio-record": {
+    payload: { op: "start" | "stop" | "cancel" };
+    result: { audio: NativeAudioFile | null };
+  };
 };
 
 export type BridgeMethod = keyof BridgeMethods;

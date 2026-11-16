@@ -29,8 +29,10 @@ import { WebView, type WebViewMessageEvent } from "react-native-webview";
 import type { NativeFooter } from "../src/lib/native-bridge-protocol";
 import type { NativeScreenAction, NativeSession } from "../src/lib/native-screens";
 import { designTokens } from "../src/styles/tokens";
+import { cancelRecording, disposeAudioEngines, onAudioState } from "./audio";
 import {
   appBackgroundScript,
+  audioStateScript,
   closeModalScript,
   footerPressScript,
   handleRequest,
@@ -167,6 +169,17 @@ function WebShell() {
       webView.current?.injectJavaScript(screenActionScript(key, action)),
     [],
   );
+  // A page (re)load ends every audio scope of the previous document.
+  const resetAudio = useCallback(() => {
+    disposeAudioEngines();
+    cancelRecording();
+  }, []);
+
+  // Audio engine transports reach the page like screen actions (see `onNativeAudioState`).
+  useEffect(
+    () => onAudioState((state) => webView.current?.injectJavaScript(audioStateScript(state))),
+    [],
+  );
 
   // Back closes an open web modal first, then walks the SPA history, then leaves the app.
   useEffect(() => {
@@ -217,6 +230,7 @@ function WebShell() {
       const request = parseRequest(data);
       if (!request) return;
       void handleRequest(request, {
+        origin,
         setFooter,
         setScreen: (report) => setStack((state) => reduceStack(state, report)),
         setSession,
@@ -277,6 +291,7 @@ function WebShell() {
         applicationNameForUserAgent={userAgentToken}
         injectedJavaScriptBeforeContentLoaded={injectedBeforeContentLoaded}
         injectedJavaScriptBeforeContentLoadedForMainFrameOnly
+        onLoadStart={resetAudio}
         onMessage={onMessage}
         onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
         onContentProcessDidTerminate={reload}

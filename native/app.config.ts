@@ -76,6 +76,12 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     "./plugins/with-android-network-security",
     "./plugins/with-android-release-signing",
     "./plugins/with-ios-google-sign-in-release-check",
+    // Native studio audio. Playback stops in the background, so no background audio mode or
+    // foreground service; RECORD_AUDIO and the iOS microphone text are declared above.
+    [
+      "react-native-audio-api",
+      { iosBackgroundMode: false, androidForegroundService: false, androidPermissions: [] },
+    ],
     [
       "expo-image-picker",
       {

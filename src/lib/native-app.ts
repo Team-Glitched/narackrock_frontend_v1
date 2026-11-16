@@ -1,10 +1,13 @@
 import type {
   AppBackgroundEvent,
+  AudioStateEvent,
   BridgeGlobals,
   BridgeMethod,
   BridgeMethods,
   BridgeResponse,
   FooterPressEvent,
+  NativeAudioFile,
+  NativeAudioState,
   NativeFooterPress,
   NativePlatform,
   ScreenActionEvent,
@@ -27,6 +30,7 @@ const tokenGlobal = "__narackrockBridgeToken" satisfies BridgeGlobals["token"];
 const appBackgroundEvent = "narackrock:app-background" satisfies AppBackgroundEvent;
 const footerPressEvent = "narackrock:footer-press" satisfies FooterPressEvent;
 const screenActionEvent = "narackrock:screen-action" satisfies ScreenActionEvent;
+const audioStateEvent = "narackrock:audio-state" satisfies AudioStateEvent;
 
 export class NativeRequestError extends Error {
   code?: string;
@@ -83,6 +87,14 @@ export async function pickNativeImage(): Promise<File | null> {
   return new File([bytes], image.name, { type: image.type });
 }
 
+/** Lets the user pick an audio file in the platform file picker; null when cancelled. App only. */
+export async function pickNativeAudio(): Promise<File | null> {
+  const { audio } = await requestNative("pick-audio", {});
+  if (!audio) return null;
+  const bytes = Uint8Array.from(atob(audio.base64), (char) => char.charCodeAt(0));
+  return new File([bytes], audio.name, { type: audio.type });
+}
+
 /**
  * Runs `listener` when the native app moves to the background, so Web Audio playback can stop.
  * The shell itself pauses `<audio>`/`<video>` elements. No-op in browsers.
@@ -109,4 +121,58 @@ export function onFooterPress(listener: (press: NativeFooterPress) => void): () 
 /** Runs `listener` for user actions on the app's native screens. No-op in browsers. */
 export function onScreenAction(listener: (event: NativeScreenActionEvent) => void): () => void {
   return onNativeEvent(screenActionEvent, listener);
+}
+
+/** Runs `listener` for the transport reports of the app's audio engines. No-op in browsers. */
+export function onNativeAudioState(listener: (state: NativeAudioState) => void): () => void {
+  return onNativeEvent(audioStateEvent, listener);
+}
+
+/** A File from audio that crossed the bridge. */
+export function nativeAudioToFile(audio: NativeAudioFile): File {
+  const bytes = Uint8Array.from(atob(audio.base64), (char) => char.charCodeAt(0));
+  return new File([bytes], audio.name, { type: audio.type });
+}
+
+/** A File as audio that can cross the bridge. */
+export function fileToNativeAudio(file: File): Promise<NativeAudioFile> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const url = String(reader.result);
+      resolve({
+        name: file.name,
+        type: file.type,
+        base64: url.slice(url.indexOf(",") + 1),
+      });
+    };
+    reader.onerror = () => reject(reader.error ?? new Error("오디오 파일을 읽을 수 없습니다."));
+    reader.readAsDataURL(file);
+  });
+}
+
+/**
+ * Saves a generated file: browsers download it; the app opens the share sheet (Save to Files,
+ * Drive, …) because the WebView drops blob downloads.
+ */
+export async function saveFile(file: File): Promise<void> {
+  if (nativeApp()) {
+    await requestNative("share-file", { file: await fileToNativeAudio(file) });
+    return;
+  }
+  const url = URL.createObjectURL(file);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = file.name;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+/**
+ * Microphone recording in the app: `start` asks for the permission and starts (resolves null),
+ * `stop` resolves the recording, `cancel` discards it. Native screens draw the live meter.
+ */
+export async function recordNativeAudio(op: "start" | "stop" | "cancel"): Promise<File | null> {
+  const { audio } = await requestNative("audio-record", { op });
+  return audio ? nativeAudioToFile(audio) : null;
 }

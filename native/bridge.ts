@@ -3,14 +3,18 @@
 import { randomUUID } from "expo-crypto";
 import { Platform, Share } from "react-native";
 
+import type { MidiNoteDto } from "../src/lib/api/composition";
 import type {
   AppBackgroundEvent,
+  AudioStateEvent,
   BridgeGlobals,
   BridgeMethod,
   BridgeMethods,
   BridgeRequest,
   BridgeResponse,
   FooterPressEvent,
+  NativeAudioCommand,
+  NativeAudioState,
   NativeFooter,
   NativeFooterPress,
   NativeFooterTab,
@@ -24,14 +28,18 @@ import type {
   NativeScreenView,
   NativeSession,
 } from "../src/lib/native-screens";
+import { record, renderNotes, runAudioCommand } from "./audio";
 import { signInWithGoogle } from "./google-sign-in";
 import { pickImage } from "./pick-image";
+import { pickAudio } from "./pick-audio";
+import { shareFile } from "./share-file";
 
 const tokenGlobal = "__narackrockBridgeToken" satisfies BridgeGlobals["token"];
 const receiveGlobal = "__narackrockNativeReceive" satisfies BridgeGlobals["receive"];
 const appBackgroundEvent = "narackrock:app-background" satisfies AppBackgroundEvent;
 const footerPressEvent = "narackrock:footer-press" satisfies FooterPressEvent;
 const screenActionEvent = "narackrock:screen-action" satisfies ScreenActionEvent;
+const audioStateEvent = "narackrock:audio-state" satisfies AudioStateEvent;
 
 /** Appended to the WebView user agent; the web reads it with `nativeApp()`. */
 export const userAgentToken: NativeUserAgentToken =
@@ -77,12 +85,19 @@ export function screenActionScript(key: string, action: NativeScreenAction): str
   return eventScript(screenActionEvent, { key, action } satisfies NativeScreenActionEvent);
 }
 
+/** Script reporting an audio engine's transport to the web (see `onNativeAudioState`). */
+export function audioStateScript(state: NativeAudioState): string {
+  return eventScript(audioStateEvent, state);
+}
+
 function eventScript(name: string, detail: unknown): string {
   return `window.dispatchEvent(new CustomEvent(${JSON.stringify(name)}, { detail: ${JSON.stringify(detail)} })); true;`;
 }
 
 /** What requests need from the screen hosting the WebView. */
 export type BridgeHost = {
+  /** The local web server's origin: relative media and sample URLs resolve against it. */
+  origin: string;
   setFooter(footer: NativeFooter | null): void;
   setScreen(report: NativeScreenReport): void;
   setSession(session: NativeSession): void;
@@ -96,6 +111,24 @@ const footerTabs: readonly unknown[] = [
   "social",
   "opensource",
 ] satisfies NativeFooterTab[];
+
+const audioCommands: readonly unknown[] = [
+  "load",
+  "mix",
+  "play",
+  "pause",
+  "seek",
+  "preview-notes",
+  "preview-audio",
+  "stop-preview",
+  "dispose",
+] satisfies NativeAudioCommand["type"][];
+
+const recordOps: readonly unknown[] = [
+  "start",
+  "stop",
+  "cancel",
+] satisfies BridgeMethods["audio-record"]["payload"]["op"][];
 
 /** The footer in a `set-footer` payload, or undefined when malformed. */
 function readFooter(value: unknown): NativeFooter | null | undefined {
@@ -186,8 +219,77 @@ export function parseRequest(data: string): BridgeRequest | null {
       )
         return null;
       return { id, token: bridgeToken, type: parsed.type, title: parsed.title, url: parsed.url };
+    case "pick-audio":
+      return { id, token: bridgeToken, type: parsed.type };
+    case "share-file": {
+      const file = "file" in parsed ? parsed.file : null;
+      if (
+        !file ||
+        typeof file !== "object" ||
+        !("name" in file) ||
+        typeof file.name !== "string" ||
+        !file.name ||
+        !("type" in file) ||
+        typeof file.type !== "string" ||
+        !("base64" in file) ||
+        typeof file.base64 !== "string"
+      )
+        return null;
+      return {
+        id,
+        token: bridgeToken,
+        type: parsed.type,
+        file: { name: file.name, type: file.type, base64: file.base64 },
+      };
+    }
     case "pick-image":
       return { id, token: bridgeToken, type: parsed.type };
+    // Audio payloads are typed by the shared protocol past their discriminants, like view models:
+    // they only come from the token-holding main frame (the web hook builds them).
+    case "audio-engine": {
+      const command = "command" in parsed ? parsed.command : null;
+      if (
+        !("engine" in parsed) ||
+        typeof parsed.engine !== "string" ||
+        !parsed.engine ||
+        !command ||
+        typeof command !== "object" ||
+        !("type" in command) ||
+        !audioCommands.includes(command.type)
+      )
+        return null;
+      return {
+        id,
+        token: bridgeToken,
+        type: parsed.type,
+        engine: parsed.engine,
+        command: command as NativeAudioCommand,
+      };
+    }
+    case "audio-render-notes":
+      if (
+        !("notes" in parsed) ||
+        !Array.isArray(parsed.notes) ||
+        !("bpm" in parsed) ||
+        typeof parsed.bpm !== "number" ||
+        !(parsed.bpm > 0)
+      )
+        return null;
+      return {
+        id,
+        token: bridgeToken,
+        type: parsed.type,
+        notes: parsed.notes as MidiNoteDto[],
+        bpm: parsed.bpm,
+      };
+    case "audio-record":
+      if (!("op" in parsed) || !recordOps.includes(parsed.op)) return null;
+      return {
+        id,
+        token: bridgeToken,
+        type: parsed.type,
+        op: parsed.op as BridgeMethods["audio-record"]["payload"]["op"],
+      };
     default:
       return null;
   }
@@ -225,6 +327,18 @@ async function run(
     }
     case "pick-image":
       return { image: await pickImage() };
+    case "pick-audio":
+      return { audio: await pickAudio() };
+    case "share-file":
+      await shareFile(request.file);
+      return null;
+    case "audio-engine":
+      await runAudioCommand(host.origin, request.engine, request.command);
+      return null;
+    case "audio-render-notes":
+      return { audio: await renderNotes(host.origin, request.notes, request.bpm) };
+    case "audio-record":
+      return { audio: await record(request.op) };
   }
 }
 
