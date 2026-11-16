@@ -5,12 +5,18 @@ import { buttonVariants } from "@/styles/variants";
 import { requestAge } from "./contribution-presentation";
 import type { ContributionNotificationDto } from "@/lib/api/composition";
 
-export function RequestTime({ createdAt }: { createdAt: string }) {
+/** The current time, renewed every minute, for request ages ("3분 전"). */
+export function useMinuteClock() {
   const [now, setNow] = useState(Date.now);
   useEffect(() => {
     const timer = window.setInterval(() => setNow(Date.now()), 60_000);
     return () => window.clearInterval(timer);
   }, []);
+  return now;
+}
+
+export function RequestTime({ createdAt }: { createdAt: string }) {
+  const now = useMinuteClock();
   return (
     <time dateTime={createdAt} className="shrink-0 text-caption text-app-muted">
       {requestAge(createdAt, now)}
