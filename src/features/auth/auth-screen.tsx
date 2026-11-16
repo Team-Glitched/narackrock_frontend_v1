@@ -32,14 +32,15 @@ function authErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : "인증 요청을 처리하지 못했습니다.";
 }
 
-export function AuthScreen({ onAuthenticated, onFirstLogin }: AuthScreenProps) {
-  const googleButtonRef = useRef<HTMLDivElement>(null);
+/** The login screen's state and Google sign-in handlers; shared by AuthScreen and the app's native login. */
+export function useGoogleLogin({ onAuthenticated, onFirstLogin }: AuthScreenProps) {
   const [returning] = useState(hasSignedInBefore);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const clientId = import.meta.env?.VITE_GOOGLE_CLIENT_ID?.trim() ?? "";
   // Google blocks its web sign-in inside embedded WebViews, so the app signs in natively.
   const inNativeApp = nativeApp() !== null;
+  const fail = useCallback((cause: unknown) => setError(authErrorMessage(cause)), []);
 
   const completeLogin = useCallback(
     (credential: string) => {
@@ -58,12 +59,10 @@ export function AuthScreen({ onAuthenticated, onFirstLogin }: AuthScreenProps) {
           }
           onAuthenticated();
         })
-        .catch((cause) => {
-          setError(authErrorMessage(cause));
-        })
+        .catch(fail)
         .finally(() => setBusy(false));
     },
-    [onAuthenticated, onFirstLogin],
+    [onAuthenticated, onFirstLogin, fail],
   );
 
   const startNativeLogin = () => {
@@ -76,10 +75,18 @@ export function AuthScreen({ onAuthenticated, onFirstLogin }: AuthScreenProps) {
         else setBusy(false);
       })
       .catch((cause) => {
-        setError(authErrorMessage(cause));
+        fail(cause);
         setBusy(false);
       });
   };
+
+  return { returning, busy, error, clientId, inNativeApp, completeLogin, startNativeLogin, fail };
+}
+
+export function AuthScreen(props: AuthScreenProps) {
+  const googleButtonRef = useRef<HTMLDivElement>(null);
+  const { returning, busy, error, clientId, inNativeApp, completeLogin, startNativeLogin, fail } =
+    useGoogleLogin(props);
 
   useEffect(() => {
     const element = googleButtonRef.current;
@@ -104,12 +111,12 @@ export function AuthScreen({ onAuthenticated, onFirstLogin }: AuthScreenProps) {
         });
       })
       .catch((cause) => {
-        if (!cancelled) setError(authErrorMessage(cause));
+        if (!cancelled) fail(cause);
       });
     return () => {
       cancelled = true;
     };
-  }, [clientId, inNativeApp, completeLogin]);
+  }, [clientId, inNativeApp, completeLogin, fail]);
 
   return (
     <section className={cn(profileStyles.authScreen, "auth-screen--login")} aria-label="로그인">
@@ -178,7 +185,10 @@ export function AuthScreen({ onAuthenticated, onFirstLogin }: AuthScreenProps) {
             aria-label="Google로 계속하기"
           />
         )}
-        <Link className="mt-5 block text-center text-caption text-app-muted underline" to="/privacy">
+        <Link
+          className="mt-5 block text-center text-caption text-app-muted underline"
+          to="/privacy"
+        >
           개인정보처리방침
         </Link>
       </div>

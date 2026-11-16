@@ -14,7 +14,6 @@ import { AlbumArtwork, MusicCard } from "@/components/music-card";
 import { SectionTitle } from "@/components/section-title";
 import { FigmaSheet } from "@/components/figma-sheet";
 import { useCurrentUserId } from "@/features/auth/use-current-user";
-import { ApiError } from "@/lib/api/client";
 import { updateProfile, updateProfileImage } from "@/lib/api/profile";
 import type { UserProfile } from "@/lib/api/contracts";
 import { Link, useNavigate } from "react-router";
@@ -22,7 +21,7 @@ import { useMySongs } from "@/features/home/use-my-songs";
 import { songsForTab } from "@/features/home/my-songs";
 import { profileKeys, profileQuery } from "./profile-queries";
 
-function profileErrorMessage(error: unknown): string {
+export function profileErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : "프로필을 불러오지 못했습니다.";
 }
 
@@ -332,147 +331,6 @@ export function EditProfileScreen({ onSaved }: { onSaved: () => void }) {
         onSaved();
       }}
     />
-  );
-}
-
-export function InitialProfileSetupScreen({
-  suggestedNickname,
-  onSaved,
-}: {
-  suggestedNickname: string;
-  pictureUrl: string | null;
-  onSaved: () => void;
-}) {
-  const [step, setStep] = useState(0);
-  const [nickname, setNickname] = useState(suggestedNickname);
-  const [instrument, setInstrument] = useState("");
-  const [explanation, setExplanation] = useState("");
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  async function advance(event: React.FormEvent) {
-    event.preventDefault();
-    setError(null);
-
-    if (step === 0) {
-      if (!nickname.trim()) {
-        setError("이름을 입력해 주세요.");
-        return;
-      }
-
-      setStep(1);
-      return;
-    }
-
-    if (step === 1) {
-      if (!instrument.trim()) {
-        setError("주 악기를 입력해 주세요.");
-        return;
-      }
-
-      setStep(2);
-      return;
-    }
-
-    if (!explanation.trim()) {
-      setError("설명을 입력해 주세요.");
-      return;
-    }
-
-    setSaving(true);
-
-    try {
-      await updateProfile({
-        nickname: nickname.trim(),
-        primaryInstrument: instrument.trim(),
-        explanation: explanation.trim(),
-      });
-
-      onSaved();
-    } catch (cause) {
-      if (cause instanceof ApiError && cause.errorCode === "DUPLICATE_NICKNAME") {
-        setStep(0);
-      }
-
-      setError(profileErrorMessage(cause));
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  return (
-    <form
-      className={profileStyles.profileOnboarding}
-      onSubmit={(event) => {
-        void advance(event);
-      }}
-    >
-      <header className={profileStyles.authHeader}>
-        <Asset name="auth-logo.svg" alt="Narackrock" />
-      </header>
-
-      <div className={profileStyles.profileOnboardingContent} key={step}>
-        {step === 0 && (
-          <>
-            <h1>당신의 이름은 무엇인가요?</h1>
-            <p>이름을 알려주세요</p>
-            <label>
-              이름
-              <input
-                value={nickname}
-                onChange={(event) => setNickname(event.target.value)}
-                maxLength={30}
-                autoFocus
-                disabled={saving}
-              />
-            </label>
-          </>
-        )}
-
-        {step === 1 && (
-          <>
-            <h1>당신의 주 악기는 무엇인가요?</h1>
-            <p>악기를 알려주세요</p>
-            <label>
-              악기
-              <input
-                value={instrument}
-                onChange={(event) => setInstrument(event.target.value)}
-                placeholder="피아노, 기타"
-                autoFocus
-                disabled={saving}
-              />
-            </label>
-          </>
-        )}
-
-        {step === 2 && (
-          <>
-            <h1>당신을 설명해주세요</h1>
-            <p>당신은 어떤 사람인가요?</p>
-            <label>
-              설명
-              <input
-                value={explanation}
-                onChange={(event) => setExplanation(event.target.value)}
-                autoFocus
-                disabled={saving}
-              />
-            </label>
-          </>
-        )}
-
-        {error && (
-          <p className={profileStyles.profileFormError} role="alert">
-            {error}
-          </p>
-        )}
-
-        <button type="submit" className={profileStyles.profileOnboardingNext} disabled={saving}>
-          {saving ? "저장 중..." : step === 2 ? "시작하기" : "다음"}
-        </button>
-      </div>
-    </form>
   );
 }
 
