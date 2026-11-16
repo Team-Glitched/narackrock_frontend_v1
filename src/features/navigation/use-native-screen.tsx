@@ -107,8 +107,12 @@ export function useNativeScreen<K extends NativeScreenKind>(
   useEffect(() => {
     const root = document.getElementById("root");
     if (!root || modalOpen) return;
+    root.inert = true;
     root.setAttribute("aria-hidden", "true");
-    return () => root.removeAttribute("aria-hidden");
+    return () => {
+      root.inert = false;
+      root.removeAttribute("aria-hidden");
+    };
   }, [modalOpen]);
 
   async function share(kind: NativeContentKind, id: number, title: string) {
