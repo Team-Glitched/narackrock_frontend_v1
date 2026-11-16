@@ -41,6 +41,8 @@ const iosGoogleUrlScheme = iosGoogleClientId
 
 const appId = "com.teamglitched.narackrock";
 
+const microphoneUsage = "음악을 녹음하기 위해 마이크를 사용합니다.";
+
 export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
   name: "Narackrock",
@@ -68,7 +70,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     buildNumber: String(buildNumber),
     supportsTablet: true,
     infoPlist: {
-      NSMicrophoneUsageDescription: "음악을 녹음하기 위해 마이크를 사용합니다.",
+      NSMicrophoneUsageDescription: microphoneUsage,
     },
   },
   plugins: [
@@ -87,7 +89,9 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
       {
         photosPermission: "게시글과 프로필에 올릴 사진을 고르기 위해 사진 보관함을 사용합니다.",
         cameraPermission: false,
-        microphonePermission: false,
+        // `false` here would make the plugin strip RECORD_AUDIO from the manifest (studio recording
+        // needs it), so pass the app's own microphone text instead.
+        microphonePermission: microphoneUsage,
       },
     ],
     ...(iosGoogleUrlScheme
