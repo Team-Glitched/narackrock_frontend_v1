@@ -221,6 +221,8 @@ export type NativeSourceCreate =
         | { status: "ready"; uri: string; width: number; height: number }
         | null;
       crop: NativeThumbnailCrop;
+      /** The crop editor ("앨범" sheet) is open: after picking a picture and on "앨범 이미지 편집". */
+      cropping: boolean;
       visibility: "PUBLIC" | "PRIVATE";
       busy: boolean;
       error: string | null;
@@ -239,6 +241,10 @@ export type NativeSourceCreateAction =
   | { type: "source-create-image" }
   | { type: "source-create-remove-image" }
   | { type: "source-create-edit-image" }
+  /** The crop after a drag or zoom in the "앨범" sheet (the web's ThumbnailCropper `onChange`). */
+  | { type: "source-create-crop"; crop: NativeThumbnailCrop }
+  /** "완료" (or closing) the "앨범" sheet. */
+  | { type: "source-create-crop-done" }
   | { type: "source-create-visibility"; visibility: "PUBLIC" | "PRIVATE" }
   | { type: "source-create-keep-without-image" }
   | { type: "source-create-submit" }

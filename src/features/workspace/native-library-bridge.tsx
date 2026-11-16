@@ -47,21 +47,26 @@ function ClipPlayerReporter({
   return null;
 }
 
-/** In the app the sample library (SourceLibraryScreen) is drawn natively (native/screens/workspace/library.tsx). */
+/**
+ * In the app the sample library (SourceLibraryScreen) is drawn natively (native/screens/workspace/library.tsx);
+ * `importing` is the studio's "MIDI 가져오기" (/studio/:projectId/import).
+ */
 export function NativeLibraryBridge({
   onSearch,
   onBack,
+  importing = false,
 }: {
   onSearch: () => void;
   onBack: () => void;
+  importing?: boolean;
 }) {
-  const actions = useSourceLibraryActions(false);
-  const library = useSourceLibrary(false, actions.onUse);
+  const actions = useSourceLibraryActions(importing);
+  const library = useSourceLibrary(importing, actions.onUse);
   const { targetResource, filter, items, busy, notice } = library;
   const signedIn = useCurrentUserId() !== null;
   const saved = useSavedOpenSources(
     library.query,
-    signedIn && filter === "SERVER" && !targetResource,
+    signedIn && !importing && filter === "SERVER" && !targetResource,
   );
   const { requestLogin } = useLoginPrompt();
   const { players, report, control } = useNativePlayers();
@@ -90,8 +95,11 @@ export function NativeLibraryBridge({
   } else {
     model = {
       view: "library",
-      title: uiLabels.sourceLibrary,
-      subtitle: "보관한 샘플은 계정에, MIDI 작업은 이 기기에 저장됩니다.",
+      importing,
+      title: importing ? "MIDI 가져오기" : uiLabels.sourceLibrary,
+      subtitle: importing
+        ? "이 기기에 남아 있는 MIDI 작업을 개인 초안으로 가져옵니다."
+        : "보관한 샘플은 계정에, MIDI 작업은 이 기기에 저장됩니다.",
       filter,
       query: library.query,
       notice: notice || null,
@@ -111,7 +119,8 @@ export function NativeLibraryBridge({
                   : null,
             }
           : null,
-      saved: filter === "SERVER" ? nativeSavedSources(saved, signedIn, players) : null,
+      saved:
+        !importing && filter === "SERVER" ? nativeSavedSources(saved, signedIn, players) : null,
       busyId: busy,
     };
   }

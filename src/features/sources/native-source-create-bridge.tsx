@@ -1,5 +1,4 @@
-import { useEffect, useId, useState } from "react";
-import { CanvasDialog } from "@/components/canvas-dialog";
+import { useEffect, useState } from "react";
 import { useLoginPrompt } from "@/features/auth/login-prompt";
 import {
   SocialCreateForm,
@@ -7,24 +6,42 @@ import {
   type SocialCreateProps,
   type SocialCreateState,
 } from "@/features/community/create-content";
+import {
+  creationHeader,
+  useNativeRecord,
+  useNativeUpload,
+} from "@/features/composition/native-creation-bridges";
+import { useNativeSourcePiano } from "@/features/composition/source-piano-editor";
 import { useNativeScreen } from "@/features/navigation/use-native-screen";
-import { Header } from "@/features/navigation/header";
 import { pickNativeImage } from "@/lib/native-app";
 import type { NativeSourceCreate } from "@/lib/native-screens";
-import { buttonVariants } from "@/styles/variants";
-import { ThumbnailCropper } from "./thumbnail-cropper";
+import { clampCrop } from "./thumbnail-crop";
 
 type Navigation = { onBack: () => void; onSearch: () => void };
 const header = { left: "back", actions: ["notifications", "search", "account"] } as const;
 
-/** Browser-owned source form, draft and publication; only the details surface is native. */
+/**
+ * Browser-owned source form, draft and publication; the details and the audio steps (choose,
+ * upload, record, piano) are native screens.
+ */
 export function NativeSourceCreateContent({
   onBack,
   onSearch,
   ...props
 }: SocialCreateProps & Navigation) {
   const form = useSocialCreate(props);
-  return <NativeSourceCreateBridge form={form} onBack={onBack} onSearch={onSearch} />;
+  const audioOpen =
+    form.audioStage !== "details" &&
+    !form.sourceAudioLocked &&
+    !form.restoring &&
+    !form.draftExpired;
+  if (audioOpen) return <NativeSourceAudioStep form={form} onSearch={onSearch} />;
+  return (
+    <>
+      <NativeSourceCreateBridge form={form} onBack={onBack} onSearch={onSearch} />
+      <SocialCreateForm form={form} />
+    </>
+  );
 }
 
 export function NativeSignedOutSourceCreateBridge(nav: Navigation) {
@@ -74,8 +91,6 @@ function NativeSourceCreateBridge({
   const [pickError, setPickError] = useState<string | null>(null);
   const file = form.image?.file ?? null;
   const [preview, setPreview] = useState<{ file: File; image: Preview } | null>(null);
-  const cropTitle = useId();
-  const audioTitle = useId();
   useEffect(() => {
     if (!file) return;
     let active = true;
@@ -91,6 +106,11 @@ function NativeSourceCreateBridge({
       active = false;
     };
   }, [file]);
+  const image = !file
+    ? null
+    : preview?.file === file
+      ? preview.image
+      : { status: "loading" as const };
   const model: NativeSourceCreate = form.restoring
     ? { state: "restoring" }
     : form.draftExpired && !form.busy
@@ -100,8 +120,9 @@ function NativeSourceCreateBridge({
           title: form.title,
           description: form.content,
           audio: form.sourceAudioLocked ? "locked" : form.audio ? "selected" : "none",
-          image: !file ? null : preview?.file === file ? preview.image : { status: "loading" },
+          image,
           crop: form.imageCrop,
+          cropping: cropOpen && form.image !== null,
           visibility: form.sourceVisibility,
           busy: form.busy,
           error: pickError ?? form.error,
@@ -117,6 +138,8 @@ function NativeSourceCreateBridge({
     onBack,
     onSearch,
     onAction: (action) => {
+      // The web's "완료" closes the crop editor even while the form is busy.
+      if (action.type === "source-create-crop-done") return setCropOpen(false);
       if (form.busy || form.restoring || form.draftExpired) return;
       switch (action.type) {
         case "source-create-title":
@@ -143,6 +166,11 @@ function NativeSourceCreateBridge({
           return;
         case "source-create-edit-image":
           return setCropOpen(true);
+        case "source-create-crop":
+          // Same bounds as the web cropper: the square stays inside the picture.
+          if (image?.status === "ready")
+            form.setImageCrop(clampCrop(action.crop, image.width, image.height));
+          return;
         case "source-create-remove-image":
           setCropOpen(false);
           return form.removeImage();
@@ -158,56 +186,95 @@ function NativeSourceCreateBridge({
       }
     },
   });
-  const audioOpen =
-    form.audioStage !== "details" &&
-    !form.sourceAudioLocked &&
-    !form.restoring &&
-    !form.draftExpired;
+  return node;
+}
+
+/**
+ * The sample registration audio steps (/sources/new?stage=…), each its own history entry and
+ * native screen. Back goes to the choice, and from the choice to the details, like the web sheet.
+ */
+function NativeSourceAudioStep({
+  form,
+  onSearch,
+}: {
+  form: SocialCreateState;
+  onSearch: () => void;
+}) {
+  const back = () => form.setAudioStage(form.audioStage === "choose" ? "details" : "choose");
+  switch (form.audioStage) {
+    case "choose":
+      return <SourceChooseStep form={form} onBack={back} onSearch={onSearch} />;
+    case "upload":
+      return <SourceUploadStep form={form} onBack={back} onSearch={onSearch} />;
+    case "record":
+      return <SourceRecordStep form={form} onBack={back} onSearch={onSearch} />;
+    default:
+      return <SourcePianoStep form={form} />;
+  }
+}
+
+type StepProps = { form: SocialCreateState } & Navigation;
+
+function SourceChooseStep({ form, onBack, onSearch }: StepProps) {
+  return useNativeScreen(
+    "creation-choose",
+    { busy: false, error: null },
+    {
+      header: creationHeader,
+      onBack,
+      onSearch,
+      onAction: (action) => {
+        if (action.type === "creation-choose") form.setAudioStage(action.method);
+      },
+    },
+  );
+}
+
+function SourceUploadStep({ form, onBack, onSearch }: StepProps) {
+  const upload = useNativeUpload({ saveLabel: "오디오 선택 완료", onSave: form.selectAudio });
+  const node = useNativeScreen("creation-upload", upload.model, {
+    header: creationHeader,
+    onBack,
+    onSearch,
+    onAction: (action) => {
+      if (action.type !== "more") upload.act(action);
+    },
+  });
   return (
     <>
       {node}
-      {audioOpen ? (
-        <CanvasDialog
-          className="flex h-full w-full flex-col overflow-auto bg-app-panel"
-          titleId={audioTitle}
-          onClose={() => form.setAudioStage(form.audioStage === "choose" ? "details" : "choose")}
-        >
-          <h2 id={audioTitle} className="sr-only">
-            오디오 추가
-          </h2>
-          {form.audioStage !== "note" && (
-            <Header
-              onBack={() => form.setAudioStage(form.audioStage === "choose" ? "details" : "choose")}
-              onSearch={onSearch}
-            />
-          )}
-          <SocialCreateForm form={form} />
-        </CanvasDialog>
-      ) : (
-        <SocialCreateForm form={form} />
-      )}
-      {cropOpen && form.image && (
-        <CanvasDialog
-          className="flex max-h-[90%] w-full max-w-[390px] flex-col gap-4 overflow-auto rounded-2xl bg-app-panel p-5"
-          titleId={cropTitle}
-          onClose={() => setCropOpen(false)}
-        >
-          <h2 id={cropTitle}>앨범</h2>
-          <ThumbnailCropper
-            file={form.image.file}
-            crop={form.imageCrop}
-            onChange={form.setImageCrop}
-            disabled={form.busy}
-          />
-          <button
-            type="button"
-            className={buttonVariants({ tone: "primary" })}
-            onClick={() => setCropOpen(false)}
-          >
-            완료
-          </button>
-        </CanvasDialog>
-      )}
+      {upload.node}
     </>
   );
+}
+
+function SourceRecordStep({ form, onBack, onSearch }: StepProps) {
+  const record = useNativeRecord({ saveLabel: "녹음 선택 완료", onSave: form.selectAudio });
+  return useNativeScreen("creation-record", record.model, {
+    header: creationHeader,
+    onBack,
+    onSearch,
+    onAction: (action) => {
+      if (action.type !== "more") record.act(action);
+    },
+  });
+}
+
+/** The landscape piano has no page header; its toolbar's back (and the app's) returns to the choice. */
+function SourcePianoStep({ form }: { form: SocialCreateState }) {
+  const piano = useNativeSourcePiano({
+    notes: form.pianoNotes,
+    setNotes: form.setPianoNotes,
+    bpm: form.pianoBpm,
+    onBpm: form.setPianoBpm,
+    onBack: () => form.setAudioStage("choose"),
+    onSave: form.saveSelectedAudio,
+  });
+  return useNativeScreen("creation-piano", piano.model, {
+    header: null,
+    onBack: () => piano.act({ type: "creation-piano-back" }),
+    onAction: (action) => {
+      if (action.type !== "more") piano.act(action);
+    },
+  });
 }

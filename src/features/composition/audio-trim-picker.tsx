@@ -5,7 +5,13 @@ import { buttonVariants } from "@/styles/variants";
 import { pointerAxes, logicalBounds } from "./pointer-coordinates";
 import { waveformPeaks } from "./waveform-peaks";
 
-import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type PointerEvent as ReactPointerEvent,
+  type SyntheticEvent,
+} from "react";
 import { LoaderCircle } from "lucide-react";
 import type { AudioSelection } from "@/features/composition/prepare-audio-file";
 import {
@@ -17,8 +23,9 @@ import {
 } from "@/features/composition/audio-trim-selection";
 
 const waveformBars = 96;
-const formatTime = (ms: number) =>
+export const formatTrimTime = (ms: number) =>
   `${String(Math.floor(ms / 60_000)).padStart(2, "0")}:${String(Math.floor(ms / 1000) % 60).padStart(2, "0")}.${Math.floor((ms % 1000) / 100)}`;
+const formatTime = formatTrimTime;
 type DragMode = "move" | "start" | "end";
 type WaveformResult = { url: string; peaks: number[] | null };
 
@@ -31,36 +38,39 @@ function AudioTrimLoading({ label }: { label: string }) {
   );
 }
 
-export function AudioTrimPicker({
-  url,
-  onSave,
-  onCancel,
-  saveLabel,
-}: {
-  url: string;
-  onSave: (selection: AudioSelection) => Promise<void>;
-  onCancel?: () => void;
-  saveLabel: string;
-}) {
-  const audioRef = useRef<HTMLAudioElement>(null);
-  const waveformRef = useRef<HTMLDivElement>(null);
-  const dragRef = useRef<{ mode: DragMode; clientX: number; selection: AudioSelection } | null>(
-    null,
-  );
+/**
+ * Length, waveform, selection and saving of the audio trim picker, shared by the web picker and the
+ * app's native trim (native-audio-trim.tsx). The length comes from an `<audio>` element given the
+ * returned `metadata` handlers; previews stay with the caller, which passes how to stop one.
+ * A null `url` (no file yet) loads nothing; a new `url` starts over.
+ */
+export function useAudioTrim(
+  url: string | null,
+  onSave: (selection: AudioSelection) => Promise<void>,
+  stopPreview: () => void,
+) {
   const [durationMs, setDurationMs] = useState<number | null>(null);
   const [selection, setSelection] = useState<AudioSelection | null>(null);
   const [waveformResult, setWaveformResult] = useState<WaveformResult | null>(null);
   const waveform = waveformResult?.url === url ? waveformResult : null;
   const [currentMs, setCurrentMs] = useState(0);
-  const [previewing, setPreviewing] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [loadedUrl, setLoadedUrl] = useState(url);
+  if (loadedUrl !== url) {
+    setLoadedUrl(url);
+    setDurationMs(null);
+    setSelection(null);
+    setCurrentMs(0);
+    setError("");
+  }
 
   useEffect(() => {
+    if (!url) return;
     const controller = new AbortController();
     const { signal } = controller;
 
-    async function loadWaveform() {
+    async function loadWaveform(url: string) {
       let context: AudioContext | undefined;
       try {
         const response = await fetch(url, { signal });
@@ -81,18 +91,88 @@ export function AudioTrimPicker({
       }
     }
 
-    void loadWaveform();
+    void loadWaveform(url);
     return () => controller.abort();
   }, [url]);
+
+  const metadata = {
+    onLoadedMetadata: (event: SyntheticEvent<HTMLAudioElement>) => {
+      const seconds = event.currentTarget.duration;
+      if (!Number.isFinite(seconds) || seconds <= 0) {
+        setError("오디오 길이를 읽을 수 없습니다.");
+        return;
+      }
+      const total = Math.floor(seconds * 1000);
+      const initial = { startMs: 0, endMs: Math.min(total, maxAudioClipMs) };
+      setDurationMs(total);
+      setSelection(initial);
+      setCurrentMs(0);
+    },
+    onError: () => {
+      if (url) setError("이 오디오 파일을 읽을 수 없습니다.");
+    },
+  };
+  /** A new selection stops the preview and moves the preview position to its start. */
+  function select(next: AudioSelection) {
+    stopPreview();
+    setSelection(next);
+    setCurrentMs(next.startMs);
+  }
+  async function save() {
+    if (!selection || busy) return;
+    setBusy(true);
+    setError("");
+    stopPreview();
+    try {
+      await onSave(selection);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "파일을 저장하지 못했습니다.");
+    } finally {
+      setBusy(false);
+    }
+  }
+  return {
+    durationMs,
+    selection,
+    waveform,
+    currentMs,
+    setCurrentMs,
+    busy,
+    error,
+    setError,
+    metadata,
+    select,
+    save,
+  };
+}
+
+export function AudioTrimPicker({
+  url,
+  onSave,
+  onCancel,
+  saveLabel,
+}: {
+  url: string;
+  onSave: (selection: AudioSelection) => Promise<void>;
+  onCancel?: () => void;
+  saveLabel: string;
+}) {
+  const audioRef = useRef<HTMLAudioElement>(null);
+  const waveformRef = useRef<HTMLDivElement>(null);
+  const dragRef = useRef<{ mode: DragMode; clientX: number; selection: AudioSelection } | null>(
+    null,
+  );
+  const [previewing, setPreviewing] = useState(false);
+  const trim = useAudioTrim(url, onSave, () => stopPreview());
+  const { durationMs, selection, waveform, currentMs, setCurrentMs, busy, error, setError, save } =
+    trim;
 
   function stopPreview() {
     audioRef.current?.pause();
     setPreviewing(false);
   }
   function applySelection(next: AudioSelection) {
-    stopPreview();
-    setSelection(next);
-    setCurrentMs(next.startMs);
+    trim.select(next);
     if (audioRef.current) audioRef.current.currentTime = next.startMs / 1000;
   }
   function pointerRatio(clientX: number) {
@@ -155,20 +235,6 @@ export function AudioTrimPicker({
       setError("선택 구간을 재생하지 못했습니다.");
     }
   }
-  async function save() {
-    if (!selection || busy) return;
-    setBusy(true);
-    setError("");
-    stopPreview();
-    try {
-      await onSave(selection);
-    } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "파일을 저장하지 못했습니다.");
-    } finally {
-      setBusy(false);
-    }
-  }
-
   const startPercent = durationMs && selection ? (selection.startMs / durationMs) * 100 : 0;
   const endPercent = durationMs && selection ? (selection.endMs / durationMs) * 100 : 0;
   return (
@@ -177,21 +243,7 @@ export function AudioTrimPicker({
         ref={audioRef}
         src={url}
         preload="metadata"
-        onLoadedMetadata={(event) => {
-          const seconds = event.currentTarget.duration;
-          if (!Number.isFinite(seconds) || seconds <= 0) {
-            setError("오디오 길이를 읽을 수 없습니다.");
-            return;
-          }
-          const total = Math.floor(seconds * 1000);
-          const initial = { startMs: 0, endMs: Math.min(total, maxAudioClipMs) };
-          setDurationMs(total);
-          setSelection(initial);
-          setCurrentMs(0);
-        }}
-        onError={() => {
-          if (url) setError("이 오디오 파일을 읽을 수 없습니다.");
-        }}
+        {...trim.metadata}
         onTimeUpdate={(event) => {
           const next = event.currentTarget.currentTime * 1000;
           setCurrentMs(next);

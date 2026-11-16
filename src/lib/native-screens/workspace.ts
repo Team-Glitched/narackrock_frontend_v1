@@ -178,6 +178,8 @@ export type NativeSavedSources =
 export type NativeLibrary =
   | {
       view: "library";
+      /** The studio's "MIDI 가져오기" (/studio/:projectId/import): local MIDI works only, imported straight into the song. */
+      importing: boolean;
       title: string;
       subtitle: string;
       filter: "SERVER" | "LOCAL";

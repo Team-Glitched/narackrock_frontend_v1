@@ -10,6 +10,8 @@ import type { AdminScreens } from "./admin.ts";
 import type { AuthScreens } from "./auth.ts";
 import type { ChatScreens } from "./chat.ts";
 import type { NativeCommonAction, NativeHeader, NativeMoreAction } from "./common.ts";
+import type { CreationScreens } from "./creation.ts";
+import type { EditorScreens } from "./editor.ts";
 import type { NativeHome, NativeHomeAction } from "./home.ts";
 import type {
   NativeCharts,
@@ -23,6 +25,7 @@ import type { PostScreens } from "./post.ts";
 import type { ProfileScreens } from "./profile.ts";
 import type { SocialScreens } from "./social.ts";
 import type { SourcesScreens } from "./sources.ts";
+import type { StudioScreens } from "./studio.ts";
 import type { WorkspaceScreens } from "./workspace.ts";
 
 export type * from "./abyss.ts";
@@ -30,12 +33,15 @@ export type * from "./admin.ts";
 export type * from "./auth.ts";
 export type * from "./chat.ts";
 export type * from "./common.ts";
+export type * from "./creation.ts";
+export type * from "./editor.ts";
 export type * from "./home.ts";
 export type * from "./lists.ts";
 export type * from "./post.ts";
 export type * from "./profile.ts";
 export type * from "./social.ts";
 export type * from "./sources.ts";
+export type * from "./studio.ts";
 export type * from "./workspace.ts";
 
 /** Feature → its screens (kind → model and screen-specific actions). Kinds are unique across features. */
@@ -55,6 +61,9 @@ export type NativeFeatureScreens = {
   abyss: AbyssScreens;
   chat: ChatScreens;
   admin: AdminScreens;
+  studio: StudioScreens;
+  editor: EditorScreens;
+  creation: CreationScreens;
 };
 
 export type NativeFeature = keyof NativeFeatureScreens;

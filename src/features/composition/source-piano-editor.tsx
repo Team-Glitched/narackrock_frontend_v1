@@ -13,22 +13,28 @@ import { NoteEditorControls } from "./note-editor-controls";
 import { ChordPickerDialog } from "./chord-picker-dialog";
 import { useNoteEditorShortcuts } from "./use-note-editor-shortcuts";
 import { clipLocalTiming, clipPositionTick, projectPositionMs } from "./clip-local-timing";
+import { useNativeNoteRoll, useNoteEditorDialogs } from "./use-note-editor-native";
+import type { ProjectTiming } from "./project-timing";
+import { nativeTransport, transportAction } from "./studio-toolbar";
+import { useNativeTiming } from "./timing-dialog";
+import type { NativeCreationPiano, NativeCreationPianoAction } from "@/lib/native-screens";
+import { isNativeNoteRollAction } from "@/lib/native-screens/editor";
+import { isNativeTimingAction, isNativeTransportAction } from "@/lib/native-screens/studio";
 
-export function SourcePianoEditor({
-  notes,
-  setNotes,
-  bpm,
-  onBpm,
-  onBack,
-  onSave,
-}: {
+export type SourcePianoProps = {
   notes: MidiNoteDto[];
   setNotes: Dispatch<SetStateAction<MidiNoteDto[]>>;
   bpm: number;
   onBpm: (bpm: number) => void;
   onBack: () => void;
   onSave: (file: File) => void;
-}) {
+};
+
+/**
+ * The sample registration piano sketch: playback, note editor, its dialogs, timing and rendering the
+ * notes to the audio attachment. Shared by the web editor and the app's native screen.
+ */
+export function useSourcePiano({ notes, setNotes, bpm, onBpm, onSave }: SourcePianoProps) {
   const maxTick = bpm * 480; // One minute, matching upload/record limits.
   // A source sketch is not a project; its time signature is only for this editor's grid.
   const [signature, setSignature] = useState(defaultSignature);
@@ -80,8 +86,6 @@ export function SourcePianoEditor({
   });
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [settings, setSettings] = useState<number | null>(null);
-  const [showChords, setShowChords] = useState(false);
   const timing = clipLocalTiming(bpm, 480, maxTick, 0);
   const positionTick = clipPositionTick(player.positionMs, timing);
   const editor = useNoteEditor({
@@ -98,30 +102,19 @@ export function SourcePianoEditor({
       return true;
     },
   });
-  // Settings follow their note through accepted edits and close on delete/undo/redo/reset.
-  const [seenChange, setSeenChange] = useState(editor.lastChange);
-  if (seenChange !== editor.lastChange) {
-    setSeenChange(editor.lastChange);
-    const change = editor.lastChange;
-    if (change)
-      setSettings((index) => index === null ? null :
-        change.type !== "edit" || change.commandType === "delete"
-          ? null : change.indexMap[index] ?? null);
-  }
-  const [wasPending, setWasPending] = useState(pending);
-  if (wasPending !== pending) {
-    setWasPending(pending);
-    if (pending) {
-      setSettings(null);
-      setShowChords(false);
-    }
-  }
+  // Settings follow their note through accepted edits; both dialogs close while rendering.
+  const dialogs = useNoteEditorDialogs(editor);
   function play() {
     void player.play().catch(() => setError("재생하지 못했습니다."));
   }
-  useNoteEditorShortcuts({
-    editor, positionTick, playing: player.playing, onPlay: play, onPause: player.pause,
-  });
+  async function applyTiming(timing: ProjectTiming) {
+    if (notes.some((note) => note.startTick + note.durationTick > timing.bpm * 480))
+      throw new Error("현재 노트가 1분을 초과하는 BPM입니다.");
+    player.pause();
+    onBpm(timing.bpm);
+    setSignature(timing.signature);
+    setError(null);
+  }
   async function save() {
     if (pending) return;
     if (!notes.length) {
@@ -139,18 +132,107 @@ export function SourcePianoEditor({
       setPending(false);
     }
   }
+  return {
+    maxTick,
+    signature,
+    player,
+    pending,
+    error,
+    timing,
+    positionTick,
+    editor,
+    dialogs,
+    play,
+    applyTiming,
+    rewind: () => player.seek(projectPositionMs(0, timing)),
+    seekTick: (tick: number) => player.seek(projectPositionMs(tick, timing)),
+    save,
+  };
+}
+
+/**
+ * The app's sample piano (kind "creation-piano"): the same `useSourcePiano` state, drawn natively with
+ * the note editor's roll, the studio toolbar and its timing sheet.
+ */
+export function useNativeSourcePiano(props: SourcePianoProps): {
+  model: NativeCreationPiano;
+  act: (action: NativeCreationPianoAction) => void;
+} {
+  const piano = useSourcePiano(props);
+  const { player, editor, dialogs, pending } = piano;
+  const timing = useNativeTiming(
+    { bpm: props.bpm, signature: piano.signature },
+    pending ? undefined : piano.applyTiming,
+  );
+  const roll = useNativeNoteRoll({
+    editor,
+    dialogs,
+    engine: player.nativeEngine,
+    ppq: 480,
+    signature: piano.signature,
+    timing: piano.timing,
+    positionTick: piano.positionTick,
+    playing: player.playing,
+    instrument: "piano",
+    initialPitch: 60,
+    onAudition: (pitch) => void player.audition(pitch, "piano"),
+    onSeekTick: piano.seekTick,
+    onOpenChords: () => {
+      player.pause();
+      dialogs.setShowChords(true);
+    },
+  });
+  return {
+    model: {
+      title: "샘플 피아노롤",
+      addLabel: "오디오 선택 완료",
+      pending,
+      error: piano.error ?? player.error ?? editor.error,
+      transport: nativeTransport(player, props.bpm),
+      timing: timing.model,
+      roll: roll.model,
+    },
+    act(action) {
+      if (isNativeNoteRollAction(action)) return roll.act(action);
+      if (isNativeTimingAction(action)) return timing.act(action);
+      // Play reports its failure like the web toolbar's play button.
+      if (action.type === "transport-play") return piano.play();
+      if (isNativeTransportAction(action)) return transportAction(player, action);
+      switch (action.type) {
+        case "creation-piano-back":
+          if (!pending) props.onBack();
+          return;
+        case "creation-piano-rewind":
+          return piano.rewind();
+        case "creation-piano-save":
+          return void piano.save();
+      }
+    },
+  };
+}
+
+export function SourcePianoEditor(props: SourcePianoProps) {
+  const { bpm, onBack } = props;
+  const piano = useSourcePiano(props);
+  const { maxTick, signature, player, pending, error, positionTick, editor, dialogs, play } = piano;
+  const {
+    settingsIndex: settings,
+    setSettingsIndex: setSettings,
+    showChords,
+    setShowChords,
+  } = dialogs;
+  useNoteEditorShortcuts({
+    editor,
+    positionTick,
+    playing: player.playing,
+    onPlay: play,
+    onPause: player.pause,
+  });
   return (
     <div className={cn(studioStyles.studio, "note-editor")}>
       <StudioToolbar
         signature={player.signature}
-        onTiming={pending ? undefined : async (timing) => {
-          if (notes.some((note) => note.startTick + note.durationTick > timing.bpm * 480))
-            throw new Error("현재 노트가 1분을 초과하는 BPM입니다.");
-          player.pause();
-          onBpm(timing.bpm);
-          setSignature(timing.signature);
-          setError(null);
-        }}
+        onTiming={pending ? undefined : piano.applyTiming}
         piano
         title="샘플 피아노롤"
         bpm={bpm}
@@ -158,7 +240,7 @@ export function SourcePianoEditor({
         positionMs={player.positionMs}
         onPlay={play}
         onPause={player.pause}
-        onRewind={() => player.seek(projectPositionMs(0, timing))}
+        onRewind={piano.rewind}
         onBack={() => {
           if (!pending) onBack();
         }}
@@ -167,7 +249,7 @@ export function SourcePianoEditor({
         metronome={player.metronome}
         onMetronome={() => player.setMetronome((value) => !value)}
         addLabel="오디오 선택 완료"
-        onAdd={pending ? undefined : () => void save()}
+        onAdd={pending ? undefined : () => void piano.save()}
       />
       <NoteEditorControls
         editor={editor}
@@ -216,7 +298,7 @@ export function SourcePianoEditor({
         ppq={480}
         maxTick={maxTick}
         positionTick={positionTick}
-        onSeekTick={(tick) => player.seek(projectPositionMs(tick, timing))}
+        onSeekTick={piano.seekTick}
         playing={player.playing}
         instrument="piano"
         onAudition={(pitch) => void player.audition(pitch, "piano")}

@@ -71,7 +71,7 @@ function Library({ model }: { model: Extract<NativeLibrary, { view: "library" }>
     <Page title={model.title} subtitle={model.subtitle}>
       <SearchField query={model.query} />
       <View style={styles.tabs}>
-        {filters.map((filter) => {
+        {(model.importing ? filters.filter((f) => f.value === "LOCAL") : filters).map((filter) => {
           const selected = model.filter === filter.value;
           return (
             <Touchable
@@ -108,7 +108,11 @@ function Library({ model }: { model: Extract<NativeLibrary, { view: "library" }>
                 />
                 <Pill
                   label={
-                    model.busyId === resource.id ? "가져오는 중…" : "선택한 곡의 개인 초안으로"
+                    model.busyId === resource.id
+                      ? "가져오는 중…"
+                      : model.importing
+                        ? "개인 초안으로 가져오기"
+                        : "선택한 곡의 개인 초안으로"
                   }
                   primary
                   disabled={model.busyId !== null}
@@ -120,7 +124,9 @@ function Library({ model }: { model: Extract<NativeLibrary, { view: "library" }>
         </>
       )}
       {model.saved && <SavedSources saved={model.saved} />}
-      <Wide label="샘플 둘러보기" onPress={() => act({ type: "open-sources" })} />
+      {!model.importing && (
+        <Wide label="샘플 둘러보기" onPress={() => act({ type: "open-sources" })} />
+      )}
     </Page>
   );
 }

@@ -17,6 +17,8 @@ import { NotificationsOverlay } from "@/features/notifications/notifications-ove
 import { creationTarget } from "@/features/navigation/creation-target";
 import { resolveSearchScope } from "@/features/search/search-scope";
 import { sharedStyles } from "@/styles/shared.styles";
+import { nativeApp } from "@/lib/native-app";
+import { NativeRecordBridge } from "@/features/composition/native-creation-bridges";
 export default function RecordPage() {
   const route = useRouteComposition();
   const instrument = useInstrumentPrompt(route.projectId);
@@ -42,13 +44,57 @@ export default function RecordPage() {
         ? { state: { studioFrom: currentPath, studioIndex: window.history.state?.idx } }
         : undefined,
     );
+  const search = () => to(withQuery("/search", { scope, galleryId }));
+  async function save(file: File) {
+    try {
+      if (partial.current) {
+        if (partial.current.mode !== "audio" || !partial.current.error.retry)
+          throw new Error("이전 MIDI 초안 저장을 먼저 재시도하거나 취소해주세요.");
+        await partial.current.error.retry();
+      } else
+        await saveAudioLayer(
+          route.projectId!,
+          file,
+          await instrument.ask({ mode: "audio", audio: { file } }),
+          "RECORDING",
+        );
+      partial.current = null;
+    } catch (cause) {
+      // Closing the chooser keeps the recording; it is not a save failure.
+      if (cause instanceof InstrumentPromptCancelled) return;
+      if (cause instanceof PartialLayerError) partial.current = { error: cause, mode: "audio" };
+      throw cause;
+    }
+    to(route.studioUrl, { replace: true, state: route.studioState });
+  }
+  async function transform(file: File) {
+    try {
+      if (partial.current) {
+        if (partial.current.mode !== "midi" || !partial.current.error.retry)
+          throw new Error("이전 오디오 저장을 먼저 재시도하거나 취소해주세요.");
+        await partial.current.error.retry();
+        to(route.notesUrl({ trackId: partial.current.error.trackId, clipId: null }), {
+          replace: true,
+          state: route.studioState,
+        });
+      } else {
+        const editor = await recordingToMidi(
+          route.projectId!,
+          file,
+          await instrument.ask({ mode: "midi" }),
+        );
+        to(route.notesUrl(editor), { replace: true, state: route.studioState });
+      }
+    } catch (cause) {
+      if (cause instanceof InstrumentPromptCancelled) return;
+      if (cause instanceof PartialLayerError) partial.current = { error: cause, mode: "midi" };
+      throw cause;
+    }
+  }
   return (
     <DesignViewport>
       <div className={sharedStyles.phoneFrame}>
-        <Header
-          onSearch={() => to(withQuery("/search", { scope, galleryId }))}
-          onBack={() => void cancel()}
-        />
+        <Header onSearch={search} onBack={() => void cancel()} />
         <div className={sharedStyles.screenBody}>
           {cancelError && <p role="alert">{cancelError}</p>}
           {route.projectId === null ? (
@@ -56,54 +102,18 @@ export default function RecordPage() {
           ) : (
             <CompositionRecordScreen
               onBack={() => void cancel()}
-              onSave={async (file) => {
-                try {
-                  if (partial.current) {
-                    if (partial.current.mode !== "audio" || !partial.current.error.retry)
-                      throw new Error("이전 MIDI 초안 저장을 먼저 재시도하거나 취소해주세요.");
-                    await partial.current.error.retry();
-                  } else
-                    await saveAudioLayer(
-                      route.projectId!,
-                      file,
-                      await instrument.ask({ mode: "audio", audio: { file } }),
-                      "RECORDING",
-                    );
-                  partial.current = null;
-                } catch (cause) {
-                  // Closing the chooser keeps the recording; it is not a save failure.
-                  if (cause instanceof InstrumentPromptCancelled) return;
-                  if (cause instanceof PartialLayerError)
-                    partial.current = { error: cause, mode: "audio" };
-                  throw cause;
-                }
-                to(route.studioUrl, { replace: true, state: route.studioState });
-              }}
-              onTransform={async (file) => {
-                try {
-                  if (partial.current) {
-                    if (partial.current.mode !== "midi" || !partial.current.error.retry)
-                      throw new Error("이전 오디오 저장을 먼저 재시도하거나 취소해주세요.");
-                    await partial.current.error.retry();
-                    to(route.notesUrl({ trackId: partial.current.error.trackId, clipId: null }), {
-                      replace: true,
-                      state: route.studioState,
-                    });
-                  } else {
-                    const editor = await recordingToMidi(
-                      route.projectId!,
-                      file,
-                      await instrument.ask({ mode: "midi" }),
-                    );
-                    to(route.notesUrl(editor), { replace: true, state: route.studioState });
-                  }
-                } catch (cause) {
-                  if (cause instanceof InstrumentPromptCancelled) return;
-                  if (cause instanceof PartialLayerError)
-                    partial.current = { error: cause, mode: "midi" };
-                  throw cause;
-                }
-              }}
+              onSave={save}
+              onTransform={transform}
+            />
+          )}
+          {nativeApp() && route.projectId !== null && (
+            <NativeRecordBridge
+              onSave={save}
+              onTransform={transform}
+              instrument={instrument.native}
+              notice={cancelError || null}
+              onBack={() => void cancel()}
+              onSearch={search}
             />
           )}
         </div>

@@ -6,6 +6,7 @@ import { useEffect, useRef, useState } from "react";
 import { Asset } from "@/components/asset";
 import { AudioTrimPicker } from "@/features/composition/audio-trim-picker";
 import type { AudioSelection } from "@/features/composition/prepare-audio-file";
+import { recordNativeAudio } from "@/lib/native-app";
 
 export type CreationMethod = "upload" | "record" | "note";
 
@@ -71,6 +72,22 @@ export function CompositionChoiceScreen({
   );
 }
 
+/** A chosen audio file and its object URL (revoked when replaced or on unmount). */
+export type SelectedAudio = { file: File; url: string };
+
+/** The upload screens' chosen file, shared by the web screen and the app's native upload. */
+export function useSelectedAudio() {
+  const [selected, setSelected] = useState<SelectedAudio | null>(null);
+  useEffect(
+    () => () => {
+      if (selected) URL.revokeObjectURL(selected.url);
+    },
+    [selected],
+  );
+  const select = (file: File) => setSelected({ file, url: URL.createObjectURL(file) });
+  return [selected, select] as const;
+}
+
 // The file selection and preview follow the team's UploadScreen; saving is wired to the project API.
 export function CompositionUploadScreen({
   onSave,
@@ -80,13 +97,7 @@ export function CompositionUploadScreen({
   saveLabel?: string;
   onBack: () => void;
 }) {
-  const [selected, setSelected] = useState<{ file: File; url: string } | null>(null);
-  useEffect(
-    () => () => {
-      if (selected) URL.revokeObjectURL(selected.url);
-    },
-    [selected],
-  );
+  const [selected, select] = useSelectedAudio();
   return (
     <div
       className={cn(
@@ -102,7 +113,7 @@ export function CompositionUploadScreen({
           accept="audio/wav,audio/x-wav,audio/wave,audio/mpeg,audio/mp4,audio/flac"
           onChange={(event) => {
             const selected = event.target.files?.[0] ?? null;
-            if (selected) setSelected({ file: selected, url: URL.createObjectURL(selected) });
+            if (selected) select(selected);
             event.target.value = "";
           }}
         />
@@ -170,7 +181,8 @@ function RecordingMeter({ stream }: { stream: MediaStream }) {
       const width = element.clientWidth;
       const height = element.clientHeight;
       if (element.width !== Math.round(width * ratio)) element.width = Math.round(width * ratio);
-      if (element.height !== Math.round(height * ratio)) element.height = Math.round(height * ratio);
+      if (element.height !== Math.round(height * ratio))
+        element.height = Math.round(height * ratio);
       const capacity = Math.ceil(width / WAVE_COLUMN_WIDTH) + 1;
       if (lows.length > capacity) {
         lows.splice(0, lows.length - capacity);
@@ -186,7 +198,9 @@ function RecordingMeter({ stream }: { stream: MediaStream }) {
       context2d.fillRect(0, middle - 0.5, width, 1);
       context2d.globalAlpha = 1;
       context2d.beginPath();
-      highs.forEach((sample, index) => context2d.lineTo(x(index), Math.min(middle - 0.75, y(sample))));
+      highs.forEach((sample, index) =>
+        context2d.lineTo(x(index), Math.min(middle - 0.75, y(sample))),
+      );
       for (let index = lows.length - 1; index >= 0; index -= 1)
         context2d.lineTo(x(index), Math.max(middle + 0.75, y(lows[index])));
       context2d.closePath();
@@ -215,41 +229,90 @@ function RecordingMeter({ stream }: { stream: MediaStream }) {
   );
 }
 
-// The recorder UI and MediaRecorder lifecycle follow the team's RecordScreen.
-export function CompositionRecordScreen({
+/**
+ * Recording, saving and HTI conversion of the record screens, shared by the web screen
+ * (MediaRecorder) and the app's native record screen (`native`: the app records through
+ * `recordNativeAudio`; `durationMs` is the recording's length for timing its preview).
+ * `beforeSubmit` stops the caller's player before saving or converting.
+ */
+export function useCompositionRecorder({
   onSave,
   onTransform,
-  saveLabel = "레이어에 녹음 저장",
+  native = false,
+  beforeSubmit,
 }: {
   onSave: (file: File) => Promise<void>;
   onTransform?: (file: File) => Promise<void>;
-  saveLabel?: string;
-  onBack: () => void;
+  native?: boolean;
+  beforeSubmit?: () => void;
 }) {
   const recorder = useRef<MediaRecorder | null>(null);
   const stream = useRef<MediaStream | null>(null);
+  const nativeStartedAt = useRef<number | null>(null);
+  const mounted = useRef(true);
   const [liveStream, setLiveStream] = useState<MediaStream | null>(null);
-  const playback = useRef<HTMLAudioElement>(null);
   const [recording, setRecording] = useState(false);
   const [pending, setPending] = useState(false);
   const [pendingLabel, setPendingLabel] = useState("처리 중");
   const [file, setFile] = useState<File | null>(null);
+  const [durationMs, setDurationMs] = useState<number | null>(null);
   const [url, setUrl] = useState("");
   const [error, setError] = useState("");
-  useEffect(
-    () => () => {
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
       if (recorder.current?.state === "recording") recorder.current.stop();
       stream.current?.getTracks().forEach((track) => track.stop());
-    },
-    [],
-  );
+      // Leaving the page discards an unfinished app recording.
+      if (nativeStartedAt.current !== null) void recordNativeAudio("cancel").catch(() => {});
+      nativeStartedAt.current = null;
+    };
+  }, []);
   useEffect(
     () => () => {
       if (url) URL.revokeObjectURL(url);
     },
     [url],
   );
+  async function toggleNative() {
+    if (recording) {
+      const startedAt = nativeStartedAt.current;
+      nativeStartedAt.current = null;
+      setRecording(false);
+      setPending(true);
+      try {
+        const recorded = await recordNativeAudio("stop");
+        if (!mounted.current) return;
+        setFile(recorded);
+        setDurationMs(recorded && startedAt !== null ? Date.now() - startedAt : null);
+      } catch (cause) {
+        setError(cause instanceof Error ? cause.message : "녹음을 저장하지 못했습니다.");
+      } finally {
+        setPending(false);
+      }
+      return;
+    }
+    setPending(true);
+    setError("");
+    setFile(null);
+    setDurationMs(null);
+    try {
+      await recordNativeAudio("start");
+      if (!mounted.current) {
+        void recordNativeAudio("cancel").catch(() => {});
+        return;
+      }
+      nativeStartedAt.current = Date.now();
+      setRecording(true);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "마이크 권한을 확인해 주세요.");
+    } finally {
+      setPending(false);
+    }
+  }
   async function toggle() {
+    if (native) return toggleNative();
     if (recording) {
       recorder.current?.stop();
       setRecording(false);
@@ -295,7 +358,7 @@ export function CompositionRecordScreen({
     setPending(true);
     setError("");
     // The chooser auditions the recording itself; the native player must not play over it.
-    playback.current?.pause();
+    beforeSubmit?.();
     try {
       await onSave(file);
     } catch (cause) {
@@ -309,7 +372,7 @@ export function CompositionRecordScreen({
     setPendingLabel("HTI 변환 중");
     setPending(true);
     setError("");
-    playback.current?.pause();
+    beforeSubmit?.();
     try {
       await onTransform(file);
     } catch (cause) {
@@ -318,6 +381,40 @@ export function CompositionRecordScreen({
       setPending(false);
     }
   }
+  return {
+    liveStream,
+    recording,
+    pending,
+    file,
+    durationMs,
+    url,
+    error,
+    /** The status line under the recorder. */
+    status: recording ? "녹음 중" : pending ? pendingLabel : file ? "녹음 완료" : "",
+    toggle,
+    save,
+    transform,
+  };
+}
+
+// The recorder UI and MediaRecorder lifecycle follow the team's RecordScreen.
+export function CompositionRecordScreen({
+  onSave,
+  onTransform,
+  saveLabel = "레이어에 녹음 저장",
+}: {
+  onSave: (file: File) => Promise<void>;
+  onTransform?: (file: File) => Promise<void>;
+  saveLabel?: string;
+  onBack: () => void;
+}) {
+  const playback = useRef<HTMLAudioElement>(null);
+  const { liveStream, recording, pending, file, url, error, status, toggle, save, transform } =
+    useCompositionRecorder({
+      onSave,
+      onTransform,
+      beforeSubmit: () => playback.current?.pause(),
+    });
   return (
     <div className={cn(studioStyles.recordView, sharedStyles.scrollContent)}>
       <Asset name="metronome-large.svg" className={studioStyles.recordSymbol} />
@@ -325,9 +422,7 @@ export function CompositionRecordScreen({
         {error && <p role="alert">{error}</p>}
         {url && <audio ref={playback} controls src={url} />}
         {recording && liveStream && <RecordingMeter stream={liveStream} />}
-        <p role="status">
-          {recording ? "녹음 중" : pending ? pendingLabel : file ? "녹음 완료" : ""}
-        </p>
+        <p role="status">{status}</p>
         {file && (
           <div className={studioStyles.recordActions}>
             <button

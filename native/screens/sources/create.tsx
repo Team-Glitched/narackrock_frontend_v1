@@ -9,6 +9,7 @@ import { type } from "../../ui/theme";
 import { Notice, Pill } from "../workspace/parts";
 import type { ScreenProps } from "../types";
 import { SourceLogin, styles } from "./parts";
+import { CropSheet } from "./crop";
 
 export function SourceCreateScreen({ model, header }: ScreenProps<"source-create">) {
   return (
@@ -21,7 +22,10 @@ export function SourceCreateScreen({ model, header }: ScreenProps<"source-create
       ) : model.state === "expired" ? (
         <Status>다른 탭에서 이 초안을 등록하거나 삭제했습니다. 작성 화면을 다시 열어주세요.</Status>
       ) : model.state === "form" ? (
-        <CreateForm model={model} />
+        <>
+          <CreateForm model={model} />
+          {model.cropping && <CropSheet model={model} />}
+        </>
       ) : null}
     </>
   );

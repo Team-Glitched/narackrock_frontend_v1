@@ -43,6 +43,36 @@ export function chordStartTick(positionMs: number, timeline: {
   return Math.max(0, grid * timeline.stepTick);
 }
 
+export const chordLengths = [
+  { value: "eighth", label: "1/8" },
+  { value: "quarter", label: "1/4" },
+  { value: "half", label: "1/2" },
+  { value: "bar", label: "한 마디" },
+] as const;
+export type ChordLength = (typeof chordLengths)[number]["value"];
+
+/** The chord picker's note length in ticks ("한 마디" follows the time signature). */
+export function chordDurationTick(length: ChordLength, ppq: number,
+  signature: { numerator: number; denominator: number }): number {
+  return Math.max(1, Math.round(length === "bar" ? ppq * 4 * signature.numerator / signature.denominator
+    : ppq * (length === "half" ? 2 : length === "quarter" ? 1 : 0.5)));
+}
+
+/** The clip-local playhead snapped down to the grid (conversion noise rounds to the nearest step). */
+export function chordGridTick(positionTick: number, stepTick: number): number {
+  const grid = positionTick / stepTick;
+  const snapped = Math.abs(grid - Math.round(grid)) <= 1e-9 ? Math.round(grid) : Math.floor(grid);
+  return Math.max(0, snapped * stepTick);
+}
+
+/** A chord button is enabled: every pitch fits the editor's range and the instrument is not the drum kit. */
+export function chordFits(rootPitch: number, quality: ChordQuality,
+  bounds: { minPitch: number; maxPitch: number }): boolean {
+  const pitches = chordPitches(rootPitch, quality);
+  return pitches.length > 0 && pitches.every((pitch) => pitch >= bounds.minPitch && pitch <= bounds.maxPitch) &&
+    !(bounds.minPitch === 35 && bounds.maxPitch === 81);
+}
+
 export function insertChord(notes: MidiNoteDto[], placement: {
   rootPitch: number; quality: ChordQuality; startTick: number; durationTick: number; maxTick: number;
 }): { notes: MidiNoteDto[]; reason: "outside-pitch-range" | "outside-timeline" | "overlap" | null } {

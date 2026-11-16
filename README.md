@@ -122,7 +122,7 @@ npm run native:prebuild              # app.config.ts/플러그인 변경 후 nat
 - 사진: `pickNativeImage()`가 `pick-image` 브리지로 시스템 사진 선택기를 열어 `File`을 돌려줍니다. 웹과 같은 검증·업로드 코드를 쓰며, 브라우저의 파일 입력은 그대로입니다. 플러그인을 변경하면 prebuild를 다시 실행해야 합니다.
 - 채팅: 앱은 웹 화면 대신 `NativeChatBridge`를 마운트하므로 대화 상태·실시간 연결·읽음 처리는 한 인스턴스가 맡습니다. 네이티브 입력은 전송 성공 카운터가 바뀔 때만 지워져 전송 실패 시 초안이 남습니다.
 - 웹 모달: `aria-modal` 요소가 열리면(`set-modal`) 네이티브 화면과 탭 바가 비켜서 웹 대화창을 보이고 누를 수 있게 합니다. 새 대화창도 `aria-modal`을 붙여야 합니다.
-- 샘플 등록: 등록 페이지는 네이티브로 그리되 오디오 가져오기·녹음·피아노와 썸네일 자르기는 기존 웹 시트를 열어 처리합니다. 업로드는 오디오 파일을 받으며 MIDI 파일 업로드 기능은 아닙니다.
+- 샘플 등록·레이어 추가(업로드/녹음/가져오기): 오디오 선택·녹음·피아노와 썸네일 자르기까지 네이티브 화면(`native/screens/creation/`, `native/screens/sources/crop.tsx`)으로 그립니다. 오디오 파일은 `pickNativeAudio()`(`pick-audio`, `expo-document-picker`)로 고르고 파형·길이 계산과 저장은 웹이 맡으며, 구간 미리 듣기·녹음·피아노 렌더링은 앱 오디오 엔진을 씁니다. 업로드는 오디오 파일을 받으며 MIDI 파일 업로드 기능은 아닙니다.
 - 뒤로가기(Android): 열린 웹 모달에 Escape를 보내 닫고, 없으면 웹 history를 되돌리고, 첫 화면이면 앱을 닫습니다. `WebView.canGoBack()`은 페이지 안 사용자 제스처 없이 추가된 항목(네이티브 버튼으로 시작한 이동)을 건너뛰므로, 웹이 react-router history 위치를 보냅니다(`set-history`).
 - 아이콘: 네이티브 화면은 `public/figma/*.svg`를 웹과 함께 쓰고, `native/svg-transformer.js`가 SVGR로 `react-native-svg` 컴포넌트로 바꿉니다. 색·글꼴 크기는 `src/styles/tokens.ts`를 씁니다.
 

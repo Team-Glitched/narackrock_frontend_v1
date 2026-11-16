@@ -1,5 +1,5 @@
 import { memo } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { queryOptions, useQuery } from "@tanstack/react-query";
 import { useCurrentUserId } from "@/features/auth/use-current-user";
 import type { ClipDto } from "@/lib/api/composition";
 import { queryScope } from "@/lib/query";
@@ -8,13 +8,14 @@ import { waveformPeaks } from "./waveform-peaks";
 
 const waveformBars = 96;
 
-function AudioClipPreview({ url, offsetMs, durationMs }: {
-  url: string;
-  offsetMs: number;
-  durationMs: number;
-}) {
-  const userId = useCurrentUserId();
-  const { data: peaks } = useQuery({
+/** Waveform peaks (96 bars, 0–1) of an audio clip's trimmed media; decoded once per clip window. */
+export function clipWaveformQuery(
+  userId: number | null,
+  url: string,
+  offsetMs: number,
+  durationMs: number,
+) {
+  return queryOptions({
     queryKey: [...queryScope(userId), "clip-waveform", url, offsetMs, durationMs],
     staleTime: Infinity,
     queryFn: async ({ signal }) => {
@@ -29,6 +30,19 @@ function AudioClipPreview({ url, offsetMs, durationMs }: {
       return waveformPeaks(buffer, waveformBars, offsetMs, durationMs);
     },
   });
+}
+
+function AudioClipPreview({
+  url,
+  offsetMs,
+  durationMs,
+}: {
+  url: string;
+  offsetMs: number;
+  durationMs: number;
+}) {
+  const userId = useCurrentUserId();
+  const { data: peaks } = useQuery(clipWaveformQuery(userId, url, offsetMs, durationMs));
   if (!peaks) return null;
   const upper = peaks.map((peak, index) => `L${index + 0.5} ${(16 - peak * 13).toFixed(2)}`);
   const lower = peaks.map((peak, index) => `L${index + 0.5} ${(16 + peak * 13).toFixed(2)}`);
@@ -56,7 +70,11 @@ function AudioClipPreview({ url, offsetMs, durationMs }: {
 export const TimelineClipPreview = memo(function TimelineClipPreview({ clip }: { clip: ClipDto }) {
   if (clip.clipType === "AUDIO") {
     return clip.mediaUrl && clip.durationMs > 0 ? (
-      <AudioClipPreview url={clip.mediaUrl} offsetMs={clip.clipOffsetMs} durationMs={clip.durationMs} />
+      <AudioClipPreview
+        url={clip.mediaUrl}
+        offsetMs={clip.clipOffsetMs}
+        durationMs={clip.durationMs}
+      />
     ) : null;
   }
 

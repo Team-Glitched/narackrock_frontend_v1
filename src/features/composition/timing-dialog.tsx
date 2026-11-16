@@ -4,23 +4,75 @@ import { cn } from "@/lib/utils";
 import { CanvasDialog } from "@/components/canvas-dialog";
 import { Dropdown } from "@/components/dropdown";
 import { DialogNumberInput } from "@/features/composition/dialog-number-input";
-import type { TimeSignature } from "@/features/composition/time-signature";
+import type { NativeTimingAction, NativeTimingSheet } from "@/lib/native-screens";
 import { useId, useState } from "react";
+import { timingDenominators, timingProblem, type ProjectTiming } from "./project-timing";
 
-export type ProjectTiming = { bpm: number; signature: TimeSignature };
+const denominatorOptions = timingDenominators.map((value) => ({ value, label: String(value) }));
 
-const denominators = [2, 4, 8, 16];
-const denominatorOptions = denominators.map((value) => ({ value, label: String(value) }));
+/** Saving state of a timing dialog: "적용" saves, closes on success and shows the failure otherwise. */
+function useTimingApply(
+  onApply: ((timing: ProjectTiming) => Promise<void>) | undefined,
+  onClose: () => void,
+) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  return {
+    busy,
+    error,
+    setError,
+    async apply(draft: ProjectTiming) {
+      if (!onApply || busy) return;
+      setBusy(true);
+      setError(null);
+      try {
+        await onApply(draft);
+        onClose();
+      } catch (cause) {
+        setError(cause instanceof Error ? cause.message : "곡 설정을 저장하지 못했습니다.");
+      } finally {
+        setBusy(false);
+      }
+    },
+  };
+}
 
-/** Backend timing limits: BPM 30–300, numerator 1–12, denominator 2/4/8/16. */
-export function timingProblem({ bpm, signature }: ProjectTiming): string | null {
-  if (!Number.isInteger(bpm) || bpm < 30 || bpm > 300)
-    return "BPM은 30부터 300까지 입력할 수 있습니다.";
-  if (!Number.isInteger(signature.numerator) || signature.numerator < 1 || signature.numerator > 12)
-    return "마디당 박 수는 1부터 12까지입니다.";
-  if (!denominators.includes(signature.denominator))
-    return "기준 음표는 2, 4, 8, 16 중 하나여야 합니다.";
-  return null;
+/**
+ * The app's timing sheet over the same rules: the readouts open it (`timing-open`), "적용" saves
+ * through `onApply` (absent when the viewer may not change timing: read-only with "닫기").
+ */
+export function useNativeTiming(
+  timing: ProjectTiming,
+  onApply?: (timing: ProjectTiming) => Promise<void>,
+): { model: NativeTimingSheet | null; act: (action: NativeTimingAction) => void } {
+  const [open, setOpen] = useState<"bpm" | "beat" | null>(null);
+  const saving = useTimingApply(onApply, () => setOpen(null));
+  return {
+    model:
+      open === null
+        ? null
+        : {
+            kind: open,
+            bpm: timing.bpm,
+            numerator: timing.signature.numerator,
+            denominator: timing.signature.denominator,
+            editable: Boolean(onApply),
+            busy: saving.busy,
+            error: saving.error,
+          },
+    act(action) {
+      if (action.type === "timing-open") {
+        saving.setError(null);
+        setOpen(action.kind);
+      } else if (action.type === "timing-close") {
+        if (!saving.busy) setOpen(null);
+      } else if (timingProblem({ bpm: action.bpm, signature: action }) === null)
+        void saving.apply({
+          bpm: action.bpm,
+          signature: { numerator: action.numerator, denominator: action.denominator },
+        });
+    },
+  };
 }
 
 /**
@@ -40,8 +92,7 @@ export function TimingDialog({
 }) {
   const titleId = useId();
   const [draft, setDraft] = useState(timing);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { busy, error, apply } = useTimingApply(onApply, onClose);
   const problem = timingProblem(draft);
   const editable = Boolean(onApply);
   return (
@@ -112,19 +163,7 @@ export function TimingDialog({
         <button
           className={buttonVariants({ tone: "primary", size: "compact" })}
           disabled={busy || problem !== null}
-          onClick={async () => {
-            if (!onApply) return;
-            setBusy(true);
-            setError(null);
-            try {
-              await onApply(draft);
-              onClose();
-            } catch (cause) {
-              setError(cause instanceof Error ? cause.message : "곡 설정을 저장하지 못했습니다.");
-            } finally {
-              setBusy(false);
-            }
-          }}
+          onClick={() => void apply(draft)}
         >
           {busy ? "저장 중..." : "적용"}
         </button>
