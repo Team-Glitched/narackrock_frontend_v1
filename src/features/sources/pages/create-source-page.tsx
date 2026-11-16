@@ -1,9 +1,10 @@
 import { useQueryClient } from "@tanstack/react-query";
+import { useNavigate } from "react-router";
 import { SocialCreate, type SocialCreateProps } from "@/features/community/create-content";
 import { DesignViewport } from "@/components/design-viewport";
 import { Header } from "@/features/navigation/header";
 import { NotificationsOverlay } from "@/features/notifications/notifications-overlay";
-import { useUrlNavigation } from "@/features/navigation/use-url-navigation";
+import { useUrlNavigation, type NavigationState } from "@/features/navigation/use-url-navigation";
 import { resolveSearchScope } from "@/features/search/search-scope";
 import { DEFAULT_GALLERY_ID } from "@/lib/api/community";
 import { readId, withQuery } from "@/features/navigation/paths";
@@ -26,8 +27,13 @@ export function sourceStage(value: string | null): SourceStage {
     : "details";
 }
 
+/** How many audio-step entries sit above the details entry they were opened from. */
+type CreateSourceState = NavigationState & { stageDepth?: number };
+
 export default function CreateSourcePage() {
-  const { to, back, params, query } = useUrlNavigation();
+  const { to, back, params, query, state } = useUrlNavigation<CreateSourceState>();
+  const navigate = useNavigate();
+  const stageDepth = state.stageDepth ?? 0;
   const userId = useCurrentUserId();
   const queryClient = useQueryClient();
   const signedIn = userId !== null;
@@ -46,8 +52,21 @@ export default function CreateSourcePage() {
     kind: "source",
     galleryId: DEFAULT_GALLERY_ID,
     audioStage: stage,
-    onAudioStage: (next) =>
-      to(withQuery("/sources/new", { stage: next === "details" ? null : next })),
+    // The steps form a stack over the details entry: going forward pushes, going back returns to
+    // the entry it came from. Pushing "details" again would leave stale step entries behind it,
+    // and "작성 취소" (one step back) would then land on a step of the discarded draft.
+    onAudioStage: (next) => {
+      if (next === "details") {
+        if (stageDepth > 0) navigate(-stageDepth);
+        else to("/sources/new", { replace: true });
+      } else if (next === "choose" && stageDepth > 1) {
+        navigate(-(stageDepth - 1));
+      } else {
+        to(withQuery("/sources/new", { stage: next }), {
+          state: { stageDepth: next === "choose" ? 1 : stageDepth + 1 },
+        });
+      }
+    },
     onCancel: () => back("/sources"),
     onCreated: () => {
       void queryClient.invalidateQueries({ queryKey: sourceKeys.all(userId) });
