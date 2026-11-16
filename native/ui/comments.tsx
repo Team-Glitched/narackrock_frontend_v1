@@ -12,9 +12,7 @@
  */
 import { useEffect, useRef, useState, type FC, type ReactElement } from "react";
 import {
-  KeyboardAvoidingView,
   Modal,
-  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -43,6 +41,7 @@ import type {
   NativeReplies,
 } from "../../src/lib/native-screens";
 import { Avatar, Button, MoreButton, TextField, Touchable } from "./kit";
+import { KeyboardAvoiding } from "./keyboard-avoiding";
 import { ScreenList } from "./screen";
 import { useScreen } from "./screen-context";
 import { colors, gutter, type } from "./theme";
@@ -122,10 +121,7 @@ export function Comments({
   const [draft, setDraft] = useState("");
   useOnChange(comments.composer.cleared, () => setDraft(""));
   return (
-    <KeyboardAvoidingView
-      style={styles.flex}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
-    >
+    <KeyboardAvoiding style={styles.flex}>
       <ScreenList
         style={styles.flex}
         data={comments.threads}
@@ -152,7 +148,7 @@ export function Comments({
         }
       />
       <Composer composer={comments.composer} draft={draft} onDraft={setDraft} />
-    </KeyboardAvoidingView>
+    </KeyboardAvoiding>
   );
 }
 

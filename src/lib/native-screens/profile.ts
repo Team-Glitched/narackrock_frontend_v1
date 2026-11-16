@@ -75,7 +75,9 @@ export type NativeProfile = {
 
 export type NativeProfileAction =
   | { type: "edit" }
-  | { type: "follow" | "recheck-follow" | "chat" }
+  | { type: "follow" | "recheck-follow" }
+  /** The profile's "채팅" button: a conversation with this user (not the header's chat list). */
+  | { type: "profile-chat" }
   | { type: "open-list"; kind: NativeProfileListKind }
   | { type: "close-list" | "list-retry" | "mutual-retry" }
   | { type: "list-filter"; filter: "all" | "mutual" }

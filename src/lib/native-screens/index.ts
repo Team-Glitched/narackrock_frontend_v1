@@ -78,6 +78,20 @@ type UnionToIntersection<U> = (U extends unknown ? (value: U) => void : never) e
 export type NativeScreens = UnionToIntersection<NativeFeatureScreens[NativeFeature]>;
 export type NativeScreenKind = keyof NativeScreens;
 
+/**
+ * Screen actions must not reuse a common action's type: `useNativeScreen` handles common actions
+ * first, so a screen action named like one never reaches its page (a profile's "chat" opened the
+ * chat list instead of the conversation). The type below fails to compile on such a collision.
+ */
+type CollidingActionTypes = Extract<
+  NativeScreens[NativeScreenKind]["action"]["type"],
+  NativeCommonAction["type"] | NativeMoreAction["type"]
+>;
+const screenActionsDoNotCollide: [CollidingActionTypes] extends [never]
+  ? true
+  : CollidingActionTypes = true;
+void screenActionsDoNotCollide;
+
 export type NativeScreenView = {
   [K in NativeScreenKind]: {
     kind: K;
