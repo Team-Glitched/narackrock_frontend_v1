@@ -8,27 +8,44 @@ import { resolveSearchScope } from "@/features/search/search-scope";
 import { creationTarget } from "@/features/navigation/creation-target";
 import { sharedStyles } from "@/styles/shared.styles";
 import { JoinedCommunitiesScreen } from "@/features/community/community-directory";
+import { nativeApp } from "@/lib/native-app";
+import { NativeJoinedBridge } from "@/features/community/native-community-bridge";
 
 export default function JoinedPage() {
   const { to, back, params, query, currentPath } = useUrlNavigation();
   const galleryId = readId(params.galleryId) ?? readId(query.get("galleryId"));
   const scope = resolveSearchScope(query.get("scope"), "communities", Boolean(galleryId));
   const target = creationTarget(scope, galleryId);
+  const onBack = () => back("/communities");
+  const onSearch = () => to(withQuery("/search", { scope, galleryId }));
   return (
     <DesignViewport>
       <div className={sharedStyles.phoneFrame}>
-        <Header
-          onBack={() => back("/communities")}
-          onSearch={() => to(withQuery("/search", { scope, galleryId }))}
-        />
+        <Header onBack={onBack} onSearch={onSearch} />
         <div className={sharedStyles.screenBody}>
-          <JoinedCommunitiesScreen onOpen={(community) => to(`/communities/${community.galleryId}`)} />
+          <JoinedCommunitiesScreen
+            onOpen={(community) => to(`/communities/${community.galleryId}`)}
+          />
+          {nativeApp() && (
+            <NativeJoinedBridge
+              onOpen={(id) => to(`/communities/${id}`)}
+              onBack={onBack}
+              onSearch={onSearch}
+            />
+          )}
         </div>
         <Footer
           activeTab="social"
-          onCreate={() => to(target.path, target.path === "/studio/new" ? {
-            state: { studioFrom: currentPath, studioIndex: window.history.state?.idx },
-          } : undefined)}
+          onCreate={() =>
+            to(
+              target.path,
+              target.path === "/studio/new"
+                ? {
+                    state: { studioFrom: currentPath, studioIndex: window.history.state?.idx },
+                  }
+                : undefined,
+            )
+          }
           createLabel={target.label}
         />
         <NotificationsOverlay />
