@@ -1,9 +1,13 @@
 import { communityStyles } from "@/styles/community.styles";
 import { cn } from "@/lib/utils";
 import { buttonVariants } from "@/styles/variants";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { canSanction, useGalleryRole, type ModerationScope } from "@/features/community/use-gallery-role";
+import {
+  canSanction,
+  useGalleryRole,
+  type ModerationScope,
+} from "@/features/community/use-gallery-role";
 import { PostMemberModeration } from "@/features/admin/post-member-moderation";
 import { useHiddenPosts } from "@/features/community/hidden-posts";
 import { PostUserActionsMenu } from "@/features/posts/post-user-actions-menu";
@@ -23,14 +27,18 @@ import {
   moderateGalleryContent,
 } from "@/lib/api/community";
 import { ApiError } from "@/lib/api/client";
+import type { PostDetailResponse } from "@/lib/api/contracts";
 import { useCurrentUserId } from "@/features/auth/use-current-user";
 import { useLoginPrompt } from "@/features/auth/login-prompt";
-import { CommonComments } from "@/features/comments/common-comments";
+import { CommentsView } from "@/features/comments/common-comments";
 import type { CommentAdapter } from "@/features/comments/comment-model";
+import { useComments, type CommentsState } from "@/features/comments/use-comments";
 import { reportPost, reportPostComment } from "@/lib/api/reports";
+import { nativeApp } from "@/lib/native-app";
 import { PostActions } from "@/features/posts/post-actions";
+import { NativePostDetailBridge } from "@/features/posts/native-post-detail-bridge";
 import { applyPostRemoval, postDetailQuery, postKeys } from "@/features/posts/post-queries";
-import { usePostInteractions } from "@/features/posts/use-post-interactions";
+import { usePostInteractions, type PostInteractions } from "@/features/posts/use-post-interactions";
 
 function errorMessage(error: unknown, forbidden = "현재 계정은 댓글을 작성할 수 없습니다.") {
   if (error instanceof ApiError) {
@@ -43,21 +51,47 @@ function errorMessage(error: unknown, forbidden = "현재 계정은 댓글을 �
   return "불러오지 못했습니다. 잠시 후 다시 시도해주세요.";
 }
 
-function time(value: string) {
+export function time(value: string) {
   const date = new Date(value);
   return Number.isNaN(date.getTime())
     ? ""
     : formatDistanceToNow(date, { addSuffix: true, locale: ko });
 }
-export function PostCommentsScreen({
-  postId,
-  onProfile,
-  onHidden,
-}: {
+
+/** State and actions of a post page, shared by the web view and the app's native screen. */
+export type PostDetailState = {
   postId: number;
-  onProfile?: (userId: number) => void;
-  onHidden: () => void;
-}) {
+  post: PostDetailResponse | null;
+  /** Load or delete failure. */
+  error: string | null;
+  retry: () => void;
+  /** Result of a member sanction. */
+  moderationNotice: string;
+  /** The moderator may delete the post (with a reason). */
+  canModerate: boolean;
+  /** The moderator may suspend or expel the writer. */
+  canModerateMember: boolean;
+  /** The member sanction dialog (a web modal) to open. */
+  sanction: (action: "suspend" | "expel") => void;
+  /** The sanction dialog and the post report sheet (web modals). */
+  dialogs: ReactNode;
+  /** Opens the post report sheet after the login check. */
+  report: () => void;
+  hide: () => void;
+  confirmDelete: boolean;
+  setConfirmDelete: (open: boolean) => void;
+  /** The post is being deleted or was deleted; nothing may be written to it. */
+  deleting: boolean;
+  removePost: (reason: string) => void;
+  /** Moves when the comment input should take focus. */
+  focus: number;
+  /** The comment button: focuses the input after the login check. */
+  focusComments: () => void;
+  interactions: PostInteractions;
+  comments: CommentsState;
+};
+
+export function usePostDetail(postId: number, onHidden: () => void): PostDetailState {
   const hiddenPosts = useHiddenPosts();
   const userId = useCurrentUserId();
   const { requireLogin } = useLoginPrompt();
@@ -73,7 +107,9 @@ export function PostCommentsScreen({
   const roleCanManage = role?.canManage === true;
   const moderationGalleryId = roleCanManage ? postGalleryId : null;
   const scope: ModerationScope | undefined =
-    postGalleryId !== null && role ? { galleryId: postGalleryId, canManage: roleCanManage } : undefined;
+    postGalleryId !== null && role
+      ? { galleryId: postGalleryId, canManage: roleCanManage }
+      : undefined;
   const canModerate = roleCanManage;
   const adapter = useMemo<CommentAdapter>(
     () => ({
@@ -106,7 +142,10 @@ export function PostCommentsScreen({
       react: reactToPostComment,
       report: reportPostComment,
       ...(moderationGalleryId !== null
-        ? { moderate: (id: number, reason: string) => moderateGalleryContent(moderationGalleryId, "comments", id, reason) }
+        ? {
+            moderate: (id: number, reason: string) =>
+              moderateGalleryContent(moderationGalleryId, "comments", id, reason),
+          }
         : {}),
     }),
     [postId, moderationGalleryId],
@@ -120,11 +159,8 @@ export function PostCommentsScreen({
     void recordPostView(postId).catch(() => {});
   }, [postId, loadedPostId]);
 
-  const [menu, setMenu] = useState(false);
-  const optionButton = useRef<HTMLButtonElement>(null);
   const [report, setReport] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
-  const [moderationReason, setModerationReason] = useState("");
   const canModerateMember = post ? canSanction(scope, userId, post.writer.userId) : false;
   const removal = useMutation({
     mutationFn: (target: { galleryId: number; reason: string }) =>
@@ -140,27 +176,125 @@ export function PostCommentsScreen({
   });
   // The screen is left after a successful delete; until then nothing may be written to the post.
   const deleting = removal.isPending || removal.isSuccess;
-  function removePost() {
-    if (!canModerate || !scope || !moderationReason.trim() || deleting) return;
-    removal.mutate({ galleryId: scope.galleryId, reason: moderationReason.trim() });
-  }
   const [focus, setFocus] = useState(0);
   const interactions = usePostInteractions(postId, post);
+  const comments = useComments({
+    canRead: userId !== null,
+    canWrite: post !== null && !deleting,
+    adapter,
+    currentUserId: userId,
+    onChanged: () => {
+      // 댓글 수가 바뀌었을 수 있다. 지금 글은 다시 받고, 목록은 다음에 열 때 다시 받는다.
+      void queryClient.invalidateQueries({ queryKey: postKeys.detail(userId, postId) });
+      void queryClient.invalidateQueries({ queryKey: postKeys.lists(userId), refetchType: "none" });
+    },
+  });
+  return {
+    postId,
+    post,
+    error,
+    retry: () => void detailQuery.refetch(),
+    moderationNotice,
+    canModerate,
+    canModerateMember,
+    sanction: setMemberAction,
+    report: () => {
+      if (requireLogin()) setReport(true);
+    },
+    hide: () => {
+      hiddenPosts.hide(postId);
+      onHidden();
+    },
+    confirmDelete,
+    setConfirmDelete,
+    deleting,
+    removePost: (reason) => {
+      if (!canModerate || !scope || !reason.trim() || deleting) return;
+      removal.mutate({ galleryId: scope.galleryId, reason: reason.trim() });
+    },
+    focus,
+    focusComments: () => {
+      if (requireLogin()) setFocus((value) => value + 1);
+    },
+    interactions,
+    comments,
+    dialogs: (
+      <>
+        {post && scope && memberAction && (
+          <PostMemberModeration
+            community={scope}
+            member={post.writer}
+            action={memberAction}
+            onClose={() => setMemberAction(null)}
+            onDone={(message) => {
+              setMemberAction(null);
+              setModerationNotice(message);
+            }}
+          />
+        )}
+        {report && (
+          <FigmaSheet title="신고" onClose={() => setReport(false)}>
+            <ReportReasons
+              onSubmit={(reason, description) => reportPost(postId, reason, description)}
+              onDone={() => setReport(false)}
+            />
+          </FigmaSheet>
+        )}
+      </>
+    ),
+  };
+}
+
+export function PostCommentsScreen({
+  postId,
+  onProfile,
+  onHidden,
+  onBack,
+  onSearch,
+}: {
+  postId: number;
+  onProfile?: (userId: number) => void;
+  onHidden: () => void;
+  /** Header buttons of the app's native screen. */
+  onBack: () => void;
+  onSearch: () => void;
+}) {
+  const detail = usePostDetail(postId, onHidden);
+  return (
+    <>
+      <PostCommentsView detail={detail} onProfile={onProfile} />
+      {nativeApp() && (
+        <NativePostDetailBridge
+          detail={detail}
+          onProfile={onProfile}
+          onBack={onBack}
+          onSearch={onSearch}
+        />
+      )}
+    </>
+  );
+}
+
+function PostCommentsView({
+  detail,
+  onProfile,
+}: {
+  detail: PostDetailState;
+  onProfile?: (userId: number) => void;
+}) {
+  const { post, error, interactions, canModerate, canModerateMember, confirmDelete, deleting } =
+    detail;
+  const [menu, setMenu] = useState(false);
+  const optionButton = useRef<HTMLButtonElement>(null);
+  const [moderationReason, setModerationReason] = useState("");
   return (
     <div className={cn(communityStyles.commentsScreen, communityStyles.communityView)}>
       {interactions.shareDialog}
-      <CommonComments
-        canRead={userId !== null}
-        canWrite={post !== null && !deleting}
-        adapter={adapter}
-        currentUserId={userId}
+      <CommentsView
+        comments={detail.comments}
         onProfile={onProfile}
-        onChanged={() => {
-          // 댓글 수가 바뀌었을 수 있다. 지금 글은 다시 받고, 목록은 다음에 열 때 다시 받는다.
-          void queryClient.invalidateQueries({ queryKey: postKeys.detail(userId, postId) });
-          void queryClient.invalidateQueries({ queryKey: postKeys.lists(userId), refetchType: "none" });
-        }}
-        focus={focus}
+        // In the app the native composer takes the focus; the hidden web input must not open the keyboard.
+        focus={nativeApp() ? 0 : detail.focus}
         header={
           <>
             {error && (
@@ -172,7 +306,7 @@ export function PostCommentsScreen({
                       tone: "secondary",
                       size: "compact",
                     })}
-                    onClick={() => void detailQuery.refetch()}
+                    onClick={detail.retry}
                   >
                     다시 시도
                   </button>
@@ -180,21 +314,9 @@ export function PostCommentsScreen({
               </div>
             )}
             {!post && !error && <p role="status">게시글을 불러오는 중...</p>}
-            {post && scope && memberAction && (
-              <PostMemberModeration
-                community={scope}
-                member={post.writer}
-                action={memberAction}
-                onClose={() => setMemberAction(null)}
-                onDone={(message) => {
-                  setMemberAction(null);
-                  setModerationNotice(message);
-                }}
-              />
-            )}
-            {moderationNotice && (
+            {detail.moderationNotice && (
               <p className={communityStyles.postModerationNotice} role="status">
-                {moderationNotice}
+                {detail.moderationNotice}
               </p>
             )}
             {post && (
@@ -227,7 +349,7 @@ export function PostCommentsScreen({
                         canModerateMember
                           ? () => {
                               setMenu(false);
-                              setMemberAction("suspend");
+                              detail.sanction("suspend");
                             }
                           : undefined
                       }
@@ -235,7 +357,7 @@ export function PostCommentsScreen({
                         canModerateMember
                           ? () => {
                               setMenu(false);
-                              setMemberAction("expel");
+                              detail.sanction("expel");
                             }
                           : undefined
                       }
@@ -244,19 +366,16 @@ export function PostCommentsScreen({
                         canModerate
                           ? () => {
                               setMenu(false);
-                              setConfirmDelete(true);
+                              detail.setConfirmDelete(true);
                             }
                           : undefined
                       }
                       onClose={() => setMenu(false)}
                       onReport={() => {
                         setMenu(false);
-                        if (requireLogin()) setReport(true);
+                        detail.report();
                       }}
-                      onHide={() => {
-                        hiddenPosts.hide(postId);
-                        onHidden();
-                      }}
+                      onHide={detail.hide}
                     />
                   )}
                   {confirmDelete && (
@@ -278,7 +397,7 @@ export function PostCommentsScreen({
                           tone: "secondary",
                         })}
                         disabled={deleting}
-                        onClick={() => setConfirmDelete(false)}
+                        onClick={() => detail.setConfirmDelete(false)}
                       >
                         취소
                       </button>
@@ -287,7 +406,7 @@ export function PostCommentsScreen({
                           tone: "primary",
                         })}
                         disabled={deleting || !moderationReason.trim()}
-                        onClick={removePost}
+                        onClick={() => detail.removePost(moderationReason)}
                       >
                         {deleting ? "삭제 중..." : "삭제 확인"}
                       </button>
@@ -310,10 +429,16 @@ export function PostCommentsScreen({
                     likeCount={interactions.reaction?.likeCount ?? post.likeCount}
                     dislikeCount={interactions.reaction?.dislikeCount ?? post.dislikeCount}
                     commentCount={post.commentCount}
-                    vote={interactions.reaction?.isLiked ? "like" : interactions.reaction?.isDisliked ? "dislike" : null}
+                    vote={
+                      interactions.reaction?.isLiked
+                        ? "like"
+                        : interactions.reaction?.isDisliked
+                          ? "dislike"
+                          : null
+                    }
                     busy={interactions.busy}
                     onVote={(kind) => void interactions.vote(kind)}
-                    onComments={() => { if (requireLogin()) setFocus((value) => value + 1); }}
+                    onComments={detail.focusComments}
                     saved={interactions.bookmarked}
                     onSave={() => void interactions.toggleBookmark()}
                     onShare={() => void interactions.share(post.title)}
@@ -326,14 +451,7 @@ export function PostCommentsScreen({
           </>
         }
       />
-      {report && (
-        <FigmaSheet title="신고" onClose={() => setReport(false)}>
-          <ReportReasons
-            onSubmit={(reason, description) => reportPost(postId, reason, description)}
-            onDone={() => setReport(false)}
-          />
-        </FigmaSheet>
-      )}
+      {detail.dialogs}
     </div>
   );
 }
