@@ -31,19 +31,8 @@ const toItem = (comment: ShortComment): CommentItem => ({
 });
 
 /** Short comments: the server returns every comment at once, so pages are the parent-filtered full list. */
-export function AbyssComments({
-  open,
-  onClose,
-  shortId,
-  onChanged,
-}: {
-  open: boolean;
-  onClose: () => void;
-  shortId: number;
-  onChanged: () => void;
-}) {
-  const userId = useCurrentUserId();
-  const adapter = useMemo<CommentAdapter>(
+export function useShortCommentAdapter(shortId: number): CommentAdapter {
+  return useMemo<CommentAdapter>(
     () => ({
       kind: "shorts",
       targetId: shortId,
@@ -59,7 +48,9 @@ export function AbyssComments({
       async react(id, kind) {
         await (kind === "like" ? likeShortComment(shortId, id) : dislikeShortComment(shortId, id));
         // Each toggle reports only its own side; re-read so both like and dislike reflect the server.
-        const comment = (await getShortComments(shortId)).comments.find((item) => item.commentId === id);
+        const comment = (await getShortComments(shortId)).comments.find(
+          (item) => item.commentId === id,
+        );
         if (!comment) throw new Error("댓글을 찾을 수 없습니다.");
         return {
           isLiked: comment.isLiked,
@@ -72,6 +63,22 @@ export function AbyssComments({
     }),
     [shortId],
   );
+}
+
+/** The comment sheet of a short (web). */
+export function AbyssComments({
+  open,
+  onClose,
+  shortId,
+  onChanged,
+}: {
+  open: boolean;
+  onClose: () => void;
+  shortId: number;
+  onChanged: () => void;
+}) {
+  const userId = useCurrentUserId();
+  const adapter = useShortCommentAdapter(shortId);
   if (!open) return null;
   return (
     <FigmaSheet title="댓글" onClose={onClose}>

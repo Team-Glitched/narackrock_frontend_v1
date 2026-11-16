@@ -66,6 +66,7 @@ export function useNativeScreen<K extends NativeScreenKind>(
     onAction,
     onBack,
     onSearch,
+    path,
   }: {
     header: NativeHeader | null;
     /** Screen-specific actions, and `more` for paged lists. */
@@ -74,6 +75,11 @@ export function useNativeScreen<K extends NativeScreenKind>(
     onBack?: () => void;
     /** Default: the search page. */
     onSearch?: () => void;
+    /**
+     * The app's entry path; default the location pathname. A page that rewrites its own path with
+     * `replace` while it stays open (abyss swipes) passes a fixed path so its native screen keeps its key.
+     */
+    path?: string;
   },
 ): ReactNode {
   const { pathname } = useLocation();
@@ -82,7 +88,7 @@ export function useNativeScreen<K extends NativeScreenKind>(
   const { requireLogin } = useLoginPrompt();
   const queryClient = useQueryClient();
   const userId = useCurrentUserId();
-  const key = screenKey(pathname);
+  const key = screenKey(path ?? pathname);
   const [refreshed, setRefreshed] = useState(0);
   const [report, setReport] = useState<{ kind: NativeContentKind; id: number } | null>(null);
 

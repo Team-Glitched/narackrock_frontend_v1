@@ -17,12 +17,21 @@ type ParticipationShort = Pick<
  */
 export type ShortParticipation = "owner" | "contributed" | "pending" | "joinable";
 
+/** The participation button's label. */
+export const participationLabel: Record<ShortParticipation, string> = {
+  joinable: "작곡 참여하기",
+  owner: "내 곡 · 스튜디오 열기",
+  contributed: "참여한 곡 · 스튜디오 열기",
+  pending: "참여 요청 대기 중 · 요청 보기",
+};
+
 export function shortParticipation(
   short: ParticipationShort,
   currentUserId: number | null,
 ): ShortParticipation | null {
   if (short.projectId == null) return null;
-  const mine = currentUserId == null ? [] : short.participants.filter((p) => p.userId === currentUserId);
+  const mine =
+    currentUserId == null ? [] : short.participants.filter((p) => p.userId === currentUserId);
   if (mine.some((p) => p.role === "OWNER")) return "owner";
   if (short.hasApprovedContribution || mine.length > 0) return "contributed";
   if (short.hasPendingContribution) return "pending";
