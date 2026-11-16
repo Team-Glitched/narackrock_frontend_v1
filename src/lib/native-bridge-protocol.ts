@@ -134,6 +134,11 @@ export type BridgeMethods = {
    */
   "pick-audio": { payload: Record<never, never>; result: { audio: NativeAudioFile | null } };
   /**
+   * The platform document picker for a JSON note file (the piano roll's "이 기기에서 업로드").
+   * Null when cancelled; the web builds a File (`pickNativeJson`).
+   */
+  "pick-json": { payload: Record<never, never>; result: { file: NativeAudioFile | null } };
+  /**
    * Exports a generated file (recovery JSON, original audio): the app writes it to its cache and
    * opens the share sheet (Save to Files, Drive, …), since the WebView drops blob downloads.
    */

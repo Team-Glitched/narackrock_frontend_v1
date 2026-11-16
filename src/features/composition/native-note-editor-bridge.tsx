@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNativeScreen } from "@/features/navigation/use-native-screen";
+import { pickNativeJson } from "@/lib/native-app";
 import type { NativeNoteEditor, NativeNoteEditorAction } from "@/lib/native-screens/editor";
 import { isNativeNoteRollAction } from "@/lib/native-screens/editor";
 import {
@@ -10,6 +11,7 @@ import {
 } from "@/lib/native-screens/studio";
 import { partLabel } from "./instrument-parts";
 import { useNativeInstrumentPicker } from "./instrument-dialog";
+import { importJsonNoteFile } from "./json-note-import";
 import { useNativeSourcePicker } from "./studio-source-dialog";
 import { nativeTransport, transportAction } from "./studio-toolbar";
 import { useNativeTiming } from "./timing-dialog";
@@ -65,6 +67,12 @@ export function NativeNoteEditorBridge({ screen, portrait, onToggleLayout, onBac
     onClose: () => screen.setShowSources(false),
     onResource: screen.importResource,
     onOpenSource: screen.insertOpenSource,
+    async onImportJson() {
+      const file = await pickNativeJson();
+      if (!file) return;
+      await importJsonNoteFile(editor, file, composition.project.ppq);
+      screen.setShowSources(false);
+    },
   });
   const model: NativeNoteEditor = screen.clipUnavailable
     ? { status: "error", message: "선택한 MIDI 클립을 찾을 수 없습니다." }

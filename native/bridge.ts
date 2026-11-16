@@ -32,6 +32,7 @@ import { record, renderNotes, runAudioCommand } from "./audio";
 import { signInWithGoogle } from "./google-sign-in";
 import { pickImage } from "./pick-image";
 import { pickAudio } from "./pick-audio";
+import { pickJson } from "./pick-json";
 import { shareFile } from "./share-file";
 
 const tokenGlobal = "__narackrockBridgeToken" satisfies BridgeGlobals["token"];
@@ -220,6 +221,7 @@ export function parseRequest(data: string): BridgeRequest | null {
         return null;
       return { id, token: bridgeToken, type: parsed.type, title: parsed.title, url: parsed.url };
     case "pick-audio":
+    case "pick-json":
       return { id, token: bridgeToken, type: parsed.type };
     case "share-file": {
       const file = "file" in parsed ? parsed.file : null;
@@ -329,6 +331,8 @@ async function run(
       return { image: await pickImage() };
     case "pick-audio":
       return { audio: await pickAudio() };
+    case "pick-json":
+      return { file: await pickJson() };
     case "share-file":
       await shareFile(request.file);
       return null;

@@ -1,6 +1,6 @@
 import { studioStyles } from "@/styles/studio.styles";
 import { buttonVariants } from "@/styles/variants";
-import { useId, useState } from "react";
+import { useId, useState, type ReactNode } from "react";
 import { CanvasDialog } from "@/components/canvas-dialog";
 import { Asset } from "@/components/asset";
 import { useWorkspace, type Resource } from "@/features/workspace/workspace-store";
@@ -12,19 +12,25 @@ import type {
   NativeSourcePickerAction,
   NativeSourcePickerRow,
 } from "@/lib/native-screens";
+import { jsonNoteFormat } from "./json-note-import";
 import { errorText } from "./studio-helpers";
 
-type Tab = "saved" | "local";
+type Tab = "saved" | "local" | "upload";
 
 type SourceHandlers = {
   /** Imports a MIDI work kept in this browser. */
   onResource: (resource: Resource) => Promise<void>;
   /** Places a saved server open source on the edited layer; omitted where no own layer exists. */
   onOpenSource?: (source: OpenSourceSummary) => Promise<void>;
+  /**
+   * App only: picks a JSON note file and adds its notes (the web's "이 기기에서 업로드" tab);
+   * resolves without change when the picker is cancelled.
+   */
+  onImportJson?: () => Promise<void>;
 };
 
 /** Tab, search and the running import of one opening of the sample picker. */
-function useSourcePicker({ onResource, onOpenSource }: SourceHandlers) {
+function useSourcePicker({ onResource, onOpenSource, onImportJson }: SourceHandlers) {
   const [tab, setTab] = useState<Tab>(onOpenSource ? "saved" : "local");
   const [query, setQuery] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
@@ -52,6 +58,7 @@ function useSourcePicker({ onResource, onOpenSource }: SourceHandlers) {
     pickSaved: (source: OpenSourceSummary) =>
       onOpenSource && run(`saved:${source.openSourceId}`, () => onOpenSource(source)),
     pickLocal: (resource: Resource) => run(`local:${resource.id}`, () => onResource(resource)),
+    importJson: () => onImportJson && run("upload", onImportJson),
     reset() {
       setTab(onOpenSource ? "saved" : "local");
       setQuery("");
@@ -126,18 +133,22 @@ function localRows(resources: Resource[], keyword: string, busy: string | null) 
       ? null
       : keyword
         ? "검색 결과가 없습니다."
-        : "이 기기에 남아 있는 MIDI 작업이 없습니다.",
+        : "이 기기에 저장된 MIDI 작업이 없습니다.",
   };
 }
 
-const pickerText = {
+const pickerText: Record<Tab, { description: string; placeholder: string }> = {
   saved: {
-    description: "보관한 샘플을 내 레이어에 오디오로 넣습니다. 현재 재생 위치부터 들어갑니다.",
+    description: "보관한 샘플을 현재 재생 위치에 추가할 수 있습니다.",
     placeholder: "보관한 샘플 검색",
   },
   local: {
-    description: "이 기기에 남아 있는 MIDI 작업의 노트를 지금 편집 중인 초안에 넣습니다.",
+    description: "이 기기에 저장된 MIDI 작업에서 음표를 가져올 수 있습니다.",
     placeholder: "MIDI 작업 검색",
+  },
+  upload: {
+    description: `JSON 파일(.json)을 가져올 수 있습니다. 형식: ${jsonNoteFormat}`,
+    placeholder: "",
   },
 };
 
@@ -157,13 +168,21 @@ export function useNativeSourcePicker({
   const picker = useSourcePicker(handlers);
   const saved = useSavedSources(open && picker.showSaved);
   const { resources } = useWorkspace();
-  const list = picker.showSaved
-    ? savedRows(saved, picker.keyword, picker.busy)
-    : { ...localRows(resources, picker.keyword, picker.busy), failed: false, more: null };
+  const list =
+    picker.tab === "upload"
+      ? { rows: [], empty: null, failed: false, more: null }
+      : picker.showSaved
+        ? savedRows(saved, picker.keyword, picker.busy)
+        : { ...localRows(resources, picker.keyword, picker.busy), failed: false, more: null };
   return {
     model: open
       ? {
-          tabs: handlers.onOpenSource !== undefined,
+          tabs: [
+            ...(handlers.onOpenSource ? (["saved"] as const) : []),
+            ...(handlers.onOpenSource || handlers.onImportJson ? (["local"] as const) : []),
+            ...(handlers.onImportJson ? (["upload"] as const) : []),
+          ],
+          uploading: picker.busy === "upload",
           tab: picker.tab,
           ...pickerText[picker.tab],
           query: picker.query,
@@ -184,7 +203,16 @@ export function useNativeSourcePicker({
           if (picker.busy === null) onClose();
           return;
         case "source-tab":
-          if (picker.busy === null && handlers.onOpenSource) picker.setTab(action.tab);
+          if (
+            picker.busy === null &&
+            (action.tab === "local" ||
+              (action.tab === "saved" && handlers.onOpenSource) ||
+              (action.tab === "upload" && handlers.onImportJson))
+          )
+            picker.setTab(action.tab);
+          return;
+        case "source-upload":
+          if (picker.busy === null && picker.tab === "upload") void picker.importJson();
           return;
         case "source-query":
           return picker.setQuery(action.query);
@@ -219,8 +247,13 @@ export function useNativeSourcePicker({
 
 export function StudioSourceDialog({
   onClose,
+  localFileImport,
   ...handlers
-}: SourceHandlers & { onClose: () => void }) {
+}: SourceHandlers & {
+  onClose: () => void;
+  /** The "이 기기에서 업로드" tab's content (JSON note import); omitted where it does not apply. */
+  localFileImport?: ReactNode;
+}) {
   const id = useId();
   const picker = useSourcePicker(handlers);
   const { tab, busy } = picker;
@@ -238,12 +271,13 @@ export function StudioSourceDialog({
           <Asset name="search-close.svg" />
         </button>
       </header>
-      {handlers.onOpenSource && (
-        <div className="flex gap-2" role="group" aria-label="가져올 자료">
+      {(handlers.onOpenSource || localFileImport) && (
+        <div className="flex flex-wrap items-start gap-2" role="group" aria-label="가져올 자료">
           {(
             [
-              ["saved", "보관한 샘플"],
+              ...(handlers.onOpenSource ? ([["saved", "보관한 샘플"]] as const) : []),
               ["local", "이 기기의 MIDI 작업"],
+              ...(localFileImport ? ([["upload", "이 기기에서 업로드"]] as const) : []),
             ] as const
           ).map(([value, label]) => (
             <button
@@ -262,30 +296,36 @@ export function StudioSourceDialog({
           ))}
         </div>
       )}
-      <p>{pickerText[tab].description}</p>
-      <label>
-        <input
-          aria-label="샘플 검색"
-          placeholder={pickerText[tab].placeholder}
-          value={picker.query}
-          onChange={(event) => picker.setQuery(event.target.value)}
-        />
-      </label>
-      <div className={studioStyles.studioSourceResults}>
-        {picker.showSaved ? (
-          <SavedSourceRows
-            keyword={picker.keyword}
-            busy={busy}
-            onPick={(source) => void picker.pickSaved(source)}
-          />
-        ) : (
-          <LocalResourceRows
-            keyword={picker.keyword}
-            busy={busy}
-            onPick={(resource) => void picker.pickLocal(resource)}
-          />
-        )}
-      </div>
+      {tab === "upload" ? (
+        localFileImport
+      ) : (
+        <>
+          <p>{pickerText[tab].description}</p>
+          <label>
+            <input
+              aria-label="샘플 검색"
+              placeholder={pickerText[tab].placeholder}
+              value={picker.query}
+              onChange={(event) => picker.setQuery(event.target.value)}
+            />
+          </label>
+          <div className={studioStyles.studioSourceResults}>
+            {picker.showSaved ? (
+              <SavedSourceRows
+                keyword={picker.keyword}
+                busy={busy}
+                onPick={(source) => void picker.pickSaved(source)}
+              />
+            ) : (
+              <LocalResourceRows
+                keyword={picker.keyword}
+                busy={busy}
+                onPick={(resource) => void picker.pickLocal(resource)}
+              />
+            )}
+          </div>
+        </>
+      )}
       {picker.error && <p role="alert">{picker.error}</p>}
     </CanvasDialog>
   );

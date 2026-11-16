@@ -95,6 +95,12 @@ export async function pickNativeAudio(): Promise<File | null> {
   return new File([bytes], audio.name, { type: audio.type });
 }
 
+/** Lets the user pick a JSON note file in the platform file picker; null when cancelled. App only. */
+export async function pickNativeJson(): Promise<File | null> {
+  const { file } = await requestNative("pick-json", {});
+  return file ? nativeAudioToFile(file) : null;
+}
+
 /**
  * Runs `listener` when the native app moves to the background, so Web Audio playback can stop.
  * The shell itself pauses `<audio>`/`<video>` elements. No-op in browsers.

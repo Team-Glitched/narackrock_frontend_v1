@@ -128,9 +128,11 @@ export type NativeSourcePickerRow = {
 
 /** The web's StudioSourceDialog ("샘플 추가"). */
 export type NativeSourcePicker = {
-  /** Tabs "보관한 샘플" / "이 기기의 MIDI 작업" are shown (the page can place saved samples). */
-  tabs: boolean;
-  tab: "saved" | "local";
+  /** The tabs shown ("보관한 샘플", "이 기기의 MIDI 작업", "이 기기에서 업로드"); empty hides them. */
+  tabs: ("saved" | "local" | "upload")[];
+  tab: "saved" | "local" | "upload";
+  /** On the upload tab: the JSON file is being read and imported ("파일을 읽는 중…"). */
+  uploading: boolean;
   description: string;
   placeholder: string;
   query: string;
@@ -150,7 +152,9 @@ export type NativeSourcePicker = {
 export type NativeSourcePickerAction =
   | { type: "source-open" }
   | { type: "source-close" }
-  | { type: "source-tab"; tab: "saved" | "local" }
+  | { type: "source-tab"; tab: "saved" | "local" | "upload" }
+  /** Upload tab: pick a JSON note file in the platform picker and import it. */
+  | { type: "source-upload" }
   | { type: "source-query"; query: string }
   | { type: "source-pick"; key: string }
   | { type: "source-more" };
@@ -162,6 +166,7 @@ const sourceActions: Record<NativeSourcePickerAction["type"], true> = {
   "source-query": true,
   "source-pick": true,
   "source-more": true,
+  "source-upload": true,
 };
 
 export function isNativeSourcePickerAction(action: {

@@ -7,6 +7,7 @@ import { StudioSourceDialog } from "./studio-source-dialog";
 import { TeamPianoRoll } from "./team-piano-roll";
 import type { CompositionDto } from "@/lib/api/composition";
 import { StudioToolbar } from "./studio-toolbar";
+import { JsonNoteImportControl } from "./json-note-import-control";
 import { NoteEditorControls, NoteTools } from "./note-editor-controls";
 import { ChordPickerDialog } from "./chord-picker-dialog";
 import { useNoteEditorShortcuts } from "./use-note-editor-shortcuts";
@@ -225,6 +226,13 @@ function LoadedNoteEditor({
       {!editable && <p>내 MIDI 레이어만 수정할 수 있습니다.</p>}
       {!inApp && screen.showSources && editor.editable && (
         <StudioSourceDialog
+          localFileImport={
+            <JsonNoteImportControl
+              editor={editor}
+              ppq={composition.project.ppq}
+              onAdded={() => screen.setShowSources(false)}
+            />
+          }
           onOpenSource={screen.insertOpenSource}
           onClose={() => screen.setShowSources(false)}
           onResource={screen.importResource}

@@ -525,17 +525,12 @@ function SourceDialog({ picker }: { picker: NativeSourcePicker }) {
           <CloseIcon width={14} height={14} />
         </Touchable>
       </View>
-      {picker.tabs && (
+      {picker.tabs.length > 0 && (
         <View style={styles.row} accessibilityLabel="가져올 자료">
-          {(
-            [
-              ["saved", "보관한 샘플"],
-              ["local", "이 기기의 MIDI 작업"],
-            ] as const
-          ).map(([value, label]) => (
+          {picker.tabs.map((value) => (
             <DialogButton
               key={value}
-              label={label}
+              label={sourceTabLabels[value]}
               tone={picker.tab === value ? "primary" : "secondary"}
               disabled={picker.busy}
               onPress={() => act({ type: "source-tab", tab: value })}
@@ -543,6 +538,48 @@ function SourceDialog({ picker }: { picker: NativeSourcePicker }) {
           ))}
         </View>
       )}
+      {picker.tab === "upload" ? (
+        <>
+          <Text style={styles.caption}>{picker.description}</Text>
+          <DialogButton
+            label="파일 선택"
+            tone="secondary"
+            disabled={picker.busy}
+            onPress={() => act({ type: "source-upload" })}
+          />
+          {picker.uploading && (
+            <Text style={styles.caption} accessibilityLiveRegion="polite">
+              파일을 읽는 중…
+            </Text>
+          )}
+          {picker.error && <Alert>{picker.error}</Alert>}
+        </>
+      ) : (
+        <SourceList picker={picker} query={query} onQuery={setQuery} />
+      )}
+    </Dialog>
+  );
+}
+
+const sourceTabLabels = {
+  saved: "보관한 샘플",
+  local: "이 기기의 MIDI 작업",
+  upload: "이 기기에서 업로드",
+} as const;
+
+/** The search and rows of the "보관한 샘플" / "이 기기의 MIDI 작업" tabs. */
+function SourceList({
+  picker,
+  query,
+  onQuery,
+}: {
+  picker: NativeSourcePicker;
+  query: string;
+  onQuery: (query: string) => void;
+}) {
+  const { act } = useScreen();
+  return (
+    <>
       <Text style={styles.caption}>{picker.description}</Text>
       <TextInput
         accessibilityLabel="샘플 검색"
@@ -551,7 +588,7 @@ function SourceDialog({ picker }: { picker: NativeSourcePicker }) {
         selectionColor={colors.accent}
         value={query}
         onChangeText={(text) => {
-          setQuery(text);
+          onQuery(text);
           act({ type: "source-query", query: text });
         }}
         style={styles.search}
@@ -588,7 +625,7 @@ function SourceDialog({ picker }: { picker: NativeSourcePicker }) {
         )}
       </ScrollView>
       {picker.error && <Alert>{picker.error}</Alert>}
-    </Dialog>
+    </>
   );
 }
 
