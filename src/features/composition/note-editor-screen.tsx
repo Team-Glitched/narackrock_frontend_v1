@@ -86,7 +86,10 @@ function LoadedNoteEditor({
   useNoteEditorShortcuts({
     editor, positionTick, playing: playback.playing, onPlay: screen.play, onPause: playback.pause,
   });
-  const bridge = nativeApp() && (
+  // In the app the native screen draws these dialogs from the same state; the web copies (aria-modal)
+  // would hide the native screen.
+  const inApp = nativeApp() !== null;
+  const bridge = inApp && (
     <NativeNoteEditorBridge
       screen={screen}
       portrait={portrait}
@@ -220,14 +223,14 @@ function LoadedNoteEditor({
         </div>
       )}
       {!editable && <p>내 MIDI 레이어만 수정할 수 있습니다.</p>}
-      {screen.showSources && editor.editable && (
+      {!inApp && screen.showSources && editor.editable && (
         <StudioSourceDialog
           onOpenSource={screen.insertOpenSource}
           onClose={() => screen.setShowSources(false)}
           onResource={screen.importResource}
         />
       )}
-      {screen.exitTarget && (
+      {!inApp && screen.exitTarget && (
         <CanvasDialog
           className={studioStyles.studioAudioDialogContent}
           titleId="draft-exit-title"
@@ -259,7 +262,7 @@ function LoadedNoteEditor({
           </button>
         </CanvasDialog>
       )}
-      {dialogs.showChords && editor.editable && (
+      {!inApp && dialogs.showChords && editor.editable && (
         <ChordPickerDialog
           editor={editor}
           ppq={composition.project.ppq}
@@ -268,7 +271,7 @@ function LoadedNoteEditor({
           onClose={() => dialogs.setShowChords(false)}
         />
       )}
-      {dialogs.settingsIndex !== null && editor.editable && editor.snapshot.notes[dialogs.settingsIndex] && (
+      {!inApp && dialogs.settingsIndex !== null && editor.editable && editor.snapshot.notes[dialogs.settingsIndex] && (
         <NoteSettingsDialog
           key={`${dialogs.settingsIndex}:${editor.lastChange?.revision ?? 0}`}
           note={editor.snapshot.notes[dialogs.settingsIndex]}
