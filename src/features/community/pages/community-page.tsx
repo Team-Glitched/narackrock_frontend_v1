@@ -11,26 +11,75 @@ import { CommunityDetailScreen } from "@/features/community/community-detail";
 import { useRouteCommunity } from "@/features/community/use-route-community";
 import { PageState } from "@/components/page-state";
 import { parsePostSort } from "@/features/posts/post-sort";
+import { creationTarget } from "@/features/navigation/creation-target";
+import { nativeApp } from "@/lib/native-app";
+import {
+  NativeCommunityDetailBridge,
+  NativePageStateBridge,
+} from "@/features/community/native-community-bridge";
 
-function CommunityContent({ galleryId }: { galleryId: number }) {
+function CommunityContent({
+  galleryId,
+  onBack,
+  onSearch,
+}: {
+  galleryId: number;
+  onBack: () => void;
+  onSearch: () => void;
+}) {
   const { to, query } = useUrlNavigation();
   const result = useRouteCommunity(galleryId);
-  if (result.status !== "ready")
+  const create = () => to(creationTarget("posts", galleryId).path);
+  if (result.status !== "ready") {
+    const message =
+      result.status === "loading" ? "커뮤니티를 불러오는 중..." : "커뮤니티를 찾을 수 없습니다.";
     return (
-      <PageState error={result.status !== "loading"}>
-        {result.status === "loading" ? "커뮤니티를 불러오는 중..." : "커뮤니티를 찾을 수 없습니다."}
-      </PageState>
+      <>
+        <PageState error={result.status !== "loading"}>{message}</PageState>
+        {nativeApp() && (
+          <NativePageStateBridge
+            state={{
+              message,
+              tone: result.status === "loading" ? "muted" : "error",
+              createLabel: "글쓰기",
+            }}
+            onBack={onBack}
+            onSearch={onSearch}
+            onCreate={create}
+          />
+        )}
+      </>
     );
+  }
   const { community } = result;
+  const sort = parsePostSort(query.get("sort"));
+  const onManage = () => to(`/communities/${community.galleryId}/members`);
+  const onProfile = (id: number) => to(`/users/${id}`);
+  const onComments = (id: number) => to(`/communities/${community.galleryId}/posts/${id}`);
   return (
-    <CommunityDetailScreen
-      key={community.galleryId}
-      community={community}
-      sort={parsePostSort(query.get("sort"))}
-      onManage={() => to(`/communities/${community.galleryId}/members`)}
-      onProfile={(id) => to(`/users/${id}`)}
-      onComments={(id) => to(`/communities/${community.galleryId}/posts/${id}`)}
-    />
+    <>
+      <CommunityDetailScreen
+        key={community.galleryId}
+        community={community}
+        sort={sort}
+        onManage={onManage}
+        onProfile={onProfile}
+        onComments={onComments}
+      />
+      {nativeApp() && (
+        <NativeCommunityDetailBridge
+          key={`native:${community.galleryId}`}
+          community={community}
+          sort={sort}
+          onManage={onManage}
+          onProfile={onProfile}
+          onComments={onComments}
+          onBack={onBack}
+          onSearch={onSearch}
+          onCreate={create}
+        />
+      )}
+    </>
   );
 }
 
@@ -39,18 +88,30 @@ export default function CommunityPage() {
   const galleryId = readId(params.galleryId) ?? readId(query.get("galleryId"));
   const scope = resolveSearchScope(query.get("scope"), "posts", Boolean(galleryId));
   const validGalleryId = readId(params.galleryId);
+  const onBack = () => back("/communities");
+  const onSearch = () => to(withQuery("/search", { scope, galleryId }));
   return (
     <DesignViewport>
       <div className={sharedStyles.phoneFrame}>
-        <Header
-          onBack={() => back("/communities")}
-          onSearch={() => to(withQuery("/search", { scope, galleryId }))}
-        />
+        <Header onBack={onBack} onSearch={onSearch} />
         <div className={contextualCreateArea}>
           {validGalleryId === null ? (
-            <PageState error>올바르지 않은 페이지 주소입니다.</PageState>
+            <>
+              <PageState error>올바르지 않은 페이지 주소입니다.</PageState>
+              {nativeApp() && (
+                <NativePageStateBridge
+                  state={{
+                    message: "올바르지 않은 페이지 주소입니다.",
+                    tone: "error",
+                    createLabel: null,
+                  }}
+                  onBack={onBack}
+                  onSearch={onSearch}
+                />
+              )}
+            </>
           ) : (
-            <CommunityContent galleryId={validGalleryId} />
+            <CommunityContent galleryId={validGalleryId} onBack={onBack} onSearch={onSearch} />
           )}
           {validGalleryId !== null && <ContextualCreate scope="posts" galleryId={validGalleryId} />}
         </div>

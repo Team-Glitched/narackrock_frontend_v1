@@ -15,6 +15,7 @@ import {
   ActivityIndicator,
   AppState,
   BackHandler,
+  Keyboard,
   Linking,
   Platform,
   Pressable,
@@ -23,16 +24,34 @@ import {
   View,
 } from "react-native";
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
-import { WebView, type WebViewMessageEvent, type WebViewNavigation } from "react-native-webview";
+import { WebView, type WebViewMessageEvent } from "react-native-webview";
 
+import type { NativeFooter } from "../src/lib/native-bridge-protocol";
+import type { NativeScreenAction, NativeSession } from "../src/lib/native-screens";
+import { designTokens } from "../src/styles/tokens";
+import { cancelRecording, disposeAudioEngines, onAudioState } from "./audio";
 import {
   appBackgroundScript,
+  audioStateScript,
+  closeModalScript,
+  footerPressScript,
   handleRequest,
+  historyBackScript,
   injectedBeforeContentLoaded,
   parseRequest,
   responseScript,
+  screenActionScript,
   userAgentToken,
 } from "./bridge";
+import { emptyStack, reduceStack, ScreenStack } from "./screen-stack";
+import { footerFrame, TabBar, type Viewport } from "./tab-bar";
+
+const signedOut: NativeSession = {
+  userId: null,
+  profileImageUrl: null,
+  unreadNotifications: 0,
+  unreadChats: 0,
+};
 
 // The web app stores auth and drafts in localStorage, which is keyed by origin,
 // so the port must stay fixed across launches. The backend CORS allow-list must
@@ -41,7 +60,7 @@ const PORT = 17173;
 const WEBROOT = "webroot";
 // Written by scripts/build-native-web.mjs next to index.html.
 const MANIFEST_FILE = "native-build.json";
-const BACKGROUND = "#1d1d1d";
+const BACKGROUND = designTokens.colors.bg;
 
 type WebBuildManifest = { buildId: string; apiOrigin: string };
 
@@ -126,16 +145,52 @@ function useLocalWebServer() {
 function WebShell() {
   const { origin, error, retry } = useLocalWebServer();
   const webView = useRef<WebView<object>>(null);
+  // Reported by the web (set-history); see that method in the bridge protocol.
   const canGoBack = useRef(false);
+  // The page's footer, drawn natively by TabBar over the web's inert footer row.
+  const [footer, setFooter] = useState<NativeFooter | null>(null);
+  // Native screens of recent history entries (see screen-stack.tsx) and what their headers show.
+  const [stack, setStack] = useState(emptyStack);
+  const [session, setSession] = useState(signedOut);
+  // A web modal must be visible and reachable, so native views above the WebView step aside.
+  const [modalOpen, setModalOpen] = useState(false);
+  const [viewport, setViewport] = useState<Viewport | null>(null);
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
+  // A restarted page reports its native views again once mounted.
+  const reload = useCallback(() => {
+    setFooter(null);
+    setStack(emptyStack);
+    setModalOpen(false);
+    canGoBack.current = false;
+    webView.current?.reload();
+  }, []);
+  const onScreenAction = useCallback(
+    (key: string, action: NativeScreenAction) =>
+      webView.current?.injectJavaScript(screenActionScript(key, action)),
+    [],
+  );
+  // A page (re)load ends every audio scope of the previous document.
+  const resetAudio = useCallback(() => {
+    disposeAudioEngines();
+    cancelRecording();
+  }, []);
 
+  // Audio engine transports reach the page like screen actions (see `onNativeAudioState`).
+  useEffect(
+    () => onAudioState((state) => webView.current?.injectJavaScript(audioStateScript(state))),
+    [],
+  );
+
+  // Back closes an open web modal first, then walks the SPA history, then leaves the app.
   useEffect(() => {
     const subscription = BackHandler.addEventListener("hardwareBackPress", () => {
-      if (!canGoBack.current) return false;
-      webView.current?.goBack();
+      if (modalOpen) webView.current?.injectJavaScript(closeModalScript);
+      else if (canGoBack.current) webView.current?.injectJavaScript(historyBackScript);
+      else return false;
       return true;
     });
     return () => subscription.remove();
-  }, []);
+  }, [modalOpen]);
 
   // Leaving the foreground pauses playback on both platforms (Android would otherwise keep playing).
   useEffect(() => {
@@ -145,8 +200,14 @@ function WebShell() {
     return () => subscription.remove();
   }, []);
 
-  const onNavigationStateChange = useCallback((state: WebViewNavigation) => {
-    canGoBack.current = state.canGoBack;
+  // Like a native tab bar, the footer gives way to the keyboard.
+  useEffect(() => {
+    const shown = Keyboard.addListener("keyboardDidShow", () => setKeyboardVisible(true));
+    const hidden = Keyboard.addListener("keyboardDidHide", () => setKeyboardVisible(false));
+    return () => {
+      shown.remove();
+      hidden.remove();
+    };
   }, []);
 
   // Keep the app on its own origin; send top-level navigation elsewhere to the system browser.
@@ -168,9 +229,16 @@ function WebShell() {
       if (!origin || (url !== origin && !url.startsWith(`${origin}/`))) return;
       const request = parseRequest(data);
       if (!request) return;
-      void handleRequest(request).then((response) =>
-        webView.current?.injectJavaScript(responseScript(response)),
-      );
+      void handleRequest(request, {
+        origin,
+        setFooter,
+        setScreen: (report) => setStack((state) => reduceStack(state, report)),
+        setSession,
+        setModal: setModalOpen,
+        setCanGoBack: (value) => {
+          canGoBack.current = value;
+        },
+      }).then((response) => webView.current?.injectJavaScript(responseScript(response)));
     },
     [origin],
   );
@@ -195,30 +263,56 @@ function WebShell() {
     );
   }
 
+  // The web page under a native screen hides itself from screen readers (useNativeScreen).
+  // Content scrolls under the tab bar only when the page has one.
+  const bottomInset = footer && viewport ? viewport.height - footerFrame(viewport).top : 0;
   return (
-    // react-native-webview types default P to undefined, which collapses props to never.
-    <WebView<object>
-      ref={webView}
-      source={{ uri: `${origin}/` }}
+    <View
       style={styles.webView}
-      originWhitelist={["*"]}
-      javaScriptEnabled
-      domStorageEnabled
-      allowsInlineMediaPlayback
-      mediaPlaybackRequiresUserAction={false}
-      mediaCapturePermissionGrantType="grantIfSameHostElsePrompt"
-      allowsBackForwardNavigationGestures
-      setSupportMultipleWindows={false}
-      webviewDebuggingEnabled={__DEV__}
-      applicationNameForUserAgent={userAgentToken}
-      injectedJavaScriptBeforeContentLoaded={injectedBeforeContentLoaded}
-      injectedJavaScriptBeforeContentLoadedForMainFrameOnly
-      onMessage={onMessage}
-      onNavigationStateChange={onNavigationStateChange}
-      onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
-      onContentProcessDidTerminate={() => webView.current?.reload()}
-      onRenderProcessGone={() => webView.current?.reload()}
-    />
+      onLayout={(event) => {
+        const { width, height } = event.nativeEvent.layout;
+        setViewport({ width, height });
+      }}
+    >
+      {/* react-native-webview types default P to undefined, which collapses props to never. */}
+      <WebView<object>
+        ref={webView}
+        source={{ uri: `${origin}/` }}
+        style={styles.webView}
+        originWhitelist={["*"]}
+        javaScriptEnabled
+        domStorageEnabled
+        allowsInlineMediaPlayback
+        mediaPlaybackRequiresUserAction={false}
+        mediaCapturePermissionGrantType="grantIfSameHostElsePrompt"
+        allowsBackForwardNavigationGestures
+        setSupportMultipleWindows={false}
+        webviewDebuggingEnabled={__DEV__}
+        applicationNameForUserAgent={userAgentToken}
+        injectedJavaScriptBeforeContentLoaded={injectedBeforeContentLoaded}
+        injectedJavaScriptBeforeContentLoadedForMainFrameOnly
+        onLoadStart={resetAudio}
+        onMessage={onMessage}
+        onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
+        onContentProcessDidTerminate={reload}
+        onRenderProcessGone={reload}
+      />
+      <ScreenStack
+        stack={stack}
+        hidden={modalOpen}
+        session={session}
+        origin={origin}
+        bottomInset={bottomInset}
+        onAction={onScreenAction}
+      />
+      {footer && viewport && !keyboardVisible && !modalOpen && (
+        <TabBar
+          footer={footer}
+          viewport={viewport}
+          onPress={(press) => webView.current?.injectJavaScript(footerPressScript(press))}
+        />
+      )}
+    </View>
   );
 }
 

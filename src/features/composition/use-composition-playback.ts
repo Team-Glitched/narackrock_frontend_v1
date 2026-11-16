@@ -1,4 +1,13 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type Dispatch,
+  type SetStateAction,
+} from "react";
 import * as Tone from "tone";
 import type { TrackDto } from "@/lib/api/composition";
 import type { AudioSelection } from "./prepare-audio-file";
@@ -14,7 +23,14 @@ import {
 } from "./composition-playback-timeline";
 import { PlaybackGeneration, PlaybackResources } from "./composition-playback-runtime";
 import { partLabel } from "./instrument-parts";
-import { onAppBackground } from "@/lib/native-app";
+import {
+  fileToNativeAudio,
+  nativeApp,
+  onAppBackground,
+  onNativeAudioState,
+  requestNative,
+} from "@/lib/native-app";
+import type { NativeAudioCommand } from "@/lib/native-bridge-protocol";
 
 export type PlaybackComposition = {
   project: {
@@ -44,14 +60,39 @@ export function projectSignature(composition: PlaybackComposition | null): TimeS
   };
 }
 
+/** A playback scope's transport, mixer and previews, as used by every playback consumer. */
+export type CompositionPlayback = {
+  signature: TimeSignature;
+  metronome: boolean;
+  setMetronome: Dispatch<SetStateAction<boolean>>;
+  trackVolumes: Record<number, number>;
+  setTrackVolume: (trackId: number, volume: number) => void;
+  mutedTrackIds: Set<number>;
+  toggleTrackMute: (trackId: number) => void;
+  playing: boolean;
+  positionMs: number;
+  volume: number;
+  setVolume: (volume: number) => void;
+  error: string | null;
+  play: () => Promise<void>;
+  pause: () => void;
+  seek: (positionMs: number) => void;
+  audition: (pitch: number, instrumentId: string | null) => Promise<void>;
+  previewInstrument: (instrumentId: string) => Promise<void>;
+  previewAudio: (audition: AudioAudition) => Promise<void>;
+  stopPreview: () => void;
+  /** The app's native audio engine of this scope (native screens read its transport); null in browsers. */
+  nativeEngine: string | null;
+};
+
 const level = (value: number) => Math.max(0, Math.min(100, value));
 const message = (cause: unknown) => cause instanceof Error ? cause.message : "오디오를 재생하지 못했습니다.";
 
 /** Instance-local clocks and disposable voice graphs share only decoded resources within this scope. */
-export function useCompositionPlayback(
+function useToneCompositionPlayback(
   composition: PlaybackComposition | null,
   options?: CompositionPlaybackOptions,
-) {
+): CompositionPlayback {
   const signature = useMemo(() => projectSignature(composition), [composition]);
   const [playing, setPlaying] = useState(false);
   const [metronome, setMetronome] = useState(false);
@@ -300,31 +341,7 @@ export function useCompositionPlayback(
     }
   }, [master, resources, schedule, stopPreview]);
 
-  const audition = useCallback(async (pitch: number, instrumentId: string | null) => {
-    const instrument = findInstrument(instrumentId);
-    if (!instrument) {
-      stopPreview();
-      setError(`${partLabel(instrumentId)} 소리는 재생할 수 없습니다.`);
-      return;
-    }
-    try { await previewNotes(instrument, [pitch], 0, instrument.kind === "drum" ? 1450 : 350); }
-    catch { /* The preview reports the sample error without an unhandled event-handler rejection. */ }
-  }, [previewNotes, stopPreview]);
-
-  const previewInstrument = useCallback(async (instrumentId: string) => {
-    pause();
-    const instrument = findInstrument(instrumentId);
-    if (!instrument) {
-      stopPreview();
-      const cause = new Error(`${partLabel(instrumentId)} 소리는 재생할 수 없습니다.`);
-      setError(cause.message);
-      throw cause;
-    }
-    const pitches = instrument.kind === "drum" ? [36, 42, 38, 42]
-      : instrument.program >= 32 && instrument.program <= 38 ? [36, 40, 43]
-      : instrument.program >= 24 && instrument.program <= 30 ? [52, 55, 59] : [60, 64, 67];
-    await previewNotes(instrument, pitches, 240, instrument.kind === "drum" ? 1450 : 250);
-  }, [pause, previewNotes, stopPreview]);
+  const { audition, previewInstrument } = useInstrumentPreviews(previewNotes, pause, stopPreview, setError);
 
   const previewAudio = useCallback(async (audition: AudioAudition) => {
     pause();
@@ -399,6 +416,286 @@ export function useCompositionPlayback(
   return {
     signature, metronome, setMetronome, trackVolumes, setTrackVolume, mutedTrackIds, toggleTrackMute,
     playing, positionMs, volume, setVolume, error, play, pause, seek, audition, previewInstrument,
-    previewAudio, stopPreview,
+    previewAudio, stopPreview, nativeEngine: null,
   };
 }
+
+type PreviewNotes = (
+  instrument: InstrumentDefinition,
+  pitches: number[],
+  spacingMs: number,
+  durationMs: number,
+) => Promise<void>;
+
+/** Single-note auditions and the instrument picker's phrase, on either playback path. */
+function useInstrumentPreviews(
+  previewNotes: PreviewNotes,
+  pause: () => void,
+  stopPreview: () => void,
+  setError: (error: string) => void,
+) {
+  const audition = useCallback(async (pitch: number, instrumentId: string | null) => {
+    const instrument = findInstrument(instrumentId);
+    if (!instrument) {
+      stopPreview();
+      setError(`${partLabel(instrumentId)} 소리는 재생할 수 없습니다.`);
+      return;
+    }
+    try { await previewNotes(instrument, [pitch], 0, instrument.kind === "drum" ? 1450 : 350); }
+    catch { /* The preview reports the sample error without an unhandled event-handler rejection. */ }
+  }, [previewNotes, setError, stopPreview]);
+
+  const previewInstrument = useCallback(async (instrumentId: string) => {
+    pause();
+    const instrument = findInstrument(instrumentId);
+    if (!instrument) {
+      stopPreview();
+      const cause = new Error(`${partLabel(instrumentId)} 소리는 재생할 수 없습니다.`);
+      setError(cause.message);
+      throw cause;
+    }
+    const pitches = instrument.kind === "drum" ? [36, 42, 38, 42]
+      : instrument.program >= 32 && instrument.program <= 38 ? [36, 40, 43]
+      : instrument.program >= 24 && instrument.program <= 30 ? [52, 55, 59] : [60, 64, 67];
+    await previewNotes(instrument, pitches, 240, instrument.kind === "drum" ? 1450 : 250);
+  }, [pause, previewNotes, setError, stopPreview]);
+
+  return { audition, previewInstrument };
+}
+
+// Engine ids are unique per page load: the app may still hold engines of an earlier document.
+const enginePrefix = Date.now().toString(36);
+let engineCount = 0;
+
+function nativeEngineId(scopeKey: string | undefined): string {
+  return `${enginePrefix}-${++engineCount}${scopeKey ? `:${scopeKey}` : ""}`;
+}
+
+/**
+ * The app's path: the same scope, transport, mixer and preview rules, played by the app's native
+ * engine (native/audio) through `audio-engine` commands. The engine reports its transport with
+ * `narackrock:audio-state` (start, pause, seek, end and about 4 times a second while playing).
+ */
+function useNativeCompositionPlayback(
+  composition: PlaybackComposition | null,
+  options?: CompositionPlaybackOptions,
+): CompositionPlayback {
+  const signature = useMemo(() => projectSignature(composition), [composition]);
+  const [playing, setPlaying] = useState(false);
+  const [metronome, setMetronome] = useState(false);
+  const [positionMs, setPositionMs] = useState(0);
+  const [error, setError] = useState<string | null>(null);
+  const [trackVolumes, setTrackVolumes] = useState<Record<number, number>>({});
+  const trackVolumesRef = useRef<Record<number, number>>({});
+  const [mutedTrackIds, setMutedTrackIds] = useState<Set<number>>(() => new Set());
+  const mutedTrackIdsRef = useRef(new Set<number>());
+  const [volume, setVolumeState] = useState(level(options?.initialVolume ?? 20));
+  const optionsRef = useRef(options);
+  const compositionRef = useRef(composition);
+  useLayoutEffect(() => {
+    optionsRef.current = options;
+    compositionRef.current = composition;
+  });
+  const mounted = useRef(false);
+  const mainRequest = useRef(0);
+  const previewRequest = useRef(0);
+  const positionRef = useRef(0);
+  // The latest play request is pending or playing: only then do start/progress/end reports apply.
+  const expectPlaying = useRef(false);
+  // Stop commands (pause, seek, load) awaiting their response. While one is in flight after a newer
+  // play request, a stop report belongs to that older command and is ignored.
+  const pendingStops = useRef(0);
+  const scopeKey = options?.scopeKey;
+  const engine = useMemo(() => nativeEngineId(scopeKey), [scopeKey]);
+
+  const send = useCallback(
+    (command: NativeAudioCommand) => requestNative("audio-engine", { engine, command }),
+    [engine],
+  );
+  const sendStop = useCallback((command: NativeAudioCommand) => {
+    pendingStops.current++;
+    void send(command).catch(() => {}).finally(() => pendingStops.current--);
+  }, [send]);
+
+  const stopPreview = useCallback(() => {
+    previewRequest.current++;
+    void send({ type: "stop-preview" }).catch(() => {});
+  }, [send]);
+
+  const pause = useCallback(() => {
+    mainRequest.current++;
+    expectPlaying.current = false;
+    sendStop({ type: "pause" });
+    if (mounted.current) setPlaying(false);
+  }, [sendStop]);
+
+  const seek = useCallback((nextMs: number) => {
+    mainRequest.current++;
+    expectPlaying.current = false;
+    const end = compositionRef.current ? playbackEndMs(compositionRef.current, optionsRef.current?.durationMs) : Infinity;
+    positionRef.current = Math.max(0, Math.min(end, nextMs));
+    setPositionMs(positionRef.current);
+    setPlaying(false);
+    sendStop({ type: "seek", positionMs: positionRef.current });
+  }, [sendStop]);
+
+  const setTrackVolume = useCallback((trackId: number, next: number) => {
+    trackVolumesRef.current = { ...trackVolumesRef.current, [trackId]: level(next) };
+    setTrackVolumes(trackVolumesRef.current);
+  }, []);
+
+  const toggleTrackMute = useCallback((trackId: number) => {
+    const next = new Set(mutedTrackIdsRef.current);
+    if (next.has(trackId)) next.delete(trackId);
+    else next.add(trackId);
+    mutedTrackIdsRef.current = next;
+    setMutedTrackIds(next);
+  }, []);
+
+  const setVolume = useCallback((next: number) => setVolumeState(level(next)), []);
+
+  const play = useCallback(async () => {
+    const input = compositionRef.current;
+    if (!input) return;
+    const endMs = playbackEndMs(input, optionsRef.current?.durationMs);
+    if (endMs <= 0) {
+      pause();
+      stopPreview();
+      setError(null);
+      return;
+    }
+    // The engine pauses and stops previews itself before it loads and starts.
+    const request = ++mainRequest.current;
+    previewRequest.current++;
+    const live = () => mounted.current && request === mainRequest.current;
+    setError(null);
+    setPlaying(false);
+    expectPlaying.current = true;
+    try {
+      await send({ type: "play", positionMs: positionRef.current >= endMs ? 0 : positionRef.current });
+    } catch (cause) {
+      if (!live()) return;
+      expectPlaying.current = false;
+      setPlaying(false);
+      setError(message(cause));
+    }
+  }, [pause, send, stopPreview]);
+
+  const previewNotes = useCallback<PreviewNotes>(async (instrument, pitches, spacingMs, durationMs) => {
+    // The engine replaces a running preview itself.
+    const request = ++previewRequest.current;
+    const live = () => mounted.current && request === previewRequest.current;
+    setError(null);
+    try {
+      await send({ type: "preview-notes", instrumentId: instrument.id, pitches, spacingMs, durationMs });
+    } catch (cause) {
+      if (!live()) return;
+      setError(message(cause));
+      throw cause;
+    }
+  }, [send]);
+
+  const { audition, previewInstrument } = useInstrumentPreviews(previewNotes, pause, stopPreview, setError);
+
+  const previewAudio = useCallback(async (audition: AudioAudition) => {
+    pause();
+    stopPreview();
+    const request = ++previewRequest.current;
+    const live = () => mounted.current && request === previewRequest.current;
+    setError(null);
+    try {
+      const audio = await fileToNativeAudio(audition.file);
+      if (!live()) return;
+      await send({
+        type: "preview-audio",
+        audio,
+        startMs: audition.selection?.startMs ?? null,
+        endMs: audition.selection?.endMs ?? null,
+      });
+    } catch (cause) {
+      if (!live()) return;
+      setError(message(cause));
+      throw cause;
+    }
+  }, [pause, send, stopPreview]);
+
+  // Requests in flight no longer apply and reports of the current playback are ignored.
+  const forget = useCallback(() => {
+    mainRequest.current++;
+    previewRequest.current++;
+    expectPlaying.current = false;
+  }, []);
+
+  // One engine per scope; its state resets with the scope, like the web path's resources.
+  useLayoutEffect(() => {
+    mounted.current = true;
+    setVolumeState(level(optionsRef.current?.initialVolume ?? 20));
+    trackVolumesRef.current = {};
+    mutedTrackIdsRef.current = new Set();
+    setTrackVolumes({});
+    setMutedTrackIds(new Set());
+    positionRef.current = 0;
+    setPositionMs(0);
+    setError(null);
+    setPlaying(false);
+    expectPlaying.current = false;
+    return () => {
+      mounted.current = false;
+      forget();
+      void requestNative("audio-engine", { engine, command: { type: "dispose" } }).catch(() => {});
+    };
+  }, [engine, forget]);
+
+  // A new composition or length stops playback and previews (the engine does both on load).
+  const load = useCallback((next: PlaybackComposition | null, durationMs: number | undefined) => {
+    forget();
+    if (mounted.current) setPlaying(false);
+    sendStop({ type: "load", composition: next, durationMs: durationMs ?? null });
+  }, [forget, sendStop]);
+  useLayoutEffect(() => load(composition, options?.durationMs), [composition, load, options?.durationMs]);
+
+  const muted = options?.muted ?? false;
+  useLayoutEffect(() => {
+    void send({
+      type: "mix",
+      mix: { volume, muted, trackVolumes, mutedTrackIds: [...mutedTrackIds], metronome },
+    }).catch(() => {});
+  }, [metronome, muted, mutedTrackIds, send, trackVolumes, volume]);
+
+  useEffect(() => onNativeAudioState((state) => {
+    if (state.engine !== engine || !mounted.current) return;
+    if (state.playing || state.ended) {
+      if (!expectPlaying.current) return;
+    } else if (expectPlaying.current && pendingStops.current > 0) return;
+    positionRef.current = state.positionMs;
+    setPositionMs(state.positionMs);
+    setPlaying(state.playing);
+    if (state.playing) return;
+    expectPlaying.current = false;
+    if (state.ended) {
+      mainRequest.current++;
+      optionsRef.current?.onEnded?.();
+    }
+  }), [engine]);
+
+  // The app also stops its engines itself when it leaves the foreground.
+  useEffect(() => onAppBackground(() => {
+    pause();
+    stopPreview();
+  }), [pause, stopPreview]);
+
+  return {
+    signature, metronome, setMetronome, trackVolumes, setTrackVolume, mutedTrackIds, toggleTrackMute,
+    playing, positionMs, volume, setVolume, error, play, pause, seek, audition, previewInstrument,
+    previewAudio, stopPreview, nativeEngine: engine,
+  };
+}
+
+/**
+ * Browsers play with Tone (Web Audio); the app with its native engine. `nativeApp()` comes from the
+ * user agent, so one page always runs the same path.
+ */
+export const useCompositionPlayback: (
+  composition: PlaybackComposition | null,
+  options?: CompositionPlaybackOptions,
+) => CompositionPlayback = nativeApp() ? useNativeCompositionPlayback : useToneCompositionPlayback;

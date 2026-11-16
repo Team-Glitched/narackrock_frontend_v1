@@ -11,7 +11,16 @@ import {
   CompositionRecordScreen,
 } from "../composition/creation-screens";
 import { prepareAudioFile, type AudioSelection } from "@/features/composition/prepare-audio-file";
-import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type Dispatch,
+  type SetStateAction,
+} from "react";
 import { getCurrentUserId } from "@/lib/api/client";
 import {
   readCreationDraft,
@@ -24,11 +33,96 @@ import { createPost, proposeGallery } from "@/lib/api/community";
 import { uploadMedia } from "@/lib/api/media";
 import { validatePostImage } from "@/features/community/post-image";
 import type { GalleryListItem } from "@/lib/api/contracts";
-import { clearPendingPublication, getPendingSourceAudioId, getSourceDraftRevision, hasPendingPublication, publishSource, subscribeSourcePublication, withSourcePublicationLock } from "@/features/sources/publish-source";
+import {
+  clearPendingPublication,
+  getPendingSourceAudioId,
+  getSourceDraftRevision,
+  hasPendingPublication,
+  publishSource,
+  subscribeSourcePublication,
+  withSourcePublicationLock,
+} from "@/features/sources/publish-source";
 import { sourceError } from "@/features/sources/source-screens";
 import { ThumbnailCropper } from "@/features/sources/thumbnail-cropper";
-import { defaultCrop, renderThumbnail, type ThumbnailCrop } from "@/features/sources/thumbnail-crop";
-export function SocialCreate({
+import {
+  defaultCrop,
+  renderThumbnail,
+  type ThumbnailCrop,
+} from "@/features/sources/thumbnail-crop";
+export type AudioStage = "details" | "choose" | "upload" | "record" | "note";
+
+export type SocialCreateProps = {
+  onCancel: () => void;
+  postTargetStatus?: PostTargetStatus;
+  audioStage?: AudioStage;
+  onAudioStage?: (stage: AudioStage) => void;
+  kind: "post" | "community" | "source";
+  galleryId: number;
+  onCreated: (gallery?: GalleryListItem) => void;
+};
+
+/**
+ * State of the creation form (posts, community proposals, samples) with its locally saved draft.
+ * One instance per page; the web form (`SocialCreateForm`) and the app's native screens read the same
+ * state. The discard confirmation is a web dialog rendered by `SocialCreateForm` (`setConfirmDiscard`).
+ */
+export type SocialCreateState = {
+  kind: SocialCreateProps["kind"];
+  postTargetStatus: PostTargetStatus;
+  audioStage: AudioStage;
+  setAudioStage: (stage: AudioStage) => void;
+  /** "작성 중인 내용을 불러오는 중..." */
+  restoring: boolean;
+  /** The draft was published or discarded elsewhere ("다른 탭에서 이 초안을..."). */
+  draftExpired: boolean;
+  title: string;
+  setTitle: (title: string) => void;
+  content: string;
+  setContent: (content: string) => void;
+  /** The attached picture and its object URL. */
+  image: { file: File; url: string } | null;
+  /** Validates and attaches a picture; a rejected one sets `error`. */
+  pickImage: (file: File) => void;
+  removeImage: () => void;
+  audio: File | null;
+  /** A retried sample publication reuses the uploaded audio. */
+  sourceAudioLocked: boolean;
+  selectAudio: (file: File, selection?: AudioSelection) => Promise<void>;
+  saveSelectedAudio: (file: File) => void;
+  pianoNotes: MidiNoteDto[];
+  setPianoNotes: Dispatch<SetStateAction<MidiNoteDto[]>>;
+  pianoBpm: number;
+  setPianoBpm: Dispatch<SetStateAction<number>>;
+  sourceVisibility: "PRIVATE" | "PUBLIC";
+  setSourceVisibility: (visibility: "PRIVATE" | "PUBLIC") => void;
+  imageCrop: ThumbnailCrop;
+  setImageCrop: (crop: ThumbnailCrop) => void;
+  imageRestoreFailed: boolean;
+  /** "앨범 이미지 없이 등록". */
+  keepWithoutImage: () => void;
+  busy: boolean;
+  error: string | null;
+  storageError: string;
+  restoreError: string;
+  /** The draft save line under the fields. */
+  draftStatus: string;
+  /** Why a post cannot be sent to the chosen community yet. */
+  targetNotice: { text: string; tone: "status" | "alert" } | null;
+  canSubmit: boolean;
+  submitLabel: string;
+  submit: () => Promise<void>;
+  confirmDiscard: boolean;
+  setConfirmDiscard: (open: boolean) => void;
+  /** "삭제하고 나가기": clears the draft and leaves. */
+  discard: () => Promise<void>;
+};
+
+export function SocialCreate(props: SocialCreateProps) {
+  const form = useSocialCreate(props);
+  return <SocialCreateForm form={form} />;
+}
+
+export function useSocialCreate({
   onCancel,
   postTargetStatus = "ready",
   kind,
@@ -36,21 +130,14 @@ export function SocialCreate({
   onCreated,
   audioStage = "details",
   onAudioStage,
-}: {
-  onCancel: () => void;
-  postTargetStatus?: PostTargetStatus;
-  audioStage?: "details" | "choose" | "upload" | "record" | "note";
-  onAudioStage?: (stage: "details" | "choose" | "upload" | "record" | "note") => void;
-  kind: "post" | "community" | "source";
-  galleryId: number;
-  onCreated: (gallery?: GalleryListItem) => void;
-}) {
+}: SocialCreateProps): SocialCreateState {
   const userId = getCurrentUserId();
   const [draftKey] = useState(() => `live:${userId ?? "guest"}:${kind}`);
   const readSourceRevision = () =>
     kind === "source" && userId !== null ? getSourceDraftRevision({ userId, draftKey }) : null;
   const [draftRevision] = useState(readSourceRevision);
-  const draftStorageKey = draftRevision === null ? draftKey : JSON.stringify([draftKey, draftRevision]);
+  const draftStorageKey =
+    draftRevision === null ? draftKey : JSON.stringify([draftKey, draftRevision]);
   const initial = readCreationDraft(draftStorageKey);
   const [restoring, setRestoring] = useState(true);
   const [discarding, setDiscarding] = useState(false);
@@ -69,27 +156,59 @@ export function SocialCreate({
   const [audio, setAudio] = useState<File | null>(() => initial?.audio ?? null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-  const [sourceVisibility, setSourceVisibility] = useState<"PRIVATE" | "PUBLIC">(() => initial?.sourceVisibility === "PRIVATE" ? "PRIVATE" : "PUBLIC");
-  const [imageCrop, setImageCrop] = useState<ThumbnailCrop>(() => initial?.imageCrop ?? defaultCrop());
+  const [sourceVisibility, setSourceVisibility] = useState<"PRIVATE" | "PUBLIC">(() =>
+    initial?.sourceVisibility === "PRIVATE" ? "PRIVATE" : "PUBLIC",
+  );
+  const [imageCrop, setImageCrop] = useState<ThumbnailCrop>(
+    () => initial?.imageCrop ?? defaultCrop(),
+  );
   const [imageRestoreFailed, setImageRestoreFailed] = useState(false);
-  const subscribeSourceDraft = useCallback((onChange: () => void) => {
-    if (kind === "source" && userId !== null) {
-      return subscribeSourcePublication({ userId, draftKey }, onChange);
-    }
-    return () => {};
-  }, [kind, userId, draftKey]);
+  const subscribeSourceDraft = useCallback(
+    (onChange: () => void) => {
+      if (kind === "source" && userId !== null) {
+        return subscribeSourcePublication({ userId, draftKey }, onChange);
+      }
+      return () => {};
+    },
+    [kind, userId, draftKey],
+  );
   const readSourceAudioId = () =>
     kind === "source" && userId !== null ? getPendingSourceAudioId({ userId, draftKey }) : null;
   const pendingAudioId = useSyncExternalStore(subscribeSourceDraft, readSourceAudioId, () => null);
-  const currentRevision = useSyncExternalStore(subscribeSourceDraft, readSourceRevision, () => null);
+  const currentRevision = useSyncExternalStore(
+    subscribeSourceDraft,
+    readSourceRevision,
+    () => null,
+  );
   const draftExpired = draftRevision !== currentRevision;
   const sourceAudioLocked = pendingAudioId !== null;
   const draftValue = useMemo(
-    () => ({ title, content, image: image?.file ?? null, audio, notes: pianoNotes, bpm: pianoBpm, sourceVisibility, imageCrop, imageRestoreFailed }),
-    [title, content, image, audio, pianoNotes, pianoBpm, sourceVisibility, imageCrop, imageRestoreFailed],
+    () => ({
+      title,
+      content,
+      image: image?.file ?? null,
+      audio,
+      notes: pianoNotes,
+      bpm: pianoBpm,
+      sourceVisibility,
+      imageCrop,
+      imageRestoreFailed,
+    }),
+    [
+      title,
+      content,
+      image,
+      audio,
+      pianoNotes,
+      pianoBpm,
+      sourceVisibility,
+      imageCrop,
+      imageRestoreFailed,
+    ],
   );
   const [savedDraft, setSavedDraft] = useState<typeof draftValue | null>(null);
-  const draftSaving = !restoring && !discarding && !draftExpired && !storageError && savedDraft !== draftValue;
+  const draftSaving =
+    !restoring && !discarding && !draftExpired && !storageError && savedDraft !== draftValue;
   useEffect(() => {
     let active = true;
     void restoreCreationDraft(draftStorageKey)
@@ -119,7 +238,12 @@ export function SocialCreate({
   }, [draftStorageKey, kind]);
   useEffect(() => {
     if (restoring || discarding || draftExpired) return;
-    if (kind === "source" && userId !== null && getSourceDraftRevision({ userId, draftKey }) !== draftRevision) return;
+    if (
+      kind === "source" &&
+      userId !== null &&
+      getSourceDraftRevision({ userId, draftKey }) !== draftRevision
+    )
+      return;
     const revision = ++writes.current;
     void rememberCreationDraft(draftStorageKey, draftValue)
       .then(() => {
@@ -133,7 +257,17 @@ export function SocialCreate({
           setStorageError(cause instanceof Error ? cause.message : "초안을 저장하지 못했습니다.");
         }
       });
-  }, [draftKey, draftStorageKey, draftValue, restoring, discarding, draftExpired, draftRevision, kind, userId]);
+  }, [
+    draftKey,
+    draftStorageKey,
+    draftValue,
+    restoring,
+    discarding,
+    draftExpired,
+    draftRevision,
+    kind,
+    userId,
+  ]);
   useEffect(() => {
     if (!draftSaving) return;
     const preventLoss = (event: BeforeUnloadEvent) => {
@@ -143,8 +277,7 @@ export function SocialCreate({
     window.addEventListener("beforeunload", preventLoss);
     return () => window.removeEventListener("beforeunload", preventLoss);
   }, [draftSaving]);
-  const setAudioStage = (stage: "details" | "choose" | "upload" | "record" | "note") =>
-    onAudioStage?.(stage);
+  const setAudioStage = (stage: AudioStage) => onAudioStage?.(stage);
   function saveSelectedAudio(file: File) {
     if (readSourceAudioId() === null) setAudio(file);
     setAudioStage("details");
@@ -154,10 +287,7 @@ export function SocialCreate({
     const { wav } = await prepareAudioFile(file, selection);
     saveSelectedAudio(new File([wav], "opensource.wav", { type: "audio/wav" }));
   }
-  function pickImage(input: HTMLInputElement) {
-    const file = input.files?.[0];
-    input.value = "";
-    if (!file) return;
+  function pickImage(file: File) {
     try {
       validatePostImage(file);
       setRestoreError("");
@@ -176,8 +306,7 @@ export function SocialCreate({
     },
     [image],
   );
-  async function submit(event: React.FormEvent) {
-    event.preventDefault();
+  async function submit() {
     if (
       busy ||
       draftExpired ||
@@ -206,7 +335,16 @@ export function SocialCreate({
           await withSourcePublicationLock({ userId, draftKey, draftRevision }, async () => {
             // The original stays in the draft; only the framed thumbnail is uploaded.
             const thumbnail = image ? await renderThumbnail(image.file, imageCrop) : null;
-            await publishSource({ userId, draftKey, title: title.trim(), description: content.trim() || null, audio, expectedPendingAudioId: pendingAudioId, image: thumbnail, visibility: sourceVisibility });
+            await publishSource({
+              userId,
+              draftKey,
+              title: title.trim(),
+              description: content.trim() || null,
+              audio,
+              expectedPendingAudioId: pendingAudioId,
+              image: thumbnail,
+              visibility: sourceVisibility,
+            });
             setDiscarding(true);
             clearCreationDraft(draftStorageKey);
           });
@@ -220,7 +358,8 @@ export function SocialCreate({
         }
         onCreated();
       } else if (kind === "community") {
-        if (getCurrentUserId() === null) throw new Error("로그인 후 커뮤니티 개설을 신청할 수 있습니다.");
+        if (getCurrentUserId() === null)
+          throw new Error("로그인 후 커뮤니티 개설을 신청할 수 있습니다.");
         await proposeGallery(title.trim(), content.trim());
         setDiscarding(true);
         clearCreationDraft(draftKey);
@@ -231,6 +370,141 @@ export function SocialCreate({
     } finally {
       setBusy(false);
     }
+  }
+  async function discard() {
+    setBusy(true);
+    try {
+      const userId = getCurrentUserId();
+      if (kind === "source" && userId !== null) {
+        await withSourcePublicationLock({ userId, draftKey, draftRevision }, () => {
+          clearPendingPublication({ userId, draftKey });
+          clearCreationDraft(draftStorageKey);
+        });
+      } else {
+        clearCreationDraft(draftStorageKey);
+      }
+    } catch (cause) {
+      setConfirmDiscard(false);
+      setError(sourceError(cause, "초안을 삭제하지 못했습니다. 다시 시도해주세요."));
+      return;
+    } finally {
+      setBusy(false);
+    }
+    setDiscarding(true);
+    onCancel();
+  }
+  return {
+    kind,
+    postTargetStatus,
+    audioStage,
+    setAudioStage,
+    restoring,
+    draftExpired,
+    title,
+    setTitle,
+    content,
+    setContent,
+    image,
+    pickImage,
+    removeImage: () => setImage(null),
+    audio,
+    sourceAudioLocked,
+    selectAudio,
+    saveSelectedAudio,
+    pianoNotes,
+    setPianoNotes,
+    pianoBpm,
+    setPianoBpm,
+    sourceVisibility,
+    setSourceVisibility,
+    imageCrop,
+    setImageCrop,
+    imageRestoreFailed,
+    keepWithoutImage: () => {
+      setImageRestoreFailed(false);
+      setRestoreError("");
+    },
+    busy,
+    error,
+    storageError,
+    restoreError,
+    draftStatus: draftSaving
+      ? "초안을 저장하는 중..."
+      : storageError
+        ? "초안을 저장하지 못했습니다."
+        : "이 브라우저에 초안이 임시 저장됩니다.",
+    targetNotice:
+      kind === "post" && postTargetStatus !== "ready"
+        ? {
+            tone: postTargetStatus === "loading" ? "status" : "alert",
+            text:
+              postTargetStatus === "loading"
+                ? "게시할 커뮤니티를 확인하는 중입니다."
+                : postTargetStatus === "error"
+                  ? "커뮤니티를 불러오지 못했습니다. 상단의 커뮤니티 선택에서 다시 시도해주세요."
+                  : "상단에서 게시할 커뮤니티를 선택해주세요.",
+          }
+        : null,
+    canSubmit: !(
+      busy ||
+      imageRestoreFailed ||
+      (kind === "post" && postTargetStatus !== "ready") ||
+      !title.trim() ||
+      (kind !== "source" && !content.trim()) ||
+      (kind === "source" && !audio && !sourceAudioLocked)
+    ),
+    submitLabel: busy
+      ? "저장 중..."
+      : kind === "community"
+        ? "개설 신청"
+        : kind === "source"
+          ? `${sourceVisibility === "PUBLIC" ? "공개" : "비공개"} 등록`
+          : "입력 완료",
+    submit,
+    confirmDiscard,
+    setConfirmDiscard,
+    discard,
+  };
+}
+
+/** The web creation form for the state of `useSocialCreate`. */
+export function SocialCreateForm({ form }: { form: SocialCreateState }) {
+  const {
+    kind,
+    audioStage,
+    setAudioStage,
+    restoring,
+    draftExpired,
+    title,
+    setTitle,
+    content,
+    setContent,
+    image,
+    audio,
+    sourceAudioLocked,
+    selectAudio,
+    saveSelectedAudio,
+    pianoNotes,
+    setPianoNotes,
+    pianoBpm,
+    setPianoBpm,
+    sourceVisibility,
+    setSourceVisibility,
+    imageCrop,
+    setImageCrop,
+    imageRestoreFailed,
+    busy,
+    error,
+    storageError,
+    restoreError,
+    targetNotice,
+    confirmDiscard,
+    setConfirmDiscard,
+  } = form;
+  function pickImage(input: HTMLInputElement) {
+    const file = input.files?.[0];
+    input.value = "";
+    if (file) form.pickImage(file);
   }
   if (restoring)
     return (
@@ -281,7 +555,10 @@ export function SocialCreate({
   return (
     <form
       className={cn(communityStyles.socialCreateView, sharedStyles.scrollContent)}
-      onSubmit={submit}
+      onSubmit={(event) => {
+        event.preventDefault();
+        void form.submit();
+      }}
       aria-label={
         kind === "post" ? "게시글 작성" : kind === "community" ? "커뮤니티 생성" : "샘플 생성"
       }
@@ -291,11 +568,7 @@ export function SocialCreate({
           {kind === "post" ? "제목" : kind === "community" ? "커뮤니티 이름" : "샘플 이름"}
           <input
             aria-label={
-              kind === "post"
-                ? "게시글 제목"
-                : kind === "community"
-                  ? "커뮤니티 이름"
-                  : "샘플 이름"
+              kind === "post" ? "게시글 제목" : kind === "community" ? "커뮤니티 이름" : "샘플 이름"
             }
             disabled={busy}
             value={title}
@@ -324,24 +597,35 @@ export function SocialCreate({
               className={sharedStyles.sourceAudioSelect}
               onClick={() => setAudioStage("choose")}
             >
-              {sourceAudioLocked ? "업로드한 오디오 사용" : audio ? "오디오 선택됨 · 다시 선택" : "오디오 추가"}
+              {sourceAudioLocked
+                ? "업로드한 오디오 사용"
+                : audio
+                  ? "오디오 선택됨 · 다시 선택"
+                  : "오디오 추가"}
             </button>
             {sourceAudioLocked && (
               <span className={sharedStyles.creationSaveStatus}>
-                등록 재시도에는 이미 업로드한 오디오를 사용합니다. 다른 오디오를 등록하려면 작성 취소 후 새로 작성해주세요.
+                등록 재시도에는 이미 업로드한 오디오를 사용합니다. 다른 오디오를 등록하려면 작성
+                취소 후 새로 작성해주세요.
               </span>
             )}
           </label>
         )}
         {kind === "community" ? (
           <p className={sharedStyles.creationSaveStatus}>
-            커뮤니티 프로필 사진은 현재 서버에서 지원하지 않습니다. 이름과 설명으로 개설을 신청하면 관리자 승인 후 커뮤니티가 만들어집니다.
+            커뮤니티 프로필 사진은 현재 서버에서 지원하지 않습니다. 이름과 설명으로 개설을 신청하면
+            관리자 승인 후 커뮤니티가 만들어집니다.
           </p>
         ) : kind === "source" && image ? (
           // Not inside a <label>: a click or drag in the editor must not reopen the file picker.
           <div className="flex flex-col gap-[10px] text-title leading-[26px] font-bold text-app-fg">
             앨범
-            <ThumbnailCropper file={image.file} crop={imageCrop} onChange={setImageCrop} disabled={busy} />
+            <ThumbnailCropper
+              file={image.file}
+              crop={imageCrop}
+              onChange={setImageCrop}
+              disabled={busy}
+            />
             <div className="flex justify-center gap-4 text-body font-medium text-app-muted">
               <label className="relative cursor-pointer underline">
                 다른 이미지 선택
@@ -354,107 +638,114 @@ export function SocialCreate({
                   onChange={(event) => pickImage(event.target)}
                 />
               </label>
-              <button type="button" className="underline" disabled={busy} onClick={() => setImage(null)}>
+              <button
+                type="button"
+                className="underline"
+                disabled={busy}
+                onClick={form.removeImage}
+              >
                 앨범 이미지 삭제
               </button>
             </div>
           </div>
         ) : (
-        <label>
-          {kind === "source" ? "앨범" : "사진"}
-          <span className={sharedStyles.socialImagePicker}>
-            {image ? (
-              <img src={image.url} alt="첨부 이미지 미리보기" width={350} height={280} />
-            ) : (
-              <span>
-                <strong>{kind === "source" ? "앨범 추가" : "사진 추가"}</strong>
-                <small>JPG, PNG, WEBP 최대 100MB</small>
-              </span>
+          <label>
+            {kind === "source" ? "앨범" : "사진"}
+            <span className={sharedStyles.socialImagePicker}>
+              {image ? (
+                <img src={image.url} alt="첨부 이미지 미리보기" width={350} height={280} />
+              ) : (
+                <span>
+                  <strong>{kind === "source" ? "앨범 추가" : "사진 추가"}</strong>
+                  <small>JPG, PNG, WEBP 최대 100MB</small>
+                </span>
+              )}
+              <input
+                aria-label={kind === "source" ? "앨범 추가" : "사진 추가"}
+                disabled={busy}
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                onChange={(event) => pickImage(event.target)}
+              />
+            </span>
+            {image && (
+              <button
+                type="button"
+                className={sharedStyles.creationRemoveImage}
+                disabled={busy}
+                onClick={form.removeImage}
+              >
+                첨부 사진 삭제
+              </button>
             )}
-            <input
-              aria-label={kind === "source" ? "앨범 추가" : "사진 추가"}
-              disabled={busy}
-              type="file"
-              accept="image/jpeg,image/png,image/webp"
-              onChange={(event) => pickImage(event.target)}
-            />
-          </span>
-          {image && (
-            <button
-              type="button"
-              className={sharedStyles.creationRemoveImage}
-              disabled={busy}
-              onClick={() => setImage(null)}
-            >
-              첨부 사진 삭제
-            </button>
-          )}
-        </label>
+          </label>
         )}
       </div>
       {kind === "source" && (
-        <fieldset className="m-0 flex w-full max-w-[350px] min-w-0 shrink-0 flex-wrap gap-4 border-0 p-0 text-body [&_input]:h-4 [&_input]:w-4 [&_input]:shrink-0" disabled={busy}>
-          <legend className="mb-2 text-title leading-[26px] font-bold text-app-fg">등록 공개 설정</legend>
+        <fieldset
+          className="m-0 flex w-full max-w-[350px] min-w-0 shrink-0 flex-wrap gap-4 border-0 p-0 text-body [&_input]:h-4 [&_input]:w-4 [&_input]:shrink-0"
+          disabled={busy}
+        >
+          <legend className="mb-2 text-title leading-[26px] font-bold text-app-fg">
+            등록 공개 설정
+          </legend>
           <label className="flex items-center gap-2">
-            <input type="radio" name="source-visibility" value="PUBLIC" checked={sourceVisibility === "PUBLIC"} onChange={() => setSourceVisibility("PUBLIC")} />
+            <input
+              type="radio"
+              name="source-visibility"
+              value="PUBLIC"
+              checked={sourceVisibility === "PUBLIC"}
+              onChange={() => setSourceVisibility("PUBLIC")}
+            />
             공개 등록
           </label>
           <label className="flex items-center gap-2">
-            <input type="radio" name="source-visibility" value="PRIVATE" checked={sourceVisibility === "PRIVATE"} onChange={() => setSourceVisibility("PRIVATE")} />
+            <input
+              type="radio"
+              name="source-visibility"
+              value="PRIVATE"
+              checked={sourceVisibility === "PRIVATE"}
+              onChange={() => setSourceVisibility("PRIVATE")}
+            />
             비공개 등록
           </label>
-          <p className="w-full text-caption text-app-muted">비공개 등록은 내 등록에서만 관리하며, 나중에 공개할 수 있습니다.</p>
+          <p className="w-full text-caption text-app-muted">
+            비공개 등록은 내 등록에서만 관리하며, 나중에 공개할 수 있습니다.
+          </p>
         </fieldset>
       )}
       <p className={sharedStyles.creationSaveStatus} role="status">
-        {draftSaving
-          ? "초안을 저장하는 중..."
-          : storageError
-            ? "초안을 저장하지 못했습니다."
-            : "이 브라우저에 초안이 임시 저장됩니다."}
+        {form.draftStatus}
       </p>
-      {kind === "post" && postTargetStatus !== "ready" && (
-        <p
-          className={communityStyles.postTargetNotice}
-          role={postTargetStatus === "loading" ? "status" : "alert"}
-        >
-          {postTargetStatus === "loading"
-            ? "게시할 커뮤니티를 확인하는 중입니다."
-            : postTargetStatus === "error"
-              ? "커뮤니티를 불러오지 못했습니다. 상단의 커뮤니티 선택에서 다시 시도해주세요."
-              : "상단에서 게시할 커뮤니티를 선택해주세요."}
+      {targetNotice && (
+        <p className={communityStyles.postTargetNotice} role={targetNotice.tone}>
+          {targetNotice.text}
         </p>
       )}
       {error && <p role="alert">{error}</p>}
       {storageError && <p role="alert">{storageError}</p>}
       {imageRestoreFailed ? (
         <div>
-          <p role="alert">앨범 이미지를 복원하지 못했습니다. 다시 첨부하거나 이미지 없이 등록을 선택해주세요.</p>
+          <p role="alert">
+            앨범 이미지를 복원하지 못했습니다. 다시 첨부하거나 이미지 없이 등록을 선택해주세요.
+          </p>
           <button
             type="button"
             className={sharedStyles.creationRemoveImage}
-            onClick={() => {
-              setImageRestoreFailed(false);
-              setRestoreError("");
-            }}
+            onClick={form.keepWithoutImage}
           >
             앨범 이미지 없이 등록
           </button>
         </div>
-      ) : restoreError && <p role="alert">{restoreError}</p>}
+      ) : (
+        restoreError && <p role="alert">{restoreError}</p>
+      )}
       <button
         className={communityStyles.socialCreateSubmit}
         type="submit"
-        disabled={
-          busy ||
-          imageRestoreFailed ||
-          (kind === "post" && postTargetStatus !== "ready") ||
-          !title.trim() ||
-          (kind !== "source" && !content.trim()) ||
-          (kind === "source" && !audio && !sourceAudioLocked)
-        }
+        disabled={!form.canSubmit}
       >
-        {busy ? "저장 중..." : kind === "community" ? "개설 신청" : kind === "source" ? `${sourceVisibility === "PUBLIC" ? "공개" : "비공개"} 등록` : "입력 완료"}
+        {form.submitLabel}
       </button>
       <button
         type="button"
@@ -488,28 +779,7 @@ export function SocialCreate({
                 tone: "primary",
               })}
               disabled={busy}
-              onClick={async () => {
-                setBusy(true);
-                try {
-                  const userId = getCurrentUserId();
-                  if (kind === "source" && userId !== null) {
-                    await withSourcePublicationLock({ userId, draftKey, draftRevision }, () => {
-                      clearPendingPublication({ userId, draftKey });
-                      clearCreationDraft(draftStorageKey);
-                    });
-                  } else {
-                    clearCreationDraft(draftStorageKey);
-                  }
-                } catch (cause) {
-                  setConfirmDiscard(false);
-                  setError(sourceError(cause, "초안을 삭제하지 못했습니다. 다시 시도해주세요."));
-                  return;
-                } finally {
-                  setBusy(false);
-                }
-                setDiscarding(true);
-                onCancel();
-              }}
+              onClick={() => void form.discard()}
             >
               삭제하고 나가기
             </button>

@@ -1,5 +1,8 @@
+import { useEffect, useEffectEvent } from "react";
 import { sharedStyles } from "@/styles/shared.styles";
 import { cn } from "@/lib/utils";
+import { nativeApp, onFooterPress, requestNative } from "@/lib/native-app";
+import type { NativeFooterPress } from "@/lib/native-bridge-protocol";
 import { useUrlNavigation } from "./use-url-navigation";
 import { Asset } from "@/components/asset";
 import { iconSlotVariants } from "@/styles/variants";
@@ -25,8 +28,26 @@ export function Footer({
   const create = onCreate ?? (() => {
     to("/studio/new", { state: { studioFrom: currentPath, studioIndex: window.history.state?.idx } });
   });
+
+  // The app draws the footer natively (native/tab-bar.tsx) over this one, which stays rendered but
+  // inert: it keeps the canvas layout and shows, dimmed by the backdrop, while a web modal hides the
+  // native bar. Native presses come back here so each page keeps its own create action.
+  const inApp = nativeApp() !== null;
+  const press = useEffectEvent((pressed: NativeFooterPress) => {
+    const tab = nav.find((item) => item.id === pressed);
+    if (pressed === "create") create();
+    else if (tab) to(tab.path);
+  });
+  useEffect(() => onFooterPress((pressed) => press(pressed)), []);
+  useEffect(() => {
+    if (inApp) void requestNative("set-footer", { footer: { activeTab, createLabel } });
+  }, [inApp, activeTab, createLabel]);
+  useEffect(() => {
+    if (inApp) return () => void requestNative("set-footer", { footer: null });
+  }, [inApp]);
+
   return (
-    <footer className={sharedStyles.appFooter}>
+    <footer className={sharedStyles.appFooter} inert={inApp}>
       {nav.map((item) => (
         <button
           key={item.id}

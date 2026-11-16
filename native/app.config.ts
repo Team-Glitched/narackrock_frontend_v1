@@ -1,6 +1,8 @@
 import type { ConfigContext, ExpoConfig } from "expo/config";
 
 import rootPackage from "../package.json";
+// Explicit extension: the Expo config loader does not resolve extensionless .ts imports.
+import { designTokens } from "../src/styles/tokens.ts";
 
 // One version for web and app (root package.json). Store build numbers derive from it
 // (1.2.3 → 10203), so bump the root version before every Play/App Store upload. Prerelease tags are
@@ -39,6 +41,8 @@ const iosGoogleUrlScheme = iosGoogleClientId
 
 const appId = "com.teamglitched.narackrock";
 
+const microphoneUsage = "음악을 녹음하기 위해 마이크를 사용합니다.";
+
 export default ({ config }: ConfigContext): ExpoConfig => ({
   ...config,
   name: "Narackrock",
@@ -48,7 +52,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   orientation: "portrait",
   icon: "./assets/icon.png",
   userInterfaceStyle: "dark",
-  backgroundColor: "#1d1d1d",
+  backgroundColor: designTokens.colors.bg,
   android: {
     package: appId,
     versionCode: buildNumber,
@@ -66,7 +70,7 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     buildNumber: String(buildNumber),
     supportsTablet: true,
     infoPlist: {
-      NSMicrophoneUsageDescription: "음악을 녹음하기 위해 마이크를 사용합니다.",
+      NSMicrophoneUsageDescription: microphoneUsage,
     },
   },
   plugins: [
@@ -74,6 +78,22 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     "./plugins/with-android-network-security",
     "./plugins/with-android-release-signing",
     "./plugins/with-ios-google-sign-in-release-check",
+    // Native studio audio. Playback stops in the background, so no background audio mode or
+    // foreground service; RECORD_AUDIO and the iOS microphone text are declared above.
+    [
+      "react-native-audio-api",
+      { iosBackgroundMode: false, androidForegroundService: false, androidPermissions: [] },
+    ],
+    [
+      "expo-image-picker",
+      {
+        photosPermission: "게시글과 프로필에 올릴 사진을 고르기 위해 사진 보관함을 사용합니다.",
+        cameraPermission: false,
+        // `false` here would make the plugin strip RECORD_AUDIO from the manifest (studio recording
+        // needs it), so pass the app's own microphone text instead.
+        microphonePermission: microphoneUsage,
+      },
+    ],
     ...(iosGoogleUrlScheme
       ? [
           ["@react-native-google-signin/google-signin", { iosUrlScheme: iosGoogleUrlScheme }] as [

@@ -16,6 +16,9 @@ import { NotificationsOverlay } from "@/features/notifications/notifications-ove
 import { creationTarget } from "@/features/navigation/creation-target";
 import { resolveSearchScope } from "@/features/search/search-scope";
 import { sharedStyles } from "@/styles/shared.styles";
+import { nativeApp } from "@/lib/native-app";
+import type { AudioSelection } from "@/features/composition/prepare-audio-file";
+import { NativeUploadBridge } from "@/features/composition/native-creation-bridges";
 export default function UploadPage() {
   const route = useRouteComposition();
   const instrument = useInstrumentPrompt(route.projectId);
@@ -41,40 +44,45 @@ export default function UploadPage() {
         ? { state: { studioFrom: currentPath, studioIndex: window.history.state?.idx } }
         : undefined,
     );
+  const search = () => to(withQuery("/search", { scope, galleryId }));
+  async function save(file: File, selection: AudioSelection) {
+    try {
+      if (partial.current?.retry) await partial.current.retry();
+      else
+        await saveAudioLayer(
+          route.projectId!,
+          file,
+          await instrument.ask({ mode: "audio", audio: { file, selection } }),
+          "FILE_UPLOAD",
+          selection,
+        );
+      partial.current = null;
+    } catch (cause) {
+      // Closing the chooser keeps the trim screen as it was; it is not a save failure.
+      if (cause instanceof InstrumentPromptCancelled) return;
+      if (cause instanceof PartialLayerError) partial.current = cause;
+      throw cause;
+    }
+    to(route.studioUrl, { replace: true, state: route.studioState });
+  }
   return (
     <DesignViewport>
       <div className={sharedStyles.phoneFrame}>
-        <Header
-          onSearch={() => to(withQuery("/search", { scope, galleryId }))}
-          onBack={() => void cancel()}
-        />
+        <Header onSearch={search} onBack={() => void cancel()} />
         <div className={sharedStyles.screenBody}>
           {cancelError && <p role="alert">{cancelError}</p>}
           {route.projectId === null ? (
             <PageState error>올바르지 않은 페이지 주소입니다.</PageState>
           ) : (
-            <CompositionUploadScreen
+            <CompositionUploadScreen onBack={() => void cancel()} onSave={save} />
+          )}
+          {nativeApp() && route.projectId !== null && (
+            <NativeUploadBridge
+              onSave={save}
+              instrument={instrument.native}
+              notice={cancelError || null}
               onBack={() => void cancel()}
-              onSave={async (file, selection) => {
-                try {
-                  if (partial.current?.retry) await partial.current.retry();
-                  else
-                    await saveAudioLayer(
-                      route.projectId!,
-                      file,
-                      await instrument.ask({ mode: "audio", audio: { file, selection } }),
-                      "FILE_UPLOAD",
-                      selection,
-                    );
-                  partial.current = null;
-                } catch (cause) {
-                  // Closing the chooser keeps the trim screen as it was; it is not a save failure.
-                  if (cause instanceof InstrumentPromptCancelled) return;
-                  if (cause instanceof PartialLayerError) partial.current = cause;
-                  throw cause;
-                }
-                to(route.studioUrl, { replace: true, state: route.studioState });
-              }}
+              onSearch={search}
             />
           )}
         </div>

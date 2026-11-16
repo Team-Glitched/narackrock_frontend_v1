@@ -17,10 +17,10 @@ export function relationError(cause: unknown, fallback: string) {
 }
 
 /**
- * Follow / pending request / unfollow and chat entry for another user's profile. A private target's follow
+ * Follow / pending request / unfollow state for another user's profile. A private target's follow
  * becomes a pending request, never an immediate follow; relation queries are refetched after every change.
  */
-export function ProfileRelationActions({ profile, onChat }: { profile: UserProfile; onChat: (userId: number) => void }) {
+export function useProfileRelation(profile: UserProfile) {
   const userId = useCurrentUserId();
   const { requireLogin } = useLoginPrompt();
   const authenticated = userId !== null;
@@ -43,9 +43,29 @@ export function ProfileRelationActions({ profile, onChat }: { profile: UserProfi
     });
   }
   const label = !authenticated ? "팔로우" : !known ? outgoingError ? "확인 실패" : "확인 중" : state === "FOLLOWING" ? "팔로잉" : state === "PENDING" ? "요청됨" : profile.relations.isFollowedBy ? "맞팔로우" : "팔로우";
+  return {
+    label,
+    tone: state ? ("secondary" as const) : ("primary" as const),
+    disabled: busy || (authenticated && !known),
+    pressed: known ? state !== null : undefined,
+    outgoingError,
+    recheck: () => void outgoingQuery.refetch(),
+    change,
+    canChat: canSendChatTo(profile),
+    /** Opens the chat after the login check, like the web's chat button. */
+    chat: (onChat: (userId: number) => void) => {
+      if (requireLogin(`/chat?userId=${profile.userId}`)) onChat(profile.userId);
+    },
+    notice,
+  };
+}
+
+/** Follow / pending request / unfollow and chat entry for another user's profile. */
+export function ProfileRelationActions({ profile, onChat }: { profile: UserProfile; onChat: (userId: number) => void }) {
+  const { label, tone, disabled, pressed, outgoingError, recheck, change, canChat, chat, notice } = useProfileRelation(profile);
   return (
     <div className="mb-4 flex flex-wrap items-center justify-center gap-2">
-      <button className={buttonVariants({ tone: state ? "secondary" : "primary" })} disabled={busy || (authenticated && !known)} aria-pressed={known ? state !== null : undefined} onClick={change}>
+      <button className={buttonVariants({ tone })} disabled={disabled} aria-pressed={pressed} onClick={change}>
         {label}
       </button>
       {outgoingError && (
@@ -56,14 +76,14 @@ export function ProfileRelationActions({ profile, onChat }: { profile: UserProfi
           <p className="m-0">{outgoingError}</p>
           <button
             className={buttonVariants({ tone: "secondary", size: "compact" })}
-            onClick={() => void outgoingQuery.refetch()}
+            onClick={recheck}
           >
             다시 확인
           </button>
         </div>
       )}
-      {canSendChatTo(profile) && (
-        <button className={buttonVariants({ tone: "secondary" })} onClick={() => { if (requireLogin(`/chat?userId=${profile.userId}`)) onChat(profile.userId); }}>
+      {canChat && (
+        <button className={buttonVariants({ tone: "secondary" })} onClick={() => chat(onChat)}>
           채팅
         </button>
       )}
@@ -73,7 +93,7 @@ export function ProfileRelationActions({ profile, onChat }: { profile: UserProfi
 }
 
 /** Account privacy for the signed-in user; applied immediately with `PATCH /users/me/profile/privacy`. */
-export function ProfilePrivacyToggle({ isPrivate }: { isPrivate: boolean }) {
+export function useProfilePrivacy() {
   const userId = useCurrentUserId();
   const queryClient = useQueryClient();
   const privacy = useMutation({
@@ -83,20 +103,29 @@ export function ProfilePrivacyToggle({ isPrivate }: { isPrivate: boolean }) {
       queryClient.setQueryData<UserProfile>(profileKeys.detail(userId, userId), (profile) => profile && { ...profile, isPrivate: result.isPrivate });
     },
   });
+  return {
+    busy: privacy.isPending,
+    error: privacy.isError ? relationError(privacy.error, "공개 설정을 바꾸지 못했습니다.") : null,
+    change: (value: boolean) => privacy.mutate(value),
+  };
+}
+
+export function ProfilePrivacyToggle({ isPrivate }: { isPrivate: boolean }) {
+  const privacy = useProfilePrivacy();
   return (
     <label className={cn("preference-row", preferenceRow, "border-b border-app-border pt-1 pb-6!")}>
       <span className={preferenceCopy}>
         <strong className="text-title! leading-[26px]! font-bold!">비공개 계정</strong>
         <small>켜면 팔로우는 승인 후에만 이뤄지고 관계 목록이 숨겨집니다.</small>
-        {privacy.isError && <small role="alert" className="block text-body text-[#ff8d8d]">{relationError(privacy.error, "공개 설정을 바꾸지 못했습니다.")}</small>}
+        {privacy.error && <small role="alert" className="block text-body text-[#ff8d8d]">{privacy.error}</small>}
       </span>
       <input
         type="checkbox"
         role="switch"
         className={preferenceSwitch}
         checked={isPrivate}
-        disabled={privacy.isPending}
-        onChange={(event) => privacy.mutate(event.target.checked)}
+        disabled={privacy.busy}
+        onChange={(event) => privacy.change(event.target.checked)}
       />
     </label>
   );

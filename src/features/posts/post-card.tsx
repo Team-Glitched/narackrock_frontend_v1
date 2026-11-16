@@ -32,43 +32,54 @@ type CommunityPostProps = {
 /** A post card. `moderation` (from the gallery role) enables moderator deletion and member sanctions. */
 export function CommunityPost(props: CommunityPostProps) {
   const currentUserId = useCurrentUserId();
-  return <ScopedCommunityPost key={`${currentUserId}:${props.post.postId}`} {...props} currentUserId={currentUserId} />;
+  return (
+    <ScopedCommunityPost
+      key={`${currentUserId}:${props.post.postId}`}
+      {...props}
+      currentUserId={currentUserId}
+    />
+  );
 }
 
-function ScopedCommunityPost({
+/**
+ * State and actions of a post card, shared by the web card and the app's native feed. `nearViewport` gates the
+ * detail request (preview, reactions, saved state) until the card nears the viewport.
+ */
+export function useCommunityPostCard({
   post,
   onChanged,
-  onComments,
-  onProfile,
   moderation,
   currentUserId,
-}: CommunityPostProps & { currentUserId: number | null }) {
+  nearViewport,
+}: {
+  post: PostListItem;
+  onChanged: () => void;
+  moderation?: ModerationScope;
+  currentUserId: number | null;
+  nearViewport: boolean;
+}) {
   const owner = currentUserId === post.writer.userId;
   const canModerate = Boolean(moderation?.canManage);
   const canModerateMember = canSanction(moderation, currentUserId, post.writer.userId);
-  const [moderationReason, setModerationReason] = useState("");
   const [memberAction, setMemberAction] = useState<"suspend" | "expel" | null>(null);
   const [moderationNotice, setModerationNotice] = useState("");
-  const [menuOpen, setMenuOpen] = useState(false);
-  const optionButton = useRef<HTMLButtonElement>(null);
-  const articleRef = useRef<HTMLElement>(null);
   const hiddenPosts = useHiddenPosts();
   const { requireLogin } = useLoginPrompt();
   const [reportOpen, setReportOpen] = useState(false);
   const queryClient = useQueryClient();
-  // The detail (preview, reactions, saved state) is requested once the card nears the viewport.
-  const [nearViewport, setNearViewport] = useState(() => typeof IntersectionObserver === "undefined");
   const detailQuery = useQuery({
     ...postDetailQuery(currentUserId, post.postId),
     enabled: currentUserId !== null && nearViewport,
   });
   const detail = detailQuery.data ?? null;
   const interactions = usePostInteractions(post.postId, detail);
-  const detailStatus = detailQuery.isError ? "unavailable" : "loading";
-  const saveStatus = currentUserId === null || interactions.bookmarked !== undefined
-    ? "ready"
-    : detailStatus;
-  const voteStatus = currentUserId === null || interactions.reaction ? "ready" : detailStatus;
+  const detailStatus = detailQuery.isError ? ("unavailable" as const) : ("loading" as const);
+  const saveStatus =
+    currentUserId === null || interactions.bookmarked !== undefined
+      ? ("ready" as const)
+      : detailStatus;
+  const voteStatus =
+    currentUserId === null || interactions.reaction ? ("ready" as const) : detailStatus;
   const [editing, setEditing] = useState(false);
   const [title, setTitle] = useState(post.title);
   const [content, setContent] = useState("");
@@ -82,7 +93,8 @@ function ScopedCommunityPost({
   const moderating = canModerate && !owner;
 
   const saving = useMutation({
-    mutationFn: (edit: { title: string; content: string }) => updatePost(post.postId, edit.title, edit.content),
+    mutationFn: (edit: { title: string; content: string }) =>
+      updatePost(post.postId, edit.title, edit.content),
     onSuccess: (_response, edit) => {
       applyPostEdit(queryClient, currentUserId, post.postId, edit.title, edit.content);
       setEditing(false);
@@ -93,7 +105,12 @@ function ScopedCommunityPost({
   const removal = useMutation({
     mutationFn: (moderationScope: { galleryId: number; reason: string } | null) =>
       moderationScope
-        ? moderateGalleryContent(moderationScope.galleryId, "posts", post.postId, moderationScope.reason)
+        ? moderateGalleryContent(
+            moderationScope.galleryId,
+            "posts",
+            post.postId,
+            moderationScope.reason,
+          )
         : deletePost(post.postId),
     onSuccess: () => {
       applyPostRemoval(queryClient, currentUserId, post.postId);
@@ -107,25 +124,15 @@ function ScopedCommunityPost({
   // A deleted post stays disabled until the list reloads without it.
   const submitting = loadingEdit || saving.isPending || removal.isPending || removal.isSuccess;
 
-  useEffect(() => {
-    const article = articleRef.current;
-    if (currentUserId === null || nearViewport || !article) return;
-    const observer = new IntersectionObserver((entries) => {
-      if (!entries.some((entry) => entry.isIntersecting)) return;
-      observer.disconnect();
-      setNearViewport(true);
-    }, { rootMargin: "300px 0px" });
-    observer.observe(article);
-    return () => observer.disconnect();
-  }, [currentUserId, nearViewport]);
-
   async function startEdit() {
-    setMenuOpen(false);
     setActionError(null);
     setLoadingEdit(true);
     try {
       // Edit the server's current text, not a possibly older cached copy.
-      const fresh = await queryClient.fetchQuery({ ...postDetailQuery(currentUserId, post.postId), staleTime: 0 });
+      const fresh = await queryClient.fetchQuery({
+        ...postDetailQuery(currentUserId, post.postId),
+        staleTime: 0,
+      });
       setTitle(fresh.title);
       setContent(fresh.content);
       setEditing(true);
@@ -136,18 +143,17 @@ function ScopedCommunityPost({
     }
   }
 
-  function saveEdit() {
-    if (!title.trim() || !content.trim()) {
+  function saveEdit(edit: { title: string; content: string }) {
+    if (!edit.title.trim() || !edit.content.trim()) {
       setActionError("제목과 내용을 모두 입력해주세요.");
       return;
     }
     if (submitting) return;
     setActionError(null);
-    saving.mutate({ title, content });
+    saving.mutate(edit);
   }
 
-  function remove() {
-    setMenuOpen(false);
+  function remove(moderationReason: string) {
     if (moderating && !moderationReason.trim()) {
       setActionError("운영 삭제 사유를 입력해주세요.");
       return;
@@ -155,15 +161,123 @@ function ScopedCommunityPost({
     if (submitting) return;
     setActionError(null);
     removal.mutate(
-      moderating && moderation ? { galleryId: moderation.galleryId, reason: moderationReason.trim() } : null,
+      moderating && moderation
+        ? { galleryId: moderation.galleryId, reason: moderationReason.trim() }
+        : null,
     );
   }
 
-  if (hiddenPosts.ids.has(post.postId)) return null;
+  return {
+    owner,
+    canModerate,
+    canModerateMember,
+    moderating,
+    hidden: hiddenPosts.ids.has(post.postId),
+    hide: () => hiddenPosts.hide(post.postId),
+    report: () => {
+      if (requireLogin()) setReportOpen(true);
+    },
+    reportOpen,
+    setReportOpen,
+    memberAction,
+    setMemberAction,
+    moderationNotice,
+    setModerationNotice,
+    interactions,
+    voteStatus,
+    saveStatus,
+    preview,
+    imageUrl,
+    error,
+    submitting,
+    editing,
+    setEditing,
+    title,
+    setTitle,
+    content,
+    setContent,
+    startEdit,
+    saveEdit,
+    confirmDelete,
+    setConfirmDelete,
+    remove,
+  };
+}
+
+function ScopedCommunityPost({
+  post,
+  onChanged,
+  onComments,
+  onProfile,
+  moderation,
+  currentUserId,
+}: CommunityPostProps & { currentUserId: number | null }) {
+  const [moderationReason, setModerationReason] = useState("");
+  const [menuOpen, setMenuOpen] = useState(false);
+  const optionButton = useRef<HTMLButtonElement>(null);
+  const articleRef = useRef<HTMLElement>(null);
+  // The detail (preview, reactions, saved state) is requested once the card nears the viewport.
+  const [nearViewport, setNearViewport] = useState(
+    () => typeof IntersectionObserver === "undefined",
+  );
+  const {
+    owner,
+    canModerate,
+    canModerateMember,
+    moderating,
+    hidden,
+    hide,
+    report,
+    reportOpen,
+    setReportOpen,
+    memberAction,
+    setMemberAction,
+    moderationNotice,
+    setModerationNotice,
+    interactions,
+    voteStatus,
+    saveStatus,
+    preview,
+    imageUrl,
+    error,
+    submitting,
+    editing,
+    setEditing,
+    title,
+    setTitle,
+    content,
+    setContent,
+    startEdit,
+    saveEdit,
+    confirmDelete,
+    setConfirmDelete,
+    remove,
+  } = useCommunityPostCard({ post, onChanged, moderation, currentUserId, nearViewport });
+
+  useEffect(() => {
+    const article = articleRef.current;
+    if (currentUserId === null || nearViewport || !article) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (!entries.some((entry) => entry.isIntersecting)) return;
+        observer.disconnect();
+        setNearViewport(true);
+      },
+      { rootMargin: "300px 0px" },
+    );
+    observer.observe(article);
+    return () => observer.disconnect();
+  }, [currentUserId, nearViewport]);
+
+  if (hidden) return null;
 
   if (editing) {
     return (
-      <article ref={articleRef} className={communityStyles.communityPost} data-post-id={post.postId}>
+      <article
+        ref={articleRef}
+        className={communityStyles.communityPost}
+        data-post-id={post.postId}
+      >
         <div className={communityStyles.postForm}>
           <input
             aria-label="게시글 제목 수정"
@@ -196,7 +310,7 @@ function ScopedCommunityPost({
                 tone: "primary",
                 size: "compact",
               })}
-              onClick={saveEdit}
+              onClick={() => saveEdit({ title, content })}
               disabled={submitting}
             >
               {submitting ? "저장 중..." : "저장"}
@@ -260,11 +374,11 @@ function ScopedCommunityPost({
           onClose={() => setMenuOpen(false)}
           onReport={() => {
             setMenuOpen(false);
-            if (requireLogin()) setReportOpen(true);
+            report();
           }}
           onHide={() => {
             setMenuOpen(false);
-            hiddenPosts.hide(post.postId);
+            hide();
           }}
         />
       )}
@@ -299,7 +413,10 @@ function ScopedCommunityPost({
           onClose={() => setMenuOpen(false)}
           onReport={() => {}}
           onHide={() => {}}
-          onEdit={startEdit}
+          onEdit={() => {
+            setMenuOpen(false);
+            void startEdit();
+          }}
           onDelete={() => {
             setConfirmDelete(true);
             setMenuOpen(false);
@@ -338,7 +455,9 @@ function ScopedCommunityPost({
           role="group"
           aria-label="게시글 삭제 확인"
         >
-          <p>{moderating ? "운영자 권한으로 이 게시글을 삭제할까요?" : "이 게시글을 삭제할까요?"}</p>
+          <p>
+            {moderating ? "운영자 권한으로 이 게시글을 삭제할까요?" : "이 게시글을 삭제할까요?"}
+          </p>
           {moderating && (
             <input
               aria-label="운영 삭제 사유"
@@ -362,7 +481,10 @@ function ScopedCommunityPost({
               tone: "primary",
             })}
             disabled={submitting || (moderating && !moderationReason.trim())}
-            onClick={remove}
+            onClick={() => {
+              setMenuOpen(false);
+              remove(moderationReason);
+            }}
           >
             {submitting ? "삭제 중..." : "삭제 확인"}
           </button>
@@ -387,7 +509,13 @@ function ScopedCommunityPost({
         likeCount={interactions.reaction?.likeCount ?? post.likeCount}
         dislikeCount={interactions.reaction?.dislikeCount}
         commentCount={post.commentCount}
-        vote={interactions.reaction?.isLiked ? "like" : interactions.reaction?.isDisliked ? "dislike" : null}
+        vote={
+          interactions.reaction?.isLiked
+            ? "like"
+            : interactions.reaction?.isDisliked
+              ? "dislike"
+              : null
+        }
         voteStatus={voteStatus}
         busy={interactions.busy}
         onVote={(kind) => void interactions.vote(kind)}

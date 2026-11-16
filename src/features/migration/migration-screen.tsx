@@ -9,15 +9,8 @@ import type { CompositionDto } from "@/lib/api/composition";
 import { collectLegacyItems, type LegacyItem } from "./legacy-items";
 import { migrateItem, migrationEntry, legacyAudio } from "./migrate-item";
 import { sharedStyles } from "@/styles/shared.styles";
+import { saveFile } from "@/lib/native-app";
 
-function download(value: Blob, name: string) {
-  const url = URL.createObjectURL(value);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = name;
-  link.click();
-  URL.revokeObjectURL(url);
-}
 const reasons: Record<LegacyItem["kind"], string> = {
   post: "제목·작성자를 서버와 대조하고 저장 상태를 다시 읽은 뒤 필요한 경우 한 번만 저장합니다.",
   song: "숏폼 제목·작성자를 대조하고 이미 저장된 항목은 건너뜁니다.",
@@ -139,12 +132,23 @@ function AccountMigrationScreen({ userId }: { userId: number | null }) {
           )}
           <div>
             <button
-              onClick={() =>
-                download(
-                  new Blob([JSON.stringify(item.raw, null, 2)], { type: "application/json" }),
-                  `browser-original-${item.kind}-${item.id ?? "draft"}.json`,
-                )
-              }
+              onClick={async () => {
+                try {
+                  await saveFile(
+                    new File(
+                      [JSON.stringify(item.raw, null, 2)],
+                      `browser-original-${item.kind}-${item.id ?? "draft"}.json`,
+                      { type: "application/json" },
+                    ),
+                  );
+                } catch (cause) {
+                  setResults((old) => ({
+                    ...old,
+                    [item.key]:
+                      cause instanceof Error ? cause.message : "파일을 내보내지 못했습니다.",
+                  }));
+                }
+              }}
             >
               원본 JSON 내보내기
             </button>
@@ -154,7 +158,7 @@ function AccountMigrationScreen({ userId }: { userId: number | null }) {
                   try {
                     const file = await legacyAudio(item);
                     if (!file) throw new Error("원본 오디오 파일이 없습니다.");
-                    download(file, file.name);
+                    await saveFile(file);
                   } catch (cause) {
                     setResults((old) => ({
                       ...old,

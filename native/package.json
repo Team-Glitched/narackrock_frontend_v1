@@ -8,14 +8,21 @@
     "@react-native-google-signin/google-signin": "^17.0.0",
     "expo": "~58.0.24",
     "expo-crypto": "~58.0.8",
+    "expo-document-picker": "~58.0.5",
+    "expo-image-picker": "~58.0.10",
+    "expo-sharing": "~58.0.23",
     "expo-status-bar": "~58.0.5",
     "expo-system-ui": "~58.0.7",
     "react": "19.3.0",
     "react-native": "0.88.1",
+    "react-native-audio-api": "^1.0.0",
     "react-native-safe-area-context": "~5.11.1",
+    "react-native-svg": "15.16.0",
     "react-native-webview": "14.0.1"
   },
   "devDependencies": {
+    "@svgr/core": "^8.1.0",
+    "@svgr/plugin-jsx": "^8.1.0",
     "@types/react": "~19.3.0",
     "typescript": "~6.0.3"
   },

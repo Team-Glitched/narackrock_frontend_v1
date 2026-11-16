@@ -8,27 +8,44 @@ import { resolveSearchScope } from "@/features/search/search-scope";
 import { creationTarget } from "@/features/navigation/creation-target";
 import { sharedStyles } from "@/styles/shared.styles";
 import { CommunityManagementContent } from "@/features/community/community-management-content";
+import { NativeCommunityAdminBridge } from "@/features/admin/native-admin-bridge";
+import { nativeApp } from "@/lib/native-app";
 
 export default function OwnedCommunitiesPage() {
   const { to, back, params, query, currentPath } = useUrlNavigation();
   const galleryId = readId(params.galleryId) ?? readId(query.get("galleryId"));
   const scope = resolveSearchScope(query.get("scope"), "posts", Boolean(galleryId));
   const target = creationTarget(scope, galleryId);
+  const onBack = () => back("/communities");
+  const onSearch = () => to(withQuery("/search", { scope, galleryId }));
   return (
     <DesignViewport>
       <div className={sharedStyles.phoneFrame}>
-        <Header
-          onBack={() => back("/communities")}
-          onSearch={() => to(withQuery("/search", { scope, galleryId }))}
-        />
+        <Header onBack={onBack} onSearch={onSearch} />
         <div className={sharedStyles.screenBody}>
           <CommunityManagementContent galleryId={null} members={false} />
+          {nativeApp() && (
+            <NativeCommunityAdminBridge
+              galleryId={null}
+              members={false}
+              invalid={false}
+              onBack={onBack}
+              onSearch={onSearch}
+            />
+          )}
         </div>
         <Footer
           activeTab="social"
-          onCreate={() => to(target.path, target.path === "/studio/new" ? {
-            state: { studioFrom: currentPath, studioIndex: window.history.state?.idx },
-          } : undefined)}
+          onCreate={() =>
+            to(
+              target.path,
+              target.path === "/studio/new"
+                ? {
+                    state: { studioFrom: currentPath, studioIndex: window.history.state?.idx },
+                  }
+                : undefined,
+            )
+          }
           createLabel={target.label}
         />
         <NotificationsOverlay />

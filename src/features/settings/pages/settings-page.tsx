@@ -1,6 +1,8 @@
 import { useNavigate } from "react-router";
 import { logout } from "@/lib/api/auth";
+import { nativeApp } from "@/lib/native-app";
 import { SettingsScreen } from "@/features/settings/settings-screen";
+import { NativeSettingsBridge } from "@/features/settings/native-settings-bridge";
 import { useUrlNavigation } from "@/features/navigation/use-url-navigation";
 import { DesignViewport } from "@/components/design-viewport";
 import { Header } from "@/features/navigation/header";
@@ -17,11 +19,18 @@ export default function SettingsPage() {
   const galleryId = readId(params.galleryId) ?? readId(query.get("galleryId"));
   const scope = resolveSearchScope(query.get("scope"), "songs", Boolean(galleryId));
   const target = creationTarget(scope, galleryId);
+  const search = () => to(withQuery("/search", { scope, galleryId }));
+  const signOut = () => {
+    // Leave the protected page in the same render before the session clears; a transition here would
+    // first re-render /settings signed out and flash the login confirmation.
+    navigate("/login", { replace: true, flushSync: true });
+    logout();
+  };
   return (
     <DesignViewport>
       <div className={sharedStyles.phoneFrame}>
         <Header
-          onSearch={() => to(withQuery("/search", { scope, galleryId }))}
+          onSearch={search}
           onBack={() => back("/profile")}
         />
         <div className={sharedStyles.screenBody}>
@@ -29,18 +38,13 @@ export default function SettingsPage() {
             <MigrationScreen />
           ) : (
             <>
-              <SettingsScreen
-                onNavigate={to}
-                onLogout={() => {
-                  // Leave the protected page in the same render before the session clears; a transition here would
-                  // first re-render /settings signed out and flash the login confirmation.
-                  navigate("/login", { replace: true, flushSync: true });
-                  logout();
-                }}
-              />
+              <SettingsScreen onNavigate={to} onLogout={signOut} />
               <button onClick={() => to("/settings?migration=1")}>
                 이 브라우저 데이터 이관·복구
               </button>
+              {nativeApp() && (
+                <NativeSettingsBridge onNavigate={to} onLogout={signOut} onSearch={search} onBack={() => back("/profile")} />
+              )}
             </>
           )}
         </div>

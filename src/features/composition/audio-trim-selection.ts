@@ -1,4 +1,5 @@
-import type { AudioSelection } from "@/features/composition/prepare-audio-file";
+// Pure: the app's native trim imports it too (relative imports only).
+import type { AudioSelection } from "./prepare-audio-file.ts";
 
 export const maxAudioClipMs = 60_000;
 export const minAudioClipMs = 100;

@@ -1,23 +1,23 @@
 import { useSearchParams } from "react-router";
 import { readId } from "@/features/navigation/paths";
-import { useLoginPrompt } from "@/features/auth/login-prompt";
 import { communityStyles } from "@/styles/community.styles";
 import { sharedStyles } from "@/styles/shared.styles";
 import { buttonVariants } from "@/styles/variants";
-import { apiOrigin } from "@/lib/api/client";
-import { useHiddenIds } from "@/lib/browser/hidden-ids";
 import { cn } from "@/lib/utils";
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Asset } from "@/components/asset";
 import { Avatar } from "@/components/avatar";
 import { PostUserActionsMenu } from "@/features/posts/post-user-actions-menu";
-import { FigmaSheet } from "@/components/figma-sheet";
-import { ReportReasons } from "@/features/comments/report-reasons";
-import { useCurrentUserId } from "@/features/auth/use-current-user";
-import type { CommentAdapter, CommentItem } from "./comment-model";
-import { commentKeys, commentPagesQuery, loadedComments, openCommentHideChannel, updateCachedReaction } from "./comment-queries";
+import { useLoginPrompt } from "@/features/auth/login-prompt";
+import type { CommentItem } from "./comment-model";
 import { shouldSubmitOnEnter, usesTouchKeyboard } from "./submit-on-enter";
+import {
+  useComments,
+  useReplyPage,
+  type CommentsOptions,
+  type CommentsState,
+  type CommentWrites,
+} from "./use-comments";
 
 function resizeComposer(input: HTMLTextAreaElement) {
   const style = getComputedStyle(input);
@@ -40,114 +40,33 @@ function submitOnEnter(event: React.KeyboardEvent<HTMLTextAreaElement>) {
   event.currentTarget.form?.requestSubmit();
 }
 
-function errorText(cause: unknown, fallback: string) {
-  return cause instanceof Error ? cause.message : fallback;
-}
-
-function useCommentPage(adapter: CommentAdapter, parentId: number | null, enabled = true) {
-  const userId = useCurrentUserId();
-  const { data, error, isError, isFetching, isFetchNextPageError, hasNextPage, isFetchingNextPage, fetchNextPage, refetch } =
-    useInfiniteQuery({ ...commentPagesQuery(userId, adapter, parentId), enabled });
-  const items = useMemo(() => (enabled && data ? loadedComments(data.pages) : null), [data, enabled]);
-  const [link] = useSearchParams();
-  const target = readId(link.get("commentId")), root = readId(link.get("parentCommentId")) ?? target;
-  const sought = parentId === null ? root : parentId === readId(link.get("parentCommentId")) ? target : null;
-  useEffect(() => {
-    if (sought && items && !items.some((item) => item.id === sought) && hasNextPage && !isFetching && !isError)
-      void fetchNextPage({ cancelRefetch: false });
-  }, [sought, items, hasNextPage, isFetching, isError, fetchNextPage]);
-  return {
-    items,
-    total: data?.pages.at(-1)?.total ?? 0,
-    hasMore: enabled && hasNextPage,
-    // A retried or next request hides the previous failure while it runs.
-    error:
-      enabled && isError && !isFetching
-        ? errorText(error, isFetchNextPageError ? "답글을 더 불러오지 못했습니다." : "댓글을 불러오지 못했습니다.")
-        : null,
-    more: () => {
-      if (hasNextPage && !isFetchingNextPage) void fetchNextPage({ cancelRefetch: false });
-    },
-    moreBusy: isFetchingNextPage,
-    retry: () => void refetch(),
-  };
-}
-
-export function CommonComments({
-  adapter,
-  currentUserId,
-  onProfile,
-  canRead = true,
-  canWrite = true,
-  onChanged,
-  focus = false,
-  header,
-}: {
-  adapter: CommentAdapter;
-  currentUserId: number | null;
+type CommentsViewProps = {
   onProfile?: (id: number) => void;
-  canRead?: boolean;
-  canWrite?: boolean;
-  /** After every comment write (create, edit, delete); counts owned by the target must be re-read. */
-  onChanged?: () => void;
   focus?: boolean | number;
   header?: React.ReactNode;
-}) {
-  const { requireLogin, requestLogin } = useLoginPrompt();
-  const writable = canWrite && currentUserId !== null;
-  const userId = useCurrentUserId();
-  const queryClient = useQueryClient();
-  const { ids: hiddenIds, hide } = useHiddenIds(
-    adapter.hide ? null : `narackrock.hidden-comments.${apiOrigin()}.${userId ?? "guest"}.${adapter.kind}.${adapter.targetId}`,
-  );
-  const hiddenReplyCounts = useMemo(() => {
-    const counts = new Map<number, number>();
-    for (const parentId of hiddenIds.values()) {
-      if (parentId !== null) counts.set(parentId, (counts.get(parentId) ?? 0) + 1);
-    }
-    return counts;
-  }, [hiddenIds]);
-  const [commentLink] = useSearchParams();
-  const linkedParent = readId(commentLink.get("parentCommentId"));
-  const [expanded, setExpanded] = useState<Set<number>>(() => new Set(linkedParent ? [linkedParent] : []));
-  const [linkedThread, setLinkedThread] = useState(linkedParent);
-  if (linkedThread !== linkedParent) {
-    setLinkedThread(linkedParent);
-    if (linkedParent) setExpanded((old) => new Set([...old, linkedParent]));
-  }
-  const [reply, setReply] = useState<{ commentId: number; threadId: number; author: string } | null>(null);
-  const [draft, setDraft] = useState("");
-  const [hiddenOnServerId, setHiddenOnServerId] = useState<number | null>(null);
-  if (hiddenOnServerId !== null) setHiddenOnServerId(null);
-  if (reply && (
-    hiddenIds.has(reply.commentId) ||
-    hiddenIds.has(reply.threadId) ||
-    hiddenOnServerId === reply.commentId ||
-    hiddenOnServerId === reply.threadId
-  )) {
-    setReply(null);
-    setDraft("");
-  }
-  const hideChannel = useRef<BroadcastChannel | null>(null);
-  const serverHideEnabled = adapter.hide !== undefined;
-  const { kind, targetId } = adapter;
-  useEffect(() => {
-    if (!serverHideEnabled || userId === null) return;
-    const channel = openCommentHideChannel(userId, kind, targetId);
-    if (!channel) return;
-    hideChannel.current = channel;
-    channel.onmessage = ({ data }) => {
-      if (typeof data !== "number" || !Number.isSafeInteger(data) || data <= 0) return;
-      setHiddenOnServerId(data);
-      void queryClient.invalidateQueries({ queryKey: commentKeys.target(userId, kind, targetId) });
-      onChanged?.();
-    };
-    return () => {
-      hideChannel.current = null;
-      channel.close();
-    };
-  }, [serverHideEnabled, userId, kind, targetId, queryClient, onChanged]);
-  const [reportTarget, setReportTarget] = useState<number | null>(null);
+};
+
+/** A comment list with its own state; pages that also report the comments to the app use `useComments` + `CommentsView`. */
+export function CommonComments({
+  onProfile,
+  focus,
+  header,
+  ...options
+}: CommentsOptions & CommentsViewProps) {
+  const comments = useComments(options);
+  return <CommentsView comments={comments} onProfile={onProfile} focus={focus} header={header} />;
+}
+
+/** The web comment list and composer for the state of `useComments`. */
+export function CommentsView({
+  comments,
+  onProfile,
+  focus = false,
+  header,
+}: CommentsViewProps & { comments: CommentsState }) {
+  const { requestLogin } = useLoginPrompt();
+  const { currentUserId, canRead, canWrite, writable, top, reply, draft, setDraft, busy } =
+    comments;
   const input = useRef<HTMLTextAreaElement>(null);
   useLayoutEffect(() => {
     if (input.current) resizeComposer(input.current);
@@ -167,84 +86,33 @@ export function CommonComments({
   useEffect(() => {
     if (focus) input.current?.focus();
   }, [focus]);
-  const top = useCommentPage(adapter, null, canRead);
-  // Writes change counts and threads; every cached thread of the target re-reads from the server.
-  const changed = () => {
-    void queryClient.invalidateQueries({ queryKey: commentKeys.target(userId, adapter.kind, adapter.targetId) });
-    onChanged?.();
-  };
-  const create = useMutation({
-    mutationFn: ({ text, parentId }: { text: string; parentId: number | null }) => adapter.create(text, parentId),
-    onSuccess: () => {
-      setDraft("");
-      setReply(null);
-      changed();
-    },
-  });
-  const hideOnServer = useMutation({
-    mutationFn: async (commentId: number) => {
-      await adapter.hide?.(commentId);
-    },
-    onSuccess: async (_, commentId) => {
-      setHiddenOnServerId(commentId);
-      hideChannel.current?.postMessage(commentId);
-      onChanged?.();
-      await queryClient.invalidateQueries({
-        queryKey: commentKeys.target(userId, adapter.kind, adapter.targetId),
-      });
-    },
-  });
-  const busy = create.isPending;
-  const error = create.isError ? errorText(create.error, "댓글을 등록하지 못했습니다.") : null;
-  const toggle = (id: number) =>
-    setExpanded((old) => {
-      const next = new Set(old);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  const startReply = (item: CommentItem, threadId: number) => {
-    setReply({ commentId: item.id, threadId, author: item.author });
-    setExpanded((old) => new Set([...old, threadId]));
-    input.current?.focus();
-  };
-  const report = adapter.report;
   function submit(event: React.FormEvent) {
     event.preventDefault();
-    if (!requireLogin() || busy || hideOnServer.isPending || !writable || !draft.trim()) return;
-    create.mutate({ text: draft.trim(), parentId: reply?.threadId ?? null });
+    comments.send(draft);
   }
   const row = (item: CommentItem, thread?: { count: number; open: boolean }, parentId?: number) => (
     <CommentCard
       key={item.id}
       item={item}
-      owner={currentUserId === item.userId}
-      adapter={adapter}
-      onChanged={changed}
-      onHide={() => {
-        if (!adapter.hide) {
-          hide(item.id, parentId ?? null);
-        } else if (!hideOnServer.isPending && requireLogin()) {
-          hideOnServer.mutate(item.id);
-        }
-      }}
+      writes={comments.writes}
+      onHide={() => comments.hide(item, parentId ?? null)}
       canReply={canWrite}
       replyCount={thread?.count}
       repliesExpanded={thread?.open}
-      onToggleReplies={thread?.count ? () => {
-        toggle(item.id);
-        if (!draft.trim()) {
-          if (thread.open && reply?.threadId === item.id) setReply(null);
-          else if (!thread.open && writable) setReply({ commentId: item.id, threadId: item.id, author: item.author });
-        }
-      } : undefined}
-      onReply={thread ? () => {
-        if (requireLogin() && writable) startReply(item, item.id);
-      } : undefined}
+      onToggleReplies={
+        thread?.count
+          ? () => comments.toggleReplies(item, thread.open, draft.trim() !== "")
+          : undefined
+      }
+      onReply={
+        thread
+          ? () => {
+              if (comments.startReply(item)) input.current?.focus();
+            }
+          : undefined
+      }
       onProfile={() => onProfile?.(item.userId)}
-      onReport={report ? () => {
-        if (requireLogin()) setReportTarget(item.id);
-      } : undefined}
+      onReport={comments.report ? () => comments.report?.(item.id) : undefined}
     />
   );
   return (
@@ -255,7 +123,10 @@ export function CommonComments({
       >
         {header}
         {top.error && (
-          <div role="alert" className="flex flex-col items-center justify-center gap-3 px-4 py-8 text-center text-body leading-5 text-[#ff8d8d]">
+          <div
+            role="alert"
+            className="flex flex-col items-center justify-center gap-3 px-4 py-8 text-center text-body leading-5 text-[#ff8d8d]"
+          >
             <p className="m-0">{top.error}</p>
             <button
               type="button"
@@ -270,29 +141,23 @@ export function CommonComments({
         {top.items?.length === 0 && (
           <p className={communityStyles.nrCommentsEmpty}>첫 댓글을 남겨보세요.</p>
         )}
-        {top.items?.filter((item) => !hiddenIds.has(item.id)).map((item) => {
-          const replyCount = Math.max(0, item.replyCount - (hiddenReplyCounts.get(item.id) ?? 0));
-          return (
-            <section
-              className={communityStyles.nrCommentThread}
-              key={item.id}
-              aria-label={`${item.author} 댓글 대화`}
-            >
-              {row(item, { count: replyCount, open: expanded.has(item.id) })}
-              {expanded.has(item.id) && replyCount > 0 && (
-                <Replies
-                  key={item.id}
-                  adapter={adapter}
-                  parentId={item.id}
-                  hiddenIds={hiddenIds}
-                  hiddenCount={hiddenReplyCounts.get(item.id) ?? 0}
-                  onResolveHidden={(id) => hide(id, item.id)}
-                  render={(child) => row(child, undefined, item.id)}
-                />
-              )}
-            </section>
-          );
-        })}
+        {comments.threads?.map(({ item, replyCount, expanded }) => (
+          <section
+            className={communityStyles.nrCommentThread}
+            key={item.id}
+            aria-label={`${item.author} 댓글 대화`}
+          >
+            {row(item, { count: replyCount, open: expanded })}
+            {expanded && replyCount > 0 && (
+              <Replies
+                key={item.id}
+                comments={comments}
+                parentId={item.id}
+                render={(child) => row(child, undefined, item.id)}
+              />
+            )}
+          </section>
+        ))}
         {top.hasMore && (
           <button
             className={communityStyles.nrCommentsMore}
@@ -307,15 +172,13 @@ export function CommonComments({
         {reply && (
           <div className={communityStyles.nrCommentReplying}>
             <span>{reply.author}에게 답글</span>
-            <button type="button" aria-label="답글 취소" onClick={() => setReply(null)}>
+            <button type="button" aria-label="답글 취소" onClick={comments.cancelReply}>
               <Asset name="search-close.svg" />
             </button>
           </div>
         )}
-        {error && <p role="alert">{error}</p>}
-        {hideOnServer.isError && (
-          <p role="alert">{errorText(hideOnServer.error, "댓글을 숨기지 못했습니다.")}</p>
-        )}
+        {comments.error && <p role="alert">{comments.error}</p>}
+        {comments.hideError && <p role="alert">{comments.hideError}</p>}
         <div className={communityStyles.nrCommentInput}>
           {currentUserId === null ? (
             <button
@@ -323,7 +186,9 @@ export function CommonComments({
               className="box-border min-h-9 min-w-0 flex-1 rounded-[20px] bg-app-surface py-2 pr-2.5 pl-3 text-left text-body leading-[20px] text-app-muted"
               onClick={() => requestLogin()}
             >
-              {canRead ? "로그인 후 댓글을 작성할 수 있습니다." : "로그인 후 댓글을 확인하고 작성할 수 있습니다."}
+              {canRead
+                ? "로그인 후 댓글을 작성할 수 있습니다."
+                : "로그인 후 댓글을 확인하고 작성할 수 있습니다."}
             </button>
           ) : (
             <textarea
@@ -340,54 +205,43 @@ export function CommonComments({
           <button
             type="submit"
             aria-label="댓글 보내기"
-            disabled={busy || hideOnServer.isPending || (currentUserId !== null && (!writable || !draft.trim()))}
+            disabled={
+              busy || comments.hiding || (currentUserId !== null && (!writable || !draft.trim()))
+            }
           >
             <Asset name="comment-send.svg" />
           </button>
         </div>
       </form>
-      {reportTarget !== null && report && (
-        <FigmaSheet title="신고" onClose={() => setReportTarget(null)}>
-          <ReportReasons
-            onSubmit={(reason, description) => report(reportTarget, reason, description)}
-            onDone={() => setReportTarget(null)}
-          />
-        </FigmaSheet>
-      )}
+      {comments.dialogs}
     </div>
   );
 }
 function Replies({
-  adapter,
+  comments,
   parentId,
-  hiddenIds,
-  hiddenCount,
-  onResolveHidden,
   render,
 }: {
-  adapter: CommentAdapter;
+  comments: CommentsState;
   parentId: number;
-  hiddenIds: ReadonlyMap<number, number | null>;
-  hiddenCount: number;
-  onResolveHidden: (id: number) => void;
   render: (item: CommentItem) => React.ReactNode;
 }) {
-  const page = useCommentPage(adapter, parentId);
-  const { items } = page;
-  useEffect(() => {
-    // Older stored entries contain only the comment ID.
-    for (const item of items ?? []) {
-      if (hiddenIds.get(item.id) === null) onResolveHidden(item.id);
-    }
-  }, [items, hiddenIds, onResolveHidden]);
-  const visibleItems = items?.filter((item) => !hiddenIds.has(item.id));
-  const remaining = Math.max(0, page.total - hiddenCount - (visibleItems?.length ?? 0));
+  const { page, visibleItems, remaining, showMore } = useReplyPage(
+    comments.adapter,
+    parentId,
+    comments.hiddenIds,
+    comments.hiddenReplyCounts.get(parentId) ?? 0,
+    (id) => comments.resolveHidden(id, parentId),
+  );
   return (
     <div className={communityStyles.nrCommentReplies}>
       <span className={communityStyles.nrRepliesRail} aria-hidden="true" />
       <div className={communityStyles.nrRepliesBody}>
         {page.error && (
-          <div role="alert" className="flex flex-col items-start gap-2 py-2 text-body leading-5 text-[#ff8d8d]">
+          <div
+            role="alert"
+            className="flex flex-col items-start gap-2 py-2 text-body leading-5 text-[#ff8d8d]"
+          >
             <p className="m-0">{page.error}</p>
             <button
               type="button"
@@ -400,15 +254,13 @@ function Replies({
         )}
         {!page.items && !page.error && <p role="status">답글을 불러오는 중...</p>}
         {visibleItems?.map(render)}
-        {items && page.hasMore && remaining > 0 && (
+        {showMore && (
           <button
             className={communityStyles.nrCommentsMore}
             disabled={page.moreBusy}
             onClick={page.more}
           >
-            {page.moreBusy
-              ? "불러오는 중..."
-              : `더보기 (${remaining})`}
+            {page.moreBusy ? "불러오는 중..." : `더보기 (${remaining})`}
           </button>
         )}
       </div>
@@ -418,9 +270,7 @@ function Replies({
 function CommentCard({
   item,
   canReply,
-  owner,
-  adapter,
-  onChanged,
+  writes,
   onHide,
   onReply,
   replyCount,
@@ -431,9 +281,7 @@ function CommentCard({
 }: {
   item: CommentItem;
   canReply: boolean;
-  owner: boolean;
-  adapter: CommentAdapter;
-  onChanged: () => void;
+  writes: CommentWrites;
   onHide: () => void;
   onReply?: () => void;
   replyCount?: number;
@@ -442,12 +290,12 @@ function CommentCard({
   onProfile: () => void;
   onReport?: () => void;
 }) {
-  const userId = useCurrentUserId();
-  const queryClient = useQueryClient();
   const [commentLink] = useSearchParams();
   const highlighted = readId(commentLink.get("commentId")) === item.id;
   const card = useRef<HTMLElement>(null);
-  useEffect(() => { if (highlighted) card.current?.scrollIntoView({ block: "center" }); }, [highlighted]);
+  useEffect(() => {
+    if (highlighted) card.current?.scrollIntoView({ block: "center" });
+  }, [highlighted]);
   const textRef = useRef<HTMLParagraphElement>(null);
   const [longText, setLongText] = useState(false);
   const [fullText, setFullText] = useState(false);
@@ -465,58 +313,30 @@ function CommentCard({
   const [draft, setDraft] = useState(item.text);
   const [confirm, setConfirm] = useState(false);
   const optionButton = useRef<HTMLButtonElement>(null);
-  const { requireLogin } = useLoginPrompt();
-  const react = adapter.react;
-  const canEdit = owner && adapter.update !== undefined && adapter.remove !== undefined;
-  const moderate = owner ? undefined : adapter.moderate;
+  const can = writes.can(item);
+  const { busy, reacting, error } = writes.state(item.id);
   const [moderating, setModerating] = useState(false);
   const [moderationReason, setModerationReason] = useState("");
-  const reaction = useMutation({
-    mutationFn: ({ send, kind }: { send: NonNullable<CommentAdapter["react"]>; kind: "like" | "dislike" }) =>
-      send(item.id, kind),
-    onSuccess: (result) => updateCachedReaction(queryClient, userId, adapter, item.id, result),
-  });
-  // Edit, delete and moderator delete share one in-flight guard; `failure` is the message for a non-Error cause.
-  const change = useMutation({
-    mutationFn: async ({ run }: { run: () => Promise<unknown> | undefined; failure: string }) => {
-      await run();
-    },
-    onSuccess: () => {
-      setEditing(false);
-      setConfirm(false);
-      setModerating(false);
-      onChanged();
-    },
-  });
-  const busy = change.isPending;
-  const reacting = reaction.isPending;
-  const error = reaction.isError
-    ? errorText(reaction.error, "반응을 반영하지 못했습니다.")
-    : change.isError
-      ? errorText(change.error, change.variables.failure)
-      : null;
-  function removeAsModerator() {
-    if (!moderate || busy || !moderationReason.trim()) return;
-    const reason = moderationReason.trim();
-    reaction.reset();
-    change.mutate({ run: () => moderate(item.id, reason), failure: "댓글을 삭제하지 못했습니다." });
-  }
-  function vote(kind: "like" | "dislike") {
-    if (!react || reacting || !requireLogin()) return;
-    change.reset();
-    reaction.mutate({ send: react, kind });
+  // Edit, delete and moderator delete close their form once saved.
+  function done(saved: boolean) {
+    if (!saved) return;
+    setEditing(false);
+    setConfirm(false);
+    setModerating(false);
   }
   function edit(remove = false) {
-    if (!canEdit || busy || (!remove && !draft.trim())) return;
-    const text = draft.trim();
-    reaction.reset();
-    change.mutate({
-      run: () => (remove ? adapter.remove?.(item.id) : adapter.update?.(item.id, text)),
-      failure: "댓글을 변경하지 못했습니다.",
-    });
+    if (busy) return;
+    void (remove ? writes.remove(item) : writes.edit(item, draft)).then(done);
   }
   return (
-    <article ref={card} data-comment-id={item.id} className={cn(communityStyles.nrCommentCard, highlighted && "rounded-xl bg-violet-400/10 ring-1 ring-violet-400/40")}>
+    <article
+      ref={card}
+      data-comment-id={item.id}
+      className={cn(
+        communityStyles.nrCommentCard,
+        highlighted && "rounded-xl bg-violet-400/10 ring-1 ring-violet-400/40",
+      )}
+    >
       <div className={communityStyles.nrCommentAuthor}>
         <button
           className={communityStyles.nrCommentAvatar}
@@ -554,7 +374,7 @@ function CommentCard({
             onHide();
           }}
           onEdit={
-            canEdit
+            can.edit
               ? () => {
                   setEditing(true);
                   setMenu(false);
@@ -562,7 +382,7 @@ function CommentCard({
               : undefined
           }
           onDelete={
-            canEdit
+            can.edit
               ? () => {
                   setConfirm(true);
                   setMenu(false);
@@ -570,7 +390,7 @@ function CommentCard({
               : undefined
           }
           onModerateDelete={
-            moderate
+            can.moderate
               ? () => {
                   setModerating(true);
                   setMenu(false);
@@ -600,9 +420,19 @@ function CommentCard({
         </form>
       ) : (
         <>
-          <p ref={textRef} className={cn(communityStyles.nrCommentText, !fullText && "line-clamp-3!")}>{item.text}</p>
+          <p
+            ref={textRef}
+            className={cn(communityStyles.nrCommentText, !fullText && "line-clamp-3!")}
+          >
+            {item.text}
+          </p>
           {longText && (
-            <button type="button" className="mt-1 block pl-7 text-caption text-app-muted" aria-expanded={fullText} onClick={() => setFullText(!fullText)}>
+            <button
+              type="button"
+              className="mt-1 block pl-7 text-caption text-app-muted"
+              aria-expanded={fullText}
+              onClick={() => setFullText(!fullText)}
+            >
               {fullText ? "접기" : "자세히 보기"}
             </button>
           )}
@@ -628,7 +458,12 @@ function CommentCard({
             onChange={(event) => setModerationReason(event.target.value)}
           />
           <button onClick={() => setModerating(false)}>취소</button>
-          <button disabled={busy || !moderationReason.trim()} onClick={removeAsModerator}>
+          <button
+            disabled={busy || !moderationReason.trim()}
+            onClick={() => {
+              if (!busy) void writes.moderate(item, moderationReason).then(done);
+            }}
+          >
             삭제 확인
           </button>
         </div>
@@ -638,8 +473,8 @@ function CommentCard({
         <button
           aria-label="댓글 좋아요"
           aria-pressed={item.isLiked}
-          disabled={!react || reacting}
-          onClick={() => vote("like")}
+          disabled={!can.react || reacting}
+          onClick={() => void writes.vote(item, "like")}
         >
           <Asset name={item.isLiked ? "v3-comment-like-on.svg" : "v3-comment-like-off.svg"} />
           {item.likes}
@@ -647,8 +482,8 @@ function CommentCard({
         <button
           aria-label={`댓글 싫어요 ${item.dislikes}개`}
           aria-pressed={item.isDisliked}
-          disabled={!react || reacting}
-          onClick={() => vote("dislike")}
+          disabled={!can.react || reacting}
+          onClick={() => void writes.vote(item, "dislike")}
         >
           <Asset
             name={item.isDisliked ? "v3-comment-dislike-on.svg" : "v3-comment-dislike-off.svg"}
@@ -657,9 +492,13 @@ function CommentCard({
         {replyCount !== undefined && (
           <button
             type="button"
-            aria-label={onToggleReplies
-              ? (repliesExpanded ? "답글 접기" : `답글 ${replyCount}개 보기`)
-              : "답글 작성"}
+            aria-label={
+              onToggleReplies
+                ? repliesExpanded
+                  ? "답글 접기"
+                  : `답글 ${replyCount}개 보기`
+                : "답글 작성"
+            }
             aria-expanded={onToggleReplies ? repliesExpanded : undefined}
             disabled={!onToggleReplies && !canReply}
             onClick={onToggleReplies ?? onReply}

@@ -1,4 +1,6 @@
 import { SubmissionDetailScreen } from "@/features/workspace/contribution-requests";
+import { NativeSubmissionBridge } from "@/features/workspace/native-requests-bridge";
+import { nativeApp } from "@/lib/native-app";
 import { PageState } from "@/components/page-state";
 import { useUrlNavigation } from "@/features/navigation/use-url-navigation";
 import { readId, withQuery } from "@/features/navigation/paths";
@@ -22,13 +24,20 @@ export default function SubmissionPage() {
         ? { state: { studioFrom: currentPath, studioIndex: window.history.state?.idx } }
         : undefined,
     );
+  const search = () => to(withQuery("/search", { scope, galleryId }));
+  const projectId = readId(query.get("projectId"));
+  const onResume = (id: number, contributionId: number) =>
+    to(withQuery(`/studio/${id}`, { contributionId }), {
+      state: {
+        studioFrom: currentPath,
+        studioIndex: window.history.state?.idx,
+        inbox: true,
+      },
+    });
   return (
     <DesignViewport>
       <div className={sharedStyles.phoneFrame}>
-        <Header
-          onSearch={() => to(withQuery("/search", { scope, galleryId }))}
-          onBack={() => back("/submissions")}
-        />
+        <Header onSearch={search} onBack={() => back("/submissions")} />
         <div className={sharedStyles.screenBody}>
           {submissionId === null ? (
             <PageState error>올바르지 않은 페이지 주소입니다.</PageState>
@@ -36,16 +45,18 @@ export default function SubmissionPage() {
             <SubmissionDetailScreen
               key={`${submissionId}:${query.get("projectId")}`}
               id={submissionId}
-              projectId={readId(query.get("projectId"))}
-              onResume={(id, contributionId) =>
-                to(withQuery(`/studio/${id}`, { contributionId }), {
-                  state: {
-                    studioFrom: currentPath,
-                    studioIndex: window.history.state?.idx,
-                    inbox: true,
-                  },
-                })
-              }
+              projectId={projectId}
+              onResume={onResume}
+            />
+          )}
+          {nativeApp() && (
+            <NativeSubmissionBridge
+              key={`${submissionId}:${query.get("projectId")}`}
+              id={submissionId}
+              projectId={projectId}
+              onResume={onResume}
+              onSearch={search}
+              onBack={() => back("/submissions")}
             />
           )}
         </div>

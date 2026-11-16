@@ -3,12 +3,20 @@ import { useLoginPrompt } from "@/features/auth/login-prompt";
 import { abyssStyles } from "@/styles/abyss.styles";
 import { cn } from "@/lib/utils";
 import { sharedStyles } from "@/styles/shared.styles";
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type ReactNode,
+  type RefObject,
+} from "react";
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AlbumCarousel } from "@/features/abyss/album-carousel";
 import { ShortParticipants } from "@/features/abyss/short-participants";
 import { findNextFeedShort } from "./next-feed-short";
 import { AbyssComments } from "./abyss-comments";
+import { NativeAbyssBridge } from "./native-abyss-bridge";
 import { FigmaSheet } from "@/components/figma-sheet";
 import { ReportReasons } from "@/features/comments/report-reasons";
 import { Asset } from "@/components/asset";
@@ -18,12 +26,27 @@ import { publicWebOrigin } from "@/lib/public-web-origin";
 import { initialShortIndex } from "@/features/abyss/initial-short";
 import { useShareLink } from "@/hooks/use-share-link";
 import { ApiError } from "@/lib/api/client";
-import { shortParticipation, type ShortParticipation } from "@/features/abyss/short-participation";
+import {
+  participationLabel,
+  shortParticipation,
+  type ShortParticipation,
+} from "@/features/abyss/short-participation";
 import { contributionsQuery } from "@/features/workspace/workspace-queries";
 import { useCurrentUserId } from "@/features/auth/use-current-user";
-import { useShortPlayback } from "@/features/abyss/use-short-playback";
-import { shortDetailQuery, shortsFeedQuery, updateCachedShort } from "@/features/abyss/abyss-queries";
-import { getShort, getShortShareLink, getShorts, reactToShort, recordShortView, toggleShortBookmark } from "@/lib/api/shorts";
+import { useShortPlayback, type ShortPlayback } from "@/features/abyss/use-short-playback";
+import {
+  shortDetailQuery,
+  shortsFeedQuery,
+  updateCachedShort,
+} from "@/features/abyss/abyss-queries";
+import {
+  getShort,
+  getShortShareLink,
+  getShorts,
+  reactToShort,
+  recordShortView,
+  toggleShortBookmark,
+} from "@/lib/api/shorts";
 import { reportShort } from "@/lib/api/reports";
 import type { ShortItemDto } from "@/lib/api/contracts";
 import { queryScope } from "@/lib/query";
@@ -35,21 +58,8 @@ function actionError(cause: unknown) {
   if (cause instanceof TypeError) return "요청을 처리하지 못했습니다. 네트워크를 확인해주세요.";
   return cause instanceof Error ? cause.message : "요청을 처리하지 못했습니다.";
 }
-const participationLabel: Record<ShortParticipation, string> = {
-  joinable: "작곡 참여하기",
-  owner: "내 곡 · 스튜디오 열기",
-  contributed: "참여한 곡 · 스튜디오 열기",
-  pending: "참여 요청 대기 중 · 요청 보기",
-};
-export function AbyssScreen({
-  onProfile,
-  onJoin,
-  onOpenStudio,
-  onOpenRequest,
-  initialShortId,
-  muted = false,
-  onRememberShort,
-}: {
+
+export type AbyssOptions = {
   onRememberShort?: (id: number) => void;
   onProfile: (userId: number) => void;
   onJoin: (shortId: number) => void;
@@ -58,14 +68,78 @@ export function AbyssScreen({
   onOpenRequest: (projectId: number, contributionId: number | null) => void;
   initialShortId?: number | null;
   muted?: boolean;
-}) {
+};
+
+type CoverCycle = { key: number; previous: ShortItemDto; direction: "next" | "previous" };
+
+export type AbyssState = {
+  status: "error" | "loading" | "empty" | "ready";
+  /** "다시 시도" of the load error. */
+  retry: () => void;
+  currentUserId: number | null;
+  shorts: ShortItemDto[];
+  index: number;
+  /** The listened short; undefined unless `status` is ready. */
+  selectedShort: ShortItemDto | undefined;
+  /** A wrap-around move: the carousel shows the previous cover next to the new one. */
+  coverCycle: CoverCycle | null;
+  sheet: "participants" | "comments" | "report" | null;
+  openParticipants: () => void;
+  /** Every close path of the participant sheet: applies its selection. */
+  closeParticipants: () => void;
+  listenAll: () => void;
+  openComments: () => void;
+  openReport: () => void;
+  closeSheet: () => void;
+  submitReport: (reason: string, description: string | null) => Promise<unknown>;
+  feedback: string | null;
+  shareDialog: ReactNode;
+  muted: boolean;
+  audioRef: RefObject<HTMLAudioElement | null>;
+  mediaUrl: string | null;
+  mediaFailed: boolean;
+  /** The `<audio>` failed to load the current short's file. */
+  mediaError: () => void;
+  playback: ShortPlayback;
+  nextFailed: boolean;
+  loadingMore: boolean;
+  advancing: boolean;
+  hasNext: boolean;
+  selectPrevious: () => void;
+  selectNext: () => Promise<void>;
+  openProfile: (userId: number) => void;
+  participation: ShortParticipation | null;
+  requestBusy: boolean;
+  /** The participation button: join, the pending request, or the studio. */
+  join: () => void;
+  /** A reaction, save or share is being sent. */
+  busy: boolean;
+  vote: (kind: "like" | "dislike") => void;
+  bookmark: () => void;
+  share: () => void;
+  /** After a comment write: re-reads the short's comment count. */
+  commentsChanged: () => void;
+};
+
+/** The abyss feed, the selected short and its actions; drawn by the web AbyssScreen and the app's abyss screen. */
+export function useAbyss({
+  onProfile,
+  onJoin,
+  onOpenStudio,
+  onOpenRequest,
+  initialShortId,
+  muted = false,
+  onRememberShort,
+}: AbyssOptions): AbyssState {
   const { requireLogin } = useLoginPrompt();
   const currentUserId = useCurrentUserId();
   const queryClient = useQueryClient();
   const sharing = useShareLink();
   const [notificationQuery] = useSearchParams();
   const commentLink = notificationQuery.get("commentId");
-  const [sheet, setSheet] = useState<"participants" | "comments" | "report" | null>(commentLink ? "comments" : null);
+  const [sheet, setSheet] = useState<"participants" | "comments" | "report" | null>(
+    commentLink ? "comments" : null,
+  );
   const [openedCommentLink, setOpenedCommentLink] = useState(commentLink);
   if (openedCommentLink !== commentLink) {
     setOpenedCommentLink(commentLink);
@@ -78,24 +152,30 @@ export function AbyssScreen({
   const advancingRef = useRef(false);
   const restartPlaybackRef = useRef<() => void>(() => {});
   const [advancing, setAdvancing] = useState(false);
-  const titleViewport = useRef<HTMLHeadingElement>(null);
-  const titleText = useRef<HTMLSpanElement>(null);
-  const [titleOverflows, setTitleOverflows] = useState(false);
-  const [coverCycle, setCoverCycle] = useState<{ key: number; previous: ShortItemDto; direction: "next" | "previous" } | null>(null);
+  const [coverCycle, setCoverCycle] = useState<CoverCycle | null>(null);
   // The selection is tracked by ID, so loaded pages and a prepended deep link never move the listener.
   const [selectedId, setSelectedId] = useState(initialShortId ?? null);
 
   // The feed (with its cursor) loads once per account. A shared/saved deep link outside the first page is read
   // directly and prepended instead of scanning the feed for it; an account change re-reads the URL's short.
   const [link, setLink] = useState({ userId: currentUserId, shortId: initialShortId ?? null });
-  if (link.userId !== currentUserId) setLink({ userId: currentUserId, shortId: initialShortId ?? null });
+  if (link.userId !== currentUserId)
+    setLink({ userId: currentUserId, shortId: initialShortId ?? null });
   const feed = useInfiniteQuery(shortsFeedQuery(currentUserId));
   const firstPage = feed.data?.pages[0];
   const needsLinked =
-    link.shortId !== null && firstPage !== undefined && !firstPage.items.some((item) => item.shortId === link.shortId);
-  const linked = useQuery({ ...shortDetailQuery(currentUserId, link.shortId ?? 0), enabled: needsLinked });
+    link.shortId !== null &&
+    firstPage !== undefined &&
+    !firstPage.items.some((item) => item.shortId === link.shortId);
+  const linked = useQuery({
+    ...shortDetailQuery(currentUserId, link.shortId ?? 0),
+    enabled: needsLinked,
+  });
   const linkedFailed =
-    needsLinked && !linked.data && linked.isError && !(linked.error instanceof ApiError && linked.error.status === 404);
+    needsLinked &&
+    !linked.data &&
+    linked.isError &&
+    !(linked.error instanceof ApiError && linked.error.status === 404);
 
   // A deep-linked short is prepended to the first page, so its own page must not add it twice: the URL sync
   // would jump back to the first copy and loop the feed.
@@ -115,7 +195,8 @@ export function AbyssScreen({
     setSeenLinkedId(initialShortId);
     if (initialShortId != null) {
       setSelectedId(initialShortId);
-      if (!loadedIds.has(initialShortId)) setLink({ userId: currentUserId, shortId: initialShortId });
+      if (!loadedIds.has(initialShortId))
+        setLink({ userId: currentUserId, shortId: initialShortId });
     }
   }
 
@@ -126,7 +207,7 @@ export function AbyssScreen({
     void recordShortView(currentShortId).catch(() => {});
   }, [currentShortId]);
 
-  const current = shorts[index];
+  const current: ShortItemDto | undefined = shorts[index];
   const openProfile = (userId: number) => {
     if (current) onRememberShort?.(current.shortId);
     onProfile(userId);
@@ -144,8 +225,10 @@ export function AbyssScreen({
     // A late response must not navigate after leaving this song or switching accounts.
     return () => context.abort();
   }, [currentShortId, currentUserId]);
-  const requestBusy = openingRequest !== null &&
-    openingRequest.shortId === currentShortId && openingRequest.userId === currentUserId &&
+  const requestBusy =
+    openingRequest !== null &&
+    openingRequest.shortId === currentShortId &&
+    openingRequest.userId === currentUserId &&
     !openingRequest.signal.aborted;
   // The short only says a request is pending; its ID comes from the project's contribution list.
   async function openPendingRequest(projectId: number) {
@@ -153,36 +236,37 @@ export function AbyssScreen({
     if (!signal || signal.aborted) return;
     setOpeningRequest({ shortId: currentShortId, userId: currentUserId, signal });
     try {
-      const list = await queryClient.fetchQuery({ ...contributionsQuery(currentUserId, projectId), staleTime: 0 });
+      const list = await queryClient.fetchQuery({
+        ...contributionsQuery(currentUserId, projectId),
+        staleTime: 0,
+      });
       if (signal.aborted) return;
-      const pending = list.find((item) => item.userId === currentUserId && item.approvalStatus === "PENDING");
+      const pending = list.find(
+        (item) => item.userId === currentUserId && item.approvalStatus === "PENDING",
+      );
       onOpenRequest(projectId, pending?.contributionId ?? null);
     } catch {
       if (!signal.aborted) onOpenRequest(projectId, null);
     } finally {
-      if (!signal.aborted) setOpeningRequest((request) => request?.signal === signal ? null : request);
+      if (!signal.aborted)
+        setOpeningRequest((request) => (request?.signal === signal ? null : request));
     }
+  }
+  function join() {
+    const projectId = current?.projectId;
+    if (!current || !participation || projectId == null) return;
+    if (participation === "joinable") onJoin(current.shortId);
+    else if (participation === "pending") void openPendingRequest(projectId);
+    else onOpenStudio(projectId);
   }
   const mediaUrl = current?.mediaUrl?.trim() || null;
   const loadingMore = feed.isFetchingNextPage || advancing;
   // The feed never ends: after the last short the list is read again from the backend.
   const hasNext = shorts.length > 0;
   const playback = useShortPlayback({ short: current ?? null, audioRef, muted });
-  const progress = playback.totalMs > 0 ? Math.min(100, (playback.positionMs / playback.totalMs) * 100) : 0;
   useLayoutEffect(() => {
     restartPlaybackRef.current = playback.restart;
   });
-  useLayoutEffect(() => {
-    const viewport = titleViewport.current;
-    const title = titleText.current;
-    if (!viewport || !title) return;
-    const measure = () => setTitleOverflows(title.offsetWidth > viewport.clientWidth);
-    const observer = new ResizeObserver(measure);
-    observer.observe(viewport);
-    observer.observe(title);
-    measure();
-    return () => observer.disconnect();
-  }, [current?.shortId, current?.title]);
 
   function select(short: ShortItemDto) {
     audioRef.current?.pause();
@@ -248,7 +332,11 @@ export function AbyssScreen({
     const next = first.items[0];
     if (!next) return;
     if (current && next.shortId !== requestedFrom) {
-      setCoverCycle((cycle) => ({ key: (cycle?.key ?? 0) + 1, previous: current, direction: "next" }));
+      setCoverCycle((cycle) => ({
+        key: (cycle?.key ?? 0) + 1,
+        previous: current,
+        direction: "next",
+      }));
     }
     queryClient.setQueryData(shortsFeedQuery(currentUserId).queryKey, {
       pages: [first],
@@ -279,7 +367,10 @@ export function AbyssScreen({
   const bookmarkToggle = useMutation({
     mutationFn: toggleShortBookmark,
     onSuccess: async ({ shortId, isBookmarked }) => {
-      await updateCachedShort(queryClient, currentUserId, shortId, (short) => ({ ...short, isBookmarked }));
+      await updateCachedShort(queryClient, currentUserId, shortId, (short) => ({
+        ...short,
+        isBookmarked,
+      }));
       void queryClient.invalidateQueries({ queryKey: [...queryScope(currentUserId), "saved"] });
     },
     onError: showError,
@@ -287,48 +378,163 @@ export function AbyssScreen({
   const shareLink = useMutation({
     mutationFn: async (short: ShortItemDto) => {
       const { shareUrl } = await getShortShareLink(short.shortId);
-      return sharing.share(short.title, canonicalShareLink("short", short.shortId, shareUrl, publicWebOrigin()));
+      return sharing.share(
+        short.title,
+        canonicalShareLink("short", short.shortId, shareUrl, publicWebOrigin()),
+      );
     },
     onSuccess: setFeedback,
     onError: showError,
   });
   const report = useMutation({
-    mutationFn: ({ shortId, reason, description }: { shortId: number; reason: string; description: string | null }) =>
-      reportShort(shortId, reason, description),
+    mutationFn: ({
+      shortId,
+      reason,
+      description,
+    }: {
+      shortId: number;
+      reason: string;
+      description: string | null;
+    }) => reportShort(shortId, reason, description),
   });
   const busy = reaction.isPending || bookmarkToggle.isPending || shareLink.isPending;
   const vote = (kind: "like" | "dislike") => {
-    if (busy || !requireLogin()) return;
+    if (!current || busy || !requireLogin()) return;
     setFeedback(null);
     reaction.mutate({ shortId: current.shortId, kind });
   };
   const bookmark = () => {
-    if (busy || !requireLogin()) return;
+    if (!current || busy || !requireLogin()) return;
     setFeedback(null);
     bookmarkToggle.mutate(current.shortId);
   };
   const share = () => {
-    if (busy || !requireLogin()) return;
+    if (!current || busy || !requireLogin()) return;
     setFeedback(null);
     shareLink.mutate(current);
   };
+  // The comment count lives on the short; re-read it from the server.
+  const commentsChanged = () => {
+    if (!current) return;
+    const shortId = current.shortId;
+    void queryClient
+      .fetchQuery({ ...shortDetailQuery(currentUserId, shortId), staleTime: 0 })
+      .then((short) => updateCachedShort(queryClient, currentUserId, shortId, () => short))
+      .catch(() => {});
+  };
 
-  if ((!feed.data && feed.isError) || linkedFailed) {
+  const status: "error" | "loading" | "empty" | "ready" =
+    (!feed.data && feed.isError) || linkedFailed
+      ? "error"
+      : !feed.data || (needsLinked && linked.isPending)
+        ? "loading"
+        : !current
+          ? "empty"
+          : "ready";
+
+  return {
+    status,
+    retry: () => {
+      if (!feed.data) void feed.refetch();
+      if (linkedFailed) void linked.refetch();
+    },
+    currentUserId,
+    shorts,
+    index,
+    selectedShort: current,
+    coverCycle,
+    sheet,
+    openParticipants: () => {
+      playback.openSelection();
+      setSheet("participants");
+    },
+    closeParticipants,
+    listenAll: () => {
+      playback.listenAll();
+      setSheet(null);
+    },
+    openComments: () => setSheet("comments"),
+    openReport: () => {
+      if (requireLogin()) setSheet("report");
+    },
+    closeSheet: () => setSheet(null),
+    submitReport: (reason: string, description: string | null) =>
+      current
+        ? report.mutateAsync({ shortId: current.shortId, reason, description })
+        : Promise.resolve(),
+    feedback,
+    shareDialog: sharing.dialog,
+    audioRef,
+    mediaUrl,
+    mediaFailed: current !== undefined && mediaFailedShortId === current.shortId,
+    mediaError: () => {
+      if (current && mediaUrl) setMediaFailedShortId(current.shortId);
+    },
+    playback,
+    nextFailed,
+    loadingMore,
+    advancing,
+    hasNext,
+    selectPrevious,
+    selectNext,
+    openProfile,
+    participation,
+    requestBusy,
+    join,
+    busy,
+    vote,
+    bookmark,
+    share,
+    commentsChanged,
+    muted,
+  };
+}
+
+export function AbyssScreen({
+  nativeScreen,
+  ...options
+}: AbyssOptions & {
+  /** In the app: the page's header search, for the native screen the bridge reports. */
+  nativeScreen?: { onSearch: () => void; onToggleMute: () => void };
+}) {
+  const abyss = useAbyss(options);
+  return (
+    <>
+      {nativeScreen && <NativeAbyssBridge abyss={abyss} {...nativeScreen} />}
+      <AbyssView abyss={abyss} nativeSheets={nativeScreen !== undefined} />
+    </>
+  );
+}
+
+/** The web drawing of `useAbyss`. `nativeSheets`: the app draws the participant and comment sheets. */
+function AbyssView({ abyss, nativeSheets }: { abyss: AbyssState; nativeSheets: boolean }) {
+  const { selectedShort: current, playback, sheet, shorts, mediaUrl, audioRef } = abyss;
+  const titleViewport = useRef<HTMLHeadingElement>(null);
+  const titleText = useRef<HTMLSpanElement>(null);
+  const [titleOverflows, setTitleOverflows] = useState(false);
+  const progress =
+    playback.totalMs > 0 ? Math.min(100, (playback.positionMs / playback.totalMs) * 100) : 0;
+  useLayoutEffect(() => {
+    const viewport = titleViewport.current;
+    const title = titleText.current;
+    if (!viewport || !title) return;
+    const measure = () => setTitleOverflows(title.offsetWidth > viewport.clientWidth);
+    const observer = new ResizeObserver(measure);
+    observer.observe(viewport);
+    observer.observe(title);
+    measure();
+    return () => observer.disconnect();
+  }, [current?.shortId, current?.title]);
+
+  if (abyss.status === "error") {
     return (
       <div className={cn(abyssStyles.abyssView, abyssStyles.abyssState)} role="alert">
         <p>숏폼을 불러오지 못했습니다.</p>
-        <button
-          onClick={() => {
-            if (!feed.data) void feed.refetch();
-            if (linkedFailed) void linked.refetch();
-          }}
-        >
-          다시 시도
-        </button>
+        <button onClick={abyss.retry}>다시 시도</button>
       </div>
     );
   }
-  if (!feed.data || (needsLinked && linked.isPending)) {
+  if (abyss.status === "loading") {
     return (
       <div className={cn(abyssStyles.abyssView, abyssStyles.abyssState)} role="status">
         숏폼을 불러오는 중입니다.
@@ -343,42 +549,42 @@ export function AbyssScreen({
     );
   }
 
+  const { participation } = abyss;
   return (
     <div className={abyssStyles.abyssView}>
-      {sharing.dialog}
+      {abyss.shareDialog}
       <div className={abyssStyles.abyssSong}>
         <AlbumCarousel
           items={shorts}
-          index={index}
-          cycle={coverCycle}
-          onPrevious={selectPrevious}
+          index={abyss.index}
+          cycle={abyss.coverCycle}
+          onPrevious={abyss.selectPrevious}
           onNext={() => {
-            void selectNext();
+            void abyss.selectNext();
           }}
         />
         <div className={abyssStyles.abyssTitle}>
           <h1 ref={titleViewport} className="overflow-hidden">
             <span
               key={current.shortId}
-              className={cn("inline-flex w-max whitespace-nowrap align-top", titleOverflows && "abyss-title-marquee")}
+              className={cn(
+                "inline-flex w-max whitespace-nowrap align-top",
+                titleOverflows && "abyss-title-marquee",
+              )}
             >
               <span ref={titleText}>{current.title}</span>
-              {titleOverflows && <span aria-hidden="true" className="pl-8">{current.title}</span>}
+              {titleOverflows && (
+                <span aria-hidden="true" className="pl-8">
+                  {current.title}
+                </span>
+              )}
             </span>
           </h1>
           <p>
-            <button onClick={() => openProfile(current.author.userId)}>
+            <button onClick={() => abyss.openProfile(current.author.userId)}>
               {current.author.nickname}
             </button>{" "}
-            <i />{" "}
-            <button
-              onClick={() => {
-                playback.openSelection();
-                setSheet("participants");
-              }}
-            >
-              작곡 참여자 보기
-            </button>
+            <i /> <button onClick={abyss.openParticipants}>작곡 참여자 보기</button>
           </p>
         </div>
         <PostActions
@@ -387,12 +593,12 @@ export function AbyssScreen({
           commentCount={current.commentCount}
           vote={current.isLiked ? "like" : current.isDisliked ? "dislike" : null}
           saved={current.isBookmarked}
-          busy={busy}
-          onVote={vote}
-          onComments={() => setSheet("comments")}
-          onShare={share}
-          onSave={bookmark}
-          onReport={() => { if (requireLogin()) setSheet("report"); }}
+          busy={abyss.busy}
+          onVote={abyss.vote}
+          onComments={abyss.openComments}
+          onShare={abyss.share}
+          onSave={abyss.bookmark}
+          onReport={abyss.openReport}
         />
       </div>
       <div className={abyssStyles.abyssBottomStack}>
@@ -403,11 +609,9 @@ export function AbyssScreen({
             src={mediaUrl ?? undefined}
             preload="metadata"
             autoPlay
-            muted={muted}
+            muted={abyss.muted}
             {...playback.nativeHandlers}
-            onError={() => {
-              if (mediaUrl) setMediaFailedShortId(current.shortId);
-            }}
+            onError={abyss.mediaError}
           />
           <input
             className={abyssStyles.abyssProgress}
@@ -427,20 +631,23 @@ export function AbyssScreen({
             <Asset name="abyss-player.svg" />
             <button
               className={abyssStyles.abyssPrevious}
-              onClick={selectPrevious}
+              onClick={abyss.selectPrevious}
               disabled={shorts.length < 2}
               aria-label="이전 숏폼"
             />
             <button
-              className={cn(abyssStyles.abyssToggle, playback.playing ? sharedStyles.isPlaying : "")}
+              className={cn(
+                abyssStyles.abyssToggle,
+                playback.playing ? sharedStyles.isPlaying : "",
+              )}
               onClick={() => void playback.toggle()}
               disabled={!playback.canPlay}
               aria-label={playback.playing ? "일시정지" : "재생"}
             />
             <button
               className={abyssStyles.abyssNext}
-              onClick={() => void selectNext()}
-              disabled={!hasNext || loadingMore}
+              onClick={() => void abyss.selectNext()}
+              disabled={!abyss.hasNext || abyss.loadingMore}
               aria-label="다음 숏폼"
             />
           </div>
@@ -454,7 +661,7 @@ export function AbyssScreen({
           {playback.selection === null && !mediaUrl && (
             <p className={abyssStyles.abyssPlaybackMessage}>재생 가능한 음원 파일이 없습니다.</p>
           )}
-          {playback.selection === null && mediaFailedShortId === current.shortId && (
+          {playback.selection === null && abyss.mediaFailed && (
             <p className={abyssStyles.abyssPlaybackMessage} role="alert">
               음원 파일을 불러오지 못했습니다.
             </p>
@@ -464,67 +671,55 @@ export function AbyssScreen({
               {playback.error}
             </p>
           )}
-          {nextFailed && (
+          {abyss.nextFailed && (
             <p className={abyssStyles.abyssPlaybackMessage} role="alert">
               다음 숏폼을 불러오지 못했습니다.
-              <button className={abyssStyles.abyssPlaybackRetry} disabled={loadingMore} onClick={() => void selectNext()}>
+              <button
+                className={abyssStyles.abyssPlaybackRetry}
+                disabled={abyss.loadingMore}
+                onClick={() => void abyss.selectNext()}
+              >
                 다시 시도
               </button>
             </p>
           )}
         </div>
         {sheet === "report" && (
-          <FigmaSheet title="신고" onClose={() => setSheet(null)}>
-            <ReportReasons
-              onSubmit={(reason, description) => report.mutateAsync({ shortId: current.shortId, reason, description })}
-              onDone={() => setSheet(null)}
-            />
+          <FigmaSheet title="신고" onClose={abyss.closeSheet}>
+            <ReportReasons onSubmit={abyss.submitReport} onDone={abyss.closeSheet} />
           </FigmaSheet>
         )}
-        {feedback && (
+        {abyss.feedback && (
           <p className={abyssStyles.abyssFeedback} role="status">
-            {feedback}
+            {abyss.feedback}
           </p>
         )}
-        {sheet === "participants" && (
-          <FigmaSheet title="작곡 참여자" onClose={closeParticipants}>
+        {sheet === "participants" && !nativeSheets && (
+          <FigmaSheet title="작곡 참여자" onClose={abyss.closeParticipants}>
             <ShortParticipants
               short={current}
               playback={playback}
-              onClose={closeParticipants}
-              onListenAll={() => {
-                playback.listenAll();
-                setSheet(null);
-              }}
+              onClose={abyss.closeParticipants}
+              onListenAll={abyss.listenAll}
             />
           </FigmaSheet>
         )}
         <AbyssComments
           key={current.shortId}
           shortId={current.shortId}
-          onChanged={() => {
-            // The comment count lives on the short; re-read it from the server.
-            const shortId = current.shortId;
-            void queryClient
-              .fetchQuery({ ...shortDetailQuery(currentUserId, shortId), staleTime: 0 })
-              .then((short) => updateCachedShort(queryClient, currentUserId, shortId, () => short))
-              .catch(() => {});
-          }}
-          open={sheet === "comments"}
-          onClose={() => setSheet(null)}
+          onChanged={abyss.commentsChanged}
+          open={sheet === "comments" && !nativeSheets}
+          onClose={abyss.closeSheet}
         />
         {participation && current.projectId != null && (
           <div className={abyssStyles.abyssJoinSlot}>
             <button
-              className={cn(abyssStyles.abyssJoin, participation !== "joinable" && abyssStyles.abyssJoined)}
-              disabled={requestBusy}
-              onClick={() => {
-                const projectId = current.projectId;
-                if (projectId == null) return;
-                if (participation === "joinable") onJoin(current.shortId);
-                else if (participation === "pending") void openPendingRequest(projectId);
-                else onOpenStudio(projectId);
-              }}
+              className={cn(
+                abyssStyles.abyssJoin,
+                participation !== "joinable" && abyssStyles.abyssJoined,
+              )}
+              disabled={abyss.requestBusy}
+              onClick={abyss.join}
             >
               {participationLabel[participation]}
             </button>

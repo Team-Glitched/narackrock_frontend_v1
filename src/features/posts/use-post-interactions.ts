@@ -1,7 +1,12 @@
 import { useLoginPrompt } from "@/features/auth/login-prompt";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { getPostShareLink, reactToPost, togglePostBookmark } from "@/lib/api/community";
+import {
+  getPostShareLink,
+  reactToPost,
+  togglePostBookmark,
+  type PostReaction,
+} from "@/lib/api/community";
 import { canonicalShareLink } from "@/lib/api/content-link";
 import { publicWebOrigin } from "@/lib/public-web-origin";
 import { queryScope } from "@/lib/query";
@@ -12,11 +17,27 @@ import { postError } from "@/features/posts/post-utils";
 import type { PostDetailResponse } from "@/lib/api/contracts";
 import { useShareLink } from "@/hooks/use-share-link";
 
+export type PostInteractions = {
+  /** The manual-copy share dialog (a web modal). */
+  shareDialog: ReactNode;
+  reaction: PostReaction | null;
+  bookmarked: boolean | undefined;
+  /** A reaction, save or share is in flight. */
+  busy: boolean;
+  notice: string | null;
+  vote: (kind: "like" | "dislike") => void;
+  toggleBookmark: () => void;
+  share: (title: string) => Promise<void>;
+};
+
 /**
  * Server-owned post reaction/bookmark/share state. Values come from the cached post detail and are replaced only
  * by server responses; a pending change blocks further clicks and a failure leaves the previous server state.
  */
-export function usePostInteractions(postId: number, detail: PostDetailResponse | null) {
+export function usePostInteractions(
+  postId: number,
+  detail: PostDetailResponse | null,
+): PostInteractions {
   const { requireLogin } = useLoginPrompt();
   const sharing = useShareLink();
   const userId = useCurrentUserId();
@@ -27,7 +48,10 @@ export function usePostInteractions(postId: number, detail: PostDetailResponse |
   const scope = `${userId}:${postId}`;
 
   const vote = useMutation({
-    mutationFn: async (kind: "like" | "dislike") => ({ scope, reaction: await reactToPost(postId, kind) }),
+    mutationFn: async (kind: "like" | "dislike") => ({
+      scope,
+      reaction: await reactToPost(postId, kind),
+    }),
     onSuccess: async ({ reaction }) => {
       await applyPostReaction(queryClient, userId, postId, reaction);
       void queryClient.invalidateQueries({ queryKey: profileKeys.likedPostIds(userId) });
@@ -72,7 +96,12 @@ export function usePostInteractions(postId: number, detail: PostDetailResponse |
       setSharingBusy(true);
       try {
         const { shareUrl } = await getPostShareLink(postId);
-        setNotice(await sharing.share(title, canonicalShareLink("post", postId, shareUrl, publicWebOrigin())));
+        setNotice(
+          await sharing.share(
+            title,
+            canonicalShareLink("post", postId, shareUrl, publicWebOrigin()),
+          ),
+        );
       } catch (cause) {
         setNotice(postError(cause));
       } finally {

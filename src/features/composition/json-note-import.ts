@@ -1,7 +1,12 @@
 import type { MidiNoteDto } from "../../lib/api/composition.ts";
+import { validateNotes, type NoteBounds, type NoteEditCommand } from "./note-editing.ts";
 
 const maxBytes = 1024 * 1024;
 const filePpq = 480;
+
+/** The accepted file layout, shown on the upload tab (web and app). */
+export const jsonNoteFormat =
+  "schemaVersion 1, ppq 480, midiNotes 배열(pitch·startTick·durationTick·velocity 정수)";
 
 function isInteger(value: unknown, min: number, max = Number.MAX_SAFE_INTEGER): value is number {
   return typeof value === "number" && Number.isSafeInteger(value) && value >= min && value <= max;
@@ -37,11 +42,39 @@ export async function readJsonNotes(file: File): Promise<MidiNoteDto[]> {
   });
 }
 
+/**
+ * Converts file ticks to the project's ppq after `afterTick`. Start and end are rounded, and the
+ * length is their difference, so back-to-back notes of one pitch stay adjacent instead of
+ * overlapping by a rounded tick.
+ */
 export function positionJsonNotes(notes: MidiNoteDto[], projectPpq: number, afterTick: number): MidiNoteDto[] {
   const ratio = projectPpq / filePpq;
-  return notes.map((note) => ({
-    ...note,
-    startTick: afterTick + Math.round(note.startTick * ratio),
-    durationTick: Math.max(1, Math.round(note.durationTick * ratio)),
-  }));
+  return notes.map((note) => {
+    const start = Math.round(note.startTick * ratio);
+    const end = Math.round((note.startTick + note.durationTick) * ratio);
+    return { ...note, startTick: afterTick + start, durationTick: Math.max(1, end - start) };
+  });
+}
+
+/**
+ * Reads a JSON note file and adds its notes after the last note of the edited clip as one edit.
+ * Throws with the reason when the file or a note is invalid; nothing is added then.
+ */
+export async function importJsonNoteFile(
+  editor: {
+    snapshot: { notes: MidiNoteDto[] };
+    bounds: NoteBounds;
+    execute: (command: NoteEditCommand) => boolean;
+  },
+  file: File,
+  projectPpq: number,
+): Promise<void> {
+  const imported = await readJsonNotes(file);
+  const existing = editor.snapshot.notes;
+  const afterTick = existing.reduce((end, note) => Math.max(end, note.startTick + note.durationTick), 0);
+  const positioned = positionJsonNotes(imported, projectPpq, afterTick);
+  const issue = validateNotes([...existing, ...positioned], editor.bounds);
+  if (issue) throw new Error(issue);
+  if (!editor.execute({ type: "insert", notes: positioned }))
+    throw new Error("음표를 추가하지 못했습니다. 현재 편집 상태를 확인해 주세요.");
 }

@@ -10,6 +10,13 @@ export const requestStatus = {
   REJECTED: "거절됨",
 } as const;
 
+/** Badge colors of a request status (badgeVariants `status`). */
+export function requestTone(
+  status: keyof typeof requestStatus,
+): "request" | "approved" | "rejected" {
+  return status === "PENDING" ? "request" : status === "APPROVED" ? "approved" : "rejected";
+}
+
 export function requestAge(createdAt: string, now = Date.now()): string {
   const timestamp = Date.parse(createdAt);
   if (!Number.isFinite(timestamp)) return "";

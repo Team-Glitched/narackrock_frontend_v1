@@ -9,6 +9,8 @@ import { creationTarget } from "@/features/navigation/creation-target";
 import { sharedStyles } from "@/styles/shared.styles";
 import { CommunityManagementContent } from "@/features/community/community-management-content";
 import { PageState } from "@/components/page-state";
+import { NativeCommunityAdminBridge } from "@/features/admin/native-admin-bridge";
+import { nativeApp } from "@/lib/native-app";
 
 export default function CommunityAdminPage() {
   const { to, back, params, query, currentPath } = useUrlNavigation();
@@ -16,25 +18,40 @@ export default function CommunityAdminPage() {
   const scope = resolveSearchScope(query.get("scope"), "posts", Boolean(galleryId));
   const target = creationTarget(scope, galleryId);
   const invalidGalleryId = readId(params.galleryId) === null;
+  const onBack = () => back(`/communities/${galleryId}`);
+  const onSearch = () => to(withQuery("/search", { scope, galleryId }));
   return (
     <DesignViewport>
       <div className={sharedStyles.phoneFrame}>
-        <Header
-          onBack={() => back(`/communities/${galleryId}`)}
-          onSearch={() => to(withQuery("/search", { scope, galleryId }))}
-        />
+        <Header onBack={onBack} onSearch={onSearch} />
         <div className={sharedStyles.screenBody}>
           {invalidGalleryId ? (
             <PageState error>올바르지 않은 페이지 주소입니다.</PageState>
           ) : (
             <CommunityManagementContent galleryId={galleryId} members={false} />
           )}
+          {nativeApp() && (
+            <NativeCommunityAdminBridge
+              galleryId={galleryId}
+              members={false}
+              invalid={invalidGalleryId}
+              onBack={onBack}
+              onSearch={onSearch}
+            />
+          )}
         </div>
         <Footer
           activeTab="social"
-          onCreate={() => to(target.path, target.path === "/studio/new" ? {
-            state: { studioFrom: currentPath, studioIndex: window.history.state?.idx },
-          } : undefined)}
+          onCreate={() =>
+            to(
+              target.path,
+              target.path === "/studio/new"
+                ? {
+                    state: { studioFrom: currentPath, studioIndex: window.history.state?.idx },
+                  }
+                : undefined,
+            )
+          }
           createLabel={target.label}
         />
         <NotificationsOverlay />

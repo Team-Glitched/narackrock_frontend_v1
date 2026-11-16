@@ -7,6 +7,24 @@ import { pointerAxes } from "./pointer-coordinates";
 import { snappedClipStart } from "./timeline-move";
 import { TimelineClipPreview } from "./timeline-clip-preview";
 import { partFor } from "./instrument-parts";
+
+/** A clip's visible label (audio part · layer name) and its type label ("MIDI 클립" / "오디오 클립"). */
+export function clipLabels(
+  clip: Pick<ClipDto, "clipType" | "sourceType">,
+  name: string,
+  instrument: string | null,
+) {
+  const midi = clip.clipType === "MIDI";
+  const recording = clip.sourceType === "RECORDING";
+  const audioPart = midi ? undefined : partFor(instrument)?.label;
+  const layerName = recording && name.trim() === "녹음 레이어" ? "" : name;
+  const label =
+    audioPart && layerName && layerName !== audioPart && !layerName.startsWith(`${audioPart} `)
+      ? `${audioPart} · ${layerName}`
+      : layerName || audioPart;
+  return { label, clipTypeLabel: midi ? "MIDI 클립" : "오디오 클립" };
+}
+
 export function TimelineClip({
   clip,
   name,
@@ -46,14 +64,8 @@ export function TimelineClip({
   const [position, setPosition] = useState<number | null>(null),
     [saving, setSaving] = useState(false);
   const midi = clip.clipType === "MIDI";
-  const recording = clip.sourceType === "RECORDING";
   const ClipIcon = midi ? Music2 : AudioLines;
-  const audioPart = midi ? undefined : partFor(instrument)?.label;
-  const layerName = recording && name.trim() === "녹음 레이어" ? "" : name;
-  const label = audioPart && layerName && layerName !== audioPart && !layerName.startsWith(`${audioPart} `)
-    ? `${audioPart} · ${layerName}`
-    : layerName || audioPart;
-  const clipTypeLabel = midi ? "MIDI 클립" : "오디오 클립";
+  const { label, clipTypeLabel } = clipLabels(clip, name, instrument);
   async function commit(tick: number) {
     if (tick === clip.startTick) {
       setPosition(null);
@@ -83,7 +95,7 @@ export function TimelineClip({
       disabled={saving}
       aria-label={label ? `${label} ${clipTypeLabel}` : clipTypeLabel}
       aria-busy={saving}
-      title={movable ? `${name} · 끌어서 이동하거나 방향키로 한 칸 이동` : label ?? clipTypeLabel}
+      title={movable ? `${name} · 끌어서 이동하거나 방향키로 한 칸 이동` : (label ?? clipTypeLabel)}
       onPointerDown={(event) => {
         if (!movable || saving || event.button !== 0) return;
         drag.current = {

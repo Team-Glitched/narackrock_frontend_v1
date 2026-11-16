@@ -5,6 +5,7 @@ import { DialogNumberInput } from "@/features/composition/dialog-number-input";
 import { partLabel } from "./instrument-parts";
 import type { MidiNoteDto } from "@/lib/api/composition";
 import { useId, useState } from "react";
+import { noteLengthLimits, notePercent, withNoteLength, withNotePercent } from "./note-settings";
 
 /** Figma V3 13507:31697; uncontracted effects remain visible but unavailable. */
 export function NoteSettingsDialog({
@@ -25,6 +26,7 @@ export function NoteSettingsDialog({
   const titleId = useId();
   const [note, onChange] = useState(() => structuredClone(initialNote));
   const pitch = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"][note.pitch % 12];
+  const limits = noteLengthLimits(initialNote, note, stepTick, maxTick);
   return (
     <CanvasDialog className={studioStyles.noteSettingsDialog} titleId={titleId} onClose={onClose}>
       <div className={studioStyles.noteSettingsIdentity}>
@@ -36,22 +38,18 @@ export function NoteSettingsDialog({
         <input
           aria-label="노트 길이"
           type="number"
-          min={Math.min(1, initialNote.durationTick / stepTick)}
-          max={(maxTick - note.startTick) / stepTick}
+          min={limits.min}
+          max={limits.max}
           step="any"
           value={note.durationTick / stepTick}
-          onChange={(event) => {
-            const durationTick = Math.max(
-              Math.min(stepTick, initialNote.durationTick),
-              Math.round(Math.min(maxTick - note.startTick, Number(event.target.value) * stepTick)),
-            );
-            onChange({ ...note, durationTick });
-          }}
+          onChange={(event) =>
+            onChange(withNoteLength(initialNote, note, Number(event.target.value), stepTick, maxTick))
+          }
         />
       </label>
       {[
         { label: "울림", disabled: true, value: 20 },
-        { label: "음량", disabled: false, value: Math.round((note.velocity / 127) * 100) },
+        { label: "음량", disabled: false, value: notePercent(note) },
         { label: "일단 효과", disabled: true, value: 20 },
       ].map((control) => (
         <div className={studioStyles.noteSettingsControl} key={control.label}>
@@ -65,12 +63,7 @@ export function NoteSettingsDialog({
               max={100}
               value={control.value}
               disabled={control.disabled}
-              onChange={(event) =>
-                onChange({
-                  ...note,
-                  velocity: Math.max(1, Math.round((Number(event.target.value) / 100) * 127)),
-                })
-              }
+              onChange={(event) => onChange(withNotePercent(note, Number(event.target.value)))}
               style={{
                 background: `linear-gradient(to right, var(--white) ${control.value}%, var(--line-strong) ${control.value}%)`,
               }}
@@ -83,9 +76,7 @@ export function NoteSettingsDialog({
                 min={1}
                 max={100}
                 label="노트 음량 직접 입력"
-                onChange={(value) =>
-                  onChange({ ...note, velocity: Math.max(1, Math.round((value / 100) * 127)) })
-                }
+                onChange={(value) => onChange(withNotePercent(note, value))}
               />
             )}
           </div>

@@ -4,8 +4,10 @@ import { useUrlNavigation } from "@/features/navigation/use-url-navigation";
 import { useNotificationsNavigation } from "@/features/notifications/use-notifications-navigation";
 import { readId, withQuery } from "@/features/navigation/paths";
 import { resolveSearchScope } from "@/features/search/search-scope";
+import { nativeApp } from "@/lib/native-app";
 import { sharedStyles } from "@/styles/shared.styles";
 import { ChatScreen } from "@/features/social/chat-screen";
+import { NativeChatBridge } from "@/features/social/native-chat-bridge";
 
 export default function ChatPage() {
   const { to, back, params, query } = useUrlNavigation();
@@ -13,33 +15,36 @@ export default function ChatPage() {
   const { openNotifications } = useNotificationsNavigation();
   const galleryId = readId(params.galleryId) ?? readId(query.get("galleryId"));
   const scope = resolveSearchScope(query.get("scope"), "songs", Boolean(galleryId));
+  const chat = {
+    friendId,
+    query: query.get("q") ?? "",
+    onQueryChange: (value: string) => {
+      const next = new URLSearchParams(query);
+      if (value) next.set("q", value);
+      else next.delete("q");
+      to(`/chat${next.size ? `?${next}` : ""}`, { replace: true });
+    },
+    onBack: () => back(friendId === null ? "/friends" : "/chat"),
+    onSearch: () => to(withQuery("/search", { scope, galleryId })),
+    onNewMessage: () => to("/search?scope=people"),
+    onSelect: (id: number) => {
+      const next = new URLSearchParams(query);
+      next.set("userId", String(id));
+      to(`/chat?${next}`);
+    },
+    onProfile: (id: number) => to(`/users/${id}`),
+  };
   return (
     <DesignViewport>
       <div className={sharedStyles.phoneFrame}>
-
         <div className={sharedStyles.screenBody}>
-          <ChatScreen
-            friendId={friendId}
-            query={query.get("q") ?? ""}
-            onQueryChange={(value) => {
-              const next = new URLSearchParams(query);
-              if (value) next.set("q", value);
-              else next.delete("q");
-              to(`/chat${next.size ? `?${next}` : ""}`, { replace: true });
-            }}
-            onBack={() => back(friendId === null ? "/friends" : "/chat")}
-            onSearch={() => to(withQuery("/search", { scope, galleryId }))}
-            onNewMessage={() => to("/search?scope=people")}
-            onNotifications={openNotifications}
-            onSelect={(id) => {
-              const next = new URLSearchParams(query);
-              next.set("userId", String(id));
-              to(`/chat?${next}`);
-            }}
-            onProfile={(id) => to(`/users/${id}`)}
-          />
+          {/* One instance of the chat state and realtime connection: the app draws it natively. */}
+          {nativeApp() ? (
+            <NativeChatBridge {...chat} />
+          ) : (
+            <ChatScreen {...chat} onNotifications={openNotifications} />
+          )}
         </div>
-
         <NotificationsOverlay />
       </div>
     </DesignViewport>
