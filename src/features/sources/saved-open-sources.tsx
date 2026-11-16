@@ -11,6 +11,7 @@ import {
 } from "@/features/sources/source-queries";
 
 import { usePagedItems } from "@/hooks/use-paged-items";
+import type { SavedOpenSource } from "@/lib/api/open-sources";
 
 /** The account's server-side open source library (`GET /users/me/open-sources`), including unavailable entries. */
 export function SavedOpenSources({
@@ -66,6 +67,22 @@ export function useSavedOpenSources(query: string, enabled = true) {
   );
   return { current, items, keyword, busy, notice, unsave: unsaveSource, more };
 }
+
+/** The saved-sample library state and actions of `useSavedOpenSources`. */
+export type SavedOpenSourcesState = {
+  current: {
+    items: SavedOpenSource[];
+    next: number | null;
+    busy: boolean;
+    error: { cause: Error } | null;
+  } | null;
+  items: SavedOpenSource[];
+  keyword: string;
+  busy: number | null;
+  notice: string;
+  unsave: (id: number) => void;
+  more: () => void;
+};
 
 function SavedSourceList({ query, onOpen }: { query: string; onOpen: (id: number) => void }) {
   const {

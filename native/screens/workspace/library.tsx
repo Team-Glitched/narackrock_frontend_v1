@@ -151,7 +151,8 @@ function SearchField({ query }: { query: string }) {
   );
 }
 
-function SavedSources({
+/** The account's saved samples (the web's SavedOpenSources); also drawn by /sources?tab=saved. */
+export function SavedSources({
   saved,
 }: {
   saved: NonNullable<Extract<NativeLibrary, { view: "library" }>["saved"]>;
@@ -235,7 +236,14 @@ function SavedSources({
   );
 }
 
-function Player({ player, target }: { player: NativePlayback; target: NativePlaybackTarget }) {
+/** A preview's play bar and its error; sends play/seek/mute for `target`. */
+export function Player({
+  player,
+  target,
+}: {
+  player: NativePlayback;
+  target: NativePlaybackTarget;
+}) {
   const { act } = useScreen();
   return (
     <View style={styles.player}>

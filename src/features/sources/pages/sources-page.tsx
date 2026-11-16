@@ -16,14 +16,16 @@ import { apiOrigin } from "@/lib/api/client";
 import { SavedOpenSources } from "@/features/sources/saved-open-sources";
 import { SourcePublications } from "@/features/sources/source-publications";
 import { workspaceStyles } from "@/styles/workspace.styles";
-
+import { nativeApp } from "@/lib/native-app";
+import { NativeSourcesBridge } from "../native-sources-bridge";
 
 export default function SourcesPage() {
   const { to, params, query } = useUrlNavigation();
   const galleryId = readId(params.galleryId) ?? readId(query.get("galleryId"));
   const scope = resolveSearchScope(query.get("scope"), "sources", Boolean(galleryId));
   const userId = useCurrentUserId();
-  const tab = query.get("tab") === "mine" ? "mine" : query.get("tab") === "saved" ? "saved" : "feed";
+  const tab =
+    query.get("tab") === "mine" ? "mine" : query.get("tab") === "saved" ? "saved" : "feed";
   function selectTab(value: string) {
     const next = new URLSearchParams(query);
     if (value === "feed") next.delete("tab");
@@ -41,7 +43,13 @@ export default function SourcesPage() {
               aria-label="샘플 메뉴"
               data-create-boundary
             >
-              {([["feed", "탐색"], ["saved", "보관함"], ["mine", "내 등록"]] as const).map(([value, label]) => (
+              {(
+                [
+                  ["feed", "탐색"],
+                  ["saved", "보관함"],
+                  ["mine", "내 등록"],
+                ] as const
+              ).map(([value, label]) => (
                 <button
                   key={value}
                   type="button"
@@ -53,14 +61,34 @@ export default function SourcesPage() {
                 </button>
               ))}
             </nav>
-            <div key={JSON.stringify([apiOrigin(), userId, tab])} className="min-h-0 flex-1 overflow-hidden">
-              {tab === "feed" ? (
+            <div
+              key={JSON.stringify([apiOrigin(), userId, tab])}
+              className="min-h-0 flex-1 overflow-hidden"
+            >
+              {nativeApp() ? (
+                <NativeSourcesBridge
+                  tab={tab}
+                  nav={{
+                    onHome: () => to("/"),
+                    onTab: selectTab,
+                    onCreate: () => to("/sources/new"),
+                    onOpen: (id, comments) =>
+                      to(comments ? `/sources/${id}/comments` : `/sources/${id}`),
+                    onProfile: (id) => to(`/users/${id}`),
+                    onSearch: () => to(withQuery("/search", { scope, galleryId })),
+                  }}
+                />
+              ) : tab === "feed" ? (
                 <OpensourceScreen
-                  onOpen={(id, comments) => to(comments ? `/sources/${id}/comments` : `/sources/${id}`)}
+                  onOpen={(id, comments) =>
+                    to(comments ? `/sources/${id}/comments` : `/sources/${id}`)
+                  }
                   onProfile={(id) => to(`/users/${id}`)}
                 />
               ) : tab === "saved" ? (
-                <section className={`${workspaceStyles.workspacePage} ${sourceStyles.libraryPage} ${sharedStyles.scrollContent}`}>
+                <section
+                  className={`${workspaceStyles.workspacePage} ${sourceStyles.libraryPage} ${sharedStyles.scrollContent}`}
+                >
                   <h1>샘플 보관함</h1>
                   <SavedOpenSources query="" onOpen={(id) => to(`/sources/${id}`)} />
                 </section>

@@ -1,52 +1,20 @@
-import { useCallback, useEffect, useRef, useState } from "react";
 import { useCurrentUserId } from "@/features/auth/use-current-user";
 import { useLoginPrompt } from "@/features/auth/login-prompt";
 import { useNativeScreen } from "@/features/navigation/use-native-screen";
+import {
+  nativeSavedSources,
+  playerKey,
+  SavedSourcePlayers,
+  useNativePlayers,
+  useReportPlayer,
+  type PlayerReport,
+} from "@/features/sources/native-source-players";
 import { useSavedOpenSources } from "@/features/sources/saved-open-sources";
-import { useSourcePlayback } from "@/features/sources/source-playback";
-import { sourceError } from "@/features/sources/source-screens";
 import type { CompositionDto } from "@/lib/api/composition";
-import type { NativeLibrary, NativePlayback, NativePlaybackTarget } from "@/lib/native-screens";
+import type { NativeLibrary } from "@/lib/native-screens";
 import { uiLabels } from "@/lib/ui-labels";
 import { useSourceLibraryActions } from "./source-library-content";
 import { useClipPlayer, useSourceLibrary } from "./workspace-screens";
-
-type PlayerControls = { toggle: () => void; seek: (ms: number) => void; toggleMute: () => void };
-type PlayerReport = (
-  key: string,
-  state: NativePlayback | null,
-  controls: PlayerControls | null,
-) => void;
-
-const playerKey = ({ kind, id }: NativePlaybackTarget) => `${kind}:${id}`;
-
-/**
- * Sends a player's state to the bridge. The position is rounded to 250 ms so a playing preview does not
- * resend the screen on every audio frame.
- */
-function useReportPlayer(
-  key: string,
-  state: NativePlayback,
-  controls: PlayerControls,
-  report: PlayerReport,
-) {
-  const snapshot = JSON.stringify({
-    ...state,
-    positionMs: Math.floor(state.positionMs / 250) * 250,
-  });
-  const latest = useRef(controls);
-  useEffect(() => {
-    latest.current = controls;
-  });
-  useEffect(() => {
-    report(key, JSON.parse(snapshot) as NativePlayback, {
-      toggle: () => latest.current.toggle(),
-      seek: (ms) => latest.current.seek(ms),
-      toggleMute: () => latest.current.toggleMute(),
-    });
-  }, [key, snapshot, report]);
-  useEffect(() => () => report(key, null, null), [key, report]);
-}
 
 /** A local MIDI work's preview (the web's ClipPlayer), played by this page. */
 function ClipPlayerReporter({
@@ -79,27 +47,6 @@ function ClipPlayerReporter({
   return null;
 }
 
-/** A saved sample's preview (the web's SourcePlayback); its audio element stays in this page. */
-function SourcePlayerReporter({ id, report }: { id: number; report: PlayerReport }) {
-  const player = useSourcePlayback(id, true, null);
-  useReportPlayer(
-    playerKey({ kind: "saved", id }),
-    {
-      label: "샘플",
-      playing: player.playing,
-      loading: player.loading,
-      muted: player.muted,
-      positionMs: player.positionMs,
-      durationMs: player.durationMs,
-      disabled: false,
-      error: player.error || null,
-    },
-    player,
-    report,
-  );
-  return <audio hidden {...player.audio} />;
-}
-
 /** In the app the sample library (SourceLibraryScreen) is drawn natively (native/screens/workspace/library.tsx). */
 export function NativeLibraryBridge({
   onSearch,
@@ -117,19 +64,7 @@ export function NativeLibraryBridge({
     signedIn && filter === "SERVER" && !targetResource,
   );
   const { requestLogin } = useLoginPrompt();
-
-  const [players, setPlayers] = useState<Record<string, NativePlayback>>({});
-  const controls = useRef(new Map<string, PlayerControls>());
-  const report = useCallback<PlayerReport>((key, state, control) => {
-    if (control) controls.current.set(key, control);
-    else controls.current.delete(key);
-    setPlayers((current) => {
-      const next = { ...current };
-      if (state) next[key] = state;
-      else delete next[key];
-      return next;
-    });
-  }, []);
+  const { players, report, control } = useNativePlayers();
 
   let model: NativeLibrary;
   if (targetResource) {
@@ -153,7 +88,6 @@ export function NativeLibraryBridge({
       notice: notice || null,
     };
   } else {
-    const current = saved.current;
     model = {
       view: "library",
       title: uiLabels.sourceLibrary,
@@ -177,53 +111,7 @@ export function NativeLibraryBridge({
                   : null,
             }
           : null,
-      saved:
-        filter !== "SERVER"
-          ? null
-          : !signedIn
-            ? { state: "signed-out" }
-            : !current
-              ? { state: "loading" }
-              : {
-                  state: "ready",
-                  notice: saved.notice || null,
-                  empty:
-                    saved.items.length === 0 && current.next === null && !current.error
-                      ? saved.keyword
-                        ? "검색 결과가 없습니다."
-                        : "저장한 샘플이 없습니다."
-                      : null,
-                  items: saved.items.map((item) => ({
-                    openSourceId: item.openSourceId,
-                    source:
-                      item.availability === "AVAILABLE" && item.source
-                        ? {
-                            title: item.source.title,
-                            description: item.source.description || null,
-                            writer: item.source.writer.nickname,
-                            canPreview: item.source.canPreview ?? true,
-                            player:
-                              players[playerKey({ kind: "saved", id: item.openSourceId })] ?? null,
-                          }
-                        : null,
-                  })),
-                  unsavingId: saved.busy,
-                  locked: saved.busy !== null || current.busy,
-                  error: current.error
-                    ? sourceError(current.error.cause, "보관함을 불러오지 못했습니다.")
-                    : null,
-                  paging:
-                    current.next !== null
-                      ? {
-                          label: current.busy
-                            ? "불러오는 중..."
-                            : current.error
-                              ? "다시 시도"
-                              : "더보기",
-                          busy: current.busy || saved.busy !== null,
-                        }
-                      : null,
-                },
+      saved: filter === "SERVER" ? nativeSavedSources(saved, signedIn, players) : null,
       busyId: busy,
     };
   }
@@ -263,11 +151,11 @@ export function NativeLibraryBridge({
         case "sign-in":
           return requestLogin();
         case "play":
-          return controls.current.get(playerKey(action.target))?.toggle();
+          return control(playerKey(action.target))?.toggle();
         case "seek":
-          return controls.current.get(playerKey(action.target))?.seek(action.ms);
+          return control(playerKey(action.target))?.seek(action.ms);
         case "mute":
-          return controls.current.get(playerKey(action.target))?.toggleMute();
+          return control(playerKey(action.target))?.toggleMute();
         case "more":
           return targetResource ? library.visited.more() : saved.more();
       }
@@ -288,13 +176,9 @@ export function NativeLibraryBridge({
             report={report}
           />
         ))}
-      {!targetResource &&
-        filter === "SERVER" &&
-        saved.items.map((item) =>
-          item.availability === "AVAILABLE" && item.source && (item.source.canPreview ?? true) ? (
-            <SourcePlayerReporter key={item.openSourceId} id={item.openSourceId} report={report} />
-          ) : null,
-        )}
+      {!targetResource && filter === "SERVER" && (
+        <SavedSourcePlayers saved={saved} report={report} />
+      )}
     </>
   );
 }
