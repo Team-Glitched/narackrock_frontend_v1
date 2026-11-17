@@ -18,7 +18,7 @@ import {
   banStatus,
   managerMeta,
   managerTitle,
-  moderationLogText,
+  moderationLogRow,
   proposalMeta,
   reportActionLabels,
   reportMeta,
@@ -303,16 +303,14 @@ function MembersBridge({
       period: banPeriod(ban),
       active: ban.active,
     })),
-    logs: nativeList(moderation.logs, (log) => ({
-      logId: log.logId,
-      text: moderationLogText(log),
-    })),
+    logs: nativeList(moderation.logs, (log) => ({ logId: log.logId, ...moderationLogRow(log) })),
     managers: {
       ...managers.managers,
       items: managers.managers.items.map((manager) => ({
         userId: manager.userId,
         title: managerTitle(manager),
         meta: managerMeta(manager),
+        avatarUrl: manager.profileImageUrl,
       })),
       hasMore: false,
       appending: false,
@@ -322,6 +320,8 @@ function MembersBridge({
       items: managers.search.items.map((person) => ({
         userId: person.userId,
         title: managerTitle(person),
+        subtitle: person.primaryInstrument ?? "",
+        avatarUrl: person.profileImageUrl,
         manager: managers.isManager(person.userId),
       })),
     },

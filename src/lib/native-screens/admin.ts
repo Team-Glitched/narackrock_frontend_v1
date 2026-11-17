@@ -86,13 +86,21 @@ export type NativeAdminMembers = {
   /** A ban lift is in flight. */
   lifting: boolean;
   bans: NativeAdminList<NativeAdminBan>;
-  logs: NativeAdminList<{ logId: number; text: string }>;
-  /** "커뮤니티 어드민": title is the nickname, meta "지정 date". Never paged. */
-  managers: NativeAdminList<{ userId: number; title: string; meta: string }>;
+  /** title "커뮤니티 어드민 지정", detail "사용자 #12 · 사유" (may be ""), time the full date. */
+  logs: NativeAdminList<{ logId: number; title: string; detail: string; time: string }>;
+  /** "커뮤니티 어드민": title is the nickname, meta "2026. 11. 17. 지정". Never paged. */
+  managers: NativeAdminList<{ userId: number; title: string; meta: string; avatarUrl: string | null }>;
   /** Nickname search for a new community admin; `manager` results show "어드민" instead of "지정". */
   managerSearch: {
     status: "idle" | "loading" | "error" | "ready";
-    items: { userId: number; title: string; manager: boolean }[];
+    items: {
+      userId: number;
+      title: string;
+      /** The primary instrument, or "". */
+      subtitle: string;
+      avatarUrl: string | null;
+      manager: boolean;
+    }[];
   };
   /** A grant or revoke is in flight. */
   managerBusy: boolean;
