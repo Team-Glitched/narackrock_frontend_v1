@@ -23,52 +23,53 @@ export default function AbyssPage() {
   const target = creationTarget(scope, galleryId);
   const search = () => to(withQuery("/search", { scope, galleryId }));
   const inApp = nativeApp() !== null;
+  const footer = (
+    <Footer
+      activeTab="abyss"
+      createLabel={target.label}
+      onCreate={() =>
+        to(
+          target.path,
+          target.path === "/studio/new"
+            ? { state: { studioFrom: currentPath, studioIndex: window.history.state?.idx } }
+            : undefined,
+        )
+      }
+    />
+  );
   if (inApp)
-    return (
+    return invalidId ? (
       <>
-        {invalidId ? (
-          <NativeInvalidAbyssBridge onSearch={search} />
-        ) : (
-          <AbyssScreen
-            nativeScreen={{ onSearch: search, onToggleMute: () => setMuted((value) => !value) }}
-            onProfile={(id) => to(`/users/${id}`)}
-            muted={muted}
-            initialShortId={shortId}
-            onRememberShort={(id) => {
-              if (id !== shortId) to(`/abyss/${id}`, { replace: true, state });
-            }}
-            onJoin={(id) =>
-              to(`/studio/shorts/${id}`, {
-                state: { studioFrom: currentPath, studioIndex: window.history.state?.idx },
-              })
-            }
-            onOpenStudio={(id) =>
-              to(`/studio/${id}`, {
-                state: { studioFrom: currentPath, studioIndex: window.history.state?.idx },
-              })
-            }
-            onOpenRequest={(projectId, contributionId) =>
-              to(
-                contributionId == null
-                  ? "/submissions"
-                  : `/submissions/${contributionId}?projectId=${projectId}`,
-              )
-            }
-          />
-        )}
-        <Footer
-          activeTab="abyss"
-          createLabel={target.label}
-          onCreate={() =>
-            to(
-              target.path,
-              target.path === "/studio/new"
-                ? { state: { studioFrom: currentPath, studioIndex: window.history.state?.idx } }
-                : undefined,
-            )
-          }
-        />
+        <NativeInvalidAbyssBridge onSearch={search} />
+        {footer}
       </>
+    ) : (
+      <AbyssScreen
+        nativeScreen={{ onSearch: search, footer }}
+        onProfile={(id) => to(`/users/${id}`)}
+        muted={muted}
+        initialShortId={shortId}
+        onRememberShort={(id) => {
+          if (id !== shortId) to(`/abyss/${id}`, { replace: true, state });
+        }}
+        onJoin={(id) =>
+          to(`/studio/shorts/${id}`, {
+            state: { studioFrom: currentPath, studioIndex: window.history.state?.idx },
+          })
+        }
+        onOpenStudio={(id) =>
+          to(`/studio/${id}`, {
+            state: { studioFrom: currentPath, studioIndex: window.history.state?.idx },
+          })
+        }
+        onOpenRequest={(projectId, contributionId) =>
+          to(
+            contributionId == null
+              ? "/submissions"
+              : `/submissions/${contributionId}?projectId=${projectId}`,
+          )
+        }
+      />
     );
   return (
     <DesignViewport>
@@ -113,20 +114,7 @@ export default function AbyssPage() {
             />
           )}
         </div>
-        <Footer
-          activeTab="abyss"
-          createLabel={target.label}
-          onCreate={() =>
-            to(
-              target.path,
-              target.path === "/studio/new"
-                ? {
-                    state: { studioFrom: currentPath, studioIndex: window.history.state?.idx },
-                  }
-                : undefined,
-            )
-          }
-        />
+        {footer}
         <NotificationsOverlay />
       </div>
     </DesignViewport>

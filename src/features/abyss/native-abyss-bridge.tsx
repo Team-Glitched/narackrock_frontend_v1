@@ -73,11 +73,9 @@ function abyssModel(abyss: AbyssState, sheet: NativeAbyssSheet | null): NativeAb
     count: shorts.length,
     canPrevious: shorts.length >= 2,
     canNext: abyss.hasNext && !abyss.loadingMore,
-    advancing: abyss.advancing,
     playback: {
       playing: playback.playing,
       canPlay: playback.canPlay,
-      muted: abyss.muted,
       positionMs: Math.floor(positionMs / POSITION_STEP_MS) * POSITION_STEP_MS,
       totalMs,
     },
@@ -104,11 +102,9 @@ function abyssModel(abyss: AbyssState, sheet: NativeAbyssSheet | null): NativeAb
 export function NativeAbyssBridge({
   abyss,
   onSearch,
-  onToggleMute,
 }: {
   abyss: AbyssState;
   onSearch: () => void;
-  onToggleMute: () => void;
 }) {
   const [sheet, setSheet] = useState<NativeAbyssSheet | null>(null);
   const report = useCallback<SheetReport>((next) => setSheet(next), []);
@@ -135,8 +131,6 @@ export function NativeAbyssBridge({
         case "abyss-toggle":
           if (playback.canPlay) void playback.toggle();
           return;
-        case "abyss-mute":
-          return onToggleMute();
         case "abyss-seek":
           if (playback.totalMs > 0)
             playback.seek(Math.min(Math.max(0, action.ms), playback.totalMs));
