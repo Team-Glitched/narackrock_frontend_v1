@@ -200,7 +200,7 @@ export type NativeFriendsList =
 /** /communities/:galleryId (and the manager's view): community info, join control, posts. */
 export type NativeCommunityDetail = {
   community: NativeCommunity;
-  /** The manager's "커뮤니티 멤버 관리" button. */
+  /** The manager's "관리자 페이지" button. */
   manage: boolean;
   membershipError: { message: string; retry: boolean; retryDisabled: boolean } | null;
   feed: NativeFeed;

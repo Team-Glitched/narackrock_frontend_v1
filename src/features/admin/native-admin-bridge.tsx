@@ -17,6 +17,8 @@ import type {
 import {
   banPeriod,
   banStatus,
+  managerMeta,
+  managerTitle,
   moderationLogText,
   proposalMeta,
   reportActionLabels,
@@ -25,6 +27,7 @@ import {
   useAdminReview,
   useCommunityAdminGate,
   useCommunityModeration,
+  useGalleryManagers,
 } from "./admin-screens";
 
 const header: NativeHeader = { left: "back", actions: ["notifications", "search", "account"] };
@@ -302,6 +305,7 @@ function MembersBridge({
   options: ScreenOptions;
 }) {
   const moderation = useCommunityModeration(community);
+  const managers = useGalleryManagers(community);
   const view: NativeAdminCommunity["view"] = {
     type: "members",
     galleryId: community.galleryId,
@@ -322,6 +326,26 @@ function MembersBridge({
       logId: log.logId,
       text: moderationLogText(log),
     })),
+    managers: {
+      ...managers.managers,
+      items: managers.managers.items.map((manager) => ({
+        userId: manager.userId,
+        title: managerTitle(manager),
+        meta: managerMeta(manager),
+      })),
+      hasMore: false,
+      appending: false,
+    },
+    managerSearch: {
+      status: managers.search.status,
+      items: managers.search.items.map((person) => ({
+        userId: person.userId,
+        title: managerTitle(person),
+        manager: managers.isManager(person.userId),
+      })),
+    },
+    managerBusy: managers.busy,
+    managerNotice: managers.notice,
   };
   return (
     <AdminCommunityView
@@ -338,6 +362,14 @@ function MembersBridge({
             return moderation.bans.more();
           case "more-logs":
             return moderation.logs.more();
+          case "search-managers":
+            return managers.runSearch(action.keyword);
+          case "grant-manager":
+            if (!managers.busy) managers.grant(action.userId);
+            return;
+          case "revoke-manager":
+            if (!managers.busy) managers.revoke(action.userId);
+            return;
           case "leave":
             return onLeave();
         }

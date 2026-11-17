@@ -2,6 +2,7 @@ import { ChevronRight } from "lucide-react";
 import { preferenceCopy, preferenceRow, preferenceSwitch } from "@/styles/variants";
 import { uiLabels } from "@/lib/ui-labels";
 import { useAbyssPlaybackPreferences } from "@/features/abyss/playback-preferences";
+import { useOperatorAdmin } from "@/features/admin/use-operator-admin";
 
 /** Navigation rows of the settings page, by group. */
 export const settingsGroups = [
@@ -47,6 +48,20 @@ export const settingsGroups = [
   },
 ] as const;
 
+type SettingsGroup = { title: string; items: readonly { path: string; label: string; description: string }[] };
+
+/** Shown only to operator admins. */
+const operatorGroup: SettingsGroup = {
+  title: "관리",
+  items: [{ path: "/admin", label: "운영자 관리", description: "커뮤니티 개설 승인과 신고 처리" }],
+};
+
+/** The settings groups for this account; operator admins also get the "관리" group before "서비스 안내". */
+export function settingsGroupsFor(operator: boolean): readonly SettingsGroup[] {
+  if (!operator) return settingsGroups;
+  return [...settingsGroups.slice(0, -1), operatorGroup, ...settingsGroups.slice(-1)];
+}
+
 const groupClass =
   "mb-10 [&>h2]:mb-3.5 [&>h2]:text-title [&>h2]:leading-[26px] [&>h2]:font-bold [&>h2]:tracking-[-0.4px] [&>h2]:text-app-fg [&>ul]:m-0 [&>ul]:list-none [&>ul]:p-0 [&_li+li]:border-t [&_li+li]:border-app-surface";
 
@@ -55,6 +70,7 @@ export function SettingsScreen({ onNavigate, onLogout }: {
   onLogout: () => void;
 }) {
   const { muted, setMuted } = useAbyssPlaybackPreferences();
+  const groups = settingsGroupsFor(useOperatorAdmin());
   return (
     <section className="scrollbar-none h-full overflow-x-hidden overflow-y-auto px-5 pt-7 pb-10 text-app-fg">
       <h1 className="m-0 mb-8 text-title leading-8 font-bold">설정</h1>
@@ -78,7 +94,7 @@ export function SettingsScreen({ onNavigate, onLogout }: {
           </li>
         </ul>
       </section>
-      {settingsGroups.map((group) => (
+      {groups.map((group) => (
         <section className={groupClass} key={group.title} aria-label={group.title}>
           <h2>{group.title}</h2>
           <ul>

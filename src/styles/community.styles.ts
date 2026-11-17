@@ -319,9 +319,10 @@ export const communityStyles = {
   ].join(" "),
   communityManageTrigger: [
     "community-manage-trigger",
-    "relative grid place-items-center p-[3px_10px] bg-app-surface bg-none min-h-[26px] rounded-[20px]",
+    "relative grid grid-flow-col place-items-center gap-1 p-[3px_10px] bg-app-surface bg-none min-h-[26px] rounded-[20px]",
+    "text-[12px] leading-4 text-app-fg",
     "[&::after]:[content:''] [&::after]:absolute [&::after]:inset-[-9px_0]",
-    "[&_img]:h-auto [&_img]:w-[22px]",
+    "[&_img]:h-auto [&_img]:w-[18px]",
   ].join(" "),
   communityAdminStatus: [
     "community-admin-status",

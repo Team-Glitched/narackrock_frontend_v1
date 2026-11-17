@@ -9,6 +9,7 @@ import { useRef, useState } from "react";
 import {
   useInfiniteQuery,
   useMutation,
+  useQuery,
   useQueryClient,
   type InfiniteData,
   type UseInfiniteQueryOptions,
@@ -23,11 +24,15 @@ import { SignInRequired } from "@/features/auth/sign-in-required";
 import { ApiError } from "@/lib/api/client";
 import {
   fetchManageableGalleries,
+  grantGalleryManager,
   liftGalleryBan,
+  revokeGalleryManager,
   updateGalleryDescription,
   type GalleryBan,
+  type GalleryManager,
   type GalleryModerationLog,
 } from "@/lib/api/community";
+import { searchPeople, type SearchedPerson } from "@/lib/api/social";
 import {
   approveGalleryProposal,
   rejectGalleryProposal,
@@ -42,6 +47,7 @@ import { galleryKeys } from "@/features/community/community-queries";
 import {
   adminKeys,
   galleryBansQuery,
+  galleryManagersQuery,
   moderationLogsQuery,
   pendingProposalsQuery,
   pendingReportsQuery,
@@ -517,6 +523,137 @@ export function useCommunityModeration(community: Community) {
   };
 }
 
+export type ManagerSearch = {
+  status: "idle" | "loading" | "error" | "ready";
+  items: SearchedPerson[];
+};
+
+/** The community admins (`MANAGER`) of a community: the list, a nickname search, granting and revoking. */
+export function useGalleryManagers(community: Community) {
+  const userId = useCurrentUserId();
+  const queryClient = useQueryClient();
+  const managers = useQuery(galleryManagersQuery(userId, community.galleryId));
+  const [search, setSearch] = useState<ManagerSearch>({ status: "idle", items: [] });
+  const [notice, setNotice] = useState("");
+  // Only the latest search may fill the results.
+  const searchRun = useRef(0);
+  const onChanged = () => {
+    // The admin list and the log; the caller's own role when they revoked themselves.
+    void queryClient.invalidateQueries({ queryKey: adminKeys.gallery(userId, community.galleryId) });
+    void queryClient.invalidateQueries({ queryKey: galleryKeys.role(userId, community.galleryId) });
+    void queryClient.invalidateQueries({ queryKey: adminKeys.manageableGalleries(userId) });
+  };
+  const grant = useMutation({
+    mutationFn: (targetId: number) => grantGalleryManager(community.galleryId, targetId),
+    onSuccess: onChanged,
+  });
+  const revoke = useMutation({
+    mutationFn: (targetId: number) => revokeGalleryManager(community.galleryId, targetId),
+    onSuccess: onChanged,
+  });
+  const items: GalleryManager[] = managers.data ?? [];
+  return {
+    managers: {
+      loaded: managers.data !== undefined || managers.isError,
+      error: managers.isError
+        ? adminError(managers.error, "커뮤니티 어드민 목록을 불러오지 못했습니다.")
+        : null,
+      items,
+    },
+    search,
+    /** Whether a search result is already a community admin. */
+    isManager: (targetId: number) => items.some((manager) => manager.userId === targetId),
+    runSearch: (keyword: string) => {
+      const run = ++searchRun.current;
+      const trimmed = keyword.trim();
+      if (!trimmed) return setSearch({ status: "idle", items: [] });
+      setSearch({ status: "loading", items: [] });
+      void searchPeople(trimmed, 0, 10).then(
+        (page) => run === searchRun.current && setSearch({ status: "ready", items: page.users }),
+        () => run === searchRun.current && setSearch({ status: "error", items: [] }),
+      );
+    },
+    busy: grant.isPending || revoke.isPending,
+    grant: (targetId: number) => {
+      setNotice("");
+      grant.mutate(targetId, {
+        onSuccess: () => setNotice("커뮤니티 어드민으로 지정했습니다."),
+        onError: (cause) => setNotice(adminError(cause, "지정하지 못했습니다.")),
+      });
+    },
+    revoke: (targetId: number) => {
+      setNotice("");
+      revoke.mutate(targetId, {
+        onSuccess: () => setNotice("커뮤니티 어드민에서 해임했습니다."),
+        onError: (cause) => setNotice(adminError(cause, "해임하지 못했습니다.")),
+      });
+    },
+    notice,
+  };
+}
+
+export const managerTitle = (manager: { userId: number; nickname: string | null }) =>
+  manager.nickname ?? `사용자 #${manager.userId}`;
+
+export const managerMeta = (manager: GalleryManager) => `지정 ${date(manager.assignedAt)}`;
+
+function CommunityManagers({ community }: { community: Community }) {
+  const [keyword, setKeyword] = useState("");
+  const { managers, search, isManager, runSearch, busy, grant, revoke, notice } =
+    useGalleryManagers(community);
+  return (
+    <section className={workspaceStyles.workspaceCard} aria-label="커뮤니티 어드민">
+      <h2>커뮤니티 어드민</h2>
+      {managers.error ? (
+        <p role="alert">{managers.error}</p>
+      ) : (
+        managers.loaded && managers.items.length === 0 && <p>지정된 커뮤니티 어드민이 없습니다.</p>
+      )}
+      {managers.items.map((manager) => (
+        <div className={workspaceStyles.workspaceActions} key={manager.userId}>
+          <span>
+            {managerTitle(manager)} · {managerMeta(manager)}
+          </span>
+          <button disabled={busy} onClick={() => revoke(manager.userId)}>
+            해임
+          </button>
+        </div>
+      ))}
+      <form
+        className={workspaceStyles.workspaceActions}
+        onSubmit={(event) => {
+          event.preventDefault();
+          runSearch(keyword);
+        }}
+      >
+        <input
+          aria-label="닉네임으로 사용자 검색"
+          placeholder="닉네임으로 사용자 검색"
+          value={keyword}
+          onChange={(event) => setKeyword(event.target.value)}
+        />
+        <button>검색</button>
+      </form>
+      {search.status === "loading" && <p role="status">검색 중...</p>}
+      {search.status === "error" && <p role="alert">사용자를 검색하지 못했습니다.</p>}
+      {search.status === "ready" && search.items.length === 0 && <p>검색 결과가 없습니다.</p>}
+      {search.items.map((person) => (
+        <div className={workspaceStyles.workspaceActions} key={person.userId}>
+          <span>{managerTitle(person)}</span>
+          {isManager(person.userId) ? (
+            <span>어드민</span>
+          ) : (
+            <button disabled={busy} onClick={() => grant(person.userId)}>
+              지정
+            </button>
+          )}
+        </div>
+      ))}
+      {notice && <p role="status">{notice}</p>}
+    </section>
+  );
+}
+
 export const banStatus = (ban: GalleryBan) =>
   `${ban.banType === "SUSPEND" ? "이용정지" : "추방"} · ${ban.active ? "진행 중" : ban.liftedAt ? "해제됨" : "만료"}`;
 
@@ -539,6 +676,7 @@ function CommunityMembers({ community, onBack }: { community: Community; onBack:
           <Asset name="search-back.svg" />
         </button>
       </div>
+      <CommunityManagers community={community} />
       <p className={communityStyles.communityAdminEmpty} role="status">
         전체 멤버 목록은 현재 서버에서 지원하지 않습니다. 게시글·댓글 메뉴에서 작성자를 제재할 수
         있습니다.

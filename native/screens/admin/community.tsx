@@ -106,7 +106,8 @@ function StatusText({ children, alert = false }: { children: string; alert?: boo
 function Members({ members }: { members: NativeAdminMembers }) {
   const { act } = useScreen();
   const [description, setDescription] = useState(members.description);
-  const { bans, logs } = members;
+  const [keyword, setKeyword] = useState("");
+  const { bans, logs, managers, managerSearch, managerBusy } = members;
   return (
     <View accessibilityLabel={`${members.name} 운영`}>
       <View style={styles.backLine}>
@@ -120,6 +121,64 @@ function Members({ members }: { members: NativeAdminMembers }) {
         </Touchable>
       </View>
       <View style={adminStyles.body}>
+        <Card>
+          <CardTitle>커뮤니티 어드민</CardTitle>
+          {managers.error ? (
+            <Line error>{managers.error}</Line>
+          ) : (
+            managers.loaded &&
+            managers.items.length === 0 && <Line>지정된 커뮤니티 어드민이 없습니다.</Line>
+          )}
+          {managers.items.map((manager) => (
+            <CardActions key={manager.userId}>
+              <View style={styles.person}>
+                <Text style={type.body}>{manager.title}</Text>
+                <Text style={type.caption}>{manager.meta}</Text>
+              </View>
+              <CardButton
+                label="해임"
+                disabled={managerBusy}
+                onPress={() => act({ type: "revoke-manager", userId: manager.userId })}
+              />
+            </CardActions>
+          ))}
+          <CardActions>
+            <TextField
+              accessibilityLabel="닉네임으로 사용자 검색"
+              placeholder="닉네임으로 사용자 검색"
+              value={keyword}
+              onChangeText={setKeyword}
+              returnKeyType="search"
+              onSubmitEditing={() => act({ type: "search-managers", keyword })}
+              style={styles.person}
+            />
+            <CardButton
+              label="검색"
+              disabled={managerBusy}
+              onPress={() => act({ type: "search-managers", keyword })}
+            />
+          </CardActions>
+          {managerSearch.status === "loading" && <Line>검색 중...</Line>}
+          {managerSearch.status === "error" && <Line error>사용자를 검색하지 못했습니다.</Line>}
+          {managerSearch.status === "ready" && managerSearch.items.length === 0 && (
+            <Line>검색 결과가 없습니다.</Line>
+          )}
+          {managerSearch.items.map((person) => (
+            <CardActions key={person.userId}>
+              <Text style={[type.body, styles.person]}>{person.title}</Text>
+              {person.manager ? (
+                <Text style={type.muted}>어드민</Text>
+              ) : (
+                <CardButton
+                  label="지정"
+                  disabled={managerBusy}
+                  onPress={() => act({ type: "grant-manager", userId: person.userId })}
+                />
+              )}
+            </CardActions>
+          ))}
+          {members.managerNotice !== "" && <Text style={type.muted}>{members.managerNotice}</Text>}
+        </Card>
         <Text style={[type.muted, styles.notice]}>
           전체 멤버 목록은 현재 서버에서 지원하지 않습니다. 게시글·댓글 메뉴에서 작성자를 제재할 수
           있습니다.
@@ -207,4 +266,6 @@ const styles = StyleSheet.create({
   notice: { marginTop: 12 },
   // The web's section h2s here are unstyled: plain 16px text.
   heading: { marginTop: 12, color: colors.fg, fontSize: 16, lineHeight: 22 },
+  // A row's text takes the space left of its button.
+  person: { flex: 1, minWidth: 0 },
 });

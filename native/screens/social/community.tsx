@@ -49,12 +49,13 @@ function CommunityInfo({ model }: { model: ScreenProps<"social-community">["mode
         {model.manage && (
           <Touchable
             accessibilityRole="button"
-            accessibilityLabel="커뮤니티 멤버 관리"
+            accessibilityLabel="관리자 페이지"
             hitSlop={9}
             style={styles.manage}
             onPress={() => act({ type: "manage" })}
           >
-            <AdminToolIcon width={22} height={22} />
+            <AdminToolIcon width={18} height={18} />
+            <Text style={styles.manageText}>관리자 페이지</Text>
           </Touchable>
         )}
       </View>
@@ -169,10 +170,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 3,
     borderRadius: 20,
+    flexDirection: "row",
+    gap: 4,
     alignItems: "center",
     justifyContent: "center",
     backgroundColor: colors.surface,
   },
+  manageText: { color: colors.fg, fontSize: 12, lineHeight: 16 },
   info: {
     marginHorizontal: gutter,
     marginBottom: 8,

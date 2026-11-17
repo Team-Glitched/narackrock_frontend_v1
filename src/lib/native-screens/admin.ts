@@ -87,6 +87,16 @@ export type NativeAdminMembers = {
   lifting: boolean;
   bans: NativeAdminList<NativeAdminBan>;
   logs: NativeAdminList<{ logId: number; text: string }>;
+  /** "커뮤니티 어드민": title is the nickname, meta "지정 date". Never paged. */
+  managers: NativeAdminList<{ userId: number; title: string; meta: string }>;
+  /** Nickname search for a new community admin; `manager` results show "어드민" instead of "지정". */
+  managerSearch: {
+    status: "idle" | "loading" | "error" | "ready";
+    items: { userId: number; title: string; manager: boolean }[];
+  };
+  /** A grant or revoke is in flight. */
+  managerBusy: boolean;
+  managerNotice: string;
 };
 
 /** What the management pages show, in the web's order of checks. */
@@ -112,7 +122,10 @@ export type NativeAdminCommunityAction =
   | { type: "save-description"; text: string }
   | { type: "lift-ban"; banId: number }
   | { type: "more-bans" }
-  | { type: "more-logs" };
+  | { type: "more-logs" }
+  | { type: "search-managers"; keyword: string }
+  | { type: "grant-manager"; userId: number }
+  | { type: "revoke-manager"; userId: number };
 
 export type AdminScreens = {
   "admin-review": { model: NativeAdminReview; action: NativeAdminReviewAction };
