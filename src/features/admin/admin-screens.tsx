@@ -21,6 +21,7 @@ import { galleryToCommunity, type Community } from "@/features/community/communi
 import { usePagedItems } from "@/hooks/use-paged-items";
 import { useGalleryRole } from "@/features/community/use-gallery-role";
 import { useCurrentUserId } from "@/features/auth/use-current-user";
+import { mergeManagerSearchPage, prioritizeExactNickname } from "./admin-search";
 import { SignInRequired } from "@/features/auth/sign-in-required";
 import { ApiError } from "@/lib/api/client";
 import {
@@ -513,9 +514,20 @@ export function useCommunityModeration(community: Community) {
   };
 }
 
+const MANAGER_SEARCH_PAGE_SIZE = 10;
+
 export type ManagerSearch = {
   status: "idle" | "loading" | "error" | "ready";
   items: SearchedPerson[];
+  hasMore: boolean;
+  loadingMore: boolean;
+};
+
+const IDLE_MANAGER_SEARCH: ManagerSearch = {
+  status: "idle",
+  items: [],
+  hasMore: false,
+  loadingMore: false,
 };
 
 /** The community admins (`MANAGER`) of a community: the list, a nickname search, granting and revoking. */
@@ -523,10 +535,11 @@ export function useGalleryManagers(community: Community) {
   const userId = useCurrentUserId();
   const queryClient = useQueryClient();
   const managers = useQuery(galleryManagersQuery(userId, community.galleryId));
-  const [search, setSearch] = useState<ManagerSearch>({ status: "idle", items: [] });
+  const [search, setSearch] = useState<ManagerSearch>(IDLE_MANAGER_SEARCH);
   const [notice, setNotice] = useState("");
   // Only the latest search may fill the results.
   const searchRun = useRef(0);
+  const searchMeta = useRef({ keyword: "", page: 0, totalCount: 0, loadingMore: false });
   const onChanged = () => {
     // The admin list and the log; the caller's own role when they revoked themselves.
     void queryClient.invalidateQueries({ queryKey: adminKeys.gallery(userId, community.galleryId) });
@@ -556,11 +569,62 @@ export function useGalleryManagers(community: Community) {
     runSearch: (keyword: string) => {
       const run = ++searchRun.current;
       const trimmed = keyword.trim();
-      if (!trimmed) return setSearch({ status: "idle", items: [] });
-      setSearch({ status: "loading", items: [] });
-      void searchPeople(trimmed, 0, 10).then(
-        (page) => run === searchRun.current && setSearch({ status: "ready", items: page.users }),
-        () => run === searchRun.current && setSearch({ status: "error", items: [] }),
+      searchMeta.current = { keyword: trimmed, page: 0, totalCount: 0, loadingMore: false };
+      if (!trimmed) return setSearch(IDLE_MANAGER_SEARCH);
+      setSearch({ status: "loading", items: [], hasMore: false, loadingMore: false });
+      void searchPeople(trimmed, 0, MANAGER_SEARCH_PAGE_SIZE).then(
+        (page) => {
+          if (run !== searchRun.current) return;
+          const ordered = prioritizeExactNickname(page.users, trimmed);
+          searchMeta.current = {
+            keyword: trimmed,
+            page: 0,
+            totalCount: page.totalResultCount,
+            loadingMore: false,
+          };
+          setSearch({
+            status: "ready",
+            items: ordered,
+            hasMore: page.users.length > 0 && ordered.length < page.totalResultCount,
+            loadingMore: false,
+          });
+        },
+        () => {
+          if (run !== searchRun.current) return;
+          setSearch({ status: "error", items: [], hasMore: false, loadingMore: false });
+        },
+      );
+    },
+    loadMoreSearch: () => {
+      const meta = searchMeta.current;
+      if (!meta.keyword || meta.loadingMore) return;
+      const run = searchRun.current;
+      const nextPage = meta.page + 1;
+      meta.loadingMore = true;
+      setSearch((current) =>
+        current.status === "ready" && current.hasMore ? { ...current, loadingMore: true } : current,
+      );
+      void searchPeople(meta.keyword, nextPage, MANAGER_SEARCH_PAGE_SIZE).then(
+        (page) => {
+          if (run !== searchRun.current) return;
+          meta.page = nextPage;
+          meta.totalCount = page.totalResultCount;
+          meta.loadingMore = false;
+          setSearch((current) => {
+            const merged = mergeManagerSearchPage(current.items, page.users, meta.keyword);
+            return {
+              status: "ready",
+              items: merged,
+              hasMore: page.users.length > 0 && merged.length < page.totalResultCount,
+              loadingMore: false,
+            };
+          });
+        },
+        () => {
+          if (run !== searchRun.current) return;
+          meta.loadingMore = false;
+          setSearch((current) => ({ ...current, loadingMore: false }));
+        },
       );
     },
     busy: grant.isPending || revoke.isPending,
@@ -663,7 +727,7 @@ const moreButton = cn(buttonVariants({ tone: "secondary" }), "w-full");
 
 function CommunityManagers({ community }: { community: Community }) {
   const [keyword, setKeyword] = useState("");
-  const { managers, search, isManager, runSearch, busy, grant, revoke, notice } =
+  const { managers, search, isManager, runSearch, loadMoreSearch, busy, grant, revoke, notice } =
     useGalleryManagers(community);
   return (
     <>
@@ -741,6 +805,11 @@ function CommunityManagers({ community }: { community: Community }) {
             </ManageRow>
           ))}
         </ul>
+        {search.status === "ready" && search.hasMore && (
+          <button className={moreButton} disabled={search.loadingMore} onClick={loadMoreSearch}>
+            검색 결과 더보기
+          </button>
+        )}
       </ManageSection>
     </>
   );

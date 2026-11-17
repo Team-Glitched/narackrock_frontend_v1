@@ -238,6 +238,13 @@ function Members({ members }: { members: NativeAdminMembers }) {
               )}
             </Row>
           ))}
+          {managerSearch.status === "ready" && managerSearch.hasMore && (
+            <WideButton
+              label="검색 결과 더보기"
+              disabled={managerSearch.loadingMore}
+              onPress={() => act({ type: "more-manager-search" })}
+            />
+          )}
         </Section>
         <Section title="커뮤니티 설명">
           <TextField

@@ -324,6 +324,8 @@ function MembersBridge({
         avatarUrl: person.profileImageUrl,
         manager: managers.isManager(person.userId),
       })),
+      hasMore: managers.search.hasMore,
+      loadingMore: managers.search.loadingMore,
     },
     managerBusy: managers.busy,
     managerNotice: managers.notice,
@@ -345,6 +347,8 @@ function MembersBridge({
             return moderation.logs.more();
           case "search-managers":
             return managers.runSearch(action.keyword);
+          case "more-manager-search":
+            return managers.loadMoreSearch();
           case "grant-manager":
             if (!managers.busy) managers.grant(action.userId);
             return;

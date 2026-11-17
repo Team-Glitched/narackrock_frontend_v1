@@ -101,6 +101,8 @@ export type NativeAdminMembers = {
       avatarUrl: string | null;
       manager: boolean;
     }[];
+    hasMore: boolean;
+    loadingMore: boolean;
   };
   /** A grant or revoke is in flight. */
   managerBusy: boolean;
@@ -132,6 +134,7 @@ export type NativeAdminCommunityAction =
   | { type: "more-bans" }
   | { type: "more-logs" }
   | { type: "search-managers"; keyword: string }
+  | { type: "more-manager-search" }
   | { type: "grant-manager"; userId: number }
   | { type: "revoke-manager"; userId: number };
 
