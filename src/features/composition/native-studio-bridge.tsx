@@ -52,6 +52,7 @@ export function studioStateModel(message: string, failed: boolean): NativeStudio
     },
     timingEditable: false,
     canImportSource: false,
+    privateSave: null,
     primary: { kind: "add", disabled: true, hint: null },
     maxTick: 1,
     maxDurationMs: 1,
@@ -139,6 +140,7 @@ export function NativeStudioBridge({ studio }: { studio: Studio }) {
           timingEditable: studio.onTiming !== undefined,
           canImportSource: studio.canImportSource,
           primary: studio.primary,
+          privateSave: studio.canSavePrivate ? { disabled: studio.savePrivateDisabled } : null,
           maxTick: project.maxTick,
           maxDurationMs: project.maxDurationMs,
           stepTick,
@@ -176,8 +178,13 @@ export function NativeStudioBridge({ studio }: { studio: Studio }) {
           })),
           submit: studio.showSubmitForm ? { busy: studio.busy, error: studio.error } : null,
           publishConfirm: studio.showPublishConfirmation,
-          publishForm: studio.showPublishForm
-            ? { busy: studio.busy, imageName: studio.publishImage?.name ?? null }
+          publishForm: studio.metadataAction
+            ? {
+                action: studio.metadataAction,
+                busy: studio.busy,
+                error: studio.error,
+                imageName: studio.publishImage?.name ?? null,
+              }
             : null,
           trackSettings: studio.trackSettings && {
             trackId: studio.trackSettings.track.trackId,
@@ -214,6 +221,8 @@ export function NativeStudioBridge({ studio }: { studio: Studio }) {
         return studio.onExit();
       case "studio-retry-contribution":
         return studio.retryContribution();
+      case "studio-private-save":
+        return studio.requestPrivateSave();
       case "studio-primary": {
         const { primary } = studio;
         if (primary.disabled) return;
@@ -289,7 +298,7 @@ export function NativeStudioBridge({ studio }: { studio: Studio }) {
       case "studio-publish-save":
         return void studio.finishMetadata(action.title);
       case "studio-publish-form-close":
-        return studio.setShowPublishForm(false);
+        return studio.closeMetadata();
     }
   }
 

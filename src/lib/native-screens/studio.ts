@@ -221,6 +221,7 @@ export type NativeStudio = {
   /** "+ 샘플" is shown. */
   canImportSource: boolean;
   primary: NativeStudioPrimary;
+  privateSave: { disabled: boolean } | null;
   maxTick: number;
   maxDurationMs: number;
   /** Clip drag snapping: ticks per grid cell and the cell width the web uses (px at 20px/half-beat). */
@@ -242,7 +243,7 @@ export type NativeStudio = {
   /** "정말로 올리시겠습니까?" */
   publishConfirm: boolean;
   /** "곡 올리기" metadata form (title + optional album image picked natively). */
-  publishForm: { busy: boolean; imageName: string | null } | null;
+  publishForm: { action: "save" | "publish"; busy: boolean; error: string | null; imageName: string | null } | null;
   /** Track settings (volume + "악기/보컬 변경"). */
   trackSettings: {
     trackId: number;
@@ -264,6 +265,7 @@ export type NativeStudioAction =
   | { type: "studio-exit" }
   | { type: "studio-retry-contribution" }
   | { type: "studio-primary" }
+  | { type: "studio-private-save" }
   | { type: "studio-track"; trackId: number }
   /** A tap (`edit` false: track settings) or the piano-roll gesture on a MIDI clip (`edit` true). */
   | { type: "studio-clip"; trackId: number; clipId: number; edit: boolean }
