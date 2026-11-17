@@ -1,0 +1,195 @@
+import type { FC } from "react";
+import { Platform, Pressable, StyleSheet, Text, View } from "react-native";
+import type { SvgProps } from "react-native-svg";
+
+import AbyssOff from "../public/figma/nav-abyss-off.svg";
+import AbyssOn from "../public/figma/nav-abyss-on.svg";
+import HomeOff from "../public/figma/nav-home-off.svg";
+import HomeOn from "../public/figma/nav-home-on.svg";
+import SourcesOff from "../public/figma/nav-opensource-off.svg";
+import SourcesOn from "../public/figma/nav-opensource-on.svg";
+import SocialOff from "../public/figma/nav-social-off.svg";
+import SocialOn from "../public/figma/nav-social-on.svg";
+import type {
+  NativeFooter,
+  NativeFooterPress,
+  NativeFooterTab,
+} from "../src/lib/native-bridge-protocol";
+import { designTokens } from "../src/styles/tokens";
+
+type Tab = { id: NativeFooterTab; label: string; on: FC<SvgProps>; off: FC<SvgProps> };
+
+const leadingTabs: Tab[] = [
+  { id: "home", label: "홈", on: HomeOn, off: HomeOff },
+  { id: "abyss", label: "어비스", on: AbyssOn, off: AbyssOff },
+];
+const trailingTabs: Tab[] = [
+  { id: "social", label: "소셜", on: SocialOn, off: SocialOff },
+  { id: "opensource", label: "샘플", on: SourcesOn, off: SourcesOff },
+];
+
+// The web lays pages out on a 390×844 canvas (src/components/design-viewport.tsx) whose phoneFrame
+// has 20px bottom padding. Above it sits sharedStyles.appFooter: an 8px top margin, then a 48px box
+// with 6px top / 2px bottom padding around the 44px button row. The bar repeats that geometry in
+// canvas px times the same scale, so the space between page content and the icons matches the web.
+const CANVAS = { width: 390, height: 844, framePaddingTop: 20, framePaddingBottom: 20 };
+const FOOTER = {
+  margin: 8,
+  paddingTop: 6,
+  paddingBottom: 2,
+  row: 44,
+  paddingX: 17,
+  gap: 34,
+  item: 44,
+  icon: 20,
+  labelGap: 4,
+};
+const CREATE = { circle: 40, plus: 20, stroke: 2 };
+const CREATE_COLORS = { circle: designTokens.colors["blue-gray"], plus: "#d7dce2" };
+const RIPPLE = "rgba(255, 255, 255, 0.16)";
+
+export type Viewport = { width: number; height: number };
+
+/** Where the web footer (its top margin included) starts in a view of this size, and the canvas scale. */
+export function footerFrame(viewport: Viewport): { top: number; scale: number } {
+  const scale = Math.min(viewport.width / CANVAS.width, viewport.height / CANVAS.height, 1);
+  const bottom = (viewport.height + CANVAS.height * scale) / 2 - CANVAS.framePaddingBottom * scale;
+  const height = FOOTER.margin + FOOTER.paddingTop + FOOTER.row + FOOTER.paddingBottom;
+  return { top: bottom - height * scale, scale };
+}
+
+/**
+ * Where the web header started in a view of this size: the canvas top plus the phoneFrame's 20px
+ * top padding. Portrait native screens begin there so the header keeps the web's space above it.
+ */
+export function headerTop(viewport: Viewport): number {
+  const scale = Math.min(viewport.width / CANVAS.width, viewport.height / CANVAS.height, 1);
+  return (viewport.height - CANVAS.height * scale) / 2 + CANVAS.framePaddingTop * scale;
+}
+
+export function TabBar({
+  footer,
+  viewport,
+  onPress,
+}: {
+  footer: NativeFooter;
+  /** Size of the WebView the web canvas is fitted into. */
+  viewport: Viewport;
+  onPress: (press: NativeFooterPress) => void;
+}) {
+  const frame = footerFrame(viewport);
+  const px = (value: number) => value * frame.scale;
+
+  const renderTab = ({ id, label, on: On, off: Off }: Tab) => {
+    const selected = footer.activeTab === id;
+    const Icon = selected ? On : Off;
+    return (
+      <Pressable
+        key={id}
+        accessibilityRole="tab"
+        accessibilityLabel={label}
+        accessibilityState={{ selected }}
+        android_ripple={{ color: RIPPLE, borderless: true, radius: px(FOOTER.item / 2 + 4) }}
+        style={({ pressed }) => [
+          styles.item,
+          { width: px(FOOTER.item), height: px(FOOTER.item), gap: px(FOOTER.labelGap) },
+          pressed && Platform.OS === "ios" && styles.pressed,
+        ]}
+        onPress={() => onPress(id)}
+      >
+        <Icon
+          width={px(FOOTER.icon)}
+          height={px(FOOTER.icon)}
+          preserveAspectRatio="xMidYMid meet"
+        />
+        <Text
+          allowFontScaling={false}
+          style={[styles.label, { fontSize: px(10), lineHeight: px(12) }]}
+        >
+          {label}
+        </Text>
+      </Pressable>
+    );
+  };
+
+  return (
+    // The bar starts where the web footer's top margin starts, and its background runs to the bottom
+    // edge so content scrolled under it never shows through the canvas's bottom padding.
+    <View style={[styles.bar, { top: frame.top }]}>
+      <View
+        style={[
+          styles.row,
+          {
+            marginTop: px(FOOTER.margin + FOOTER.paddingTop),
+            height: px(FOOTER.row),
+            gap: px(FOOTER.gap),
+            paddingHorizontal: px(FOOTER.paddingX),
+          },
+        ]}
+      >
+        {leadingTabs.map(renderTab)}
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={footer.createLabel}
+          android_ripple={{ color: RIPPLE, borderless: true, radius: px(CREATE.circle / 2) }}
+          style={({ pressed }) => [
+            styles.item,
+            { width: px(FOOTER.item), height: px(FOOTER.item) },
+            pressed && Platform.OS === "ios" && styles.pressed,
+          ]}
+          onPress={() => onPress("create")}
+        >
+          <View
+            style={[
+              styles.item,
+              {
+                width: px(CREATE.circle),
+                height: px(CREATE.circle),
+                borderRadius: px(CREATE.circle / 2),
+                backgroundColor: CREATE_COLORS.circle,
+              },
+            ]}
+          >
+            <View
+              style={[
+                styles.plus,
+                {
+                  width: px(CREATE.plus),
+                  height: px(CREATE.stroke),
+                  borderRadius: px(CREATE.stroke),
+                },
+              ]}
+            />
+            <View
+              style={[
+                styles.plus,
+                {
+                  width: px(CREATE.stroke),
+                  height: px(CREATE.plus),
+                  borderRadius: px(CREATE.stroke),
+                },
+              ]}
+            />
+          </View>
+        </Pressable>
+        {trailingTabs.map(renderTab)}
+      </View>
+    </View>
+  );
+}
+
+const styles = StyleSheet.create({
+  bar: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
+    alignItems: "center",
+    backgroundColor: designTokens.colors.bg,
+  },
+  row: { flexDirection: "row", alignItems: "center" },
+  item: { alignItems: "center", justifyContent: "center" },
+  label: { color: designTokens.colors.fg, fontWeight: "500" },
+  plus: { position: "absolute", backgroundColor: CREATE_COLORS.plus },
+  pressed: { opacity: 0.6 },
+});

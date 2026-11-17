@@ -1,8 +1,22 @@
 import { sourceStyles } from "@/styles/source.styles";
-import { useRef, useState } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  type AudioHTMLAttributes,
+  type RefObject,
+  type SyntheticEvent,
+} from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { AudioPlaybackBar } from "@/components/audio-playback-bar";
+import { useCurrentUserId } from "@/features/auth/use-current-user";
 import { ApiError } from "@/lib/api/client";
-import { getOpenSourcePlayback, type OpenSourcePlayback } from "@/lib/api/open-sources";
+import {
+  getOpenSourcePlayback,
+  recordOpenSourceView,
+  type OpenSourcePlayback,
+} from "@/lib/api/open-sources";
+import { sourceKeys } from "./source-queries";
 
 function playbackError(cause: unknown) {
   if (cause instanceof ApiError) {
@@ -14,26 +28,44 @@ function playbackError(cause: unknown) {
   return "재생 정보를 불러오지 못했습니다. 네트워크를 확인해주세요.";
 }
 
-const expired = (playback: OpenSourcePlayback) => Date.parse(playback.expiresAt) <= Date.now() + 5_000;
+const expired = (playback: OpenSourcePlayback) =>
+  Date.parse(playback.expiresAt) <= Date.now() + 5_000;
 
-/** Plays a server open source through its short-lived signed URL, renewing it when it has expired. */
-export function SourcePlayback({
-  sourceId,
-  canPreview,
-  durationMs,
-}: {
-  sourceId: number;
-  canPreview: boolean;
-  durationMs: number | null;
-}) {
+let activeSourceAudio: HTMLAudioElement | null = null;
+
+/**
+ * Plays a server open source through its short-lived signed URL, renewing it when it has expired; one
+ * source plays at a time. Render `<audio hidden {...player.audio} />` while `canPreview` (the element
+ * holds the playback). Returns the play bar state (`playing`, `loading`, `muted`, `positionMs`,
+ * `durationMs` — null until known, `error` — "" when none) and its controls (`toggle` plays/pauses,
+ * `seek(ms)`, `toggleMute`). Used by SourcePlayback and the app's native sample screens.
+ */
+export function useSourcePlayback(
+  sourceId: number,
+  canPreview: boolean,
+  durationMs: number | null,
+) {
+  const userId = useCurrentUserId();
+  const queryClient = useQueryClient();
   const audio = useRef<HTMLAudioElement>(null);
   const playback = useRef<OpenSourcePlayback | null>(null);
   const [loading, setLoading] = useState(false);
   const [playing, setPlaying] = useState(false);
   const [muted, setMuted] = useState(false);
   const [position, setPosition] = useState(0);
-  const [duration, setDuration] = useState<number | null>(durationMs === null ? null : durationMs / 1000);
+  const [duration, setDuration] = useState<number | null>(
+    durationMs === null ? null : durationMs / 1000,
+  );
   const [error, setError] = useState("");
+
+  useEffect(() => {
+    const player = audio.current;
+    return () => {
+      if (activeSourceAudio === player) activeSourceAudio = null;
+      player?.pause();
+    };
+  }, [canPreview]);
+
   async function toggle() {
     const player = audio.current;
     if (!player || !canPreview || loading) return;
@@ -41,11 +73,16 @@ export function SourcePlayback({
       player.pause();
       return;
     }
+    const previous = activeSourceAudio;
+    activeSourceAudio = player;
+    if (previous !== player) previous?.pause();
     setError("");
+    setLoading(true);
+    const isCurrent = () => audio.current === player && activeSourceAudio === player;
     try {
       if (!playback.current || expired(playback.current)) {
-        setLoading(true);
         const next = await getOpenSourcePlayback(sourceId);
+        if (!isCurrent()) return;
         playback.current = next;
         const resume = player.currentTime;
         player.src = next.audioUrl;
@@ -53,12 +90,78 @@ export function SourcePlayback({
         if (next.durationMs !== null) setDuration(next.durationMs / 1000);
       }
       await player.play();
+      if (!isCurrent()) return;
+      void recordOpenSourceView(sourceId)
+        .then(({ counted }) => {
+          if (counted) void queryClient.invalidateQueries({ queryKey: sourceKeys.popular(userId) });
+        })
+        .catch(() => {});
     } catch (cause) {
-      setError(cause instanceof DOMException ? "오디오를 재생하지 못했습니다. 다시 시도해주세요." : playbackError(cause));
+      if (isCurrent()) {
+        setError(
+          cause instanceof DOMException
+            ? "오디오를 재생하지 못했습니다. 다시 시도해주세요."
+            : playbackError(cause),
+        );
+      }
     } finally {
-      setLoading(false);
+      if (audio.current === player) setLoading(false);
     }
   }
+  return {
+    playing,
+    muted,
+    loading,
+    positionMs: position * 1000,
+    durationMs: duration === null ? null : duration * 1000,
+    error,
+    toggle: () => void toggle(),
+    seek: (ms: number) => {
+      if (audio.current && playback.current) {
+        audio.current.currentTime = ms / 1000;
+        setPosition(ms / 1000);
+      }
+    },
+    toggleMute: () => setMuted((value) => !value),
+    audio: {
+      ref: audio,
+      muted,
+      preload: "none",
+      onLoadedMetadata: (event: SyntheticEvent<HTMLAudioElement>) => {
+        if (Number.isFinite(event.currentTarget.duration))
+          setDuration(event.currentTarget.duration);
+      },
+      onTimeUpdate: (event: SyntheticEvent<HTMLAudioElement>) =>
+        setPosition(event.currentTarget.currentTime),
+      onPlay: () => setPlaying(true),
+      onPause: () => setPlaying(false),
+      onEnded: () => setPlaying(false),
+      onError: () => {
+        setPlaying(false);
+        const current = playback.current;
+        if (current && expired(current)) {
+          playback.current = null;
+          setError("재생 링크가 만료되었습니다. 다시 재생하면 새 링크를 받습니다.");
+        } else setError("오디오를 불러오지 못했습니다.");
+      },
+    } satisfies AudioHTMLAttributes<HTMLAudioElement> & { ref: RefObject<HTMLAudioElement | null> },
+  };
+}
+
+export function SourcePlayback({
+  sourceId,
+  canPreview,
+  durationMs,
+  label = "샘플",
+  showDurationHint = true,
+}: {
+  sourceId: number;
+  canPreview: boolean;
+  durationMs: number | null;
+  label?: string;
+  showDurationHint?: boolean;
+}) {
+  const player = useSourcePlayback(sourceId, canPreview, durationMs);
   if (!canPreview)
     return (
       <p className={sourceStyles.osAudioError} role="status">
@@ -67,47 +170,22 @@ export function SourcePlayback({
     );
   return (
     <>
-      <audio
-        hidden
-        ref={audio}
-        muted={muted}
-        preload="none"
-        onLoadedMetadata={(event) => {
-          if (Number.isFinite(event.currentTarget.duration)) setDuration(event.currentTarget.duration);
-        }}
-        onTimeUpdate={(event) => setPosition(event.currentTarget.currentTime)}
-        onPlay={() => setPlaying(true)}
-        onPause={() => setPlaying(false)}
-        onEnded={() => setPlaying(false)}
-        onError={() => {
-          setPlaying(false);
-          const current = playback.current;
-          if (current && expired(current)) {
-            playback.current = null;
-            setError("재생 링크가 만료되었습니다. 다시 재생하면 새 링크를 받습니다.");
-          } else setError("오디오를 불러오지 못했습니다.");
-        }}
-      />
+      <audio hidden {...player.audio} />
       <AudioPlaybackBar
-        playing={playing}
-        muted={muted}
-        positionMs={position * 1000}
-        durationMs={duration === null ? null : duration * 1000}
-        disabled={loading}
-        onToggle={() => void toggle()}
-        onSeek={(ms) => {
-          if (audio.current && playback.current) {
-            audio.current.currentTime = ms / 1000;
-            setPosition(ms / 1000);
-          }
-        }}
-        onMute={() => setMuted((value) => !value)}
-        label="샘플"
+        playing={player.playing}
+        muted={player.muted}
+        positionMs={player.positionMs}
+        durationMs={player.durationMs}
+        loading={player.loading}
+        onToggle={player.toggle}
+        onSeek={player.seek}
+        onMute={player.toggleMute}
+        label={label}
       />
-      {duration === null && <small>재생 시간 정보 없음</small>}
-      {error && (
+      {showDurationHint && player.durationMs === null && <small>재생 시간 정보 없음</small>}
+      {player.error && (
         <p className={sourceStyles.osAudioError} role="alert">
-          {error}
+          {player.error}
         </p>
       )}
     </>

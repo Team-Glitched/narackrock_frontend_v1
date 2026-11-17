@@ -1,4 +1,6 @@
 import { NotificationPanel } from "../notification-panel";
+import { NativeNotificationsBridge } from "../native-notifications-bridge";
+import { nativeApp } from "@/lib/native-app";
 import { DesignViewport } from "@/components/design-viewport";
 import { Header } from "@/features/navigation/header";
 import { useUrlNavigation } from "@/features/navigation/use-url-navigation";
@@ -9,11 +11,15 @@ export default function NotificationsPage() {
   const { to, back, params, query } = useUrlNavigation();
   const galleryId = readId(params.galleryId) ?? readId(query.get("galleryId"));
   const scope = resolveSearchScope(query.get("scope"), "songs", Boolean(galleryId));
+  const search = () => to(withQuery("/search", { scope, galleryId }));
+  if (nativeApp()) return <NativeNotificationsBridge onSearch={search} />;
   return (
     <DesignViewport>
       <div className={sharedStyles.phoneFrame}>
-        <Header onSearch={() => to(withQuery("/search", { scope, galleryId }))} onBack={() => back("/")} />
-        <div className={sharedStyles.screenBody}><NotificationPanel /></div>
+        <Header onSearch={search} onBack={() => back("/")} />
+        <div className={sharedStyles.screenBody}>
+          <NotificationPanel />
+        </div>
       </div>
     </DesignViewport>
   );

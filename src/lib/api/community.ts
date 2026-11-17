@@ -270,6 +270,28 @@ export function getMyGalleryRole(galleryId: number, signal?: AbortSignal): Promi
   return apiRequest<ApiResponse<GalleryRole>>(`/api/v1/galleries/${galleryId}/manage/me`, { signal }).then((r) => r.data);
 }
 
+export type GalleryManager = { userId: number; nickname: string | null; profileImageUrl: string | null; assignedAt: string };
+
+/** The gallery's community admins (`MANAGER`), oldest first. */
+export function getGalleryManagers(galleryId: number, signal?: AbortSignal): Promise<GalleryManager[]> {
+  return apiRequest<ApiResponse<GalleryManager[]>>(`/api/v1/galleries/${galleryId}/manage/managers`, { signal }).then(
+    (r) => r.data,
+  );
+}
+
+export function grantGalleryManager(galleryId: number, userId: number): Promise<void> {
+  return apiRequest(`/api/v1/galleries/${galleryId}/manage/managers`, {
+    method: "POST",
+    body: JSON.stringify({ userId }),
+  }).then(() => undefined);
+}
+
+export function revokeGalleryManager(galleryId: number, userId: number): Promise<void> {
+  return apiRequest(`/api/v1/galleries/${galleryId}/manage/managers/${userId}`, { method: "DELETE" }).then(
+    () => undefined,
+  );
+}
+
 export function updateGalleryDescription(galleryId: number, description: string): Promise<void> {
   return apiRequest(`/api/v1/galleries/${galleryId}/manage`, {
     method: "PATCH",

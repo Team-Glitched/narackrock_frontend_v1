@@ -4,11 +4,61 @@ import { sharedStyles } from "@/styles/shared.styles";
 import { useState } from "react";
 import { VolumeDialog } from "@/features/composition/volume-dialog";
 import { InstrumentDialog, type InstrumentChoice } from "@/features/composition/instrument-dialog";
-import { TimingDialog, type ProjectTiming } from "@/features/composition/timing-dialog";
+import { TimingDialog } from "@/features/composition/timing-dialog";
+import type { ProjectTiming } from "@/features/composition/project-timing";
 import { Asset } from "@/components/asset";
 import { defaultSignature, type TimeSignature } from "@/features/composition/time-signature";
+import type { NativeTransport, NativeTransportAction } from "@/lib/native-screens";
 import { clockTime } from "./studio-helpers";
 import { findInstrument } from "./instrument-catalog";
+
+/** The parts of `useCompositionPlayback` the transport toolbar reads and drives. */
+export type TransportPlayback = {
+  nativeEngine: string | null;
+  playing: boolean;
+  positionMs: number;
+  signature: TimeSignature;
+  metronome: boolean;
+  volume: number;
+  error: string | null;
+  play: () => Promise<void>;
+  pause: () => void;
+  seek: (positionMs: number) => void;
+  setVolume: (value: number) => void;
+  setMetronome: (update: (value: boolean) => boolean) => void;
+};
+
+/** The app toolbar's readouts for `playback` and its project tempo. */
+export function nativeTransport(playback: TransportPlayback, bpm: number): NativeTransport {
+  return {
+    engine: playback.nativeEngine,
+    playing: playback.playing,
+    positionMs: Math.floor(playback.positionMs / 1000) * 1000,
+    bpm,
+    numerator: playback.signature.numerator,
+    denominator: playback.signature.denominator,
+    metronome: playback.metronome,
+    volume: playback.volume,
+    error: playback.error,
+  };
+}
+
+/** Runs a toolbar action the way the web toolbar's buttons do. */
+export function transportAction(playback: TransportPlayback, action: NativeTransportAction) {
+  switch (action.type) {
+    case "transport-play":
+      void playback.play();
+      return;
+    case "transport-pause":
+      return playback.pause();
+    case "transport-metronome":
+      return playback.setMetronome((value) => !value);
+    case "transport-volume":
+      return playback.setVolume(action.value);
+    case "transport-seek":
+      return playback.seek(action.positionMs);
+  }
+}
 
 export function StudioToolbar({
   title,
@@ -77,7 +127,11 @@ export function StudioToolbar({
         <button onClick={onBack} aria-label="뒤로">
           <Asset name="return.svg" />
         </button>
-        {onRewind && <button onClick={onRewind} aria-label="처음으로">|&lt;</button>}
+        {onRewind && (
+          <button onClick={onRewind} aria-label="처음으로">
+            |&lt;
+          </button>
+        )}
         <button onClick={playing ? onPause : onPlay} aria-label={playing ? "일시정지" : "재생"}>
           {playing ? <span className={sharedStyles.pauseSymbol} /> : <Asset name="play.svg" />}
         </button>
@@ -92,27 +146,37 @@ export function StudioToolbar({
       </div>
       <strong className={"sr-only"}>{title}</strong>
       <div className={studioStyles.studioReadouts}>
-        {onTiming ? <>
-        <button
-          className={studioStyles.studioTiming}
-          onClick={() => setTiming("bpm")}
-          aria-label="bpm 설정"
-        >
-          <small>bpm</small>
-          {bpm}
-        </button>
-        <button
-          className={studioStyles.studioTiming}
-          onClick={() => setTiming("beat")}
-          aria-label="박자 설정"
-        >
-          <small>beat</small>
-          {signature.numerator}/{signature.denominator}
-        </button>
-        </> : <>
-          <span className={studioStyles.studioTiming}><small>bpm</small>{bpm}</span>
-          <span className={studioStyles.studioTiming}><small>beat</small>{signature.numerator}/{signature.denominator}</span>
-        </>}
+        {onTiming ? (
+          <>
+            <button
+              className={studioStyles.studioTiming}
+              onClick={() => setTiming("bpm")}
+              aria-label="bpm 설정"
+            >
+              <small>bpm</small>
+              {bpm}
+            </button>
+            <button
+              className={studioStyles.studioTiming}
+              onClick={() => setTiming("beat")}
+              aria-label="박자 설정"
+            >
+              <small>beat</small>
+              {signature.numerator}/{signature.denominator}
+            </button>
+          </>
+        ) : (
+          <>
+            <span className={studioStyles.studioTiming}>
+              <small>bpm</small>
+              {bpm}
+            </span>
+            <span className={studioStyles.studioTiming}>
+              <small>beat</small>
+              {signature.numerator}/{signature.denominator}
+            </span>
+          </>
+        )}
         <span>
           <small>time</small>
           {`00:${clockTime(positionMs)}`}

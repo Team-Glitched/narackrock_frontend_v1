@@ -17,6 +17,12 @@ export function AlbumCarousel({
 }) {
   const gesture = useRef<{ x: number; y: number; id: number } | null>(null);
   const track = useRef<HTMLDivElement>(null);
+  function resetDrag() {
+    const element = track.current;
+    if (!element) return;
+    element.style.removeProperty("transition");
+    element.style.removeProperty("translate");
+  }
   const leadingCover = cycle?.direction === "next";
   const coverIndex = index + (leadingCover ? 1 : 0);
   const covers = cycle
@@ -52,11 +58,26 @@ export function AlbumCarousel({
         gesture.current = { x: event.clientX, y: event.clientY, id: event.pointerId };
         event.currentTarget.setPointerCapture(event.pointerId);
       }}
+      onPointerMove={(event) => {
+        const start = gesture.current;
+        const element = track.current;
+        if (!start || start.id !== event.pointerId || !element) return;
+        const dx = event.clientX - start.x;
+        const dy = event.clientY - start.y;
+        if (Math.abs(dx) < 6 || Math.abs(dx) <= Math.abs(dy)) return;
+        const viewport = event.currentTarget;
+        const scale = viewport.getBoundingClientRect().width / viewport.offsetWidth || 1;
+        const distance = dx / scale;
+        const offset = Math.sign(distance) * (220 * Math.abs(distance)) / (220 + Math.abs(distance));
+        element.style.transition = "none";
+        element.style.translate = `${offset}px`;
+      }}
       onPointerUp={(event) => {
         const start = gesture.current;
         gesture.current = null;
         if (event.currentTarget.hasPointerCapture(event.pointerId))
           event.currentTarget.releasePointerCapture(event.pointerId);
+        resetDrag();
         if (!start || start.id !== event.pointerId) return;
         const dx = event.clientX - start.x;
         const dy = event.clientY - start.y;
@@ -67,6 +88,7 @@ export function AlbumCarousel({
       }}
       onPointerCancel={() => {
         gesture.current = null;
+        resetDrag();
       }}
     >
       <div

@@ -39,7 +39,7 @@ export function PostCommunityPicker({
           setOpen(true);
         }}
       >
-        <span className="flex min-w-0 flex-col gap-1 [&>small]:text-caption [&>small]:leading-3 [&>small]:font-medium [&>small]:text-app-muted [&>strong]:truncate [&>strong]:text-body [&>strong]:leading-[17px] [&>strong]:font-semibold [&>strong]:text-app-fg">
+        <span className="flex min-w-0 flex-col gap-1 [&>small]:text-caption [&>small]:leading-[18px] [&>small]:font-medium [&>small]:text-app-muted [&>strong]:truncate [&>strong]:text-label [&>strong]:leading-[20px] [&>strong]:font-semibold [&>strong]:text-app-fg">
           <small>게시할 커뮤니티</small>
           <strong>{selected?.name ?? "커뮤니티 선택"}</strong>
         </span>
@@ -48,7 +48,7 @@ export function PostCommunityPicker({
       {open && (
         <FigmaSheet title="게시할 커뮤니티 선택" onClose={() => setOpen(false)}>
           <div
-            className="pt-3 pb-6 [&>header]:flex [&>header]:items-center [&>header]:justify-between [&>header]:gap-4 [&_h2]:m-0 [&_h2]:text-title [&_h2]:leading-[26px] [&_h2]:font-bold [&_h2]:text-app-fg [&>header>button]:grid [&>header>button]:size-10 [&>header>button]:shrink-0 [&>header>button]:place-items-center [&>header>button>img]:size-4 [&_p]:mt-3 [&_p]:mb-6 [&_p]:text-body [&_p]:leading-[21px] [&_p]:font-normal [&_p]:text-app-muted [&>ul]:m-0 [&>ul]:mt-5 [&>ul]:flex [&>ul]:list-none [&>ul]:flex-col [&>ul]:gap-2 [&>ul]:p-0"
+            className="pt-3 pb-6 [&>header]:flex [&>header]:items-center [&>header]:justify-between [&>header]:gap-4 [&_h2]:m-0 [&_h2]:text-label [&_h2]:leading-[22px] [&_h2]:font-bold [&_h2]:text-app-fg [&>header>button]:grid [&>header>button]:size-10 [&>header>button]:shrink-0 [&>header>button]:place-items-center [&>header>button>img]:size-4 [&_p]:mt-3 [&_p]:mb-6 [&_p]:text-body [&_p]:leading-[21px] [&_p]:font-normal [&_p]:text-app-muted [&>ul]:m-0 [&>ul]:mt-5 [&>ul]:flex [&>ul]:list-none [&>ul]:flex-col [&>ul]:gap-2 [&>ul]:p-0"
             aria-labelledby={titleId}
           >
             <header>

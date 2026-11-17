@@ -1,15 +1,15 @@
 import { sharedStyles } from "@/styles/shared.styles";
 import { buttonVariants } from "@/styles/variants";
 import { useEffect, useId, useRef, useState, useSyncExternalStore } from "react";
-import {
-  createDraftProject,
-  updateProjectMetadata,
-  uploadMedia,
-} from "@/lib/api/composition";
+import { createDraftProject, updateProjectMetadata, uploadMedia } from "@/lib/api/composition";
 import { apiOrigin, getCurrentUserId } from "@/lib/api/client";
 import { Link } from "react-router";
 import {
-  errorText, getResumableProject, setStoredDraftId, storedDraftId, subscribeToDraft,
+  errorText,
+  getResumableProject,
+  setStoredDraftId,
+  storedDraftId,
+  subscribeToDraft,
 } from "./studio-helpers";
 import {
   chooseProjectTitle,
@@ -19,23 +19,24 @@ import {
   withRecentProjectTitle,
 } from "./project-title";
 
-export function NewProject({
-  userId,
-  onCreated,
-  onResume,
-}: {
+export type NewProjectOptions = {
   userId: number | null;
   onCreated: (id: number) => void;
   onResume: (id: number) => void;
-  onBack: () => void;
-}) {
+};
+
+/**
+ * The new song form's state: suggested title (recent titles avoided), album image, creating the
+ * draft project and resuming the stored one. Shared by the web form and the app's native screen.
+ */
+export function useNewProject({ userId, onCreated, onResume }: NewProjectOptions) {
   const savedDraftId = useSyncExternalStore(subscribeToDraft, storedDraftId, () => null);
-  const titleId = useId();
   const historyKey = projectTitleHistoryKey(apiOrigin(), userId);
   const shownTitles = useRef<string[]>([]);
-  const selectOnFocus = useRef(true);
-  const selectOnClick = useRef(false);
-  const [suggestion, setSuggestion] = useState(() => chooseProjectTitle(readRecentProjectTitles(historyKey)));
+  const [suggestion, setSuggestion] = useState(() =>
+    chooseProjectTitle(readRecentProjectTitles(historyKey)),
+  );
+  const [suggestionCount, setSuggestionCount] = useState(0);
   const [title, setTitle] = useState(suggestion);
   const [image, setImage] = useState<File | null>(null);
   const [imageUrl, setImageUrl] = useState("");
@@ -51,17 +52,9 @@ export function NewProject({
     },
     [imageUrl],
   );
-  function suggestAnotherTitle() {
-    const next = chooseProjectTitle([suggestion, ...shownTitles.current, ...readRecentProjectTitles(historyKey)]);
-    selectOnFocus.current = true;
-    selectOnClick.current = false;
-    setSuggestion(next);
-    setTitle(next);
-  }
 
-  async function start(event: React.FormEvent) {
-    event.preventDefault();
-    if (busy || !title.trim()) return;
+  async function start(chosenTitle: string) {
+    if (busy || !chosenTitle.trim()) return;
     setBusy(true);
     setError(null);
     try {
@@ -71,7 +64,7 @@ export function NewProject({
       const { projectId } = await createDraftProject();
       setStoredDraftId(projectId, scope);
       const imageId = image ? await uploadMedia(image, "IMAGE") : null;
-      await updateProjectMetadata(projectId, title.trim(), imageId);
+      await updateProjectMetadata(projectId, chosenTitle.trim(), imageId);
       onCreated(projectId);
     } catch (cause) {
       setError(errorText(cause));
@@ -79,8 +72,70 @@ export function NewProject({
       setBusy(false);
     }
   }
+
+  return {
+    savedDraftId,
+    suggestion,
+    suggestionCount,
+    title,
+    setTitle,
+    image,
+    imageUrl,
+    busy,
+    error,
+    suggestAnotherTitle() {
+      const next = chooseProjectTitle([
+        suggestion,
+        ...shownTitles.current,
+        ...readRecentProjectTitles(historyKey),
+      ]);
+      setSuggestion(next);
+      setSuggestionCount((count) => count + 1);
+      setTitle(next);
+    },
+    chooseImage(file: File) {
+      if (file.size > 100 * 1024 * 1024) {
+        setError("100MB 이하의 이미지를 선택해 주세요.");
+        return;
+      }
+      setImage(file);
+      setImageUrl(URL.createObjectURL(file));
+      setError(null);
+    },
+    start,
+    async resume() {
+      if (!savedDraftId) return;
+      try {
+        const userId = getCurrentUserId();
+        if (userId === null) throw new Error("로그인이 필요합니다.");
+        setBusy(true);
+        setError(null);
+        await getResumableProject(savedDraftId, { origin: apiOrigin(), userId });
+        onResume(savedDraftId);
+      } catch (cause) {
+        setError(errorText(cause));
+      } finally {
+        setBusy(false);
+      }
+    },
+  };
+}
+
+export type NewProjectState = ReturnType<typeof useNewProject>;
+
+export function NewProject({ project }: { project: NewProjectState }) {
+  const titleId = useId();
+  const selectOnFocus = useRef(true);
+  const selectOnClick = useRef(false);
+  const { busy, error, imageUrl, title } = project;
   return (
-    <form className={sharedStyles.projectCreate} onSubmit={start}>
+    <form
+      className={sharedStyles.projectCreate}
+      onSubmit={(event) => {
+        event.preventDefault();
+        void project.start(title);
+      }}
+    >
       <div className={sharedStyles.projectTitleField}>
         <div className="flex items-center justify-between gap-3">
           <label htmlFor={titleId}>음악명</label>
@@ -88,7 +143,11 @@ export function NewProject({
             type="button"
             className="min-h-9 rounded-lg px-2.5 text-body font-medium text-app-muted hover:bg-app-surface hover:text-app-fg"
             disabled={busy}
-            onClick={suggestAnotherTitle}
+            onClick={() => {
+              selectOnFocus.current = true;
+              selectOnClick.current = false;
+              project.suggestAnotherTitle();
+            }}
           >
             다른 제목
           </button>
@@ -100,7 +159,9 @@ export function NewProject({
           onPointerDown={() => {
             selectOnClick.current = selectOnFocus.current;
           }}
-          onPointerCancel={() => { selectOnClick.current = false; }}
+          onPointerCancel={() => {
+            selectOnClick.current = false;
+          }}
           onFocus={(event) => {
             if (!selectOnFocus.current) return;
             event.currentTarget.select();
@@ -112,7 +173,7 @@ export function NewProject({
             event.currentTarget.select();
             selectOnClick.current = false;
           }}
-          onChange={(event) => setTitle(event.target.value)}
+          onChange={(event) => project.setTitle(event.target.value)}
           maxLength={100}
           required
         />
@@ -134,14 +195,7 @@ export function NewProject({
             aria-label="앨범 추가"
             onChange={(event) => {
               const file = event.target.files?.[0];
-              if (!file) return;
-              if (file.size > 100 * 1024 * 1024) {
-                setError("100MB 이하의 이미지를 선택해 주세요.");
-                return;
-              }
-              setImage(file);
-              setImageUrl(URL.createObjectURL(file));
-              setError(null);
+              if (file) project.chooseImage(file);
             }}
           />
         </span>
@@ -161,25 +215,12 @@ export function NewProject({
         >
           {busy ? "만드는 중…" : "입력 완료"}
         </button>
-        {savedDraftId && (
+        {project.savedDraftId && (
           <button
             className={sharedStyles.resumeDraft}
             type="button"
             disabled={busy}
-            onClick={async () => {
-              try {
-                const userId = getCurrentUserId();
-                if (userId === null) throw new Error("로그인이 필요합니다.");
-                setBusy(true);
-                setError(null);
-                await getResumableProject(savedDraftId, { origin: apiOrigin(), userId });
-                onResume(savedDraftId);
-              } catch (cause) {
-                setError(errorText(cause));
-              } finally {
-                setBusy(false);
-              }
-            }}
+            onClick={() => void project.resume()}
           >
             이전 작업 이어하기
           </button>

@@ -47,6 +47,13 @@ export async function prepareAudioFile(
 }
 
 export function audioBufferToWav(rendered: AudioBuffer, name: string): File {
+  return new File([wavBytes(rendered)], name, { type: "audio/wav" });
+}
+
+/** Rendered audio as a 16-bit stereo PCM WAV (mono is duplicated); shared with the app's renderer. */
+export function wavBytes(
+  rendered: Pick<AudioBuffer, "length" | "sampleRate" | "numberOfChannels" | "getChannelData">,
+): ArrayBuffer {
   const frames = rendered.length;
   const sampleRate = rendered.sampleRate;
   const bytes = new ArrayBuffer(44 + frames * 4);
@@ -76,5 +83,5 @@ export function audioBufferToWav(rendered: AudioBuffer, name: string): File {
     view.setInt16(44 + frame * 4, Math.round(l * 32767), true);
     view.setInt16(46 + frame * 4, Math.round(r * 32767), true);
   }
-  return new File([bytes], name, { type: "audio/wav" });
+  return bytes;
 }

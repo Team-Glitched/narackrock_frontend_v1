@@ -1,10 +1,15 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { compositionQuery } from "./composition-queries";
-import { InstrumentDialog } from "./instrument-dialog";
+import {
+  InstrumentDialog,
+  useNativeInstrumentPicker,
+  type InstrumentChoice,
+} from "./instrument-dialog";
 import { useCompositionPlayback, type AudioAudition } from "./use-composition-playback";
 import type { PartTrack } from "./instrument-parts";
 import { apiOrigin } from "@/lib/api/client";
+import { nativeApp } from "@/lib/native-app";
 import { useCurrentUserId } from "@/features/auth/use-current-user";
 
 export class InstrumentPromptCancelled extends Error {
@@ -15,7 +20,11 @@ export class InstrumentPromptCancelled extends Error {
 
 export type InstrumentPromptRequest = { mode: "midi" } | { mode: "audio"; audio: AudioAudition };
 
-/** No layer is created until the caller receives an explicitly confirmed choice. */
+/**
+ * No layer is created until the caller receives an explicitly confirmed choice. Browsers render
+ * `dialog`; in the app it is null and the page's native screen shows `native.model`
+ * (`InstrumentSheet`), forwarding `NativeInstrumentAction`s to `native.act`.
+ */
 export function useInstrumentPrompt(projectId: number | null) {
   const userId = useCurrentUserId();
   const queryClient = useQueryClient();
@@ -23,47 +32,47 @@ export function useInstrumentPrompt(projectId: number | null) {
     scopeKey: JSON.stringify([apiOrigin(), userId, projectId, "instrument"]),
   });
   const [tracks, setTracks] = useState<PartTrack[]>([]);
-  const [request, setRequest] = useState<InstrumentPromptRequest | null>(null);
-  const pending = useRef<{ resolve: (id: string) => void; reject: (error: Error) => void } | null>(
-    null,
-  );
+  // The open request with its caller's promise; a replaced, closed or unmounted request is cancelled.
+  const [request, setRequest] = useState<{
+    next: InstrumentPromptRequest;
+    resolve: (id: string) => void;
+    reject: (error: Error) => void;
+  } | null>(null);
+  useEffect(() => {
+    if (request) return () => request.reject(new InstrumentPromptCancelled());
+  }, [request]);
   const mounted = useRef(false);
   useEffect(() => {
     mounted.current = true;
     return () => {
       mounted.current = false;
-      pending.current?.reject(new InstrumentPromptCancelled());
-      pending.current = null;
     };
   }, []);
-  const close = () => {
-    pending.current?.reject(new InstrumentPromptCancelled());
-    pending.current = null;
-    setRequest(null);
-  };
-  const dialog: ReactNode =
-    request === null ? null : (
-      <InstrumentDialog
-        choice={{
+  const close = () => setRequest(null);
+  const next = request?.next;
+  const choice: InstrumentChoice | null =
+    request === null || next === undefined
+      ? null
+      : {
           value: null,
-          mode: request.mode,
+          mode: next.mode,
           tracks,
           onPreview:
-            request.mode === "audio"
-              ? () => preview.previewAudio(request.audio)
+            next.mode === "audio"
+              ? () => preview.previewAudio(next.audio)
               : preview.previewInstrument,
           onStopPreview: preview.stopPreview,
           onConfirm: async (id) => {
-            pending.current?.resolve(id);
-            pending.current = null;
+            request.resolve(id);
             setRequest(null);
           },
-        }}
-        onClose={close}
-      />
-    );
+        };
+  const native = useNativeInstrumentPicker(nativeApp() ? choice : null, close);
+  const dialog: ReactNode =
+    choice === null || nativeApp() ? null : <InstrumentDialog choice={choice} onClose={close} />;
   return {
     dialog,
+    native,
     async ask(next: InstrumentPromptRequest) {
       if (projectId === null) throw new Error("대상 프로젝트를 먼저 선택해주세요.");
       // Read current project access and team usage from the server before showing the chooser.
@@ -72,11 +81,9 @@ export function useInstrumentPrompt(projectId: number | null) {
         staleTime: 0,
       });
       if (!mounted.current) throw new InstrumentPromptCancelled();
-      pending.current?.reject(new InstrumentPromptCancelled());
       setTracks(composition.tracks);
       const { promise, resolve, reject } = Promise.withResolvers<string>();
-      pending.current = { resolve, reject };
-      setRequest(next);
+      setRequest({ next, resolve, reject });
       return promise;
     },
   };

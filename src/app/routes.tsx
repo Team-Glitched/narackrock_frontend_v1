@@ -1,95 +1,336 @@
-import { createBrowserRouter, type RouteObject } from "react-router";
+import { createBrowserRouter, Navigate, useNavigate, useParams, type RouteObject } from "react-router";
 import { AppProviders } from "./providers";
 import { AppRuntime } from "./runtime";
 import NotFoundPage from "@/features/navigation/pages/not-found-page";
 import HomePage from "@/features/home/pages/home-page";
-import AbyssPage from "@/features/abyss/pages/abyss-page";
-import ShortLinkPage from "@/features/abyss/pages/short-link-page";
-import ChartsPage from "@/features/home/pages/charts-page";
-import PostsPage from "@/features/posts/pages/posts-page";
-import PostPage from "@/features/posts/pages/post-page";
-import CreatePostPage from "@/features/posts/pages/create-post-page";
-import SocialPage from "@/features/social/pages/social-page";
-import CommunitiesPage from "@/features/social/pages/communities-page";
-import FriendsPage from "@/features/social/pages/friends-page";
-import FriendsListPage from "@/features/social/pages/friends-list-page";
-import JoinedPage from "@/features/community/pages/joined-page";
-import CreateCommunityPage from "@/features/community/pages/create-community-page";
-import CommunityPage from "@/features/community/pages/community-page";
-import SourcesPage from "@/features/sources/pages/sources-page";
-import SourcePage from "@/features/sources/pages/source-page";
-import CreateSourcePage from "@/features/sources/pages/create-source-page";
-import SearchPage from "@/features/search/pages/search-page";
-import ProfilePage from "@/features/profile/pages/profile-page";
-import EditProfilePage from "@/features/profile/pages/edit-profile-page";
-import LoginPage from "@/features/auth/pages/login-page";
-import OnboardingPage from "@/features/auth/pages/onboarding-page";
-import SettingsPage from "@/features/settings/pages/settings-page";
-import SavedPage from "@/features/saved/pages/saved-page";
-import WorkspacePage from "@/features/workspace/pages/workspace-page";
-import SubmissionsPage from "@/features/workspace/pages/submissions-page";
-import SubmissionPage from "@/features/workspace/pages/submission-page";
-import ReviewsPage from "@/features/workspace/pages/reviews-page";
-import LibraryPage from "@/features/workspace/pages/library-page";
-import NotificationsPage from "@/features/notifications/pages/notifications-page";
-import LikedPostsPage from "@/features/profile/pages/liked-posts-page";
-import PrivacyPage from "@/features/settings/pages/privacy-page";
+import { nativeApp } from "@/lib/native-app";
+import { NativePageStateBridge } from "@/features/community/native-community-bridge";
 
-export const appRoutes: RouteObject[] = [{
-  path: "/",
-  HydrateFallback: () => <p role="status">화면을 불러오는 중...</p>,
-  element: <AppProviders><AppRuntime /></AppProviders>,
-  children: [
-    { index: true, element: <HomePage /> },
-    { path: "abyss", element: <AbyssPage /> },
-    { path: "abyss/:shortId", element: <AbyssPage /> },
-    { path: "shorts/:shortId", element: <ShortLinkPage /> },
-    { path: "charts", element: <ChartsPage /> },
-    { path: "posts", element: <PostsPage /> },
-    { path: "posts/:postId", element: <PostPage /> },
-    { path: "posts/new", element: <CreatePostPage /> },
-    { path: "social", element: <SocialPage /> },
-    { path: "communities", element: <CommunitiesPage /> },
-    { path: "friends", element: <FriendsPage /> },
-    { path: "friends/:list", element: <FriendsListPage /> },
-    { path: "communities/joined", element: <JoinedPage /> },
-    { path: "communities/new", element: <CreateCommunityPage /> },
-    { path: "communities/:galleryId", element: <CommunityPage /> },
-    { path: "communities/:galleryId/posts/:postId", element: <PostPage /> },
-    { path: "communities/:galleryId/manage", lazy: async () => ({ Component: (await import("@/features/community/pages/community-admin-page")).default }) },
-    { path: "communities/:galleryId/members", lazy: async () => ({ Component: (await import("@/features/community/pages/community-members-page")).default }) },
-    { path: "communities/manage", lazy: async () => ({ Component: (await import("@/features/community/pages/owned-communities-page")).default }) },
-    { path: "sources", element: <SourcesPage /> },
-    { path: "sources/:sourceId", element: <SourcePage /> },
-    { path: "sources/:sourceId/comments", element: <SourcePage /> },
-    { path: "sources/new", element: <CreateSourcePage /> },
-    { path: "search", element: <SearchPage /> },
-    { path: "profile", element: <ProfilePage /> },
-    { path: "users/:userId", element: <ProfilePage /> },
-    { path: "profile/edit", element: <EditProfilePage /> },
-    { path: "profile/likes", element: <LikedPostsPage /> },
-    { path: "login", element: <LoginPage /> },
-    { path: "onboarding", element: <OnboardingPage /> },
-    { path: "settings", element: <SettingsPage /> },
-    { path: "privacy", element: <PrivacyPage /> },
-    { path: "saved", element: <SavedPage /> },
-    { path: "workspace", element: <WorkspacePage /> },
-    { path: "submissions", element: <SubmissionsPage /> },
-    { path: "submissions/:submissionId", element: <SubmissionPage /> },
-    { path: "reviews", element: <ReviewsPage /> },
-    { path: "library", element: <LibraryPage /> },
-    { path: "studio/new", lazy: async () => ({ Component: (await import("@/features/composition/pages/studio-new-page")).default }) },
-    { path: "studio/:projectId", lazy: async () => ({ Component: (await import("@/features/composition/pages/studio-page")).default }) },
-    { path: "studio/shorts/:shortId", lazy: async () => ({ Component: (await import("@/features/composition/pages/studio-page")).default }) },
-    { path: "studio/:projectId/layers/new", lazy: async () => ({ Component: (await import("@/features/composition/pages/layer-choice-page")).default }) },
-    { path: "studio/:projectId/upload", lazy: async () => ({ Component: (await import("@/features/composition/pages/upload-page")).default }) },
-    { path: "studio/:projectId/record", lazy: async () => ({ Component: (await import("@/features/composition/pages/record-page")).default }) },
-    { path: "studio/:projectId/tracks/:trackId/notes", lazy: async () => ({ Component: (await import("@/features/composition/pages/note-editor-page")).default }) },
-    { path: "studio/:projectId/import", lazy: async () => ({ Component: (await import("@/features/composition/pages/import-source-page")).default }) },
-    { path: "chat", lazy: async () => ({ Component: (await import("@/features/social/pages/chat-page")).default }) },
-    { path: "notifications", element: <NotificationsPage /> },
-    { path: "admin", lazy: async () => ({ Component: (await import("@/features/admin/pages/admin-page")).default }) },
-    { path: "*", element: <NotFoundPage /> },
-  ],
-}];
+function NativeRouteError() {
+  return (
+    <AppProviders>
+      <NativeRouteErrorBody />
+    </AppProviders>
+  );
+}
+
+function NativeRouteErrorBody() {
+  const navigate = useNavigate();
+  return (
+    <NativePageStateBridge
+      state={{ message: "화면을 불러오지 못했습니다.", tone: "error", createLabel: "다시 시도" }}
+      onBack={() => navigate("/")}
+      onSearch={() => navigate("/search")}
+      onCreate={() => window.location.reload()}
+    />
+  );
+}
+
+function LegacyCommunityManageRedirect() {
+  const { galleryId } = useParams();
+  return <Navigate to={galleryId ? `/communities/${galleryId}` : "/communities"} replace />;
+}
+
+export const appRoutes: RouteObject[] = [
+  {
+    path: "/",
+    HydrateFallback: () => (nativeApp() ? null : <p role="status">화면을 불러오는 중...</p>),
+    ErrorBoundary: nativeApp() ? NativeRouteError : undefined,
+    element: (
+      <AppProviders>
+        <AppRuntime />
+      </AppProviders>
+    ),
+    children: [
+      { index: true, element: <HomePage /> },
+      {
+        path: "abyss",
+        lazy: async () => ({
+          Component: (await import("@/features/abyss/pages/abyss-page")).default,
+        }),
+      },
+      {
+        path: "abyss/:shortId",
+        lazy: async () => ({
+          Component: (await import("@/features/abyss/pages/abyss-page")).default,
+        }),
+      },
+      {
+        path: "shorts/:shortId",
+        lazy: async () => ({
+          Component: (await import("@/features/abyss/pages/short-link-page")).default,
+        }),
+      },
+      {
+        path: "charts",
+        lazy: async () => ({
+          Component: (await import("@/features/home/pages/charts-page")).default,
+        }),
+      },
+      {
+        path: "posts",
+        lazy: async () => ({
+          Component: (await import("@/features/posts/pages/posts-page")).default,
+        }),
+      },
+      {
+        path: "posts/:postId",
+        lazy: async () => ({
+          Component: (await import("@/features/posts/pages/post-page")).default,
+        }),
+      },
+      {
+        path: "posts/new",
+        lazy: async () => ({
+          Component: (await import("@/features/posts/pages/create-post-page")).default,
+        }),
+      },
+      {
+        path: "social",
+        lazy: async () => ({
+          Component: (await import("@/features/social/pages/social-page")).default,
+        }),
+      },
+      {
+        path: "communities",
+        lazy: async () => ({
+          Component: (await import("@/features/social/pages/communities-page")).default,
+        }),
+      },
+      {
+        path: "friends",
+        lazy: async () => ({
+          Component: (await import("@/features/social/pages/friends-page")).default,
+        }),
+      },
+      {
+        path: "friends/:list",
+        lazy: async () => ({
+          Component: (await import("@/features/social/pages/friends-list-page")).default,
+        }),
+      },
+      {
+        path: "communities/joined",
+        lazy: async () => ({
+          Component: (await import("@/features/community/pages/joined-page")).default,
+        }),
+      },
+      {
+        path: "communities/new",
+        lazy: async () => ({
+          Component: (await import("@/features/community/pages/create-community-page")).default,
+        }),
+      },
+      {
+        path: "communities/:galleryId",
+        lazy: async () => ({
+          Component: (await import("@/features/community/pages/community-page")).default,
+        }),
+      },
+      {
+        path: "communities/:galleryId/posts/:postId",
+        lazy: async () => ({
+          Component: (await import("@/features/posts/pages/post-page")).default,
+        }),
+      },
+      {
+        path: "communities/:galleryId/members",
+        lazy: async () => ({
+          Component: (await import("@/features/community/pages/community-members-page")).default,
+        }),
+      },
+      {
+        path: "communities/:galleryId/manage",
+        element: <LegacyCommunityManageRedirect />,
+      },
+      {
+        path: "communities/manage",
+        lazy: async () => ({
+          Component: (await import("@/features/community/pages/owned-communities-page")).default,
+        }),
+      },
+      {
+        path: "sources",
+        lazy: async () => ({
+          Component: (await import("@/features/sources/pages/sources-page")).default,
+        }),
+      },
+      {
+        path: "sources/:sourceId",
+        lazy: async () => ({
+          Component: (await import("@/features/sources/pages/source-page")).default,
+        }),
+      },
+      {
+        path: "sources/:sourceId/comments",
+        lazy: async () => ({
+          Component: (await import("@/features/sources/pages/source-page")).default,
+        }),
+      },
+      {
+        path: "sources/new",
+        lazy: async () => ({
+          Component: (await import("@/features/sources/pages/create-source-page")).default,
+        }),
+      },
+      {
+        path: "search",
+        lazy: async () => ({
+          Component: (await import("@/features/search/pages/search-page")).default,
+        }),
+      },
+      {
+        path: "profile",
+        lazy: async () => ({
+          Component: (await import("@/features/profile/pages/profile-page")).default,
+        }),
+      },
+      {
+        path: "users/:userId",
+        lazy: async () => ({
+          Component: (await import("@/features/profile/pages/profile-page")).default,
+        }),
+      },
+      {
+        path: "profile/edit",
+        lazy: async () => ({
+          Component: (await import("@/features/profile/pages/edit-profile-page")).default,
+        }),
+      },
+      {
+        path: "profile/likes",
+        lazy: async () => ({
+          Component: (await import("@/features/profile/pages/liked-posts-page")).default,
+        }),
+      },
+      {
+        path: "login",
+        lazy: async () => ({
+          Component: (await import("@/features/auth/pages/login-page")).default,
+        }),
+      },
+      {
+        path: "onboarding",
+        lazy: async () => ({
+          Component: (await import("@/features/auth/pages/onboarding-page")).default,
+        }),
+      },
+      {
+        path: "settings",
+        lazy: async () => ({
+          Component: (await import("@/features/settings/pages/settings-page")).default,
+        }),
+      },
+      {
+        path: "privacy",
+        lazy: async () => ({
+          Component: (await import("@/features/settings/pages/privacy-page")).default,
+        }),
+      },
+      {
+        path: "saved",
+        lazy: async () => ({
+          Component: (await import("@/features/saved/pages/saved-page")).default,
+        }),
+      },
+      {
+        path: "workspace",
+        lazy: async () => ({
+          Component: (await import("@/features/workspace/pages/workspace-page")).default,
+        }),
+      },
+      {
+        path: "submissions",
+        lazy: async () => ({
+          Component: (await import("@/features/workspace/pages/submissions-page")).default,
+        }),
+      },
+      {
+        path: "submissions/:submissionId",
+        lazy: async () => ({
+          Component: (await import("@/features/workspace/pages/submission-page")).default,
+        }),
+      },
+      {
+        path: "reviews",
+        lazy: async () => ({
+          Component: (await import("@/features/workspace/pages/reviews-page")).default,
+        }),
+      },
+      {
+        path: "library",
+        lazy: async () => ({
+          Component: (await import("@/features/workspace/pages/library-page")).default,
+        }),
+      },
+      {
+        path: "studio/new",
+        lazy: async () => ({
+          Component: (await import("@/features/composition/pages/studio-new-page")).default,
+        }),
+      },
+      {
+        path: "studio/:projectId",
+        lazy: async () => ({
+          Component: (await import("@/features/composition/pages/studio-page")).default,
+        }),
+      },
+      {
+        path: "studio/shorts/:shortId",
+        lazy: async () => ({
+          Component: (await import("@/features/composition/pages/studio-page")).default,
+        }),
+      },
+      {
+        path: "studio/:projectId/layers/new",
+        lazy: async () => ({
+          Component: (await import("@/features/composition/pages/layer-choice-page")).default,
+        }),
+      },
+      {
+        path: "studio/:projectId/upload",
+        lazy: async () => ({
+          Component: (await import("@/features/composition/pages/upload-page")).default,
+        }),
+      },
+      {
+        path: "studio/:projectId/record",
+        lazy: async () => ({
+          Component: (await import("@/features/composition/pages/record-page")).default,
+        }),
+      },
+      {
+        path: "studio/:projectId/tracks/:trackId/notes",
+        lazy: async () => ({
+          Component: (await import("@/features/composition/pages/note-editor-page")).default,
+        }),
+      },
+      {
+        path: "studio/:projectId/import",
+        lazy: async () => ({
+          Component: (await import("@/features/composition/pages/import-source-page")).default,
+        }),
+      },
+      {
+        path: "chat",
+        lazy: async () => ({
+          Component: (await import("@/features/social/pages/chat-page")).default,
+        }),
+      },
+      {
+        path: "notifications",
+        lazy: async () => ({
+          Component: (await import("@/features/notifications/pages/notifications-page")).default,
+        }),
+      },
+      {
+        path: "admin",
+        lazy: async () => ({
+          Component: (await import("@/features/admin/pages/admin-page")).default,
+        }),
+      },
+      { path: "*", element: <NotFoundPage /> },
+    ],
+  },
+];
 export const router = createBrowserRouter(appRoutes);

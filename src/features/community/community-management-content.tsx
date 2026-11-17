@@ -3,11 +3,25 @@ import { useRouteCommunity } from "@/features/community/use-route-community";
 import { useUrlNavigation } from "@/features/navigation/use-url-navigation";
 import { PageState } from "@/components/page-state";
 
-export function CommunityManagementContent({ galleryId, members }: {
-  galleryId: number | null;
-  members: boolean;
-}) {
+/**
+ * Where community management leads. Back returns to the community page (`/communities/:id`, which
+ * shows managers the "관리자 페이지" button); a community chosen from the manageable list opens there too.
+ */
+export function useCommunityManagementNavigation(galleryId: number | null) {
   const { to, state } = useUrlNavigation();
+  return {
+    onBack: () =>
+      to(galleryId ? `/communities/${galleryId}` : "/communities", {
+        replace: true,
+        state: { from: state.from },
+      }),
+    onSelect: (value: { galleryId: number }) => to(`/communities/${value.galleryId}`),
+  };
+}
+
+/** `/communities/manage` (no community: the manageable list) and `/communities/:id/members`. */
+export function CommunityManagementContent({ galleryId }: { galleryId: number | null }) {
+  const navigation = useCommunityManagementNavigation(galleryId);
   const result = useRouteCommunity(galleryId);
   if (galleryId !== null && result.status !== "ready")
     return (
@@ -16,22 +30,5 @@ export function CommunityManagementContent({ galleryId, members }: {
       </PageState>
     );
   const community = result.status === "ready" ? result.community : null;
-  return (
-    <CommunityAdminScreen
-      community={community}
-      members={members}
-      onMembers={() => {
-        if (galleryId) to(`/communities/${galleryId}/members`);
-      }}
-      onBack={() =>
-        to(galleryId ? `/communities/${galleryId}${members ? "/manage" : ""}` : "/communities", {
-          replace: true,
-          state: { from: state.from },
-        })
-      }
-      onSelect={(value) => to(`/communities/${value.galleryId}/manage`)}
-      onComments={(id) => to(galleryId ? `/communities/${galleryId}/posts/${id}` : `/posts/${id}`)}
-      onProfile={(id) => to(`/users/${id}`)}
-    />
-  );
+  return <CommunityAdminScreen community={community} {...navigation} />;
 }

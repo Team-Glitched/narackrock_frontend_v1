@@ -1,4 +1,6 @@
-import { ChartsScreen, type SongChartKind } from "@/features/home/home-screens";
+import { ChartsScreen, type MusicListTab, type SongChartKind } from "@/features/home/home-screens";
+import { NativeChartsBridge } from "@/features/home/native-charts-bridge";
+import { nativeApp } from "@/lib/native-app";
 import { DesignViewport } from "@/components/design-viewport";
 import { Header } from "@/features/navigation/header";
 import { Footer } from "@/features/navigation/footer";
@@ -16,25 +18,64 @@ export default function ChartsPage() {
   const target = creationTarget(scope, galleryId);
   const value = query.get("kind");
   const kind: SongChartKind = value === "mine" || value === "recommended" ? value : "popular";
+  const chart = {
+    tab: (query.get("tab") === "featured"
+      ? "featured"
+      : query.get("tab") === "participated"
+        ? "participated"
+        : "authored") as MusicListTab,
+    featuredUserId: readId(query.get("userId")) ?? undefined,
+    onTabChange: (tab: MusicListTab) => {
+      const next = new URLSearchParams(query);
+      next.set("tab", tab);
+      if (tab !== "featured") next.delete("userId");
+      to(`/charts?${next}`, { replace: true });
+    },
+    onOpenShort: (id: number) => to(`/abyss/${id}`),
+  };
+  const search = () => to(withQuery("/search", { scope, galleryId }));
+  if (nativeApp())
+    return (
+      <>
+        <NativeChartsBridge kind={kind} {...chart} onSearch={search} onBack={() => back("/")} />
+        <Footer
+          activeTab={null}
+          createLabel={target.label}
+          onCreate={() =>
+            to(
+              target.path,
+              target.path === "/studio/new"
+                ? {
+                    state: { studioFrom: currentPath, studioIndex: window.history.state?.idx },
+                  }
+                : undefined,
+            )
+          }
+        />
+        <NotificationsOverlay />
+      </>
+    );
   return (
     <DesignViewport>
       <div className={sharedStyles.phoneFrame}>
-        <Header onBack={() => back("/")} onSearch={() => to(withQuery("/search", { scope, galleryId }))} />
+        <Header onBack={() => back("/")} onSearch={search} />
         <div className={sharedStyles.screenBody}>
-          <ChartsScreen kind={kind}
-            tab={query.get("tab") === "featured" ? "featured" : query.get("tab") === "participated" ? "participated" : "authored"}
-            featuredUserId={readId(query.get("userId")) ?? undefined}
-            onTabChange={(tab) => {
-              const next = new URLSearchParams(query);
-              next.set("tab", tab);
-              if (tab !== "featured") next.delete("userId");
-              to(`/charts?${next}`, { replace: true });
-            }}
-            onOpenShort={(id) => to(`/abyss/${id}`)} />
+          <ChartsScreen kind={kind} {...chart} />
         </div>
-        <Footer activeTab={null} createLabel={target.label} onCreate={() => to(target.path, target.path === "/studio/new" ? {
-          state: { studioFrom: currentPath, studioIndex: window.history.state?.idx },
-        } : undefined)} />
+        <Footer
+          activeTab={null}
+          createLabel={target.label}
+          onCreate={() =>
+            to(
+              target.path,
+              target.path === "/studio/new"
+                ? {
+                    state: { studioFrom: currentPath, studioIndex: window.history.state?.idx },
+                  }
+                : undefined,
+            )
+          }
+        />
         <NotificationsOverlay />
       </div>
     </DesignViewport>

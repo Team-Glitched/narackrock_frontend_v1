@@ -1,4 +1,6 @@
 import { WorkspaceScreen } from "@/features/workspace/workspace-screens";
+import { NativeWorkspaceBridge } from "@/features/workspace/native-workspace-bridge";
+import { nativeApp } from "@/lib/native-app";
 import { useUrlNavigation } from "@/features/navigation/use-url-navigation";
 import { readId, studioPath, withQuery } from "@/features/navigation/paths";
 import { DesignViewport } from "@/components/design-viewport";
@@ -13,18 +15,41 @@ export default function WorkspacePage() {
   const galleryId = readId(params.galleryId) ?? readId(query.get("galleryId"));
   const scope = resolveSearchScope(query.get("scope"), "songs", Boolean(galleryId));
   const target = creationTarget(scope, galleryId);
-  const onCreate = () => to(target.path, target.path === "/studio/new"
-    ? { state: { studioFrom: currentPath, studioIndex: window.history.state?.idx } }
-    : undefined);
+  const onCreate = () =>
+    to(
+      target.path,
+      target.path === "/studio/new"
+        ? { state: { studioFrom: currentPath, studioIndex: window.history.state?.idx } }
+        : undefined,
+    );
+  const search = () => to(withQuery("/search", { scope, galleryId }));
+  const onStartSong = () =>
+    to("/studio/new", {
+      state: { studioFrom: currentPath, studioIndex: window.history.state?.idx },
+    });
+  const onResume = (id: number, shortId: number | null) =>
+    to(studioPath(id, shortId), {
+      state: { studioFrom: currentPath, studioIndex: window.history.state?.idx },
+    });
+  if (nativeApp())
+    return (
+      <>
+        <NativeWorkspaceBridge
+          onStartSong={onStartSong}
+          onResume={onResume}
+          onSearch={search}
+          onBack={() => back("/settings")}
+        />
+        <Footer activeTab={null} onCreate={onCreate} createLabel={target.label} />
+        <NotificationsOverlay />
+      </>
+    );
   return (
     <DesignViewport>
       <div className={sharedStyles.phoneFrame}>
-        <Header onSearch={() => to(withQuery("/search", { scope, galleryId }))} onBack={() => back("/settings")} />
+        <Header onSearch={search} onBack={() => back("/settings")} />
         <div className={sharedStyles.screenBody}>
-          <WorkspaceScreen
-            onStartSong={() => to("/studio/new", { state: { studioFrom: currentPath, studioIndex: window.history.state?.idx } })}
-            onResume={(id, shortId) => to(studioPath(id, shortId), { state: { studioFrom: currentPath, studioIndex: window.history.state?.idx } })}
-          />
+          <WorkspaceScreen onStartSong={onStartSong} onResume={onResume} />
         </div>
         <Footer activeTab={null} onCreate={onCreate} createLabel={target.label} />
         <NotificationsOverlay />

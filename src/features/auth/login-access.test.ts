@@ -28,7 +28,6 @@ test("requires a session for personal screens, profiles, creation, protected det
     "/communities/new",
     "/communities/joined",
     "/communities/manage",
-    "/communities/7/manage",
     "/communities/7/members",
     "/charts?kind=mine",
     "/search?scope=people&q=name",

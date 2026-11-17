@@ -14,7 +14,7 @@ import {
   ContributionReviewActions,
   RequestTime,
 } from "./contribution-request-card";
-import { canReviewRequest, requestStatus } from "./contribution-presentation";
+import { canReviewRequest, requestStatus, requestTone } from "./contribution-presentation";
 import {
   contributionInboxQuery,
   sentContributionsQuery,
@@ -22,23 +22,60 @@ import {
   useReviewContributionMutation,
 } from "./workspace-queries";
 
-function RequestPage({ title, children }: { title: string; children: ReactNode }) {
+function RequestPage({
+  title,
+  hideTitle = false,
+  children,
+}: {
+  title: string;
+  hideTitle?: boolean;
+  children: ReactNode;
+}) {
   return (
-    <section className="scrollbar-none h-full overflow-y-auto px-5 pt-5 pb-8 text-app-fg">
-      <h1 className="mb-6 text-title leading-8 font-bold">{title}</h1>
+    <section className="scrollbar-none flex h-full flex-col gap-5 overflow-y-auto px-5 pt-6 pb-10 text-app-fg">
+      {!hideTitle && <h1 className="m-0 text-title leading-7 font-bold">{title}</h1>}
       {children}
     </section>
   );
 }
 
+export function reviewErrorMessage(error: Error) {
+  return error instanceof ApiError
+    ? error.message
+    : "요청을 처리하지 못했습니다. 다시 시도해 주세요.";
+}
+
 function ReviewError({ error }: { error: Error }) {
   return (
-    <p role="alert" className="mt-4 text-body leading-6 text-[#ff8d8d]">
-      {error instanceof ApiError
-        ? error.message
-        : "요청을 처리하지 못했습니다. 다시 시도해 주세요."}
+    <p role="alert" className="m-0 text-label leading-6 text-[#ff8d8d]">
+      {reviewErrorMessage(error)}
     </p>
   );
+}
+
+/** Received contribution requests; `decide` approves or rejects one and reports it in `notice`. */
+export function useReviewInbox() {
+  const userId = useCurrentUserId();
+  const inbox = useQuery(contributionInboxQuery(userId));
+  const review = useReviewContributionMutation();
+  const [notice, setNotice] = useState("");
+  function decide(
+    item: { projectId: number; contributionId: number },
+    status: "APPROVED" | "REJECTED",
+  ) {
+    if (review.isPending) return;
+    setNotice("");
+    review.mutate(
+      { projectId: item.projectId, contributionId: item.contributionId, status },
+      {
+        onSuccess: () =>
+          setNotice(
+            status === "APPROVED" ? "참여 요청을 수락했습니다." : "참여 요청을 거절했습니다.",
+          ),
+      },
+    );
+  }
+  return { inbox, items: inbox.data ?? [], review, notice, decide };
 }
 
 export function ReviewInboxScreen({
@@ -50,21 +87,23 @@ export function ReviewInboxScreen({
   onOpenProject: (id: number, contributionId: number) => void;
   onOpenProfile: (id: number) => void;
 }) {
-  const userId = useCurrentUserId();
-  const inbox = useQuery(contributionInboxQuery(userId));
-  const review = useReviewContributionMutation();
-  const [notice, setNotice] = useState("");
-  const items = inbox.data ?? [];
+  const { inbox, items, review, notice, decide } = useReviewInbox();
   return (
-    <RequestPage title="받은 참여 요청">
+    <RequestPage title="받은 참여 요청" hideTitle={items.length === 0}>
       {inbox.isPending && (
-        <p role="status" className="text-body text-app-muted">
+        <p
+          role="status"
+          className="my-auto flex flex-1 items-center justify-center py-12 text-center text-label leading-6 text-app-muted"
+        >
           참여 요청을 불러오는 중...
         </p>
       )}
       {inbox.isError && (
-        <div role="alert">
-          <p>참여 요청을 불러오지 못했습니다.</p>
+        <div
+          role="alert"
+          className="my-auto flex flex-1 flex-col items-center justify-center gap-4 px-5 py-12 text-center text-label leading-6 text-app-muted"
+        >
+          <p className="m-0">참여 요청을 불러오지 못했습니다.</p>
           <button
             className={buttonVariants({ tone: "secondary" })}
             onClick={() => void inbox.refetch()}
@@ -75,12 +114,22 @@ export function ReviewInboxScreen({
       )}
       {review.isError && <ReviewError error={review.error} />}
       {notice && (
-        <p role="status" className="mb-4 text-body text-app-primary-soft">
+        <p role="status" className="m-0 text-label leading-6 text-app-primary-soft">
           {notice}
         </p>
       )}
       {!inbox.isPending && !inbox.isError && !items.length && (
-        <p className="py-12 text-center text-body text-app-muted">받은 참여 요청이 없습니다.</p>
+        <div className="my-auto flex flex-1 flex-col items-center justify-center gap-4 px-5 py-12 text-center text-label leading-6 text-app-muted">
+          <p className="m-0">받은 참여 요청이 없습니다.</p>
+          <button
+            type="button"
+            className={buttonVariants({ tone: "secondary" })}
+            disabled={inbox.isFetching}
+            onClick={() => void inbox.refetch()}
+          >
+            새로고침
+          </button>
+        </div>
       )}
       <ul className="m-0 list-none divide-y divide-app-border p-0">
         {items.map((item) => (
@@ -93,21 +142,7 @@ export function ReviewInboxScreen({
           >
             <ContributionReviewActions
               busy={review.isPending}
-              onReview={(status) => {
-                if (review.isPending) return;
-                setNotice("");
-                review.mutate(
-                  { projectId: item.projectId, contributionId: item.contributionId, status },
-                  {
-                    onSuccess: () =>
-                      setNotice(
-                        status === "APPROVED"
-                          ? "참여 요청을 수락했습니다."
-                          : "참여 요청을 거절했습니다.",
-                      ),
-                  },
-                );
-              }}
+              onReview={(status) => decide(item, status)}
             />
           </ContributionRequestCard>
         ))}
@@ -116,42 +151,62 @@ export function ReviewInboxScreen({
   );
 }
 
+/** Sent contribution requests, page by page; `retry` repeats whichever load failed. */
+export function useSubmissions() {
+  const userId = useCurrentUserId();
+  const list = useInfiniteQuery(sentContributionsQuery(userId));
+  return {
+    list,
+    items: list.data?.pages.flatMap((page) => page.items) ?? [],
+    loading: list.isPending,
+    failed: list.isError,
+    retry: () =>
+      list.isFetchNextPageError
+        ? void list.fetchNextPage({ cancelRefetch: false })
+        : void list.refetch(),
+    more: () => void list.fetchNextPage({ cancelRefetch: false }),
+  };
+}
+
 export function SubmissionsScreen({
   onSelect,
 }: {
   onSelect: (id: number, projectId: number) => void;
 }) {
-  const userId = useCurrentUserId();
-  const list = useInfiniteQuery(sentContributionsQuery(userId));
-  const items = list.data?.pages.flatMap((page) => page.items) ?? [];
-  const loading = list.isPending;
-  const failed = list.isError;
+  const { list, items, loading, failed, retry, more } = useSubmissions();
   return (
-    <RequestPage title="보낸 참여 요청">
+    <RequestPage title="보낸 참여 요청" hideTitle={items.length === 0}>
       {loading && (
-        <p role="status" className="text-body text-app-muted">
+        <p
+          role="status"
+          className="my-auto flex flex-1 items-center justify-center py-12 text-center text-label leading-6 text-app-muted"
+        >
           참여 요청을 불러오는 중...
         </p>
       )}
       {failed && (
-        <div role="alert">
-          <p>보낸 요청을 불러오지 못했습니다.</p>
-          <button
-            className={buttonVariants({ tone: "secondary" })}
-            onClick={() =>
-              list.isFetchNextPageError
-                ? void list.fetchNextPage({ cancelRefetch: false })
-                : void list.refetch()
-            }
-          >
+        <div
+          role="alert"
+          className="my-auto flex flex-1 flex-col items-center justify-center gap-4 px-5 py-12 text-center text-label leading-6 text-app-muted"
+        >
+          <p className="m-0">보낸 요청을 불러오지 못했습니다.</p>
+          <button className={buttonVariants({ tone: "secondary" })} onClick={retry}>
             다시 시도
           </button>
         </div>
       )}
       {!loading && !failed && !items.length && (
-        <p className="py-12 text-center text-body text-app-muted">
-          아직 보낸 참여 요청이 없습니다.
-        </p>
+        <div className="my-auto flex flex-1 flex-col items-center justify-center gap-4 px-5 py-12 text-center text-label leading-6 text-app-muted">
+          <p className="m-0">아직 보낸 참여 요청이 없습니다.</p>
+          <button
+            type="button"
+            className={buttonVariants({ tone: "secondary" })}
+            disabled={list.isFetching}
+            onClick={() => void list.refetch()}
+          >
+            새로고침
+          </button>
+        </div>
       )}
       <ul className="m-0 list-none divide-y divide-app-border p-0">
         {items.map((item) => (
@@ -161,16 +216,7 @@ export function SubmissionsScreen({
               onClick={() => onSelect(item.contributionId, item.projectId)}
             >
               <div className="mb-3 flex items-center justify-between gap-3">
-                <span
-                  className={badgeVariants({
-                    status:
-                      item.approvalStatus === "PENDING"
-                        ? "request"
-                        : item.approvalStatus === "APPROVED"
-                          ? "approved"
-                          : "rejected",
-                  })}
-                >
+                <span className={badgeVariants({ status: requestTone(item.approvalStatus) })}>
                   {requestStatus[item.approvalStatus]}
                 </span>
                 <RequestTime createdAt={item.createdAt} />
@@ -195,7 +241,7 @@ export function SubmissionsScreen({
           type="button"
           className={buttonVariants({ tone: "secondary" })}
           disabled={list.isFetchingNextPage}
-          onClick={() => void list.fetchNextPage({ cancelRefetch: false })}
+          onClick={more}
         >
           {list.isFetchingNextPage ? "불러오는 중..." : "더보기"}
         </button>
@@ -204,15 +250,11 @@ export function SubmissionsScreen({
   );
 }
 
-export function SubmissionDetailScreen({
-  id,
-  projectId,
-  onResume,
-}: {
-  id: number;
-  projectId: number | null;
-  onResume: (id: number, contributionId: number) => void;
-}) {
+/**
+ * One contribution request with the web's review rule: the reviewed result replaces the listed entry,
+ * and the reason goes to the requester only for a rejection.
+ */
+export function useSubmissionDetail(id: number, projectId: number | null) {
   const userId = useCurrentUserId();
   const contributions = useQuery({
     ...contributionsQuery(userId, projectId ?? 0),
@@ -224,7 +266,6 @@ export function SubmissionDetailScreen({
   });
   const review = useReviewContributionMutation();
   const [reviewed, setReviewed] = useState<ContributionDto | null>(null);
-  const [reason, setReason] = useState("");
   const item = reviewed ?? contributions.data?.find((entry) => entry.contributionId === id);
   const own = item?.userId === userId;
   const ownerId = composition.data?.project.ownerId;
@@ -232,6 +273,56 @@ export function SubmissionDetailScreen({
     ...profileQuery(userId, ownerId ?? 0),
     enabled: own && ownerId != null,
   });
+  function submit(status: "APPROVED" | "REJECTED", reason: string) {
+    if (review.isPending || !item || projectId === null) return;
+    review.mutate(
+      // The reason is shown to the requester only for a rejection.
+      {
+        projectId,
+        contributionId: id,
+        status,
+        comment: status === "REJECTED" ? reason.trim() || null : null,
+      },
+      {
+        onSuccess: (result) =>
+          setReviewed({
+            ...item,
+            approvalStatus: result.approvalStatus,
+            reviewedAt: result.reviewedAt,
+            reviewedBy: result.reviewedBy,
+            reviewComment: result.reviewComment,
+          }),
+      },
+    );
+  }
+  return {
+    contributions,
+    composition,
+    review,
+    item,
+    own,
+    owner,
+    canReview: item !== undefined && canReviewRequest(item, composition.data?.viewerPermission),
+    submit,
+    retry: () => {
+      void contributions.refetch();
+      void composition.refetch();
+    },
+  };
+}
+
+export function SubmissionDetailScreen({
+  id,
+  projectId,
+  onResume,
+}: {
+  id: number;
+  projectId: number | null;
+  onResume: (id: number, contributionId: number) => void;
+}) {
+  const detail = useSubmissionDetail(id, projectId);
+  const { contributions, composition, review, item, own, owner, submit } = detail;
+  const [reason, setReason] = useState("");
   if (projectId === null)
     return <PageState error>요청을 열 수 없습니다. 요청 목록에서 다시 선택해 주세요.</PageState>;
   if (contributions.isError || composition.isError)
@@ -239,13 +330,7 @@ export function SubmissionDetailScreen({
       <PageState error>
         <div>
           <p>참여 요청을 불러오지 못했습니다.</p>
-          <button
-            className={buttonVariants({ tone: "secondary" })}
-            onClick={() => {
-              void contributions.refetch();
-              void composition.refetch();
-            }}
-          >
+          <button className={buttonVariants({ tone: "secondary" })} onClick={detail.retry}>
             다시 시도
           </button>
         </div>
@@ -259,7 +344,7 @@ export function SubmissionDetailScreen({
         요청을 찾을 수 없습니다. 이미 처리되었거나 삭제된 요청일 수 있습니다.
       </PageState>
     );
-  const canReview = canReviewRequest(item, composition.data.viewerPermission);
+  const canReview = detail.canReview;
   const nickname = own ? owner.data?.nickname || "원곡자" : item.nickname || "알 수 없는 사용자";
   const imageUrl = own ? owner.data?.profileImageUrl : item.profileImageUrl;
   return (
@@ -272,19 +357,10 @@ export function SubmissionDetailScreen({
         </div>
         <RequestTime createdAt={item.createdAt} />
       </div>
-      <span
-        className={badgeVariants({
-          status:
-            item.approvalStatus === "PENDING"
-              ? "request"
-              : item.approvalStatus === "APPROVED"
-                ? "approved"
-                : "rejected",
-        })}
-      >
+      <span className={badgeVariants({ status: requestTone(item.approvalStatus) })}>
         {requestStatus[item.approvalStatus]}
       </span>
-      <h2 className="mt-3 text-title leading-8 font-semibold [overflow-wrap:anywhere]">
+      <h2 className="mt-3 text-label leading-6 font-semibold [overflow-wrap:anywhere]">
         {composition.data.project.title}
       </h2>
       {item.description?.trim() && (
@@ -293,9 +369,14 @@ export function SubmissionDetailScreen({
         </p>
       )}
       {item.approvalStatus === "REJECTED" && item.reviewComment?.trim() && (
-        <section className="mt-4 rounded-xl border border-app-border bg-app-surface px-4 py-3" aria-label="거절 사유">
-          <h3 className="mb-1 text-caption font-semibold text-app-muted">거절 사유</h3>
-          <p className="m-0 whitespace-pre-wrap text-body leading-6 [overflow-wrap:anywhere]">{item.reviewComment}</p>
+        <section
+          className="mt-4 rounded-xl border border-app-border bg-app-surface px-4 py-3"
+          aria-label="거절 사유"
+        >
+          <h3 className="mb-1 text-label font-semibold text-app-muted">거절 사유</h3>
+          <p className="m-0 whitespace-pre-wrap text-body leading-6 [overflow-wrap:anywhere]">
+            {item.reviewComment}
+          </p>
         </section>
       )}
       <button
@@ -308,7 +389,9 @@ export function SubmissionDetailScreen({
       {canReview && (
         <>
           <label className="mt-6 block">
-            <span className="mb-2 block text-caption font-semibold text-app-muted">거절 사유 (선택)</span>
+            <span className="mb-2 block text-label font-semibold text-app-muted">
+              거절 사유 (선택)
+            </span>
             <textarea
               className="box-border min-h-20 w-full resize-y rounded-xl border border-app-border bg-app-surface p-3 text-body text-app-fg"
               maxLength={500}
@@ -320,23 +403,7 @@ export function SubmissionDetailScreen({
           </label>
           <ContributionReviewActions
             busy={review.isPending}
-            onReview={(status) => {
-              if (review.isPending) return;
-              review.mutate(
-                // The reason is shown to the requester only for a rejection.
-                { projectId, contributionId: id, status, comment: status === "REJECTED" ? reason.trim() || null : null },
-                {
-                  onSuccess: (result) =>
-                    setReviewed({
-                      ...item,
-                      approvalStatus: result.approvalStatus,
-                      reviewedAt: result.reviewedAt,
-                      reviewedBy: result.reviewedBy,
-                      reviewComment: result.reviewComment,
-                    }),
-                },
-              );
-            }}
+            onReview={(status) => submit(status, reason)}
           />
         </>
       )}

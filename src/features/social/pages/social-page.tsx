@@ -8,26 +8,44 @@ import { resolveSearchScope } from "@/features/search/search-scope";
 import { ContextualCreate, contextualCreateArea } from "@/features/navigation/contextual-create";
 import { sharedStyles } from "@/styles/shared.styles";
 import { CommunityScreen } from "@/features/social/social-screen";
-import { parsePostSort, postSortQuery } from "@/features/posts/post-sort";
+import { parsePostSort } from "@/features/posts/post-sort";
+import { creationTarget } from "@/features/navigation/creation-target";
+import { nativeApp } from "@/lib/native-app";
+import { NativeSocialPostsBridge } from "@/features/social/native-social-bridge";
 
 export default function SocialPage() {
   const { to, params, query } = useUrlNavigation();
   const galleryId = readId(params.galleryId) ?? readId(query.get("galleryId"));
   const scope = resolveSearchScope(query.get("scope"), "posts", Boolean(galleryId));
+  const search = () => to(withQuery("/search", { scope, galleryId }));
+  if (nativeApp())
+    return (
+      <>
+        <NativeSocialPostsBridge
+          sort={parsePostSort(query.get("sort"))}
+          onSearch={search}
+          onComments={(id) => to(`/posts/${id}`)}
+          onCreate={() => to(creationTarget("posts", galleryId).path)}
+        />
+        <Footer activeTab="social" />
+        <NotificationsOverlay />
+      </>
+    );
   return (
     <DesignViewport>
       <div className={sharedStyles.phoneFrame}>
-        <Header showChat onSearch={() => to(withQuery("/search", { scope, galleryId }))} />
+        <Header showChat onSearch={search} />
         <div className={contextualCreateArea}>
           <CommunityScreen
             tab="posts"
             sort={parsePostSort(query.get("sort"))}
-            onSortChange={(sort) => to(`/social?${postSortQuery(query, sort)}`)}
             onProfile={(id) => to(`/users/${id}`)}
             onChat={(id) => to(`/chat?userId=${id}`)}
             onJoined={() => to("/communities/joined")}
             onTabChange={(value) =>
-              to(value === "posts" ? "/social" : value === "community" ? "/communities" : "/friends")
+              to(
+                value === "posts" ? "/social" : value === "community" ? "/communities" : "/friends",
+              )
             }
             onComments={(id) => to(`/posts/${id}`)}
             onOpenCommunity={(community) => to(`/communities/${community.galleryId}`)}

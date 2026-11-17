@@ -1,11 +1,13 @@
 import { useCallback } from "react";
 import { AuthScreen } from "@/features/auth/auth-screen";
+import { NativeLoginBridge } from "@/features/auth/native-auth-bridges";
 import type { PendingProfileSetup } from "@/features/auth/profile-setup";
 import { useAuthSession } from "@/features/auth/auth-session";
 import { useUrlNavigation } from "@/features/navigation/use-url-navigation";
 import type { AuthLocationState } from "../auth-location-state";
 import { DesignViewport } from "@/components/design-viewport";
 import { NotificationsOverlay } from "@/features/notifications/notifications-overlay";
+import { nativeApp } from "@/lib/native-app";
 import { sharedStyles } from "@/styles/shared.styles";
 import { safeReturnPath } from "@/features/navigation/paths";
 export default function LoginPage() {
@@ -23,10 +25,21 @@ export default function LoginPage() {
     },
     [setPendingProfileSetup, to, state.returnTo, state.from],
   );
+  if (nativeApp())
+    return (
+      <NativeLoginBridge
+        onAuthenticated={onAuthenticated}
+        onFirstLogin={onFirstLogin}
+        onHome={() => to("/")}
+        onPrivacy={() => to("/privacy")}
+      />
+    );
   return (
     <DesignViewport>
       <div className={sharedStyles.phoneFrame}>
-        <div className={sharedStyles.screenBody}><AuthScreen onAuthenticated={onAuthenticated} onFirstLogin={onFirstLogin} /></div>
+        <div className={sharedStyles.screenBody}>
+          <AuthScreen onAuthenticated={onAuthenticated} onFirstLogin={onFirstLogin} />
+        </div>
         <NotificationsOverlay />
       </div>
     </DesignViewport>

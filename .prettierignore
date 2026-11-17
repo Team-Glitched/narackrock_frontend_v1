@@ -8,3 +8,8 @@ backups/
 .env*
 package-lock.json
 CONTEXT.md
+native/node_modules/
+native/.expo/
+native/android/
+native/ios/
+native/web/

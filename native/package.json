@@ -1,0 +1,41 @@
+{
+  "name": "narackrock-native",
+  "version": "0.1.0",
+  "main": "index.ts",
+  "dependencies": {
+    "@dr.pogodin/react-native-fs": "^2.41.0",
+    "@dr.pogodin/react-native-static-server": "^0.28.1",
+    "@react-native-google-signin/google-signin": "^17.0.0",
+    "expo": "~58.0.24",
+    "expo-crypto": "~58.0.8",
+    "expo-document-picker": "~58.0.5",
+    "expo-font": "~58.0.12",
+    "expo-image-picker": "~58.0.10",
+    "expo-sharing": "~58.0.23",
+    "expo-status-bar": "~58.0.5",
+    "expo-system-ui": "~58.0.7",
+    "react": "19.3.0",
+    "react-native": "0.88.1",
+    "react-native-audio-api": "^1.0.0",
+    "react-native-safe-area-context": "~5.11.1",
+    "react-native-svg": "15.16.0",
+    "react-native-webview": "14.0.1"
+  },
+  "devDependencies": {
+    "@svgr/core": "^8.1.0",
+    "@svgr/plugin-jsx": "^8.1.0",
+    "@types/react": "~19.3.0",
+    "typescript": "~6.0.3"
+  },
+  "scripts": {
+    "start": "expo start",
+    "prebuild": "expo prebuild --clean",
+    "android": "expo run:android",
+    "android:release": "expo run:android --variant release",
+    "ios": "expo run:ios",
+    "ios:release": "expo run:ios --configuration Release",
+    "typecheck": "tsc --noEmit",
+    "android:bundle": "expo prebuild --platform android && cd android && ./gradlew bundleRelease"
+  },
+  "private": true
+}

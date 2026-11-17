@@ -1,9 +1,10 @@
-import { filterChipVariants } from "@/styles/variants";
+import { filterChip, filterChipRow } from "@/styles/variants";
 import { cn } from "@/lib/utils";
 import { uiLabels } from "@/lib/ui-labels";
 import { useHiddenPosts } from "@/features/community/hidden-posts";
 import { useState } from "react";
 import { Asset } from "@/components/asset";
+import { AlbumArtwork } from "@/components/music-card";
 import { Avatar } from "@/components/avatar";
 import { useCurrentUserId } from "@/features/auth/use-current-user";
 import { SignInRequired } from "@/features/auth/sign-in-required";
@@ -14,10 +15,9 @@ import { usePagedItems, type ItemPage } from "@/hooks/use-paged-items";
 import { ApiError } from "@/lib/api/client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { applyPostBookmark } from "@/features/posts/post-queries";
-import { PostCommunityLabel } from "@/features/posts/post-community-label";
 import { updateCachedShort } from "@/features/abyss/abyss-queries";
 
-const filterClass = filterChipVariants();
+const filterClass = filterChip;
 
 type SavedItem = { id: number; kind: "post" | "song"; title: string; author: string; imageUrl: string | null; galleryName?: string };
 
@@ -64,7 +64,8 @@ export function SavedScreen(props: SavedScreenProps) {
   return <SavedLibrary key={userId} {...props} />;
 }
 
-function SavedLibrary({ onOpenPost, onOpenSong }: SavedScreenProps) {
+/** The signed-in user's saved posts and abyss songs, with the unsave action and option menu. */
+export function useSavedLibrary() {
   const hiddenPosts = useHiddenPosts();
   const [kind, setKind] = useState<"post" | "song">("post");
   const [openedSongs, setOpenedSongs] = useState(false);
@@ -94,84 +95,90 @@ function SavedLibrary({ onOpenPost, onOpenSong }: SavedScreenProps) {
   });
   const busy = unsave.isPending;
   const error = unsave.isError ? failure(unsave.error, "저장 해제에 실패했습니다.") : null;
+  function select(next: "post" | "song") {
+    if (next === "song") setOpenedSongs(true);
+    setKind(next);
+    setMenu(null);
+    unsave.reset();
+  }
+  return {
+    kind,
+    select,
+    list,
+    visible,
+    menu,
+    setMenu,
+    unsave,
+    busy,
+    error,
+    listError: list.state?.error ? failure(list.state.error.cause, "저장 목록을 불러오지 못했습니다.") : null,
+  };
+}
+
+function SavedLibrary({ onOpenPost, onOpenSong }: SavedScreenProps) {
+  const { kind, select, list, visible, menu, setMenu, unsave, busy, error, listError } = useSavedLibrary();
 
   return (
     <section
-      className="scrollbar-none h-full overflow-x-hidden overflow-y-auto px-5 py-[30px]"
+      className="scrollbar-none flex h-full flex-col gap-5 overflow-x-hidden overflow-y-auto px-5 pt-6 pb-10"
       aria-label={uiLabels.saved}
     >
-      <h1 className="m-0 mb-6 text-title leading-7 font-bold">{uiLabels.saved}</h1>
-      <div className="flex items-center gap-[10px]" aria-label="저장 목록 종류">
+      <h1 className="m-0 text-title leading-[26px] font-bold">{uiLabels.saved}</h1>
+      <div className={filterChipRow} aria-label="저장 목록 종류">
         <button
           className={filterClass}
           aria-pressed={kind === "post"}
-          onClick={() => {
-            setKind("post");
-            setMenu(null);
-            unsave.reset();
-          }}
+          onClick={() => select("post")}
         >
           게시글
         </button>
         <button
           className={filterClass}
           aria-pressed={kind === "song"}
-          onClick={() => {
-            setOpenedSongs(true);
-            setKind("song");
-            setMenu(null);
-            unsave.reset();
-          }}
+          onClick={() => select("song")}
         >
           어비스
         </button>
       </div>
-      {error && <p role="alert">{error}</p>}
+      {error && (
+        <p role="alert" className="m-0 rounded-xl border border-solid border-app-border px-4 py-3 text-label leading-6 text-[#ff8d8d]">
+          {error}
+        </p>
+      )}
       {!list.state ? (
-        <p role="status">저장 목록을 불러오는 중...</p>
+        <p role="status" className="my-auto flex flex-1 items-center justify-center px-5 py-12 text-center text-label leading-6 text-app-muted">
+          저장 목록을 불러오는 중...
+        </p>
       ) : visible.length === 0 && !list.state.error && list.state.next === null ? (
-        <p className="my-[70px] text-center text-body leading-[1.8] text-app-muted">
+        <p className="my-auto flex flex-1 items-center justify-center px-5 py-12 text-center text-label leading-6 text-app-muted">
           저장한 {kind === "post" ? "게시글이" : "어비스가"} 없습니다.
           <br />
           마음에 드는 콘텐츠의 저장 버튼을 눌러보세요.
         </p>
       ) : (
-        <ul
-          className={cn(
-            "my-[30px] flex list-none flex-col gap-[30px] p-0",
-            kind === "song" && "mt-5",
-          )}
-        >
+        <ul className="m-0 flex list-none flex-col gap-4 p-0">
           {visible.map((item) => (
-            <li key={item.id} className="relative flex items-center gap-1">
+            <li key={item.id} className="relative flex items-center gap-2">
               <button
                 className={cn(
-                  "flex min-w-0 flex-1 items-center gap-[10px] text-left",
-                  kind === "post" && "items-start gap-5",
+                  "flex min-w-0 flex-1 items-center gap-3 text-left",
+                  kind === "post" && "items-center gap-3",
                 )}
                 onClick={() => (kind === "post" ? onOpenPost(item.id) : onOpenSong(item.id))}
               >
-                <span
-                  className={cn(
-                    "h-[52px] flex-[0_0_52px] overflow-hidden rounded-[5px] bg-app-fg [&>img]:size-full [&>img]:object-cover",
-                    kind === "post" && "h-[90px] flex-[0_0_90px] rounded",
-                  )}
-                >
-                  {item.imageUrl && <img src={item.imageUrl} alt="" />}
-                </span>
-                <span
-                  className={cn(
-                    "flex min-w-0 flex-col gap-2 [&>strong]:text-label [&>strong]:leading-[1.3] [&>strong]:font-semibold [&>small]:text-body [&>small]:text-app-muted",
-                    kind === "post" &&
-                      "[&>strong]:line-clamp-2 [&>strong]:text-body [&>strong]:font-medium",
-                  )}
-                >
-                  <PostCommunityLabel name={item.galleryName} />
+                {kind === "song" ? (
+                  <AlbumArtwork src={item.imageUrl} title={item.title} className="size-16 shrink-0 rounded-[8px]" />
+                ) : (
+                  <span className="size-20 flex-[0_0_80px] overflow-hidden rounded-[6px] bg-app-surface [&>img]:size-full [&>img]:object-cover">
+                    {item.imageUrl ? <img src={item.imageUrl} alt="" /> : null}
+                  </span>
+                )}
+                <span className="flex min-w-0 flex-1 flex-col gap-1 overflow-hidden [&>strong]:block [&>strong]:w-full [&>strong]:truncate [&>strong]:text-label [&>strong]:leading-[22px] [&>strong]:font-semibold [&>small]:truncate [&>small]:text-body [&>small]:leading-[20px] [&>small]:text-app-muted">
                   <strong>{item.title}</strong>
                   {kind === "post" ? (
-                    <span className="flex items-center gap-[6px] text-caption">
-                      <Avatar className="size-5" />
-                      <span>{item.author}</span>
+                    <span className="flex min-w-0 items-center gap-1.5 text-body leading-[20px] text-app-muted">
+                      <Avatar size="xs" />
+                      <span className="min-w-0 truncate">{item.author}</span>
                     </span>
                   ) : (
                     <small>{item.author}</small>
@@ -179,10 +186,7 @@ function SavedLibrary({ onOpenPost, onOpenSong }: SavedScreenProps) {
                 </span>
               </button>
               <button
-                className={cn(
-                  "grid min-h-11 w-10 flex-[0_0_40px] place-items-center [&>img]:size-5",
-                  kind === "post" && "absolute -right-[10px] -bottom-[18px]",
-                )}
+                className="grid size-8 shrink-0 place-items-center rounded-full text-app-fg [&>img]:size-5"
                 aria-label={`${item.title} 저장 옵션`}
                 aria-expanded={menu === item.id}
                 onClick={() => setMenu(menu === item.id ? null : item.id)}
@@ -204,14 +208,33 @@ function SavedLibrary({ onOpenPost, onOpenSong }: SavedScreenProps) {
         </ul>
       )}
       {list.state?.error && (
-        <p role="alert">{failure(list.state.error.cause, "저장 목록을 불러오지 못했습니다.")}</p>
+        <div className="my-auto flex flex-1 flex-col items-center justify-center gap-4 px-5 py-12 text-center text-label leading-6 text-app-muted">
+          <p role="alert" className="m-0 text-[#ff8d8d]">
+            {listError}
+          </p>
+          {list.state.next !== null && (
+            <button
+              type="button"
+              className="rounded-full bg-app-surface px-5 py-2.5 text-label font-medium text-app-fg disabled:opacity-50"
+              disabled={list.state.busy || busy}
+              onClick={list.more}
+            >
+              {list.state.busy ? "불러오는 중..." : "다시 시도"}
+            </button>
+          )}
+        </div>
       )}
-      {list.state && list.state.next !== null && (
-        <button type="button" disabled={list.state.busy || busy} onClick={list.more}>
-          {list.state.busy ? "불러오는 중..." : list.state.error ? "다시 시도" : "더보기"}
+      {list.state && !list.state.error && list.state.next !== null && (
+        <button
+          type="button"
+          className="mx-auto min-h-11 w-full rounded-full bg-app-surface px-5 py-2.5 text-label font-medium text-app-fg disabled:opacity-50"
+          disabled={list.state.busy || busy}
+          onClick={list.more}
+        >
+          {list.state.busy ? "불러오는 중..." : "더보기"}
         </button>
       )}
-      <p className="m-0 mt-6 text-caption leading-[1.6] text-app-muted">
+      <p className="m-0 mt-2 text-body leading-[1.6] text-app-muted">
         내 계정에 저장한 콘텐츠입니다.
       </p>
     </section>

@@ -9,6 +9,8 @@ import { creationTarget } from "@/features/navigation/creation-target";
 import NotFoundPage from "@/features/navigation/pages/not-found-page";
 import { sharedStyles } from "@/styles/shared.styles";
 import { FriendsListScreen, type FriendsListKind } from "@/features/social/friends-screen";
+import { nativeApp } from "@/lib/native-app";
+import { NativeFriendsListBridge } from "@/features/social/native-social-bridge";
 
 const kinds: readonly FriendsListKind[] = ["mutual", "recommendations", "requests"];
 
@@ -20,13 +22,30 @@ export default function FriendsListPage() {
   const scope = resolveSearchScope(query.get("scope"), "people", Boolean(galleryId));
   const target = creationTarget(scope, galleryId);
   if (!kind) return <NotFoundPage />;
+  const search = () => to(withQuery("/search", { scope, galleryId }));
+  if (nativeApp())
+    return (
+      <>
+        <NativeFriendsListBridge kind={kind} onBack={() => back("/friends")} onSearch={search} />
+        <Footer
+          activeTab="social"
+          onCreate={() =>
+            to(
+              target.path,
+              target.path === "/studio/new"
+                ? { state: { studioFrom: currentPath, studioIndex: window.history.state?.idx } }
+                : undefined,
+            )
+          }
+          createLabel={target.label}
+        />
+        <NotificationsOverlay />
+      </>
+    );
   return (
     <DesignViewport>
       <div className={sharedStyles.phoneFrame}>
-        <Header
-          onBack={() => back("/friends")}
-          onSearch={() => to(withQuery("/search", { scope, galleryId }))}
-        />
+        <Header onBack={() => back("/friends")} onSearch={search} />
         <div className={sharedStyles.screenBody}>
           <FriendsListScreen
             kind={kind}
@@ -36,9 +55,16 @@ export default function FriendsListPage() {
         </div>
         <Footer
           activeTab="social"
-          onCreate={() => to(target.path, target.path === "/studio/new" ? {
-            state: { studioFrom: currentPath, studioIndex: window.history.state?.idx },
-          } : undefined)}
+          onCreate={() =>
+            to(
+              target.path,
+              target.path === "/studio/new"
+                ? {
+                    state: { studioFrom: currentPath, studioIndex: window.history.state?.idx },
+                  }
+                : undefined,
+            )
+          }
           createLabel={target.label}
         />
         <NotificationsOverlay />

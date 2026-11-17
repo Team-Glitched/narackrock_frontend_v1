@@ -4,6 +4,7 @@ import {
   type CreationMethod,
 } from "@/features/composition/creation-screens";
 import { createMidiLayer, releaseAbandonedLayer } from "@/features/composition/composition-actions";
+import { NativeLayerChoiceBridge } from "@/features/composition/native-studio-pages-bridge";
 import { InstrumentPromptCancelled, useInstrumentPrompt } from "../use-instrument-prompt";
 import { useRouteComposition } from "@/features/composition/use-route-composition";
 import { PageState } from "@/components/page-state";
@@ -15,6 +16,7 @@ import { NotificationsOverlay } from "@/features/notifications/notifications-ove
 import { creationTarget } from "@/features/navigation/creation-target";
 import { resolveSearchScope } from "@/features/search/search-scope";
 import { sharedStyles } from "@/styles/shared.styles";
+import { nativeApp } from "@/lib/native-app";
 export default function LayerChoicePage() {
   const route = useRouteComposition();
   const instrument = useInstrumentPrompt(route.projectId);
@@ -51,13 +53,27 @@ export default function LayerChoicePage() {
       setBusy(false);
     }
   }
+  const search = () => to(withQuery("/search", { scope, galleryId }));
+  if (nativeApp())
+    return (
+      <>
+        <NativeLayerChoiceBridge
+          invalid={route.projectId === null}
+          busy={busy}
+          error={error}
+          instrument={instrument.native}
+          onChoose={(method) => void choose(method)}
+          onBack={() => back(route.studioUrl)}
+          onSearch={search}
+        />
+        <Footer activeTab={null} onCreate={onCreate} createLabel={target.label} />
+        <NotificationsOverlay />
+      </>
+    );
   return (
     <DesignViewport>
       <div className={sharedStyles.phoneFrame}>
-        <Header
-          onSearch={() => to(withQuery("/search", { scope, galleryId }))}
-          onBack={() => back(route.studioUrl)}
-        />
+        <Header onSearch={search} onBack={() => back(route.studioUrl)} />
         <div className={sharedStyles.screenBody}>
           {route.projectId === null ? (
             <PageState error>올바르지 않은 페이지 주소입니다.</PageState>

@@ -1,17 +1,19 @@
 import { profileStyles } from "@/styles/profile.styles";
 import { cn } from "@/lib/utils";
 import { sharedStyles } from "@/styles/shared.styles";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Asset } from "@/components/asset";
 import {
   decodeGoogleCredential,
   loadGoogleAccounts,
   type GoogleCredentialResponse,
 } from "@/features/auth/google-identity";
+import { signInWithNativeGoogle } from "@/features/auth/native-google-sign-in";
 import { profileSetupRequired } from "@/features/auth/profile-setup-required";
 import { hasSignedInBefore } from "@/features/auth/returning-user";
 import { loginWithGoogle } from "@/lib/api/auth";
 import { ApiError } from "@/lib/api/client";
+import { nativeApp } from "@/lib/native-app";
 import { getProfile } from "@/lib/api/profile";
 import { Link } from "react-router";
 
@@ -30,16 +32,65 @@ function authErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : "인증 요청을 처리하지 못했습니다.";
 }
 
-export function AuthScreen({ onAuthenticated, onFirstLogin }: AuthScreenProps) {
-  const googleButtonRef = useRef<HTMLDivElement>(null);
+/** The login screen's state and Google sign-in handlers; shared by AuthScreen and the app's native login. */
+export function useGoogleLogin({ onAuthenticated, onFirstLogin }: AuthScreenProps) {
   const [returning] = useState(hasSignedInBefore);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const clientId = import.meta.env?.VITE_GOOGLE_CLIENT_ID?.trim() ?? "";
+  // Google blocks its web sign-in inside embedded WebViews, so the app signs in natively.
+  const inNativeApp = nativeApp() !== null;
+  const fail = useCallback((cause: unknown) => setError(authErrorMessage(cause)), []);
+
+  const completeLogin = useCallback(
+    (credential: string) => {
+      setBusy(true);
+      setError(null);
+      loginWithGoogle(credential)
+        .then(async (result) => {
+          const profile = result.firstLogin ? null : await getProfile(result.user.userId);
+          if (profileSetupRequired(result.firstLogin, profile)) {
+            const hints = decodeGoogleCredential(credential);
+            onFirstLogin({
+              suggestedNickname: hints.name?.trim() || result.user.nickname,
+              pictureUrl: hints.picture,
+            });
+            return;
+          }
+          onAuthenticated();
+        })
+        .catch(fail)
+        .finally(() => setBusy(false));
+    },
+    [onAuthenticated, onFirstLogin, fail],
+  );
+
+  const startNativeLogin = () => {
+    // Busy covers the native account picker too, so a second tap cannot start a parallel sign-in.
+    setBusy(true);
+    setError(null);
+    signInWithNativeGoogle(clientId)
+      .then((idToken) => {
+        if (idToken) completeLogin(idToken);
+        else setBusy(false);
+      })
+      .catch((cause) => {
+        fail(cause);
+        setBusy(false);
+      });
+  };
+
+  return { returning, busy, error, clientId, inNativeApp, completeLogin, startNativeLogin, fail };
+}
+
+export function AuthScreen(props: AuthScreenProps) {
+  const googleButtonRef = useRef<HTMLDivElement>(null);
+  const { returning, busy, error, clientId, inNativeApp, completeLogin, startNativeLogin, fail } =
+    useGoogleLogin(props);
 
   useEffect(() => {
     const element = googleButtonRef.current;
-    if (!element || !clientId) return;
+    if (!element || !clientId || inNativeApp) return;
     let cancelled = false;
     element.replaceChildren();
     loadGoogleAccounts()
@@ -47,27 +98,7 @@ export function AuthScreen({ onAuthenticated, onFirstLogin }: AuthScreenProps) {
         if (cancelled || !googleButtonRef.current) return;
         accounts.id.initialize({
           client_id: clientId,
-          callback: (response: GoogleCredentialResponse) => {
-            setBusy(true);
-            setError(null);
-            loginWithGoogle(response.credential)
-              .then(async (result) => {
-                const profile = result.firstLogin ? null : await getProfile(result.user.userId);
-                if (profileSetupRequired(result.firstLogin, profile)) {
-                  const hints = decodeGoogleCredential(response.credential);
-                  onFirstLogin({
-                    suggestedNickname: hints.name?.trim() || result.user.nickname,
-                    pictureUrl: hints.picture,
-                  });
-                  return;
-                }
-                onAuthenticated();
-              })
-              .catch((cause) => {
-                setError(authErrorMessage(cause));
-              })
-              .finally(() => setBusy(false));
-          },
+          callback: (response: GoogleCredentialResponse) => completeLogin(response.credential),
         });
         accounts.id.renderButton(googleButtonRef.current, {
           type: "standard",
@@ -80,12 +111,12 @@ export function AuthScreen({ onAuthenticated, onFirstLogin }: AuthScreenProps) {
         });
       })
       .catch((cause) => {
-        if (!cancelled) setError(authErrorMessage(cause));
+        if (!cancelled) fail(cause);
       });
     return () => {
       cancelled = true;
     };
-  }, [clientId, onAuthenticated, onFirstLogin]);
+  }, [clientId, inNativeApp, completeLogin, fail]);
 
   return (
     <section className={cn(profileStyles.authScreen, "auth-screen--login")} aria-label="로그인">
@@ -138,12 +169,26 @@ export function AuthScreen({ onAuthenticated, onFirstLogin }: AuthScreenProps) {
             {error}
           </p>
         )}
-        <div
-          className={cn(profileStyles.googleIdentityButton, busy ? sharedStyles.isBusy : "")}
-          ref={googleButtonRef}
-          aria-label="Google로 계속하기"
-        />
-        <Link className="mt-5 block text-center text-caption text-app-muted underline" to="/privacy">
+        {clientId && inNativeApp ? (
+          <button
+            className={cn(profileStyles.googleAuthButton, busy ? sharedStyles.isBusy : "")}
+            disabled={busy}
+            onClick={startNativeLogin}
+          >
+            <Asset name="google-g.svg" />
+            Google로 로그인
+          </button>
+        ) : (
+          <div
+            className={cn(profileStyles.googleIdentityButton, busy ? sharedStyles.isBusy : "")}
+            ref={googleButtonRef}
+            aria-label="Google로 계속하기"
+          />
+        )}
+        <Link
+          className="mt-5 block text-center text-caption text-app-muted underline"
+          to="/privacy"
+        >
           개인정보처리방침
         </Link>
       </div>

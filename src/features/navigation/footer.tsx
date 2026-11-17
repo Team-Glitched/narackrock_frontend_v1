@@ -1,5 +1,8 @@
+import { useEffect, useEffectEvent } from "react";
 import { sharedStyles } from "@/styles/shared.styles";
 import { cn } from "@/lib/utils";
+import { nativeApp, onFooterPress, requestNative } from "@/lib/native-app";
+import type { NativeFooterPress } from "@/lib/native-bridge-protocol";
 import { useUrlNavigation } from "./use-url-navigation";
 import { Asset } from "@/components/asset";
 import { iconSlotVariants } from "@/styles/variants";
@@ -22,9 +25,30 @@ export function Footer({
   createLabel?: string;
 }) {
   const { to, currentPath } = useUrlNavigation();
-  const create = onCreate ?? (() => {
-    to("/studio/new", { state: { studioFrom: currentPath, studioIndex: window.history.state?.idx } });
+  const create =
+    onCreate ??
+    (() => {
+      to("/studio/new", {
+        state: { studioFrom: currentPath, studioIndex: window.history.state?.idx },
+      });
+    });
+
+  // Only the controller mounts in the app; native presses retain each page's create action.
+  const inApp = nativeApp() !== null;
+  const press = useEffectEvent((pressed: NativeFooterPress) => {
+    const tab = nav.find((item) => item.id === pressed);
+    if (pressed === "create") create();
+    else if (tab) to(tab.path);
   });
+  useEffect(() => onFooterPress((pressed) => press(pressed)), []);
+  useEffect(() => {
+    if (inApp) void requestNative("set-footer", { footer: { activeTab, createLabel } });
+  }, [inApp, activeTab, createLabel]);
+  useEffect(() => {
+    if (inApp) return () => void requestNative("set-footer", { footer: null });
+  }, [inApp]);
+  if (inApp) return null;
+
   return (
     <footer className={sharedStyles.appFooter}>
       {nav.map((item) => (
@@ -34,7 +58,7 @@ export function Footer({
             item.id === "studio" ? sharedStyles.makeButton : "",
             item.id === activeTab ? sharedStyles.active : "",
           )}
-          onClick={() => item.id === "studio" ? create() : to(item.path)}
+          onClick={() => (item.id === "studio" ? create() : to(item.path))}
           aria-label={item.id === "studio" ? createLabel : item.label}
           aria-current={item.id === activeTab ? "page" : undefined}
         >

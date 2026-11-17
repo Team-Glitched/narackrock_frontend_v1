@@ -7,12 +7,48 @@ import { useUrlNavigation } from "@/features/navigation/use-url-navigation";
 import { readId, withQuery } from "@/features/navigation/paths";
 import { resolveSearchScope } from "@/features/search/search-scope";
 import { sharedStyles } from "@/styles/shared.styles";
-import { SocialCreate } from "@/features/community/create-content";
+import { SocialCreateForm, useSocialCreate } from "@/features/community/create-content";
 import { MyGalleryProposals } from "@/features/community/my-gallery-proposals";
 import { DEFAULT_GALLERY_ID } from "@/lib/api/community";
 import { useCurrentUserId } from "@/features/auth/use-current-user";
 import { SignInRequired } from "@/features/auth/sign-in-required";
 import { galleryKeys } from "@/features/community/community-queries";
+import { nativeApp } from "@/lib/native-app";
+import {
+  createCommunitySignInMessage,
+  NativeCreateCommunityBridge,
+} from "@/features/community/native-create-community-bridge";
+
+type FormProps = {
+  submissions: number;
+  onCancel: () => void;
+  onCreated: () => void;
+  onSearch: () => void;
+};
+
+/** The proposal form; the page remounts it (key) after each proposal for an empty form. */
+function CommunityProposalForm({ submissions, onCancel, onCreated, onSearch }: FormProps) {
+  const form = useSocialCreate({
+    kind: "community",
+    galleryId: DEFAULT_GALLERY_ID,
+    onCancel,
+    onCreated,
+  });
+  return (
+    <>
+      <SocialCreateForm form={form} />
+      {nativeApp() && (
+        <NativeCreateCommunityBridge
+          form={form}
+          submitted={submissions > 0}
+          formKey={submissions}
+          onBack={onCancel}
+          onSearch={onSearch}
+        />
+      )}
+    </>
+  );
+}
 
 export default function CreateCommunityPage() {
   const { to, back, params, query } = useUrlNavigation();
@@ -22,22 +58,47 @@ export default function CreateCommunityPage() {
   const signedIn = userId !== null;
   const queryClient = useQueryClient();
   const [submissions, setSubmissions] = useState(0);
+  const onBack = () => back("/communities");
+  const onSearch = () => to(withQuery("/search", { scope, galleryId }));
+  if (nativeApp())
+    return (
+      <>
+        {signedIn ? (
+          <CommunityProposalForm
+            key={submissions}
+            submissions={submissions}
+            onCancel={onBack}
+            onSearch={onSearch}
+            onCreated={() => {
+              setSubmissions((value) => value + 1);
+              void queryClient.invalidateQueries({ queryKey: galleryKeys.myProposals(userId) });
+            }}
+          />
+        ) : (
+          <NativeCreateCommunityBridge
+            form={null}
+            submitted={false}
+            formKey={0}
+            onBack={onBack}
+            onSearch={onSearch}
+          />
+        )}
+        <NotificationsOverlay />
+      </>
+    );
   return (
     <DesignViewport>
       <div className={sharedStyles.phoneFrame}>
-        <Header
-          onBack={() => back("/communities")}
-          onSearch={() => to(withQuery("/search", { scope, galleryId }))}
-        />
+        <Header onBack={onBack} onSearch={onSearch} />
         <div className={sharedStyles.screenBody}>
           {signedIn ? (
             <>
               <MyGalleryProposals submitted={submissions > 0} />
-              <SocialCreate
+              <CommunityProposalForm
                 key={submissions}
-                kind="community"
-                galleryId={DEFAULT_GALLERY_ID}
-                onCancel={() => back("/communities")}
+                submissions={submissions}
+                onCancel={onBack}
+                onSearch={onSearch}
                 onCreated={() => {
                   setSubmissions((value) => value + 1);
                   void queryClient.invalidateQueries({ queryKey: galleryKeys.myProposals(userId) });
@@ -45,7 +106,7 @@ export default function CreateCommunityPage() {
               />
             </>
           ) : (
-            <SignInRequired>커뮤니티 개설 신청은 로그인 후 사용할 수 있습니다.</SignInRequired>
+            <SignInRequired>{createCommunitySignInMessage}</SignInRequired>
           )}
         </div>
 

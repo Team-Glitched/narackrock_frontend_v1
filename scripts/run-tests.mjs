@@ -16,12 +16,23 @@ function findTests(directory) {
   });
 }
 
-const tests = findTests(path.join(projectRoot, "src")).sort();
+// The app's pure audio engine logic (native/audio) runs in Node too.
+const tests = [
+  ...findTests(path.join(projectRoot, "src")),
+  ...findTests(path.join(projectRoot, "native", "audio")),
+].sort();
 if (tests.length === 0) throw new Error("실행할 테스트 파일을 찾지 못했습니다.");
 
 const result = spawnSync(
   process.execPath,
-  ["--test", "--experimental-strip-types", "--no-experimental-webstorage", ...tests],
+  [
+    "--test",
+    "--experimental-strip-types",
+    "--no-experimental-webstorage",
+    // native/ has no "type": "module" (Metro and Expo config are CommonJS); its ESM tests still run.
+    "--disable-warning=MODULE_TYPELESS_PACKAGE_JSON",
+    ...tests,
+  ],
   { cwd: projectRoot, stdio: "inherit" },
 );
 if (result.error) throw result.error;

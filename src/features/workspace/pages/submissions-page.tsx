@@ -1,4 +1,6 @@
 import { SubmissionsScreen } from "@/features/workspace/contribution-requests";
+import { NativeSubmissionsBridge } from "@/features/workspace/native-requests-bridge";
+import { nativeApp } from "@/lib/native-app";
 import { useUrlNavigation } from "@/features/navigation/use-url-navigation";
 import { readId, withQuery } from "@/features/navigation/paths";
 import { DesignViewport } from "@/components/design-viewport";
@@ -20,17 +22,27 @@ export default function SubmissionsPage() {
         ? { state: { studioFrom: currentPath, studioIndex: window.history.state?.idx } }
         : undefined,
     );
+  const search = () => to(withQuery("/search", { scope, galleryId }));
+  const onSelect = (id: number, projectId: number) =>
+    to(withQuery(`/submissions/${id}`, { projectId }));
+  if (nativeApp())
+    return (
+      <>
+        <NativeSubmissionsBridge
+          onSelect={onSelect}
+          onSearch={search}
+          onBack={() => back("/settings")}
+        />
+        <Footer activeTab={null} onCreate={onCreate} createLabel={target.label} />
+        <NotificationsOverlay />
+      </>
+    );
   return (
     <DesignViewport>
       <div className={sharedStyles.phoneFrame}>
-        <Header
-          onSearch={() => to(withQuery("/search", { scope, galleryId }))}
-          onBack={() => back("/settings")}
-        />
+        <Header onSearch={search} onBack={() => back("/settings")} />
         <div className={sharedStyles.screenBody}>
-          <SubmissionsScreen
-            onSelect={(id, projectId) => to(withQuery(`/submissions/${id}`, { projectId }))}
-          />
+          <SubmissionsScreen onSelect={onSelect} />
         </div>
         <Footer activeTab={null} onCreate={onCreate} createLabel={target.label} />
         <NotificationsOverlay />

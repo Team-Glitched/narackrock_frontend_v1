@@ -8,16 +8,38 @@ import { resolveSearchScope } from "@/features/search/search-scope";
 import { creationTarget } from "@/features/navigation/creation-target";
 import { sharedStyles } from "@/styles/shared.styles";
 import { CommunityScreen } from "@/features/social/social-screen";
+import { nativeApp } from "@/lib/native-app";
+import { NativeSocialFriendsBridge } from "@/features/social/native-social-bridge";
 
 export default function FriendsPage() {
   const { to, params, query, currentPath } = useUrlNavigation();
   const galleryId = readId(params.galleryId) ?? readId(query.get("galleryId"));
   const scope = resolveSearchScope(query.get("scope"), "people", Boolean(galleryId));
   const target = creationTarget(scope, galleryId);
+  const search = () => to(withQuery("/search", { scope, galleryId }));
+  if (nativeApp())
+    return (
+      <>
+        <NativeSocialFriendsBridge onSearch={search} />
+        <Footer
+          activeTab="social"
+          onCreate={() =>
+            to(
+              target.path,
+              target.path === "/studio/new"
+                ? { state: { studioFrom: currentPath, studioIndex: window.history.state?.idx } }
+                : undefined,
+            )
+          }
+          createLabel={target.label}
+        />
+        <NotificationsOverlay />
+      </>
+    );
   return (
     <DesignViewport>
       <div className={sharedStyles.phoneFrame}>
-        <Header showChat onSearch={() => to(withQuery("/search", { scope, galleryId }))} />
+        <Header showChat onSearch={search} />
         <div className={sharedStyles.screenBody}>
           <CommunityScreen
             tab="friends"
@@ -26,7 +48,9 @@ export default function FriendsPage() {
             onChat={(id) => to(`/chat?userId=${id}`)}
             onJoined={() => to("/communities/joined")}
             onTabChange={(value) =>
-              to(value === "posts" ? "/social" : value === "community" ? "/communities" : "/friends")
+              to(
+                value === "posts" ? "/social" : value === "community" ? "/communities" : "/friends",
+              )
             }
             onComments={(id) => to(`/posts/${id}`)}
             onOpenCommunity={(community) => to(`/communities/${community.galleryId}`)}
@@ -34,9 +58,16 @@ export default function FriendsPage() {
         </div>
         <Footer
           activeTab="social"
-          onCreate={() => to(target.path, target.path === "/studio/new" ? {
-            state: { studioFrom: currentPath, studioIndex: window.history.state?.idx },
-          } : undefined)}
+          onCreate={() =>
+            to(
+              target.path,
+              target.path === "/studio/new"
+                ? {
+                    state: { studioFrom: currentPath, studioIndex: window.history.state?.idx },
+                  }
+                : undefined,
+            )
+          }
           createLabel={target.label}
         />
         <NotificationsOverlay />

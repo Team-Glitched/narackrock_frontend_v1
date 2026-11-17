@@ -8,7 +8,7 @@ import {
   type ServiceNotification,
 } from "@/lib/api/notifications";
 import { socialStyles } from "@/styles/social.styles";
-import { buttonVariants, filterChipVariants } from "@/styles/variants";
+import { buttonVariants, filterChip, filterChipRow } from "@/styles/variants";
 import { useCurrentUserId } from "@/features/auth/use-current-user";
 import { RequestTime } from "@/features/workspace/contribution-request-card";
 import { useReviewContributionMutation } from "@/features/workspace/workspace-queries";
@@ -40,19 +40,33 @@ export function NotificationsScreen(props: NotificationProps) {
   const userId = useCurrentUserId();
   return <NotificationInbox key={userId ?? "guest"} {...props} userId={userId} />;
 }
-function NotificationInbox({
-  userId,
-  onBack,
-  onOpenProject,
-  onOpenProfile,
-  onNavigate,
-}: NotificationProps & { userId: number | null }) {
+/** A notification row's state: unread, and whether it is a request still waiting for accept/decline. */
+export function notificationRowState(group: NotificationGroup) {
+  const item = group.first;
+  return {
+    unread: group.items.some((n) => !n.readAt),
+    pending:
+      item.available &&
+      item.requestStatus === "PENDING" &&
+      item.requestId !== null &&
+      (item.type === "CONTRIBUTION_CREATED" || item.type === "FOLLOW_REQUESTED"),
+  };
+}
+
+export function notificationStatusLabel(requestStatus: string) {
+  return statusLabel[requestStatus] ?? "처리 완료";
+}
+
+/** The notification inbox: filters, list and the read / open / accept / decline actions. */
+export function useNotificationInbox(
+  userId: number | null,
+  { onOpenProject, onOpenProfile, onNavigate }: Omit<NotificationProps, "onBack">,
+) {
   const [category, setCategory] = useState<NotificationCategory | null>(null);
   const [unreadOnly, setUnreadOnly] = useState(false);
   const [settings, setSettings] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
-  const panel = useRef<HTMLElement>(null);
   const list = useInfiniteQuery(notificationsQuery(userId, category, unreadOnly));
   const count = useQuery(unreadNotificationsQuery(userId));
   const { read, readAll, refresh } = useNotificationMutations();
@@ -63,11 +77,6 @@ function NotificationInbox({
   const items = useMemo(() => list.data?.pages.flatMap((page) => page.items) ?? [], [list.data]);
   const groups = useMemo(() => notificationGroups(items), [items]);
   const throughId = list.data?.pages[0]?.throughId;
-  useEffect(() => {
-    const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    panel.current?.focus();
-    return () => previous?.focus();
-  }, []);
   async function act(operation: () => Promise<unknown>, message?: string) {
     if (busy) return;
     setError(null);
@@ -116,6 +125,62 @@ function NotificationInbox({
       accept ? "요청을 수락했습니다." : "요청을 거절했습니다.",
     );
   }
+  function chooseCategory(id: NotificationCategory | null) {
+    setCategory(id);
+    setError(null);
+    setNotice(null);
+  }
+  function openProject(group: NotificationGroup) {
+    if (group.first.projectId && group.first.requestId)
+      void act(async () => {
+        await mark(group);
+        onOpenProject(group.first.projectId!, group.first.requestId!);
+      });
+  }
+  return {
+    category,
+    chooseCategory,
+    unreadOnly,
+    setUnreadOnly,
+    settings,
+    setSettings,
+    error,
+    notice,
+    list,
+    count,
+    busy,
+    groups,
+    readAllDisabled: busy || !throughId || count.data?.count === 0,
+    readAllNow: () => void act(() => readAll.mutateAsync(throughId!), "알림을 모두 읽었습니다."),
+    open,
+    markRead: (group: NotificationGroup) => void act(() => mark(group)),
+    review: (group: NotificationGroup, accept: boolean) => void review(group, accept),
+    openProject,
+    emptyMessage: unreadOnly
+      ? "미확인 알림이 없습니다."
+      : category
+        ? "선택한 종류의 알림이 없습니다."
+        : "새로운 알림이 없습니다.",
+  };
+}
+
+function NotificationInbox({
+  userId,
+  onBack,
+  onOpenProject,
+  onOpenProfile,
+  onNavigate,
+}: NotificationProps & { userId: number | null }) {
+  const {
+    category, chooseCategory, unreadOnly, setUnreadOnly, settings, setSettings, error, notice, list, count,
+    busy, groups, readAllDisabled, readAllNow, open, markRead, review, openProject, emptyMessage,
+  } = useNotificationInbox(userId, { onOpenProject, onOpenProfile, onNavigate });
+  const panel = useRef<HTMLElement>(null);
+  useEffect(() => {
+    const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    panel.current?.focus();
+    return () => previous?.focus();
+  }, []);
   return (
     <div
       className={socialStyles.notificationOverlay}
@@ -186,7 +251,7 @@ function NotificationInbox({
             <>
               {settings && <NotificationSettings userId={userId} />}
               <div
-                className="scrollbar-none mb-4 flex gap-1.5 overflow-x-auto pb-1"
+                className={`${filterChipRow} mb-3`}
                 role="group"
                 aria-label="알림 종류"
               >
@@ -194,12 +259,10 @@ function NotificationInbox({
                   <button
                     key={id ?? "all"}
                     type="button"
-                    className={filterChipVariants({ appearance: "filled", size: "standard" })}
+                    className={filterChip}
                     aria-pressed={category === id}
                     onClick={(e) => {
-                      setCategory(id);
-                      setError(null);
-                      setNotice(null);
+                      chooseCategory(id);
                       e.currentTarget.scrollIntoView({ block: "nearest", inline: "nearest" });
                     }}
                   >
@@ -207,23 +270,20 @@ function NotificationInbox({
                   </button>
                 ))}
               </div>
-              <div className="mb-4 flex items-center justify-between gap-2 text-caption text-app-muted">
-                <label className="flex min-h-9 cursor-pointer items-center gap-2">
-                  <input
-                    type="checkbox"
-                    className="accent-[#6500ff]"
-                    checked={unreadOnly}
-                    onChange={(e) => setUnreadOnly(e.target.checked)}
-                  />
+              <div className="mb-5 flex items-center justify-between gap-2 text-body text-app-muted">
+                <button
+                  type="button"
+                  className={filterChip}
+                  aria-pressed={unreadOnly}
+                  onClick={() => setUnreadOnly(!unreadOnly)}
+                >
                   미확인만 보기
-                </label>
+                </button>
                 <button
                   type="button"
                   className="flex min-h-9 items-center gap-1"
-                  disabled={busy || !throughId || count.data?.count === 0}
-                  onClick={() =>
-                    void act(() => readAll.mutateAsync(throughId!), "알림을 모두 읽었습니다.")
-                  }
+                  disabled={readAllDisabled}
+                  onClick={readAllNow}
                 >
                   <Check size={14} />
                   모두 읽음
@@ -232,24 +292,24 @@ function NotificationInbox({
               {error && (
                 <p
                   role="alert"
-                  className="mb-4 rounded-xl bg-red-500/10 p-3 text-caption leading-5 text-red-300"
+                  className="mb-4 rounded-xl bg-red-500/10 p-3 text-body leading-5 text-red-300"
                 >
                   {error}
                 </p>
               )}
               {notice && (
-                <p role="status" className="mb-3 text-caption text-app-muted">
+                <p role="status" className="mb-3 text-body text-app-muted">
                   {notice}
                 </p>
               )}
               {list.isPending && (
-                <p role="status" className="py-10 text-center text-caption text-app-muted">
+                <p role="status" className="py-10 text-center text-body text-app-muted">
                   알림을 불러오는 중...
                 </p>
               )}
               {list.isError && (
                 <div role="alert" className="py-8 text-center">
-                  <p className="mb-3 text-caption text-app-muted">알림을 불러오지 못했습니다.</p>
+                  <p className="mb-3 text-body text-app-muted">알림을 불러오지 못했습니다.</p>
                   <button
                     onClick={() => void list.refetch()}
                     className={buttonVariants({ tone: "secondary", size: "compact" })}
@@ -265,27 +325,17 @@ function NotificationInbox({
                     group={group}
                     busy={busy}
                     onOpen={() => open(group)}
-                    onRead={() => void act(() => mark(group))}
-                    onReview={(accept) => void review(group, accept)}
-                    onProject={() => {
-                      if (group.first.projectId && group.first.requestId)
-                        void act(async () => {
-                          await mark(group);
-                          onOpenProject(group.first.projectId!, group.first.requestId!);
-                        });
-                    }}
+                    onRead={() => markRead(group)}
+                    onReview={(accept) => review(group, accept)}
+                    onProject={() => openProject(group)}
                   />
                 ))}
               </ul>
               {list.isSuccess && groups.length === 0 && (
                 <div className="flex flex-col items-center gap-3 py-16 text-center text-app-muted">
                   <Bell size={30} strokeWidth={1.5} />
-                  <p className="text-caption">
-                    {unreadOnly
-                      ? "미확인 알림이 없습니다."
-                      : category
-                        ? "선택한 종류의 알림이 없습니다."
-                        : "새로운 알림이 없습니다."}
+                  <p className="text-body">
+                    {emptyMessage}
                   </p>
                 </div>
               )}
@@ -322,18 +372,13 @@ function NotificationRow({
   onProject: () => void;
 }) {
   const item: ServiceNotification = group.first;
-  const unread = group.items.some((n) => !n.readAt);
-  const pending =
-    item.available &&
-    item.requestStatus === "PENDING" &&
-    item.requestId !== null &&
-    (item.type === "CONTRIBUTION_CREATED" || item.type === "FOLLOW_REQUESTED");
+  const { unread, pending } = notificationRowState(group);
   return (
     <li
       className={`mb-3 rounded-2xl border p-4 ${unread ? "border-violet-400/20 bg-violet-400/[0.06]" : "border-white/[0.06] bg-white/[0.015]"}`}
     >
       <div className="mb-2 flex items-center justify-between gap-2">
-        <span className="flex min-w-0 items-center gap-2 text-caption font-medium text-app-muted">
+        <span className="flex min-w-0 items-center gap-2 text-label font-semibold text-app-fg">
           {unread && (
             <span aria-label="미확인" className="size-1.5 shrink-0 rounded-full bg-red-400" />
           )}
@@ -350,7 +395,7 @@ function NotificationRow({
       >
         {notificationBody(group)}
       </button>
-      <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-caption">
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-body">
         {pending && item.type === "CONTRIBUTION_CREATED" ? (
           <button
             type="button"
@@ -401,8 +446,8 @@ function NotificationRow({
         </div>
       ) : (
         item.requestStatus && (
-          <p className="mt-2 text-caption text-app-muted">
-            {statusLabel[item.requestStatus] ?? "처리 완료"}
+          <p className="mt-2 text-body text-app-muted">
+            {notificationStatusLabel(item.requestStatus)}
           </p>
         )
       )}

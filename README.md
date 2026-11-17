@@ -83,6 +83,69 @@ GitHub Actions 저장소 변수 `VITE_API_BASE_URL`, `VITE_GOOGLE_CLIENT_ID`와 
 
 배포 ingress는 기존 콘텐츠의 상대 `/files/...` URL을 백엔드로 전달하고 나머지 경로는 프론트로 전달합니다. 프론트 컨테이너만 직접 실행하면 이 파일 라우팅이 없고, 로컬 `http://127.0.0.1:15173` 출처가 운영 API CORS에 허용되지 않을 수 있습니다. 운영 연동 검증은 ingress와 실제 운영 출처를 함께 사용해야 하며, 검증을 위해 운영 CORS를 임의로 넓히지 않습니다.
 
+## React Native 앱 빌드
+
+배포 우선순위는 웹 → Android → iOS입니다. 웹 빌드·배포(`npm run build`, Docker)는 앱과 무관하게 그대로이고, 앱은 같은 웹 빌드를 담는 React Native(Expo) 셸(`native/`)입니다. `native/`는 루트와 별도 패키지라 웹의 React 버전과 의존성에 영향을 주지 않습니다.
+
+앱은 Vite 빌드 결과를 번들에 포함하고, 기기 안의 로컬 정적 서버(`@dr.pogodin/react-native-static-server`)로 `http://127.0.0.1:17173`에서 제공합니다. WebView는 화면에 노출되지 않는 데이터·동작 컨트롤러이며 앱의 페이지와 대화창은 React Native가 그립니다. `createBrowserRouter`와 origin 단위 `localStorage`를 유지하기 위해 `file://` 대신 고정 포트의 HTTP origin을 사용합니다.
+
+```sh
+cp .env.native.example .env.native   # API 주소, Google 웹 클라이언트 ID, 공유 링크용 웹 origin
+npm run native:install               # native/ 의존성 설치 (최초 1회)
+npm run native:web                   # 타입 검사 + native/web/webroot 로 웹 빌드
+npm run native:android               # Android 디버그 빌드·실행
+npm run native:android:release       # Android 릴리스 APK 빌드·실행 (업로드 키 없으면 디버그 키로 서명)
+npm run native:android:bundle        # Play 스토어 업로드용 AAB (업로드 키 필수)
+npm run native:ios                   # iOS 디버그 빌드·실행
+npm run native:ios:release
+npm run native:prebuild              # app.config.ts/플러그인 변경 후 native/android, native/ios 재생성
+```
+
+### 웹 ↔ 앱 연동
+
+- `src/lib/native-app.ts`: 앱 안에서 실행 중인지(`nativeApp()`) 판별하고, 네이티브 기능을 요청(`requestNative`)합니다. 앱은 WebView User-Agent에 `NarackrockApp/<platform>`을 붙이므로 첫 렌더링부터 판별됩니다. 일반 브라우저에서는 `nativeApp()`이 `null`이라 웹 동작은 바뀌지 않습니다.
+- 웹과 앱의 메시지 형식은 `src/lib/native-bridge-protocol.ts` 하나에 정의하고, 앱(`native/bridge.ts`)은 `import type`으로 같은 타입을 씁니다. 앱은 실행마다 만든 토큰을 메인 프레임에만 주입하고, 토큰이 맞는 요청만 처리하므로 외부 iframe은 네이티브 기능을 호출할 수 없습니다.
+- 백그라운드: 앱이 백그라운드로 가면 페이지의 `<audio>`/`<video>`를 멈추고 `narackrock:app-background` 이벤트를 보냅니다. Web Audio 재생(`useCompositionPlayback`)은 `onAppBackground`로 이 이벤트를 받아 멈춥니다. 로컬 서버도 백그라운드에서 멈췄다가 돌아오면 다시 켜집니다.
+- Google 로그인: Google은 WebView 안의 웹 로그인을 막으므로, 앱에서는 로그인 화면이 네이티브 Google 로그인(`@react-native-google-signin/google-signin`)을 호출합니다. ID 토큰은 웹 클라이언트 ID 기준으로 발급되어 백엔드 검증은 웹과 같습니다.
+- 공유: WebView에는 Web Share API가 없으므로 `shareLink`는 앱에서 네이티브 공유 시트(`share`)를 띄웁니다. 링크는 앱의 페이지 origin이 `127.0.0.1`이므로 `VITE_PUBLIC_WEB_ORIGIN`(운영 `https://narackrock.com`)으로 만듭니다. 웹에서는 설정하지 않으면 현재 origin을 씁니다.
+- 기존 콘텐츠의 상대 `/files/...` URL은 앱의 로컬 서버가 API origin으로 리다이렉트합니다.
+
+### 네이티브 화면
+
+앱에서는 웹 페이지의 시각적 DOM을 마운트하지 않습니다. 웹 컨트롤러는 데이터(세션·토큰 갱신·쿼리 캐시·로컬 저장소)와 동작(이동·로그인 확인·신고 처리)을 맡고, 뷰 모델만 브리지로 보냅니다. 앱은 네이티브 UI를 그리고 사용자 동작을 컨트롤러에 돌려줍니다. WebView 자체도 비표시·입력 불가·접근성 제외 상태이므로 전환 중 웹 화면이 노출되지 않습니다. 원본 음원 재생용 비시각적 `<audio>`는 유지합니다. 브라우저에서는 기존 웹 화면을 렌더링합니다.
+
+- 하단 탭 바: 앱의 `Footer`는 DOM 없이 활성 탭·만들기 라벨만 보냅니다(`set-footer`). `native/tab-bar.tsx`가 탭 바를 그리고, 누르면 `narackrock:footer-press`로 페이지의 만들기 동작을 실행합니다. 키보드와 네이티브 알림 오버레이가 열리면 숨깁니다.
+- 화면 브리지: `src/features/navigation/use-native-screen.tsx`의 `useNativeScreen`이 `set-screen`으로 화면 종류·헤더·뷰 모델을 보내고, 앱 동작을 `narackrock:screen-action`으로 받습니다. 계약은 `src/lib/native-screens/`, 웹 브리지는 각 기능 폴더, React Native 화면은 `native/screens/`에 둡니다. 공통 UI는 `native/ui/`를 씁니다.
+- 화면 스택: `native/screen-stack.tsx`가 최근 history 항목 8개를 마운트한 채 보관해 뒤로가기 시 스크롤과 입력 상태를 유지합니다. 키는 history 위치와 경로로 만들며, 같은 페이지에서 경로만 바꾸는 화면은 `useNativeScreen`의 `path` 옵션으로 고정합니다. 새 화면을 기다리는 동안에도 웹을 노출하지 않고 네이티브 로딩 상태를 표시합니다.
+- 적용 화면: 홈·차트·인기 게시글·검색, 게시글 상세·작성·댓글, 소셜·커뮤니티·친구, 샘플 탐색·상세·등록, 프로필·설정·개인정보·저장함·알림, 로그인·온보딩, 작업 공간·제출·검토·보관함, 어비스, 채팅, 관리자·커뮤니티 관리, 스튜디오(타임라인·새 프로젝트·레이어 선택)·노트 편집기(피아노롤·드럼·코드)·레이어 추가(업로드·녹음·가져오기). 브라우저에서는 기존 웹 화면을 렌더링합니다.
+- 오디오 엔진: 앱에서는 `useCompositionPlayback`이 같은 API로 `native/audio/`의 엔진(`react-native-audio-api`)을 `audio-engine` 브리지로 구동합니다. 샘플러·트랙 믹서·메트로놈·미리 듣기·노트 WAV 렌더링(`audio-render-notes`)·마이크 녹음(`audio-record`)이 네이티브에서 돌고, 타임라인 계산은 웹 모듈(`composition-playback-timeline.ts`, `instrument-catalog.ts`)을 그대로 씁니다. 엔진은 `narackrock:audio-state`로 웹에 재생 상태를 알리고, 네이티브 화면은 재생 위치를 `useNativeAudioState`로 매 프레임 읽습니다. 브라우저는 계속 Tone을 씁니다.
+- 재생: 보관함·샘플·어비스의 원본 음원(`<audio>`)은 웹이 재생하고 네이티브 화면은 상태 표시와 제어만 합니다. 어비스 참여자 부분 재생은 위 오디오 엔진을 씁니다. 어비스는 웹과 같은 390×688 디자인 영역(커버·제목·반응·재생 컨트롤·참여 버튼)을 화면에 맞는 배율로 그리고, 웹처럼 커버를 가로로 밀어 곡을 바꿉니다. 주소를 교체해도 같은 화면 키를 유지합니다. 글꼴은 웹의 Pretendard(`native/assets/fonts`, `expo-font`)를 씁니다.
+- 편집 동작: 클립 이동·노트 편집 같은 드래그는 앱에서 미리 보여 주고 손을 뗄 때 최종 값을 한 번 보냅니다. 겹침·범위 검사, 실행 취소, 초안 저장은 웹 규칙이 처리합니다.
+- 파일 내보내기: WebView는 blob 다운로드를 무시하므로 `saveFile()`이 앱에서는 `share-file`(`expo-sharing`)로 공유 시트를 열고, 브라우저에서는 다운로드합니다(노트 복구본, 이관 원본).
+- 사진: `pickNativeImage()`가 `pick-image` 브리지로 시스템 사진 선택기를 열어 `File`을 돌려줍니다. 웹과 같은 검증·업로드 코드를 쓰며, 브라우저의 파일 입력은 그대로입니다. 플러그인을 변경하면 prebuild를 다시 실행해야 합니다.
+- 채팅: 앱은 웹 화면 대신 `NativeChatBridge`를 마운트하므로 대화 상태·실시간 연결·읽음 처리는 한 인스턴스가 맡습니다. 네이티브 입력은 전송 성공 카운터가 바뀔 때만 지워져 전송 실패 시 초안이 남습니다.
+- 대화창: 앱에서는 `NativeDialog`가 `set-dialog`로 제목·입력 필드·선택지·버튼만 보내고, `native/ui/dialog.tsx`의 React Native Modal이 표시합니다. 동작은 `narackrock:dialog-action`으로 컨트롤러에 돌려줍니다. 로그인 확인·신고·작성 취소·관리자 작업·이관/복구도 웹 모달을 마운트하지 않습니다. 다이얼로그별 ID로 갱신·종료하므로 이전 대화창의 cleanup이 새 대화창을 닫지 않습니다.
+- 샘플 등록·레이어 추가(업로드/녹음/가져오기): 오디오 선택·녹음·피아노와 썸네일 자르기까지 네이티브 화면(`native/screens/creation/`, `native/screens/sources/crop.tsx`)으로 그립니다. 오디오 파일은 `pickNativeAudio()`(`pick-audio`, `expo-document-picker`)로 고르고 파형·길이 계산과 저장은 웹이 맡으며, 구간 미리 듣기·녹음·피아노 렌더링은 앱 오디오 엔진을 씁니다. 업로드는 오디오 파일을 받으며 MIDI 파일 업로드 기능은 아닙니다.
+- 뒤로가기(Android): 네이티브 Modal·시트·대화창이 열렸으면 그쪽이 처리하고(표시 중인 화면의 것만), 없으면 현재 화면에 `back` 액션을 보내 헤더의 뒤로 버튼과 같은 흐름(피아노롤 초안 선택, 빈 신규 레이어 정리 등)을 실행합니다. 첫 화면이면 앱을 닫습니다. `WebView.canGoBack()`은 페이지 안 사용자 제스처 없이 추가된 항목(네이티브 버튼으로 시작한 이동)을 건너뛰므로, 컨트롤러가 react-router history 위치를 보냅니다(`set-history`).
+- 화면 모달: 화면 안의 시트·메뉴는 `ScreenModal`을 써서 현재 표시 중인 화면일 때만 보입니다. 보관된 이전 화면이나 알림 오버레이 아래 화면의 모달은 닫힙니다.
+- 문서 시작: 문서 시작 스크립트가 `document-start`를 보내고, 앱은 이때만 이전 문서의 오디오 엔진과 녹음을 정리합니다. Android WebView의 로드 시작 이벤트는 SPA 이동에도 발생하므로 쓰지 않습니다.
+- 아이콘: 네이티브 화면은 `public/figma/*.svg`를 웹과 함께 쓰고, `native/svg-transformer.js`가 SVGR로 `react-native-svg` 컴포넌트로 바꿉니다. 색·글꼴 크기는 `src/styles/tokens.ts`를 씁니다.
+
+### 배포 설정
+
+- 버전: 루트 `package.json`의 `version`을 웹과 앱이 함께 사용합니다. Android `versionCode`와 iOS `buildNumber`는 `1.2.3 → 10203`으로 계산되므로 스토어 업로드마다 루트 버전을 올립니다. minor·patch는 0~99여야 하고(아니면 설정 단계에서 오류), `-rc.1` 같은 프리릴리스 꼬리표는 빠지므로 `1.2.3-rc.1`과 `1.2.3`은 같은 번호입니다.
+- Android 서명: Play 업로드 키를 `~/.gradle/gradle.properties`(또는 `ORG_GRADLE_PROJECT_*` 환경 변수)에 `NARACKROCK_UPLOAD_STORE_FILE`, `NARACKROCK_UPLOAD_STORE_PASSWORD`, `NARACKROCK_UPLOAD_KEY_ALIAS`, `NARACKROCK_UPLOAD_KEY_PASSWORD`로 설정합니다. 키스토어와 비밀번호는 저장소에 넣지 않습니다.
+- Android 네트워크: 릴리스 빌드는 평문 HTTP를 `127.0.0.1`(앱 내부 서버), `localhost`·`10.0.2.2`(개발용 Metro)만 허용합니다. 디버그 빌드는 모든 평문 HTTP를 허용해 실기기에서 LAN API로 테스트할 수 있습니다.
+- iOS Google 로그인: `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID` 없이 prebuild하면 Release 빌드는 Xcode 빌드 단계에서 실패합니다. Debug 빌드는 되지만 로그인 버튼이 "iOS Google 로그인 설정이 필요합니다." 오류를 표시합니다.
+- Google Cloud(웹 클라이언트와 같은 프로젝트): Android OAuth 클라이언트를 패키지 `com.teamglitched.narackrock`와 서명 인증서 SHA-1(디버그 키, 업로드 키, Play 앱 서명 키)로 등록합니다. iOS는 iOS OAuth 클라이언트를 만들고 `native/.env`의 `EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID`에 넣습니다(`native/.env.example` 참고).
+- 백엔드: CORS(`ADLIPS_CORS_ALLOWED_ORIGINS`)와 채팅 WebSocket 허용 origin에 `http://127.0.0.1:17173`을 추가해야 앱에서 API를 호출할 수 있습니다.
+
+### 참고
+
+- 웹 빌드는 Vite mode `native`로 수행해 `.env.native`(`.env.native.local`)가 `.env.local`보다 우선합니다. 기기에서 `localhost`는 개발 PC가 아니므로 배포된 https API를 쓰거나, 디버그 빌드에서는 LAN IP·Android 에뮬레이터의 `10.0.2.2`를 사용합니다(Android 릴리스 빌드는 이 주소들의 평문 HTTP를 막습니다).
+- `native/android`, `native/ios`, `native/web`은 생성물이며 커밋하지 않습니다. 네이티브 설정은 `native/app.config.ts`와 `native/plugins/`에서 관리합니다.
+- 빌드 도구: Node.js, JDK 17(Android, React Native 공식 권장), Android SDK의 NDK·CMake, Homebrew `cmake`·`pkg-config`(정적 서버 네이티브 빌드), iOS는 Xcode와 CocoaPods가 필요합니다.
+
 ## 구조
 
 같은 기능의 페이지, 화면, 훅, 테스트는 `src/features/<기능>/`에서 함께 찾습니다.
@@ -164,7 +227,7 @@ Prettier 설정은 `.prettierrc.json`, 기본 편집 규칙은 `.editorconfig`�
 | 노트 편집               | `/studio/42/tracks/3/notes?clipId=9`         |
 
 검색 조건과 선택한 리소스는 URL에 보관하며, 뒤로·앞으로 가기는 React Router의 브라우저 기록을 사용합니다.
-알림은 현재 화면의 URL에 `notifications=1`을 추가해 표시하므로 작성·녹음 중인 화면을 유지합니다.
+알림은 현재 화면의 URL에 `notifications=1`을 추가해 표시하므로 작성·녹음 중인 컨트롤러를 유지합니다. 앱에서는 별도 네이티브 화면 스택(`overlay: true`)에 알림을 올리고, 닫으면 아래 화면과 입력 상태가 유지됩니다.
 `useUrlNavigation`은 `to`, `back`, `params`, `query`, `state`, `currentPath`만 제공합니다. 화면 컴포넌트에는 `onProfile`, `onStartSong`처럼 필요한 행동 callback만 전달합니다.
 검색 문맥은 query 값 → 커뮤니티의 posts → 페이지 기본값 순서로 결정합니다. 생성 목적지는 페이지가 계산하며 프로필의 생성은 항상 곡 만들기입니다.
 스튜디오 최초 진입은 `studioFrom`과 `studioIndex`를 기록하고 레이어·녹음·노트 이동에서는 이를 보존합니다. 알림은 기존 query와 route state를 유지합니다.
