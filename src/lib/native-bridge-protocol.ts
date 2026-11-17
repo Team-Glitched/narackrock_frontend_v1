@@ -108,6 +108,12 @@ export type NativeAudioState = {
 /** Request type → payload sent by the web and result returned by the app. */
 export type BridgeMethods = {
   "google-sign-in": { payload: { webClientId: string }; result: GoogleSignInResult };
+  /**
+   * A new document started in the WebView (initial load, reload, crash recovery), posted by the
+   * app's start-of-document script before any page script runs. Unlike WebView load events it is
+   * not sent for SPA history changes, so the app ends the previous document's audio only here.
+   */
+  "document-start": { payload: Record<never, never>; result: null };
   /** The page's footer appeared or changed; null when it left the screen. */
   "set-footer": { payload: { footer: NativeFooter | null }; result: null };
   /** A page's native screen appeared, changed or left (see `NativeScreenReport`). */

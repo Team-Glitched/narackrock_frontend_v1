@@ -55,7 +55,15 @@ export const userAgentToken: NativeUserAgentToken =
 /** Secret for this launch. Injected into the main frame only; cross-origin frames cannot read it. */
 export const bridgeToken = randomUUID();
 
-export const injectedBeforeContentLoaded = `window.${tokenGlobal} = ${JSON.stringify(bridgeToken)}; true;`;
+/**
+ * Runs at the start of every main-frame document, before page scripts: hands the page this launch's
+ * token and tells the app a new document started (`document-start`). Both platforms define
+ * `ReactNativeWebView` before this script.
+ */
+export const injectedBeforeContentLoaded = `window.${tokenGlobal} = ${JSON.stringify(bridgeToken)};
+if (window.ReactNativeWebView) window.ReactNativeWebView.postMessage(${JSON.stringify(
+  JSON.stringify({ id: 0, token: bridgeToken, type: "document-start" }),
+)}); true;`;
 
 /** Pauses page media and lets Web Audio owners stop (see `onAppBackground` in the web). */
 export const appBackgroundScript = `document.querySelectorAll("audio, video").forEach(function (media) { media.pause(); });
@@ -101,6 +109,8 @@ export type BridgeHost = {
   setSession(session: NativeSession): void;
   setDialog(dialog: NativeDialogReport): void;
   setCanGoBack(canGoBack: boolean): void;
+  /** A new document started: the previous document's audio scopes end. */
+  documentStart(): void;
 };
 
 const footerTabs: readonly unknown[] = [
@@ -171,6 +181,8 @@ export function parseRequest(data: string): BridgeRequest | null {
       )
         return null;
       return { id, token: bridgeToken, type: parsed.type, webClientId: parsed.webClientId };
+    case "document-start":
+      return { id, token: bridgeToken, type: parsed.type };
     case "set-footer": {
       const footer = "footer" in parsed ? readFooter(parsed.footer) : undefined;
       return footer === undefined ? null : { id, token: bridgeToken, type: parsed.type, footer };
@@ -316,6 +328,9 @@ async function run(
   switch (request.type) {
     case "google-sign-in":
       return signInWithGoogle(request.webClientId);
+    case "document-start":
+      host.documentStart();
+      return null;
     case "set-footer":
       host.setFooter(request.footer);
       return null;

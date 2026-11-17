@@ -180,11 +180,6 @@ function WebShell() {
       webView.current?.injectJavaScript(screenActionScript(key, action)),
     [],
   );
-  // A page (re)load ends every audio scope of the previous document.
-  const resetAudio = useCallback(() => {
-    disposeAudioEngines();
-    cancelRecording();
-  }, []);
 
   // Audio engine transports reach the page like screen actions (see `onNativeAudioState`).
   useEffect(
@@ -267,6 +262,12 @@ function WebShell() {
         setCanGoBack: (value) => {
           canGoBack.current = value;
         },
+        // A new document ends every audio scope of the previous one. WebView load events cannot
+        // tell: Android also fires them on SPA history changes, which would wipe the new page's engine.
+        documentStart: () => {
+          disposeAudioEngines();
+          cancelRecording();
+        },
       }).then((response) => webView.current?.injectJavaScript(responseScript(response)));
     },
     [origin],
@@ -328,7 +329,6 @@ function WebShell() {
           applicationNameForUserAgent={userAgentToken}
           injectedJavaScriptBeforeContentLoaded={injectedBeforeContentLoaded}
           injectedJavaScriptBeforeContentLoadedForMainFrameOnly
-          onLoadStart={resetAudio}
           onMessage={onMessage}
           onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
           onContentProcessDidTerminate={reload}
