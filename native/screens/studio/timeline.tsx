@@ -79,26 +79,28 @@ function Studio({ model }: { model: NativeStudio }) {
         onBack={() => act({ type: "studio-exit" })}
         onSample={model.canImportSource ? () => act({ type: "source-open" }) : undefined}
       >
-        {model.privateSave && (
-          <ToolbarTextButton
-            label="임시 저장"
-            disabled={model.privateSave.disabled}
-            onPress={() => act({ type: "studio-private-save" })}
-          />
-        )}
-        {primary.kind !== "add" ? (
-          <ToolbarTextButton
-            label={primary.kind === "submit" ? "제출하기" : "공개하기"}
-            disabled={primary.disabled}
-            onPress={() => act({ type: "studio-primary" })}
-          />
-        ) : (
-          <AddButton
-            label="레이어 추가"
-            disabled={primary.disabled}
-            onPress={() => act({ type: "studio-primary" })}
-          />
-        )}
+        <View style={styles.toolbarActions}>
+          {model.privateSave && (
+            <ToolbarTextButton
+              label="임시 저장"
+              disabled={model.privateSave.disabled}
+              onPress={() => act({ type: "studio-private-save" })}
+            />
+          )}
+          {primary.kind !== "add" ? (
+            <ToolbarTextButton
+              label={primary.kind === "submit" ? "제출하기" : "공개하기"}
+              disabled={primary.disabled}
+              onPress={() => act({ type: "studio-primary" })}
+            />
+          ) : (
+            <AddButton
+              label="레이어 추가"
+              disabled={primary.disabled}
+              onPress={() => act({ type: "studio-primary" })}
+            />
+          )}
+        </View>
       </StudioToolbar>
       {model.selectMidiLayer && (
         <Text style={styles.notice}>피아노롤에서 열 MIDI 레이어를 선택하세요.</Text>
@@ -814,6 +816,8 @@ function FormButton({
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
+  // "임시 저장" beside "공개하기"/"제출하기" (the web's .studio-submit + .studio-submit margin).
+  toolbarActions: { flexDirection: "row", alignItems: "center", gap: 8 },
   disabled: { opacity: 0.5 },
   notice: {
     paddingHorizontal: 16,

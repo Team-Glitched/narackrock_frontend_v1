@@ -313,7 +313,8 @@ const styles = StyleSheet.create({
   volume: {
     flex: 1,
     maxWidth: 210,
-    minWidth: 80,
+    // Shrinks to the icon and a short slider so two toolbar buttons fit (web .studio-volume).
+    minWidth: 44,
     marginLeft: "auto",
     marginRight: 30,
     flexDirection: "row",
