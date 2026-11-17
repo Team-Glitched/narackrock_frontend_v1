@@ -163,6 +163,9 @@ function WebShell() {
   const [dialogs, setDialogs] = useState<NativeDialogReport[]>([]);
   const [viewport, setViewport] = useState<Viewport | null>(null);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
+  // The screen on display; hardware Back goes to its page like the header's back button.
+  const shownScreen = useRef<string | null>(null);
+  shownScreen.current = overlayStack.current ?? stack.current;
   // A restarted page reports its native views again once mounted.
   const reload = useCallback(() => {
     setFooter(null);
@@ -194,11 +197,17 @@ function WebShell() {
     requestMicrophoneAtLaunch().catch(() => {});
   }, []);
 
-  // Native dialogs handle Back themselves; otherwise walk SPA history before leaving the app.
+  // Native dialogs and sheets handle Back themselves (Modal onRequestClose, sheet listeners). Otherwise
+  // Back is the shown screen's back action, so its page runs the same leave flow as the header's back
+  // button (the piano roll's draft choice, an empty new layer's cleanup) instead of a bare
+  // history.back(). On the first entry it leaves the app.
   useEffect(() => {
     const subscription = BackHandler.addEventListener("hardwareBackPress", () => {
-      if (canGoBack.current) webView.current?.injectJavaScript(historyBackScript);
-      else return false;
+      if (!canGoBack.current) return false;
+      const key = shownScreen.current;
+      webView.current?.injectJavaScript(
+        key ? screenActionScript(key, { type: "back" }) : historyBackScript,
+      );
       return true;
     });
     return () => subscription.remove();

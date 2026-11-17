@@ -1,7 +1,8 @@
-import { useEffect, useRef, type ReactNode } from "react";
-import { BackHandler, Pressable, StyleSheet, View } from "react-native";
+import type { ReactNode } from "react";
+import { Pressable, StyleSheet, View } from "react-native";
 
 import { Touchable } from "../../ui/kit";
+import { useScreenBack } from "../../ui/screen-back";
 import { useScreen } from "../../ui/screen-context";
 import { colors } from "../../ui/theme";
 
@@ -25,16 +26,8 @@ export function AbyssSheet({
   children: ReactNode;
 }) {
   const { topInset } = useScreen();
-  // Back closes the sheet first, as Escape closes the web's sheet (the last listener runs first).
-  const close = useRef(onClose);
-  close.current = onClose;
-  useEffect(() => {
-    const subscription = BackHandler.addEventListener("hardwareBackPress", () => {
-      close.current();
-      return true;
-    });
-    return () => subscription.remove();
-  }, []);
+  // Back closes the sheet first, as Escape closes the web's sheet.
+  useScreenBack(onClose);
   return (
     <View style={StyleSheet.absoluteFill}>
       <Pressable
