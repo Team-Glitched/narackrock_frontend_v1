@@ -69,7 +69,7 @@ function Studio({ model }: { model: NativeStudio }) {
   const { act } = useScreen();
   const [comment, setComment] = useState("");
   const { primary } = model;
-  const error = model.submit ? null : model.error;
+  const error = model.submit || model.publishForm ? null : model.error;
   return (
     <View style={styles.flex}>
       <StudioToolbar
@@ -79,19 +79,28 @@ function Studio({ model }: { model: NativeStudio }) {
         onBack={() => act({ type: "studio-exit" })}
         onSample={model.canImportSource ? () => act({ type: "source-open" }) : undefined}
       >
-        {primary.kind === "submit" ? (
-          <ToolbarTextButton
-            label="제출하기"
-            disabled={primary.disabled}
-            onPress={() => act({ type: "studio-primary" })}
-          />
-        ) : (
-          <AddButton
-            label={primary.kind === "publish" ? "곡 올리기" : "레이어 추가"}
-            disabled={primary.disabled}
-            onPress={() => act({ type: "studio-primary" })}
-          />
-        )}
+        <View style={styles.toolbarActions}>
+          {model.privateSave && (
+            <ToolbarTextButton
+              label="임시 저장"
+              disabled={model.privateSave.disabled}
+              onPress={() => act({ type: "studio-private-save" })}
+            />
+          )}
+          {primary.kind !== "add" ? (
+            <ToolbarTextButton
+              label={primary.kind === "submit" ? "제출하기" : "공개하기"}
+              disabled={primary.disabled}
+              onPress={() => act({ type: "studio-primary" })}
+            />
+          ) : (
+            <AddButton
+              label="레이어 추가"
+              disabled={primary.disabled}
+              onPress={() => act({ type: "studio-primary" })}
+            />
+          )}
+        </View>
       </StudioToolbar>
       {model.selectMidiLayer && (
         <Text style={styles.notice}>피아노롤에서 열 MIDI 레이어를 선택하세요.</Text>
@@ -737,10 +746,11 @@ function PublishForm({ form }: { form: NonNullable<NativeStudio["publishForm"]> 
   const save = () => {
     if (!form.busy && title.trim()) act({ type: "studio-publish-save", title });
   };
+  const heading = form.action === "save" ? "곡 임시 저장" : "곡 공개 정보";
   return (
-    <View style={styles.form} accessibilityViewIsModal accessibilityLabel="곡 올리기">
+    <View style={styles.form} accessibilityViewIsModal accessibilityLabel={heading}>
       <Text style={styles.formTitle} accessibilityRole="header">
-        곡 올리기
+        {heading}
       </Text>
       <Text style={styles.formText}>곡 제목을 등록하세요. 앨범 이미지는 선택사항입니다.</Text>
       <View style={styles.formField}>
@@ -769,10 +779,11 @@ function PublishForm({ form }: { form: NonNullable<NativeStudio["publishForm"]> 
           </Text>
         </View>
       </View>
+      {form.error && <Text style={styles.formText} accessibilityRole="alert">{form.error}</Text>}
       <View style={styles.formButtons}>
-        <FormButton label="취소" onPress={() => act({ type: "studio-publish-form-close" })} />
+        <FormButton label="취소" disabled={form.busy} onPress={() => act({ type: "studio-publish-form-close" })} />
         <FormButton
-          label={form.busy ? "저장 중..." : "정보 저장"}
+          label={form.busy ? "저장 중..." : form.action === "save" ? "비공개로 저장" : "다음"}
           disabled={form.busy || !title.trim()}
           onPress={save}
         />
@@ -805,6 +816,8 @@ function FormButton({
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
+  // "임시 저장" beside "공개하기"/"제출하기" (the web's .studio-submit + .studio-submit margin).
+  toolbarActions: { flexDirection: "row", alignItems: "center", gap: 8 },
   disabled: { opacity: 0.5 },
   notice: {
     paddingHorizontal: 16,

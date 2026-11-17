@@ -117,7 +117,7 @@ export function useStudio({
   const [status, setStatus] = useState<string | null>(null);
   const [showSubmitForm, setShowSubmitForm] = useState(false);
   const [showPublishConfirmation, setShowPublishConfirmation] = useState(false);
-  const [showPublishForm, setShowPublishForm] = useState(false);
+  const [metadataAction, setMetadataAction] = useState<"save" | "publish" | null>(null);
   const [publishTitle, setPublishTitle] = useState("");
   const [publishImage, setPublishImage] = useState<File | null>(null);
   const [pendingAudio, setPendingAudio] = useState<PendingStudioAudio | null>(null);
@@ -293,20 +293,50 @@ export function useStudio({
     }
   }
 
-  async function publish(afterMetadataSave = false) {
-    if (!composition || (busy && !afterMetadataSave)) return;
+  const canSavePrivate =
+    composition !== null &&
+    shortId === null &&
+    !composition.project.isPublic &&
+    composition.project.ownerId === composition.viewerPermission.userId &&
+    composition.viewerPermission.canEdit;
+
+  async function commitProjectEdits() {
+    if (!composition) return;
+    const id = composition.project.projectId;
+    const storage = browserDraftStorage();
+    const drafts = await syncProjectEditorDrafts(id, composition.viewerPermission.userId, storage);
+    if (drafts.length) clearCommittedRecovery(storage, await commitEditorDrafts(id, drafts));
+  }
+
+  async function savePrivateDraft(title?: string) {
+    if (!composition || busy || !canSavePrivate) return;
+    setBusy(true);
+    setError(null);
+    setStatus(null);
+    try {
+      await commitProjectEdits();
+      if (title) {
+        const imageId = publishImage ? await uploadMedia(publishImage, "IMAGE") : null;
+        await updateProjectMetadata(composition.project.projectId, title, imageId);
+      }
+      setMetadataAction(null);
+      setStatus("비공개로 저장했습니다. 작업 중인 음악에서 이어서 편집할 수 있습니다.");
+    } catch (cause) {
+      setError(errorText(cause));
+    } finally {
+      void queryClient.invalidateQueries({ queryKey: compositionKeys.all(userId) });
+      setBusy(false);
+    }
+  }
+
+  async function publish() {
+    if (!composition || busy) return;
     setBusy(true);
     setError(null);
     setStatus("숏폼 음원을 생성하는 중입니다.");
     try {
       const id = composition.project.projectId;
-      const drafts = await syncProjectEditorDrafts(
-        id,
-        composition.viewerPermission.userId,
-        browserDraftStorage(),
-      );
-      const committed = await commitEditorDrafts(id, drafts);
-      clearCommittedRecovery(browserDraftStorage(), committed);
+      await commitProjectEdits();
       if (composition.viewerPermission.canReviewContribution) {
         const latest = await queryClient.fetchQuery({
           ...compositionQuery(userId, id),
@@ -363,26 +393,29 @@ export function useStudio({
   }
 
   function requestPublish() {
-    if (!composition) return;
-    if (!composition.tracks.some((track) => track.clips.length)) {
-      setError("먼저 피아노롤 노트나 오디오 파일을 레이어에 저장해 주세요.");
-      return;
-    }
+    if (!composition || busy) return;
+    setError(null);
+    setStatus(null);
     if (composition.project.title === "제목 없는 곡") {
       setPublishTitle("");
-      setShowPublishForm(true);
+      setPublishImage(null);
+      setMetadataAction("publish");
     } else setShowPublishConfirmation(true);
   }
 
   async function finishMetadata(title: string) {
-    if (!composition || !title.trim() || busy) return;
+    if (!composition || !metadataAction || !title.trim() || busy) return;
+    if (metadataAction === "save") {
+      await savePrivateDraft(title.trim());
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
       const imageId = publishImage ? await uploadMedia(publishImage, "IMAGE") : null;
       await updateProjectMetadata(composition.project.projectId, title.trim(), imageId);
       await refresh();
-      setShowPublishForm(false);
+      setMetadataAction(null);
       setShowPublishConfirmation(true);
     } catch (cause) {
       setError(errorText(cause));
@@ -595,8 +628,22 @@ export function useStudio({
     submitDrafts,
     showPublishConfirmation,
     setShowPublishConfirmation,
-    showPublishForm,
-    setShowPublishForm,
+    metadataAction,
+    closeMetadata: () => {
+      if (!busy) setMetadataAction(null);
+    },
+    canSavePrivate,
+    savePrivateDisabled: busy || !tracks.some((track) => track.clips.length),
+    requestPrivateSave: () => {
+      if (!canSavePrivate || busy || !tracks.some((track) => track.clips.length)) return;
+      if (project?.title === "제목 없는 곡") {
+        setError(null);
+        setStatus(null);
+        setPublishTitle("");
+        setPublishImage(null);
+        setMetadataAction("save");
+      } else void savePrivateDraft();
+    },
     publishTitle,
     setPublishTitle,
     publishImage,
@@ -698,6 +745,15 @@ export function StudioScreen({ studio }: { studio: Studio }) {
         }
         onBack={studio.onExit}
       >
+        {studio.canSavePrivate && (
+          <button
+            className={studioStyles.studioSubmit}
+            disabled={studio.savePrivateDisabled}
+            onClick={studio.requestPrivateSave}
+          >
+            임시 저장
+          </button>
+        )}
         {primary.kind === "submit" ? (
           <button
             className={studioStyles.studioSubmit}
@@ -709,12 +765,20 @@ export function StudioScreen({ studio }: { studio: Studio }) {
           >
             제출하기
           </button>
+        ) : primary.kind === "publish" ? (
+          <button
+            className={studioStyles.studioSubmit}
+            disabled={primary.disabled}
+            onClick={studio.requestPublish}
+          >
+            공개하기
+          </button>
         ) : (
           <button
             className={studioStyles.studioAdd}
-            onClick={primary.kind === "publish" ? studio.requestPublish : studio.onAddLayer}
+            onClick={studio.onAddLayer}
             disabled={primary.disabled}
-            aria-label={primary.kind === "publish" ? "곡 올리기" : "레이어 추가"}
+            aria-label="레이어 추가"
             title={primary.hint ?? undefined}
           >
             <i />
@@ -741,7 +805,7 @@ export function StudioScreen({ studio }: { studio: Studio }) {
           )}
         </div>
       )}
-      {(error || playback.error) && !studio.showSubmitForm && (
+      {(error || playback.error) && !studio.showSubmitForm && !studio.metadataAction && (
         <p className={studioStyles.studioError} role="alert">
           {error ?? playback.error}
         </p>
@@ -802,7 +866,7 @@ export function StudioScreen({ studio }: { studio: Studio }) {
           }}
         />
       )}
-      {studio.showPublishForm && (
+      {studio.metadataAction && (
         <form
           className={studioStyles.studioPublishForm}
           onSubmit={(event) => {
@@ -810,7 +874,7 @@ export function StudioScreen({ studio }: { studio: Studio }) {
             void studio.finishMetadata(studio.publishTitle);
           }}
         >
-          <h2>곡 올리기</h2>
+          <h2>{studio.metadataAction === "save" ? "곡 임시 저장" : "곡 공개 정보"}</h2>
           <p>곡 제목을 등록하세요. 앨범 이미지는 선택사항입니다.</p>
           <label>
             곡 제목
@@ -829,12 +893,13 @@ export function StudioScreen({ studio }: { studio: Studio }) {
               onChange={(event) => studio.setPublishImage(event.target.files?.[0] ?? null)}
             />
           </label>
+          {error && <p role="alert">{error}</p>}
           <div>
-            <button type="button" onClick={() => studio.setShowPublishForm(false)}>
+            <button type="button" disabled={studio.busy} onClick={studio.closeMetadata}>
               취소
             </button>
-            <button disabled={busy} type="submit">
-              {busy ? "저장 중..." : "정보 저장"}
+            <button disabled={studio.busy} type="submit">
+              {studio.busy ? "저장 중..." : studio.metadataAction === "save" ? "비공개로 저장" : "다음"}
             </button>
           </div>
         </form>
