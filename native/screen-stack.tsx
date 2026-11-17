@@ -99,9 +99,10 @@ function ScreenHost({
       openMenu: setMenu,
       bottomInset,
       topInset: landscapeKinds.has(view.kind) ? 0 : topInset,
+      active: visible,
       refreshed: view.refreshed,
     }),
-    [key, onAction, session, origin, bottomInset, topInset, view.kind, view.refreshed],
+    [key, onAction, session, origin, bottomInset, topInset, visible, view.kind, view.refreshed],
   );
   // The registry pairs each kind with its component; TypeScript cannot follow that through the union.
   const Screen = screens[view.kind] as ComponentType<ScreenProps<NativeScreenKind>>;

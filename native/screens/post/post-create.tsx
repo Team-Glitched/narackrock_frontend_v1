@@ -1,14 +1,5 @@
 import { useState } from "react";
-import {
-  Image,
-  Modal,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from "react-native";
+import { Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import Svg, { Path } from "react-native-svg";
 
 import CloseIcon from "../../../public/figma/search-close.svg";
@@ -17,6 +8,7 @@ import type { NativePostCreate } from "../../../src/lib/native-screens";
 import { AppHeader } from "../../ui/header";
 import { Avatar, Button, Status, Touchable } from "../../ui/kit";
 import { useScreen } from "../../ui/screen-context";
+import { ScreenModal } from "../../ui/screen-modal";
 import { colors, gutter, type } from "../../ui/theme";
 import type { ScreenProps } from "../types";
 
@@ -230,7 +222,7 @@ function CommunityPicker({ communities }: { communities: NativePostCreate["commu
           <Path d="m6 9 6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
         </Svg>
       </Touchable>
-      <Modal
+      <ScreenModal
         visible={open}
         transparent
         animationType="slide"
@@ -327,7 +319,7 @@ function CommunityPicker({ communities }: { communities: NativePostCreate["commu
             </ScrollView>
           </View>
         </View>
-      </Modal>
+      </ScreenModal>
     </>
   );
 }

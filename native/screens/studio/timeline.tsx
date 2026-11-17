@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from "react";
 import {
-  Modal,
   PanResponder,
   Pressable,
   ScrollView,
@@ -23,6 +22,7 @@ import SoundMutedIcon from "../../../public/figma/sound-muted.svg";
 import SoundIcon from "../../../public/figma/sound.svg";
 import { Avatar, Touchable } from "../../ui/kit";
 import { useScreen } from "../../ui/screen-context";
+import { ScreenModal } from "../../ui/screen-modal";
 import { colors } from "../../ui/theme";
 import type { ScreenProps } from "../types";
 import { AudioTrim } from "../creation/trim";
@@ -161,7 +161,7 @@ function Studio({ model }: { model: NativeStudio }) {
       <TimingSheet sheet={model.timing} />
       <SourceSheet picker={model.sources} />
       {model.audioTrim && (
-        <Modal
+        <ScreenModal
           transparent
           animationType="fade"
           onRequestClose={() => {
@@ -179,7 +179,7 @@ function Studio({ model }: { model: NativeStudio }) {
               </ScrollView>
             </View>
           </View>
-        </Modal>
+        </ScreenModal>
       )}
     </View>
   );

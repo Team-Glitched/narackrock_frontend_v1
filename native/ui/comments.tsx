@@ -12,7 +12,6 @@
  */
 import { useEffect, useRef, useState, type FC, type ReactElement } from "react";
 import {
-  Modal,
   Pressable,
   StyleSheet,
   Text,
@@ -44,6 +43,7 @@ import { Avatar, Button, MoreButton, TextField, Touchable } from "./kit";
 import { KeyboardAvoiding } from "./keyboard-avoiding";
 import { ScreenList } from "./screen";
 import { useScreen } from "./screen-context";
+import { ScreenModal } from "./screen-modal";
 import { colors, gutter, type } from "./theme";
 
 export type MenuItem = { label: string; icon?: FC<SvgProps>; onPress: () => void };
@@ -61,7 +61,7 @@ export function MenuSheet({
   onClose: () => void;
 }) {
   return (
-    <Modal
+    <ScreenModal
       visible={visible}
       transparent
       animationType="fade"
@@ -95,7 +95,7 @@ export function MenuSheet({
           </Touchable>
         </View>
       </View>
-    </Modal>
+    </ScreenModal>
   );
 }
 
