@@ -58,7 +58,7 @@ function crossesNote(from: Point, to: Point, left: number, top: number, right: n
 
 export function TeamPianoRoll({
   editor, signature, ppq, maxTick, positionTick, onSeekTick, playing,
-  instrument, initialPitch, onAudition, onSettings, rowHeight = 30, keyWidth = 87,
+  instrument, initialPitch, onAudition, onSettings, rowHeight = 30, keyWidth = 87, clipStartTick = 0, suggestion, revealSuggestion,
 }: {
   editor: NoteEditorController;
   signature: TimeSignature;
@@ -71,6 +71,9 @@ export function TeamPianoRoll({
   initialPitch: number;
   onAudition: (pitch: number) => void;
   onSettings?: (index: number) => void;
+  clipStartTick?: number;
+  revealSuggestion?: { pitch: number } | null;
+  suggestion?: { name: string; notes: MidiNoteDto[]; apply: () => void };
   /** Pitch row height and key column width in canvas px; the portrait layout enlarges the touch targets. */
   rowHeight?: number;
   keyWidth?: number;
@@ -86,6 +89,11 @@ export function TeamPianoRoll({
   const [marquee, setMarquee] = useState<Marquee | null>(null);
   const rows = editor.bounds.rows;
   const rowIndices = useMemo(() => new Map(rows.map((pitch, row) => [pitch, row])), [rows]);
+  useLayoutEffect(() => {
+    const workspace = workspaceRef.current;
+    const row = revealSuggestion && rowIndices.get(revealSuggestion.pitch);
+    if (workspace && row != null) workspace.scrollTop = row * rowHeight - (workspace.clientHeight - rowHeight) / 2;
+  }, [revealSuggestion, rowHeight, rowIndices]);
   const selected = new Set(editor.selection);
   const drum = findInstrument(instrument)?.kind === "drum";
   const stepTick = editor.bounds.stepTick;
@@ -349,6 +357,7 @@ export function TeamPianoRoll({
   const beatPixels = ppq * 4 / signature.denominator * pixelsPerTick;
   const barPixels = beatPixels * signature.numerator;
   const snapPixels = stepTick * pixelsPerTick;
+  const gridPosition = `${-clipStartTick * pixelsPerTick}px 0, ${-clipStartTick * pixelsPerTick}px 0, 0 0`;
   const gridBackground = pixelsPerTick > 0
     ? `repeating-linear-gradient(to right,var(--grid-bar) 0 1.5px,transparent 1.5px ${barPixels}px),repeating-linear-gradient(to right,var(--grid-beat) 0 1px,transparent 1px ${beatPixels}px),repeating-linear-gradient(to right,var(--grid-cell) 0 1px,transparent 1px ${snapPixels}px)`
     : "none";
@@ -403,7 +412,7 @@ export function TeamPianoRoll({
         }}
       >
         <MusicalRuler signature={signature} width={width} tickWindow={{
-          ppq, startTick, endTick: Math.min(maxTick, startTick + windowTicks), pixelsPerTick,
+          ppq, startTick, endTick: Math.min(maxTick, startTick + windowTicks), pixelsPerTick, originTick: clipStartTick,
         }} />
         <button
           type="button"
@@ -471,7 +480,7 @@ export function TeamPianoRoll({
             <button
               type="button"
               className={studioStyles.teamNoteCell}
-              style={{ backgroundImage: gridBackground }}
+              style={{ backgroundImage: gridBackground, backgroundPosition: gridPosition }}
               aria-label={`${pitchLabel(pitch)} 노트 추가`}
               aria-disabled={!editor.editable}
               onKeyDown={(event) => {
@@ -532,6 +541,21 @@ export function TeamPianoRoll({
               }}
             >
               {drum ? <DrumPadIcon kind={drumPadFor(note.pitch)?.icon ?? "percussion"} /> : pitchNames[note.pitch % 12]}
+            </button>
+          );
+        })}
+        {suggestion?.notes.map((note) => {
+          const row = rowIndices.get(note.pitch);
+          if (row === undefined) return null;
+          return (
+            <button type="button" key={note.pitch} data-chord-preview
+              className="absolute z-[1] rounded border border-dashed border-violet-200 bg-violet-500/35 px-1 text-left text-caption text-violet-100 hover:bg-violet-500/55"
+              style={{ left: note.startTick * pixelsPerTick, top: row * rowHeight + 3,
+                width: Math.max(1, note.durationTick * pixelsPerTick - 1), height: rowHeight - 6 }}
+              aria-label={`${suggestion.name} 추천 코드 넣기, ${pitchLabel(note.pitch)}`}
+              onPointerDown={(event) => event.stopPropagation()}
+              onClick={suggestion.apply}>
+              {pitchNames[note.pitch % 12]}
             </button>
           );
         })}

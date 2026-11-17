@@ -86,7 +86,7 @@ function crossesNote(from: Point, to: Point, left: number, top: number, right: n
 }
 
 type Gesture = {
-  kind: "draw" | "move" | "resize" | "erase" | "marquee" | "pan" | "tap";
+  kind: "draw" | "move" | "resize" | "erase" | "marquee" | "pan" | "tap" | "suggestion";
   origin: Point;
   previous: Point;
   moved: boolean;
@@ -170,6 +170,14 @@ export function NoteRoll({
     const row = Math.max(0, roll.rows.indexOf(pitch));
     setScrollY(Math.max(0, row * rowHeight - (viewportHeight - rowHeight) / 2));
   }
+
+  const revealPitch = roll.suggestion?.reveal?.pitch;
+  const reveal = roll.suggestion?.reveal;
+  useEffect(() => {
+    if (revealPitch === undefined) return;
+    const row = roll.rows.indexOf(revealPitch);
+    if (row >= 0) setScrollY(Math.max(0, row * rowHeight - (viewportHeight - rowHeight) / 2));
+  }, [reveal, revealPitch, roll.rows, rowHeight, viewportHeight]);
 
   // A pan keeps its local offset until the page moved the window (or clamped it to the same place).
   const viewStart = roll.viewStartTick;
@@ -325,7 +333,9 @@ export function NoteRoll({
       const selection = model.selection;
       let kind: Gesture["kind"];
       let indices = selection;
-      if (model.tool === "pan") kind = "pan";
+      if (model.editable && model.suggestion && noteAt(model.suggestion.notes, point) !== null)
+        kind = "suggestion";
+      else if (model.tool === "pan") kind = "pan";
       else if (!model.editable) kind = note ? "tap" : "pan";
       else if (model.tool === "erase") kind = "erase";
       else if (note && noteIndex !== null) {
@@ -376,7 +386,7 @@ export function NoteRoll({
         const delta = landscapeDelta(turned, state.dx, state.dy);
         setPanX(clamp(active.scroll.x - delta.dx, 0, limit.x));
         setScrollY(clamp(active.scroll.y - delta.dy, 0, limit.y));
-      } else if (active.kind !== "tap") show(active, current(active, state));
+      } else if (active.kind !== "tap" && active.kind !== "suggestion") show(active, current(active, state));
     }
     function release(_: GestureResponderEvent, state: PanResponderGestureState) {
       const active = gesture.current;
@@ -385,6 +395,10 @@ export function NoteRoll({
       const send = actRef.current;
       const { roll: model, ppt: scale } = layout.current;
       active.moved ||= Math.hypot(state.dx, state.dy) >= dragSlop;
+      if (active.kind === "suggestion") {
+        if (!active.moved && active.revision === model.revision) send({ type: "editor-chord-apply" });
+        return;
+      }
       const edits = active.kind === "draw" || active.kind === "erase" ||
         (active.moved && (active.kind === "move" || active.kind === "resize"));
       if (edits || (active.moved && active.kind === "marquee"))
@@ -543,7 +557,7 @@ export function NoteRoll({
               >
                 {line.bar && (
                   <Text style={styles.rulerLabel}>
-                    {Math.round(line.tick / ((roll.ppq * 4 * roll.numerator) / roll.denominator)) + 1}
+                    {Math.round((line.tick + (roll.projectOriginTick ?? 0)) / ((roll.ppq * 4 * roll.numerator) / roll.denominator)) + 1}
                   </Text>
                 )}
               </View>
@@ -654,6 +668,20 @@ export function NoteRoll({
               </View>
             );
           })}
+          {roll.suggestion?.notes.map((note) => {
+            const row = rowIndex.get(note.pitch);
+            if (row === undefined || row < firstRow || row > lastRow) return null;
+            const left = note.startTick * ppt - scroll.x;
+            const noteWidth = Math.max(1, note.durationTick * ppt - 1);
+            if (left > viewportWidth || left + noteWidth < 0) return null;
+            return (
+              <View key={`suggestion-${note.pitch}`}
+                style={[styles.note, styles.suggestionNote,
+                  { left, top: row * rowHeight - scroll.y + 1, width: noteWidth, height: rowHeight - 2 }]}>
+                <Text style={styles.noteLabel}>{pitchNames[note.pitch % 12]}</Text>
+              </View>
+            );
+          })}
           {marquee && (
             <View
               style={[
@@ -689,15 +717,16 @@ function gridLines(roll: NativeNoteRoll, startTick: number, endTick: number) {
   const step = roll.stepTick;
   const beatTicks = (roll.ppq * 4) / roll.denominator;
   const barTicks = beatTicks * roll.numerator;
+  const origin = roll.projectOriginTick ?? 0;
   const lines: { tick: number; beat: boolean; bar: boolean }[] = [];
   if (!(step > 0) || !(beatTicks > 0) || endTick <= startTick) return lines;
   const ticks = new Set<number>();
   for (let tick = Math.ceil(startTick / step) * step; tick <= endTick; tick += step) ticks.add(tick);
-  for (let tick = Math.ceil(startTick / beatTicks) * beatTicks; tick <= endTick; tick += beatTicks) ticks.add(tick);
+  for (let tick = Math.ceil((startTick + origin) / beatTicks) * beatTicks - origin; tick <= endTick; tick += beatTicks) ticks.add(tick);
   for (const tick of [...ticks].sort((a, b) => a - b)) {
     if (tick > roll.maxTick) break;
-    const beat = Math.abs(tick / beatTicks - Math.round(tick / beatTicks)) < 1e-9;
-    const bar = Math.abs(tick / barTicks - Math.round(tick / barTicks)) < 1e-9;
+    const beat = Math.abs((tick + origin) / beatTicks - Math.round((tick + origin) / beatTicks)) < 1e-9;
+    const bar = Math.abs((tick + origin) / barTicks - Math.round((tick + origin) / barTicks)) < 1e-9;
     lines.push({ tick, beat, bar });
   }
   return lines;
@@ -1213,6 +1242,7 @@ function Choice({
 }
 
 const styles = StyleSheet.create({
+  suggestionNote: { backgroundColor: "rgba(139, 92, 246, 0.35)", borderColor: colors.accent, borderStyle: "dashed", borderWidth: 1 },
   flex: { flex: 1 },
   disabled: { opacity: 0.35 },
   roll: { flex: 1, overflow: "hidden", backgroundColor: colors.surface },

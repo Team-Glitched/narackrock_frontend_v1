@@ -7,6 +7,7 @@ import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react"
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { queryScope } from "@/lib/query";
 import { PublishConfirmation } from "@/features/composition/publish-confirmation";
+import { CanvasDialog } from "@/components/canvas-dialog";
 import { VolumeDialog } from "@/features/composition/volume-dialog";
 import { InstrumentDialog, type InstrumentChoice } from "@/features/composition/instrument-dialog";
 import { findInstrument, invalidPitchesFor } from "@/features/composition/instrument-catalog";
@@ -41,6 +42,9 @@ import {
   updateTrackInstrument,
   uploadMedia,
   type ClipDto,
+  type CompositionDto,
+  type AudioSoundKind,
+  analyzeAudioClip,
   type TrackDto,
 } from "@/lib/api/composition";
 import { errorText } from "./studio-helpers";
@@ -121,6 +125,10 @@ export function useStudio({
   const [publishTitle, setPublishTitle] = useState("");
   const [publishImage, setPublishImage] = useState<File | null>(null);
   const [pendingAudio, setPendingAudio] = useState<PendingStudioAudio | null>(null);
+  const [analysisClip, setAnalysisClip] = useState<ClipDto | null>(null);
+  const [analysisBusy, setAnalysisBusy] = useState(false);
+  const [analysisError, setAnalysisError] = useState<string | null>(null);
+  const activeAnalysis = useRef(false);
   // A short opens its project; the shared tracks and personal drafts are then read together.
   const entry = useQuery({
     ...compositionEntryQuery(userId, shortId ?? 0),
@@ -234,6 +242,42 @@ export function useStudio({
         { queryKey: compositionKeys.project(userId, composition.project.projectId) },
         { throwOnError: true },
       );
+  }
+  function canAnalyze(clip: ClipDto) {
+    return clip.clipType === "AUDIO" && clip.clipId > 0 && clip.ownerId === userId &&
+      clip.approvalStatus !== "REJECTED" &&
+      Boolean(composition?.viewerPermission.canEdit || composition?.viewerPermission.canContribute) &&
+      ["FILE_UPLOAD", "RECORDING"].includes(clip.sourceType);
+  }
+  function openAnalysis(clip: ClipDto) {
+    if (!canAnalyze(clip) || activeAnalysis.current) return;
+    playback.pause();
+    setAnalysisError(null);
+    setAnalysisClip(clip);
+  }
+  async function analyze(kind: AudioSoundKind, force: boolean) {
+    if (!analysisClip || !composition || activeAnalysis.current) return;
+    activeAnalysis.current = true;
+    setAnalysisBusy(true);
+    setAnalysisError(null);
+    try {
+      const projectId = composition.project.projectId;
+      const reply = await analyzeAudioClip(projectId, analysisClip.clipId, kind, force);
+      queryClient.setQueryData<CompositionDto>(compositionKeys.detail(userId, projectId), (old) =>
+        old ? {
+          ...old,
+          tracks: old.tracks.map((track) => ({ ...track, clips: track.clips.map((clip) =>
+            clip.clipId === analysisClip.clipId ? { ...clip, audioAnalysis: reply } : clip,
+          ) })),
+        } : old);
+      setAnalysisClip(null);
+      setStatus(reply.midiNotes.length ? "오디오 분석을 코드 추천에 반영했어요." : "분석할 음을 찾지 못했어요.");
+    } catch (cause) {
+      setAnalysisError(errorText(cause));
+    } finally {
+      activeAnalysis.current = false;
+      setAnalysisBusy(false);
+    }
   }
   async function addAudio(trackId: number, file: File, selection: AudioSelection) {
     if (!composition || busy) throw new Error("잠시 후 다시 시도해 주세요.");
@@ -654,6 +698,13 @@ export function useStudio({
     pendingAudio,
     setPendingAudio,
     addAudio,
+    canAnalyze,
+    openAnalysis,
+    analyze,
+    analysisClip,
+    analysisBusy,
+    analysisError,
+    closeAnalysis: () => { if (!activeAnalysis.current) setAnalysisClip(null); },
     trackSettings,
     setTrackSettingsId,
     changeInstrument: (trackId: number) => {
@@ -926,6 +977,9 @@ export function StudioScreen({ studio }: { studio: Studio }) {
           </div>
         </div>
       )}
+      {studio.analysisClip && (
+        <AudioAnalysisDialog key={studio.analysisClip.clipId} studio={studio} />
+      )}
       {trackSettings && (
         <VolumeDialog
           track={trackSettings.track}
@@ -1073,7 +1127,8 @@ export function StudioScreen({ studio }: { studio: Studio }) {
                     cellPx={signatureGrid(playback.signature).cellPx}
                     movable={studio.clipMovable(clip)}
                     onError={setError}
-                    onSelect={() => studio.setTrackSettingsId(track.trackId)}
+                    onSelect={() => studio.canAnalyze(clip)
+                      ? studio.openAnalysis(clip) : studio.setTrackSettingsId(track.trackId)}
                     openOnClick={selectMidiLayer}
                     onEdit={
                       // Other participants' MIDI opens read-only; the editor never creates their drafts.
@@ -1115,5 +1170,38 @@ export function StudioScreen({ studio }: { studio: Studio }) {
         </div>
       </div>
     </div>
+  );
+}
+
+function AudioAnalysisDialog({ studio }: { studio: Studio }) {
+  const cached = studio.analysisClip?.audioAnalysis;
+  const [kind, setKind] = useState<AudioSoundKind | null>(cached?.soundKind ?? null);
+  const busy = studio.analysisBusy;
+  return (
+    <CanvasDialog className={studioStyles.studioAudioDialogContent}
+      titleId="audio-analysis-title" onClose={studio.closeAnalysis}>
+      <h2 id="audio-analysis-title">코드 추천에 사용할 오디오 분석</h2>
+      <p>소리 종류를 선택하면 원본 오디오에서 추천에 사용할 음을 찾습니다.</p>
+      {cached && <p>저장된 분석 · {cached.midiNotes.length}음</p>}
+      <fieldset className="space-y-2" disabled={busy}>
+        <legend>입력 소리 종류</legend>
+        <label className="flex gap-2">
+          <input type="radio" name="sound-kind" checked={kind === "HUMMING"}
+            onChange={() => setKind("HUMMING")} /> 허밍 · 단선율 보컬
+        </label>
+        <label className="flex gap-2">
+          <input type="radio" name="sound-kind" checked={kind === "INSTRUMENT"}
+            onChange={() => setKind("INSTRUMENT")} /> 피아노 · 기타 등 악기
+        </label>
+      </fieldset>
+      {studio.analysisError && <p role="alert">{studio.analysisError}</p>}
+      <div className="flex flex-wrap gap-2">
+        <button type="button" disabled={busy || !kind}
+          onClick={() => kind && void studio.analyze(kind, cached?.soundKind === kind)}>
+          {busy ? "분석 중…" : cached ? "다시 분석" : "음 분석 시작"}
+        </button>
+        <button type="button" disabled={busy} onClick={studio.closeAnalysis}>닫기</button>
+      </div>
+    </CanvasDialog>
   );
 }

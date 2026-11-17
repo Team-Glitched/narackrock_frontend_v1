@@ -74,6 +74,8 @@ export function NativeNoteEditorBridge({ screen, portrait, onToggleLayout, onBac
       screen.setShowSources(false);
     },
   });
+  const suggestion = screen.recommendation;
+  const choice = suggestion.candidate;
   const model: NativeNoteEditor = screen.clipUnavailable
     ? { status: "error", message: "선택한 MIDI 클립을 찾을 수 없습니다." }
     : {
@@ -82,7 +84,21 @@ export function NativeNoteEditorBridge({ screen, portrait, onToggleLayout, onBac
         layoutToggle: Boolean(onToggleLayout),
         title: `${track.name} · 피아노롤`,
         transport: nativeTransport(playback, composition.project.bpm),
-        roll: roll.model,
+        roll: {
+          ...roll.model,
+          projectOriginTick: screen.clipStartTick,
+          suggestion: choice ? { name: choice.name, notes: choice.notes, reveal: suggestion.revealState } : undefined,
+        },
+        recommendation: suggestion.available ? {
+          enabled: suggestion.enabled,
+          panel: suggestion.result && choice ? {
+            bar: suggestion.result.targetBar,
+            names: suggestion.result.candidates.map((candidate) => candidate.name),
+            index: suggestion.index,
+            hint: `${choice.tones.join(" · ")} · ${choice.reason}`,
+            playing: suggestion.playing,
+          } : null,
+        } : undefined,
         timingEditable: Boolean(screen.onTiming),
         timing: timing.model,
         instrument: screen.instrumentChoice ? { label: partLabel(track.instrument) } : null,
@@ -110,6 +126,18 @@ export function NativeNoteEditorBridge({ screen, portrait, onToggleLayout, onBac
       // The editor's play first returns to the clip start (or the song start after its end).
       return action.type === "transport-play" ? screen.play() : transportAction(playback, action);
     switch (action.type) {
+      case "editor-chord-toggle":
+        return suggestion.setEnabled(!suggestion.enabled);
+      case "editor-chord-select":
+        return suggestion.select(action.index);
+      case "editor-chord-reveal":
+        return suggestion.reveal();
+      case "editor-chord-listen":
+        return suggestion.listen();
+      case "editor-chord-apply":
+        return suggestion.apply();
+      case "editor-chord-dismiss":
+        return suggestion.dismiss();
       case "editor-rewind":
         return screen.rewind();
       case "editor-layers":
