@@ -200,3 +200,56 @@ test("the last partial measure is clipped and nothing is suggested outside the s
   );
   assert.equal(recommendNextChord({ ...request, editTick: 1920 }), null);
 });
+
+test("an occupied next measure in the edited layer does not offer extra chord tones", () => {
+  for (const targetNote of [note(64, 1920, 1920), note(69, 2400, 120), note(60, 1800, 240)]) {
+    assert.equal(
+      recommendNextChord({
+        composition: project(),
+        trackId: 1,
+        clipId: null,
+        clipStart: 0,
+        editTick: 0,
+        draft: [...chord([60, 64, 67]), targetNote],
+      }),
+      null,
+    );
+  }
+});
+
+test("occupancy includes other clips of the edited layer in project coordinates", () => {
+  const composition = project({ timeSignatureNumerator: 3 });
+  composition.tracks = [track(1, "piano", [clip(2, 2880, [note(64)])])];
+  assert.equal(
+    recommendNextChord({
+      composition,
+      trackId: 1,
+      clipId: 1,
+      clipStart: 1800,
+      editTick: 0,
+      draft: chord([60, 64, 67]),
+    }),
+    null,
+  );
+});
+
+test("removing saved target notes in the draft makes the measure available again", () => {
+  const composition = project();
+  const draft = chord([60, 64, 67]);
+  composition.tracks = [track(1, "piano", [clip(1, 0, [...draft, note(64, 1920)])])];
+  const request = { composition, trackId: 1, clipId: 1, clipStart: 0, editTick: 0, draft };
+  assert.ok(recommendNextChord(request));
+  assert.equal(recommendNextChord({ ...request, draft: [...draft, note(64, 1920)] }), null);
+});
+
+test("notes ending at the target boundary or starting in the following bar leave it empty", () => {
+  const request = {
+    composition: project(),
+    trackId: 1,
+    clipId: null,
+    clipStart: 0,
+    editTick: 0,
+    draft: [note(60, 0, 1920), note(64, 3840)],
+  };
+  assert.ok(recommendNextChord(request));
+});

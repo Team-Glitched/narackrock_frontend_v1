@@ -247,6 +247,8 @@ export function recommendNextChord(request: Request) {
   const target = Math.round((measure + 1) * bar);
   const end = Math.min(maxTick, Math.round((measure + 2) * bar));
   if (target >= maxTick || target < clipStart || end <= target) return null;
+  // Only fill an empty measure in this layer; other layers remain harmonic context.
+  if (notes.some((note) => note.active && note.start < end && note.end > target)) return null;
   const localTick = target - clipStart;
   const history = windowOf(notes, Math.max(0, source - 3 * bar), target, beat, bar);
   const current = windowOf(notes, source, target, beat, bar);
