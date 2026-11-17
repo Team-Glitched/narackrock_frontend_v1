@@ -60,6 +60,32 @@ export default function CreateCommunityPage() {
   const [submissions, setSubmissions] = useState(0);
   const onBack = () => back("/communities");
   const onSearch = () => to(withQuery("/search", { scope, galleryId }));
+  if (nativeApp())
+    return (
+      <>
+        {signedIn ? (
+          <CommunityProposalForm
+            key={submissions}
+            submissions={submissions}
+            onCancel={onBack}
+            onSearch={onSearch}
+            onCreated={() => {
+              setSubmissions((value) => value + 1);
+              void queryClient.invalidateQueries({ queryKey: galleryKeys.myProposals(userId) });
+            }}
+          />
+        ) : (
+          <NativeCreateCommunityBridge
+            form={null}
+            submitted={false}
+            formKey={0}
+            onBack={onBack}
+            onSearch={onSearch}
+          />
+        )}
+        <NotificationsOverlay />
+      </>
+    );
   return (
     <DesignViewport>
       <div className={sharedStyles.phoneFrame}>
@@ -80,18 +106,7 @@ export default function CreateCommunityPage() {
               />
             </>
           ) : (
-            <>
-              <SignInRequired>{createCommunitySignInMessage}</SignInRequired>
-              {nativeApp() && (
-                <NativeCreateCommunityBridge
-                  form={null}
-                  submitted={false}
-                  formKey={0}
-                  onBack={onBack}
-                  onSearch={onSearch}
-                />
-              )}
-            </>
+            <SignInRequired>{createCommunitySignInMessage}</SignInRequired>
           )}
         </div>
 

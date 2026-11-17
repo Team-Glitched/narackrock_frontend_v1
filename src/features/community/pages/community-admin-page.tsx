@@ -20,6 +20,31 @@ export default function CommunityAdminPage() {
   const invalidGalleryId = readId(params.galleryId) === null;
   const onBack = () => back(`/communities/${galleryId}`);
   const onSearch = () => to(withQuery("/search", { scope, galleryId }));
+  if (nativeApp())
+    return (
+      <>
+        <NativeCommunityAdminBridge
+          galleryId={galleryId}
+          members={false}
+          invalid={invalidGalleryId}
+          onBack={onBack}
+          onSearch={onSearch}
+        />
+        <Footer
+          activeTab="social"
+          onCreate={() =>
+            to(
+              target.path,
+              target.path === "/studio/new"
+                ? { state: { studioFrom: currentPath, studioIndex: window.history.state?.idx } }
+                : undefined,
+            )
+          }
+          createLabel={target.label}
+        />
+        <NotificationsOverlay />
+      </>
+    );
   return (
     <DesignViewport>
       <div className={sharedStyles.phoneFrame}>
@@ -29,15 +54,6 @@ export default function CommunityAdminPage() {
             <PageState error>올바르지 않은 페이지 주소입니다.</PageState>
           ) : (
             <CommunityManagementContent galleryId={galleryId} members={false} />
-          )}
-          {nativeApp() && (
-            <NativeCommunityAdminBridge
-              galleryId={galleryId}
-              members={false}
-              invalid={invalidGalleryId}
-              onBack={onBack}
-              onSearch={onSearch}
-            />
           )}
         </div>
         <Footer

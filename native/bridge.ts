@@ -28,6 +28,12 @@ import type {
   NativeScreenView,
   NativeSession,
 } from "../src/lib/native-screens";
+import {
+  nativeDialogEvent,
+  type NativeDialogAction,
+  type NativeDialogEvent,
+  type NativeDialogReport,
+} from "../src/lib/native-dialog";
 import { record, renderNotes, runAudioCommand } from "./audio";
 import { signInWithGoogle } from "./google-sign-in";
 import { pickImage } from "./pick-image";
@@ -55,19 +61,6 @@ export const injectedBeforeContentLoaded = `window.${tokenGlobal} = ${JSON.strin
 export const appBackgroundScript = `document.querySelectorAll("audio, video").forEach(function (media) { media.pause(); });
 window.dispatchEvent(new Event(${JSON.stringify(appBackgroundEvent)})); true;`;
 
-/**
- * Back button while a web modal is open: Escape on the topmost one (on its focused control, so the
- * dialogs' own keydown handlers see it). Every web dialog closes on Escape except the studio's,
- * which stay open rather than losing work.
- */
-export const closeModalScript = `(function () {
-  var modals = document.querySelectorAll('[aria-modal="true"]');
-  var top = modals[modals.length - 1];
-  if (!top) return;
-  var target = top.contains(document.activeElement) ? document.activeElement : top;
-  target.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
-})(); true;`;
-
 /** Back button otherwise: the SPA's own history (see `set-history` in the bridge protocol). */
 export const historyBackScript = "history.back(); true;";
 
@@ -86,6 +79,10 @@ export function screenActionScript(key: string, action: NativeScreenAction): str
   return eventScript(screenActionEvent, { key, action } satisfies NativeScreenActionEvent);
 }
 
+export function dialogActionScript(id: string, action: NativeDialogAction): string {
+  return eventScript(nativeDialogEvent, { id, action } satisfies NativeDialogEvent);
+}
+
 /** Script reporting an audio engine's transport to the web (see `onNativeAudioState`). */
 export function audioStateScript(state: NativeAudioState): string {
   return eventScript(audioStateEvent, state);
@@ -102,7 +99,7 @@ export type BridgeHost = {
   setFooter(footer: NativeFooter | null): void;
   setScreen(report: NativeScreenReport): void;
   setSession(session: NativeSession): void;
-  setModal(open: boolean): void;
+  setDialog(dialog: NativeDialogReport): void;
   setCanGoBack(canGoBack: boolean): void;
 };
 
@@ -193,7 +190,12 @@ export function parseRequest(data: string): BridgeRequest | null {
       )
         return null;
       const view = screen.view as NativeScreenView | null;
-      return { id, token: bridgeToken, type: parsed.type, screen: { key: screen.key, view } };
+      return {
+        id,
+        token: bridgeToken,
+        type: parsed.type,
+        screen: { key: screen.key, view, overlay: "overlay" in screen && screen.overlay === true },
+      };
     }
     case "set-session":
       if (!("session" in parsed) || !parsed.session || typeof parsed.session !== "object")
@@ -204,9 +206,19 @@ export function parseRequest(data: string): BridgeRequest | null {
         type: parsed.type,
         session: parsed.session as NativeSession,
       };
-    case "set-modal":
-      if (!("open" in parsed) || typeof parsed.open !== "boolean") return null;
-      return { id, token: bridgeToken, type: parsed.type, open: parsed.open };
+    case "set-dialog": {
+      const dialog = "dialog" in parsed ? parsed.dialog : null;
+      if (
+        !dialog ||
+        typeof dialog !== "object" ||
+        !("id" in dialog) ||
+        typeof dialog.id !== "string" ||
+        !("model" in dialog) ||
+        (dialog.model !== null && typeof dialog.model !== "object")
+      )
+        return null;
+      return { id, token: bridgeToken, type: parsed.type, dialog: dialog as NativeDialogReport };
+    }
     case "set-history":
       if (!("canGoBack" in parsed) || typeof parsed.canGoBack !== "boolean") return null;
       return { id, token: bridgeToken, type: parsed.type, canGoBack: parsed.canGoBack };
@@ -313,8 +325,8 @@ async function run(
     case "set-session":
       host.setSession(request.session);
       return null;
-    case "set-modal":
-      host.setModal(request.open);
+    case "set-dialog":
+      host.setDialog(request.dialog);
       return null;
     case "set-history":
       host.setCanGoBack(request.canGoBack);

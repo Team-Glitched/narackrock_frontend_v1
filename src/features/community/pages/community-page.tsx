@@ -33,22 +33,19 @@ function CommunityContent({
   if (result.status !== "ready") {
     const message =
       result.status === "loading" ? "커뮤니티를 불러오는 중..." : "커뮤니티를 찾을 수 없습니다.";
-    return (
-      <>
-        <PageState error={result.status !== "loading"}>{message}</PageState>
-        {nativeApp() && (
-          <NativePageStateBridge
-            state={{
-              message,
-              tone: result.status === "loading" ? "muted" : "error",
-              createLabel: "글쓰기",
-            }}
-            onBack={onBack}
-            onSearch={onSearch}
-            onCreate={create}
-          />
-        )}
-      </>
+    return nativeApp() ? (
+      <NativePageStateBridge
+        state={{
+          message,
+          tone: result.status === "loading" ? "muted" : "error",
+          createLabel: "글쓰기",
+        }}
+        onBack={onBack}
+        onSearch={onSearch}
+        onCreate={create}
+      />
+    ) : (
+      <PageState error={result.status !== "loading"}>{message}</PageState>
     );
   }
   const { community } = result;
@@ -56,30 +53,27 @@ function CommunityContent({
   const onManage = () => to(`/communities/${community.galleryId}/members`);
   const onProfile = (id: number) => to(`/users/${id}`);
   const onComments = (id: number) => to(`/communities/${community.galleryId}/posts/${id}`);
-  return (
-    <>
-      <CommunityDetailScreen
-        key={community.galleryId}
-        community={community}
-        sort={sort}
-        onManage={onManage}
-        onProfile={onProfile}
-        onComments={onComments}
-      />
-      {nativeApp() && (
-        <NativeCommunityDetailBridge
-          key={`native:${community.galleryId}`}
-          community={community}
-          sort={sort}
-          onManage={onManage}
-          onProfile={onProfile}
-          onComments={onComments}
-          onBack={onBack}
-          onSearch={onSearch}
-          onCreate={create}
-        />
-      )}
-    </>
+  return nativeApp() ? (
+    <NativeCommunityDetailBridge
+      key={community.galleryId}
+      community={community}
+      sort={sort}
+      onManage={onManage}
+      onProfile={onProfile}
+      onComments={onComments}
+      onBack={onBack}
+      onSearch={onSearch}
+      onCreate={create}
+    />
+  ) : (
+    <CommunityDetailScreen
+      key={community.galleryId}
+      community={community}
+      sort={sort}
+      onManage={onManage}
+      onProfile={onProfile}
+      onComments={onComments}
+    />
   );
 }
 
@@ -90,26 +84,33 @@ export default function CommunityPage() {
   const validGalleryId = readId(params.galleryId);
   const onBack = () => back("/communities");
   const onSearch = () => to(withQuery("/search", { scope, galleryId }));
+  if (nativeApp())
+    return (
+      <>
+        {validGalleryId === null ? (
+          <NativePageStateBridge
+            state={{
+              message: "올바르지 않은 페이지 주소입니다.",
+              tone: "error",
+              createLabel: null,
+            }}
+            onBack={onBack}
+            onSearch={onSearch}
+          />
+        ) : (
+          <CommunityContent galleryId={validGalleryId} onBack={onBack} onSearch={onSearch} />
+        )}
+        <Footer activeTab="social" />
+        <NotificationsOverlay />
+      </>
+    );
   return (
     <DesignViewport>
       <div className={sharedStyles.phoneFrame}>
         <Header onBack={onBack} onSearch={onSearch} />
         <div className={contextualCreateArea}>
           {validGalleryId === null ? (
-            <>
-              <PageState error>올바르지 않은 페이지 주소입니다.</PageState>
-              {nativeApp() && (
-                <NativePageStateBridge
-                  state={{
-                    message: "올바르지 않은 페이지 주소입니다.",
-                    tone: "error",
-                    createLabel: null,
-                  }}
-                  onBack={onBack}
-                  onSearch={onSearch}
-                />
-              )}
-            </>
+            <PageState error>올바르지 않은 페이지 주소입니다.</PageState>
           ) : (
             <CommunityContent galleryId={validGalleryId} onBack={onBack} onSearch={onSearch} />
           )}

@@ -46,6 +46,10 @@ export function PostCreateScreen({ model }: ScreenProps<"post-create">) {
         <Text style={styles.restoring} accessibilityLiveRegion="polite">
           작성 중인 내용을 불러오는 중...
         </Text>
+      ) : model.blocked ? (
+        <Text style={styles.restoring} accessibilityLiveRegion="polite">
+          {model.blocked}
+        </Text>
       ) : (
         <PostForm model={model} />
       )}
@@ -149,6 +153,14 @@ function PostForm({ model }: { model: NativePostCreate }) {
       {model.error && <Alert text={model.error} />}
       {model.storageError && <Alert text={model.storageError} />}
       {model.restoreError && <Alert text={model.restoreError} />}
+      {model.keepWithoutImage && (
+        <Button
+          label="앨범 이미지 없이 등록"
+          tone="secondary"
+          disabled={model.busy}
+          onPress={() => act({ type: "post-create-keep-without-image" })}
+        />
+      )}
       <Touchable
         accessibilityRole="button"
         accessibilityState={{ disabled: !model.canSubmit, busy: model.busy }}

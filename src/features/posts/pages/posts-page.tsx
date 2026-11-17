@@ -17,6 +17,19 @@ export default function PostsPage() {
   const galleryId = readId(params.galleryId) ?? readId(query.get("galleryId"));
   const scope = resolveSearchScope(query.get("scope"), "posts", Boolean(galleryId));
   const search = () => to(withQuery("/search", { scope, galleryId }));
+  if (nativeApp())
+    return (
+      <>
+        <NativePostsBridge
+          onOpenPost={(id) => to(`/posts/${id}`)}
+          onCreate={() => to(creationTarget("posts", galleryId).path)}
+          onSearch={search}
+          onBack={() => back("/")}
+        />
+        <Footer activeTab={null} />
+        <NotificationsOverlay />
+      </>
+    );
   return (
     <DesignViewport>
       <div className={sharedStyles.phoneFrame}>
@@ -24,14 +37,6 @@ export default function PostsPage() {
         <div className={contextualCreateArea}>
           <PostsScreen onOpenPost={(id) => to(`/posts/${id}`)} />
           <ContextualCreate scope="posts" galleryId={galleryId} />
-          {nativeApp() && (
-            <NativePostsBridge
-              onOpenPost={(id) => to(`/posts/${id}`)}
-              onCreate={() => to(creationTarget("posts", galleryId).path)}
-              onSearch={search}
-              onBack={() => back("/")}
-            />
-          )}
         </div>
         <Footer activeTab={null} />
         <NotificationsOverlay />

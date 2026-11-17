@@ -23,18 +23,15 @@ function NewProjectForm({
   ...options
 }: NewProjectOptions & { onBack: () => void; onSearch: () => void; onMigration: () => void }) {
   const project = useNewProject(options);
-  return (
-    <>
-      <NewProject project={project} />
-      {nativeApp() && (
-        <NativeStudioNewBridge
-          project={project}
-          onBack={onBack}
-          onSearch={onSearch}
-          onMigration={onMigration}
-        />
-      )}
-    </>
+  return nativeApp() ? (
+    <NativeStudioNewBridge
+      project={project}
+      onBack={onBack}
+      onSearch={onSearch}
+      onMigration={onMigration}
+    />
+  ) : (
+    <NewProject project={project} />
   );
 }
 
@@ -46,21 +43,29 @@ export default function StudioNewPage() {
   const galleryId = readId(params.galleryId) ?? readId(query.get("galleryId"));
   const scope = resolveSearchScope(query.get("scope"), "songs", Boolean(galleryId));
   const search = () => to(withQuery("/search", { scope, galleryId }));
+  const form = (
+    <NewProjectForm
+      key={userId ?? "guest"}
+      userId={userId}
+      onBack={() => back("/")}
+      onSearch={search}
+      onMigration={() => to("/settings?migration=1")}
+      onCreated={(id) => to(`/studio/${id}/layers/new`, { state: studioState })}
+      onResume={(id) => to(`/studio/${id}`, { state: studioState })}
+    />
+  );
+  if (nativeApp())
+    return (
+      <>
+        {form}
+        <NotificationsOverlay />
+      </>
+    );
   return (
     <DesignViewport>
       <div className={sharedStyles.phoneFrame}>
         <Header onSearch={search} onBack={() => back("/")} />
-        <div className={sharedStyles.screenBody}>
-          <NewProjectForm
-            key={userId ?? "guest"}
-            userId={userId}
-            onBack={() => back("/")}
-            onSearch={search}
-            onMigration={() => to("/settings?migration=1")}
-            onCreated={(id) => to(`/studio/${id}/layers/new`, { state: studioState })}
-            onResume={(id) => to(`/studio/${id}`, { state: studioState })}
-          />
-        </div>
+        <div className={sharedStyles.screenBody}>{form}</div>
         <NotificationsOverlay />
       </div>
     </DesignViewport>

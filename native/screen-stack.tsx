@@ -42,7 +42,7 @@ export function ScreenStack({
   onAction,
 }: {
   stack: ScreenStackState;
-  /** A web modal is open: the WebView must be visible and reachable. */
+  /** Another native screen is above this stack (e.g. the notification inbox). */
   hidden: boolean;
   session: NativeSession;
   origin: string;

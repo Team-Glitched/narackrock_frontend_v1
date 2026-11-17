@@ -29,6 +29,8 @@ import {
   clearCreationDraft,
 } from "@/features/community/creation-draft";
 import { CanvasDialog } from "@/components/canvas-dialog";
+import { NativeDialog } from "@/components/native-dialog";
+import { nativeApp } from "@/lib/native-app";
 import { createPost, proposeGallery } from "@/lib/api/community";
 import { uploadMedia } from "@/lib/api/media";
 import { validatePostImage } from "@/features/community/post-image";
@@ -64,7 +66,7 @@ export type SocialCreateProps = {
 /**
  * State of the creation form (posts, community proposals, samples) with its locally saved draft.
  * One instance per page; the web form (`SocialCreateForm`) and the app's native screens read the same
- * state. The discard confirmation is a web dialog rendered by `SocialCreateForm` (`setConfirmDiscard`).
+ * state. The form also mounts the platform-specific discard confirmation (`setConfirmDiscard`).
  */
 export type SocialCreateState = {
   kind: SocialCreateProps["kind"];
@@ -506,6 +508,26 @@ export function SocialCreateForm({ form }: { form: SocialCreateState }) {
     input.value = "";
     if (file) form.pickImage(file);
   }
+  if (nativeApp())
+    return confirmDiscard ? (
+      <NativeDialog
+        model={{
+          title: "작성 중인 내용을 삭제할까요?",
+          message: "제목, 본문 및 첨부 파일이 삭제됩니다.",
+          error: error ?? undefined,
+          dismissible: !busy,
+          actions: [
+            { id: "continue", label: "계속 작성", disabled: busy },
+            { id: "discard", label: "삭제하고 나가기", destructive: true, disabled: busy },
+          ],
+        }}
+        onAction={(id) => {
+          if (id === "continue") setConfirmDiscard(false);
+          if (id === "discard" && !busy) void form.discard();
+        }}
+        onClose={() => setConfirmDiscard(false)}
+      />
+    ) : null;
   if (restoring)
     return (
       <p className={sharedStyles.creationRestoreStatus} role="status">

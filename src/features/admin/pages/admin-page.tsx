@@ -17,15 +17,31 @@ export default function AdminPage() {
   const scope = resolveSearchScope(query.get("scope"), "songs", Boolean(galleryId));
   const target = creationTarget(scope, galleryId);
   const onSearch = () => to(withQuery("/search", { scope, galleryId }));
+  if (nativeApp())
+    return (
+      <>
+        <NativeAdminReviewBridge onBack={() => back("/settings")} onSearch={onSearch} />
+        <Footer
+          activeTab={null}
+          onCreate={() =>
+            to(
+              target.path,
+              target.path === "/studio/new"
+                ? { state: { studioFrom: currentPath, studioIndex: window.history.state?.idx } }
+                : undefined,
+            )
+          }
+          createLabel={target.label}
+        />
+        <NotificationsOverlay />
+      </>
+    );
   return (
     <DesignViewport>
       <div className={sharedStyles.phoneFrame}>
         <Header onBack={() => back("/settings")} onSearch={onSearch} />
         <div className={sharedStyles.screenBody}>
           <AdminReviewScreen />
-          {nativeApp() && (
-            <NativeAdminReviewBridge onBack={() => back("/settings")} onSearch={onSearch} />
-          )}
         </div>
         <Footer
           activeTab={null}

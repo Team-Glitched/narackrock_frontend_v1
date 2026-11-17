@@ -28,6 +28,8 @@ import { WebView, type WebViewMessageEvent } from "react-native-webview";
 
 import type { NativeFooter } from "../src/lib/native-bridge-protocol";
 import type { NativeScreenAction, NativeSession } from "../src/lib/native-screens";
+import type { NativeDialogReport } from "../src/lib/native-dialog";
+import { Dialog } from "./ui/dialog";
 import { designTokens } from "../src/styles/tokens";
 import {
   cancelRecording,
@@ -38,7 +40,7 @@ import {
 import {
   appBackgroundScript,
   audioStateScript,
-  closeModalScript,
+  dialogActionScript,
   footerPressScript,
   handleRequest,
   historyBackScript,
@@ -152,20 +154,21 @@ function WebShell() {
   const webView = useRef<WebView<object>>(null);
   // Reported by the web (set-history); see that method in the bridge protocol.
   const canGoBack = useRef(false);
-  // The page's footer, drawn natively by TabBar over the web's inert footer row.
+  // The page reports the footer model; no web footer is mounted.
   const [footer, setFooter] = useState<NativeFooter | null>(null);
   // Native screens of recent history entries (see screen-stack.tsx) and what their headers show.
   const [stack, setStack] = useState(emptyStack);
+  const [overlayStack, setOverlayStack] = useState(emptyStack);
   const [session, setSession] = useState(signedOut);
-  // A web modal must be visible and reachable, so native views above the WebView step aside.
-  const [modalOpen, setModalOpen] = useState(false);
+  const [dialogs, setDialogs] = useState<NativeDialogReport[]>([]);
   const [viewport, setViewport] = useState<Viewport | null>(null);
   const [keyboardVisible, setKeyboardVisible] = useState(false);
   // A restarted page reports its native views again once mounted.
   const reload = useCallback(() => {
     setFooter(null);
     setStack(emptyStack);
-    setModalOpen(false);
+    setOverlayStack(emptyStack);
+    setDialogs([]);
     canGoBack.current = false;
     webView.current?.reload();
   }, []);
@@ -191,16 +194,15 @@ function WebShell() {
     requestMicrophoneAtLaunch().catch(() => {});
   }, []);
 
-  // Back closes an open web modal first, then walks the SPA history, then leaves the app.
+  // Native dialogs handle Back themselves; otherwise walk SPA history before leaving the app.
   useEffect(() => {
     const subscription = BackHandler.addEventListener("hardwareBackPress", () => {
-      if (modalOpen) webView.current?.injectJavaScript(closeModalScript);
-      else if (canGoBack.current) webView.current?.injectJavaScript(historyBackScript);
+      if (canGoBack.current) webView.current?.injectJavaScript(historyBackScript);
       else return false;
       return true;
     });
     return () => subscription.remove();
-  }, [modalOpen]);
+  }, []);
 
   // Leaving the foreground pauses playback on both platforms (Android would otherwise keep playing).
   useEffect(() => {
@@ -242,9 +244,17 @@ function WebShell() {
       void handleRequest(request, {
         origin,
         setFooter,
-        setScreen: (report) => setStack((state) => reduceStack(state, report)),
+        setScreen: (report) =>
+          (report.overlay ? setOverlayStack : setStack)((state) => reduceStack(state, report)),
         setSession,
-        setModal: setModalOpen,
+        setDialog: (dialog) =>
+          setDialogs((current) => {
+            if (dialog.model === null) return current.filter((item) => item.id !== dialog.id);
+            const index = current.findIndex((item) => item.id === dialog.id);
+            return index === -1
+              ? [...current, dialog]
+              : current.map((item) => (item.id === dialog.id ? dialog : item));
+          }),
         setCanGoBack: (value) => {
           canGoBack.current = value;
         },
@@ -273,9 +283,9 @@ function WebShell() {
     );
   }
 
-  // The web page under a native screen hides itself from screen readers (useNativeScreen).
-  // Content scrolls under the tab bar only when the page has one.
+  // WebView is a nonvisual controller. Native UI is the only visible and accessible layer.
   const bottomInset = footer && viewport ? viewport.height - footerFrame(viewport).top : 0;
+  const dialog = dialogs.at(-1);
   return (
     <View
       style={styles.webView}
@@ -284,42 +294,74 @@ function WebShell() {
         setViewport({ width, height });
       }}
     >
-      {/* react-native-webview types default P to undefined, which collapses props to never. */}
-      <WebView<object>
-        ref={webView}
-        source={{ uri: `${origin}/` }}
-        style={styles.webView}
-        originWhitelist={["*"]}
-        javaScriptEnabled
-        domStorageEnabled
-        allowsInlineMediaPlayback
-        mediaPlaybackRequiresUserAction={false}
-        mediaCapturePermissionGrantType="grantIfSameHostElsePrompt"
-        allowsBackForwardNavigationGestures
-        setSupportMultipleWindows={false}
-        webviewDebuggingEnabled={__DEV__}
-        applicationNameForUserAgent={userAgentToken}
-        injectedJavaScriptBeforeContentLoaded={injectedBeforeContentLoaded}
-        injectedJavaScriptBeforeContentLoadedForMainFrameOnly
-        onLoadStart={resetAudio}
-        onMessage={onMessage}
-        onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
-        onContentProcessDidTerminate={reload}
-        onRenderProcessGone={reload}
-      />
+      <View
+        style={styles.controller}
+        pointerEvents="none"
+        accessible={false}
+        importantForAccessibility="no-hide-descendants"
+        accessibilityElementsHidden
+      >
+        {/* react-native-webview types default P to undefined, which collapses props to never. */}
+        <WebView<object>
+          ref={webView}
+          source={{ uri: `${origin}/` }}
+          style={styles.webView}
+          originWhitelist={["*"]}
+          javaScriptEnabled
+          domStorageEnabled
+          allowsInlineMediaPlayback
+          mediaPlaybackRequiresUserAction={false}
+          mediaCapturePermissionGrantType="grantIfSameHostElsePrompt"
+          allowsBackForwardNavigationGestures
+          setSupportMultipleWindows={false}
+          webviewDebuggingEnabled={__DEV__}
+          applicationNameForUserAgent={userAgentToken}
+          injectedJavaScriptBeforeContentLoaded={injectedBeforeContentLoaded}
+          injectedJavaScriptBeforeContentLoadedForMainFrameOnly
+          onLoadStart={resetAudio}
+          onMessage={onMessage}
+          onShouldStartLoadWithRequest={onShouldStartLoadWithRequest}
+          onContentProcessDidTerminate={reload}
+          onRenderProcessGone={reload}
+        />
+      </View>
+      {stack.current === null && (
+        <View style={[StyleSheet.absoluteFill, styles.center]}>
+          <ActivityIndicator color="#ffffff" />
+        </View>
+      )}
       <ScreenStack
         stack={stack}
-        hidden={modalOpen}
+        hidden={overlayStack.current !== null}
         session={session}
         origin={origin}
         bottomInset={bottomInset}
         onAction={onScreenAction}
       />
-      {footer && viewport && !keyboardVisible && !modalOpen && (
+      {overlayStack.current !== null && (
+        <ScreenStack
+          stack={overlayStack}
+          hidden={false}
+          session={session}
+          origin={origin}
+          bottomInset={0}
+          onAction={onScreenAction}
+        />
+      )}
+      {footer && viewport && !keyboardVisible && overlayStack.current === null && (
         <TabBar
           footer={footer}
           viewport={viewport}
           onPress={(press) => webView.current?.injectJavaScript(footerPressScript(press))}
+        />
+      )}
+      {dialog?.model && (
+        <Dialog
+          key={dialog.id}
+          dialog={{ id: dialog.id, model: dialog.model }}
+          onAction={(action) =>
+            webView.current?.injectJavaScript(dialogActionScript(dialog.id, action))
+          }
         />
       )}
     </View>
@@ -340,6 +382,7 @@ export default function App() {
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: BACKGROUND },
   webView: { flex: 1, backgroundColor: BACKGROUND },
+  controller: { ...StyleSheet.absoluteFill, opacity: 0 },
   center: {
     flex: 1,
     alignItems: "center",

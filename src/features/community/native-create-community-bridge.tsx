@@ -9,7 +9,7 @@ export const createCommunitySignInMessage = "커뮤니티 개설 신청은 로�
 /**
  * In the app /communities/new (MyGalleryProposals and the community SocialCreate form) is drawn natively.
  * `form` is the page's own form state (null when signed out); the web keeps the draft and submits it, and
- * its "작성 취소" confirmation dialog opens over the native screen.
+ * its "작성 취소" confirmation is mounted as a native dialog by SocialCreateForm.
  */
 export function NativeCreateCommunityBridge({
   form,

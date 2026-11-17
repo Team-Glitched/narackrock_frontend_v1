@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useEffectEvent, useRef, useState, type ReactNode } from "react";
-import { FigmaSheet } from "@/components/figma-sheet";
 import { PostMemberModeration } from "@/features/admin/post-member-moderation";
 import { useCurrentUserId } from "@/features/auth/use-current-user";
 import { ReportReasons } from "@/features/comments/report-reasons";
@@ -38,9 +37,8 @@ export function isFeedAction(action: { type: string }): action is NativeFeedActi
 }
 
 /**
- * A feed of post cards (the web's CommunityPost list) for a native screen. Each card runs the web card's own
- * state (`useCommunityPostCard`) in an invisible source component, which also renders the card's web dialogs
- * (report sheet, member sanction, manual share link); they show over the native screen as web modals.
+ * A feed of post cards for a native screen. Each headless source reuses the card's
+ * state (`useCommunityPostCard`) and mounts only native report, sanction and share bridges.
  * Render `sources` and pass feed actions to `handle`.
  */
 export function useNativeFeed({
@@ -260,12 +258,10 @@ function FeedPostSource({
         />
       )}
       {card.reportOpen && (
-        <FigmaSheet title="신고" onClose={() => card.setReportOpen(false)}>
-          <ReportReasons
-            onSubmit={(reason, description) => reportPost(post.postId, reason, description)}
-            onDone={() => card.setReportOpen(false)}
-          />
-        </FigmaSheet>
+        <ReportReasons
+          onSubmit={(reason, description) => reportPost(post.postId, reason, description)}
+          onDone={() => card.setReportOpen(false)}
+        />
       )}
     </>
   );

@@ -19,6 +19,7 @@ import { sharedStyles } from "@/styles/shared.styles";
 import { nativeApp } from "@/lib/native-app";
 import type { AudioSelection } from "@/features/composition/prepare-audio-file";
 import { NativeUploadBridge } from "@/features/composition/native-creation-bridges";
+import { NativePageStateBridge } from "@/features/community/native-community-bridge";
 export default function UploadPage() {
   const route = useRouteComposition();
   const instrument = useInstrumentPrompt(route.projectId);
@@ -65,6 +66,32 @@ export default function UploadPage() {
     }
     to(route.studioUrl, { replace: true, state: route.studioState });
   }
+  if (nativeApp())
+    return (
+      <>
+        {route.projectId === null ? (
+          <NativePageStateBridge
+            state={{
+              message: "올바르지 않은 페이지 주소입니다.",
+              tone: "error",
+              createLabel: null,
+            }}
+            onBack={() => void cancel()}
+            onSearch={search}
+          />
+        ) : (
+          <NativeUploadBridge
+            onSave={save}
+            instrument={instrument.native}
+            notice={cancelError || null}
+            onBack={() => void cancel()}
+            onSearch={search}
+          />
+        )}
+        <Footer activeTab={null} onCreate={onCreate} createLabel={target.label} />
+        <NotificationsOverlay />
+      </>
+    );
   return (
     <DesignViewport>
       <div className={sharedStyles.phoneFrame}>
@@ -75,15 +102,6 @@ export default function UploadPage() {
             <PageState error>올바르지 않은 페이지 주소입니다.</PageState>
           ) : (
             <CompositionUploadScreen onBack={() => void cancel()} onSave={save} />
-          )}
-          {nativeApp() && route.projectId !== null && (
-            <NativeUploadBridge
-              onSave={save}
-              instrument={instrument.native}
-              notice={cancelError || null}
-              onBack={() => void cancel()}
-              onSearch={search}
-            />
           )}
         </div>
         <Footer activeTab={null} onCreate={onCreate} createLabel={target.label} />

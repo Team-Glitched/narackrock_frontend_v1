@@ -1,18 +1,28 @@
 import { RequireAuth } from "@/features/auth/require-auth";
 import { requiresLogin } from "@/features/auth/login-access";
-import { Outlet, useLocation } from "react-router";
+import { Outlet, useLocation, useNavigate } from "react-router";
 import { useWebMcpNavigation } from "@/hooks/use-webmcp-navigation";
 import { useNativeReports } from "./native-reports";
+import { nativeApp } from "@/lib/native-app";
+import { NativeNotificationsBridge } from "@/features/notifications/native-notifications-bridge";
 
 export function AppRuntime() {
   useWebMcpNavigation();
   useNativeReports();
   const location = useLocation();
-  return requiresLogin(location.pathname + location.search) ? (
+  const navigate = useNavigate();
+  const overlay = nativeApp() && new URLSearchParams(location.search).get("notifications") === "1";
+  const page = requiresLogin(location.pathname + location.search) ? (
     <RequireAuth>
       <Outlet />
     </RequireAuth>
   ) : (
     <Outlet />
+  );
+  return (
+    <>
+      {page}
+      {overlay && <NativeNotificationsBridge overlay onSearch={() => navigate("/search")} />}
+    </>
   );
 }

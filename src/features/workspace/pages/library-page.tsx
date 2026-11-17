@@ -23,15 +23,20 @@ export default function LibraryPage() {
         : undefined,
     );
   const search = () => to(withQuery("/search", { scope, galleryId }));
+  if (nativeApp())
+    return (
+      <>
+        <NativeLibraryBridge onSearch={search} onBack={() => back("/settings")} />
+        <Footer activeTab={null} onCreate={onCreate} createLabel={target.label} />
+        <NotificationsOverlay />
+      </>
+    );
   return (
     <DesignViewport>
       <div className={sharedStyles.phoneFrame}>
         <Header onSearch={search} onBack={() => back("/settings")} />
         <div className={sharedStyles.screenBody}>
           <SourceLibraryContent importing={false} />
-          {nativeApp() && (
-            <NativeLibraryBridge onSearch={search} onBack={() => back("/settings")} />
-          )}
         </div>
         <Footer activeTab={null} onCreate={onCreate} createLabel={target.label} />
         <NotificationsOverlay />

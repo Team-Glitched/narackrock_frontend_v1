@@ -498,16 +498,56 @@ export function AbyssScreen({
   nativeScreen?: { onSearch: () => void; onToggleMute: () => void };
 }) {
   const abyss = useAbyss(options);
+  return nativeScreen ? (
+    <NativeAbyssContent abyss={abyss} nativeScreen={nativeScreen} />
+  ) : (
+    <AbyssView abyss={abyss} />
+  );
+}
+
+/** Nonvisual media transport and native controllers; never mounts the browser drawing. */
+function NativeAbyssContent({
+  abyss,
+  nativeScreen,
+}: {
+  abyss: AbyssState;
+  nativeScreen: { onSearch: () => void; onToggleMute: () => void };
+}) {
+  const {
+    selectedShort: current,
+    playback,
+    mediaUrl,
+    audioRef,
+    muted,
+    mediaError,
+    sheet,
+    submitReport,
+    closeSheet,
+    shareDialog,
+  } = abyss;
   return (
     <>
-      {nativeScreen && <NativeAbyssBridge abyss={abyss} {...nativeScreen} />}
-      <AbyssView abyss={abyss} nativeSheets={nativeScreen !== undefined} />
+      <NativeAbyssBridge abyss={abyss} {...nativeScreen} />
+      {current && (
+        <audio
+          key={current.shortId}
+          ref={audioRef}
+          src={mediaUrl ?? undefined}
+          preload="metadata"
+          autoPlay
+          muted={muted}
+          {...playback.nativeHandlers}
+          onError={mediaError}
+        />
+      )}
+      {sheet === "report" && <ReportReasons onSubmit={submitReport} onDone={closeSheet} />}
+      {shareDialog}
     </>
   );
 }
 
-/** The web drawing of `useAbyss`. `nativeSheets`: the app draws the participant and comment sheets. */
-function AbyssView({ abyss, nativeSheets }: { abyss: AbyssState; nativeSheets: boolean }) {
+/** Browser-only drawing of `useAbyss`; app controllers never mount this tree. */
+function AbyssView({ abyss }: { abyss: AbyssState }) {
   const { selectedShort: current, playback, sheet, shorts, mediaUrl, audioRef } = abyss;
   const titleViewport = useRef<HTMLHeadingElement>(null);
   const titleText = useRef<HTMLSpanElement>(null);
@@ -694,7 +734,7 @@ function AbyssView({ abyss, nativeSheets }: { abyss: AbyssState; nativeSheets: b
             {abyss.feedback}
           </p>
         )}
-        {sheet === "participants" && !nativeSheets && (
+        {sheet === "participants" && (
           <FigmaSheet title="작곡 참여자" onClose={abyss.closeParticipants}>
             <ShortParticipants
               short={current}
@@ -708,7 +748,7 @@ function AbyssView({ abyss, nativeSheets }: { abyss: AbyssState; nativeSheets: b
           key={current.shortId}
           shortId={current.shortId}
           onChanged={abyss.commentsChanged}
-          open={sheet === "comments" && !nativeSheets}
+          open={sheet === "comments"}
           onClose={abyss.closeSheet}
         />
         {participation && current.projectId != null && (

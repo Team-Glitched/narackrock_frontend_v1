@@ -8,6 +8,7 @@ import { buttonVariants } from "@/styles/variants";
 import { cn } from "@/lib/utils";
 import { Asset } from "@/components/asset";
 import { Avatar } from "@/components/avatar";
+import { nativeApp } from "@/lib/native-app";
 function Logo() {
   return (
     <Asset name="auth-logo.svg" alt="Narackrock" className={"h-[43px] w-17 flex-[0_0_68px]"} />
@@ -39,6 +40,7 @@ export function Header({
   const { currentUserId, headerProfileImageUrl } = useAuthSession();
   const { to, currentPath } = useUrlNavigation();
   const { openNotifications } = useNotificationsNavigation();
+  if (nativeApp()) return null;
   return (
     <header
       className={cn(
@@ -61,13 +63,19 @@ export function Header({
           <Asset name={muted ? "sound-muted.svg" : "sound.svg"} />
         </button>
       ) : (
-        <button className={"block h-[43px] w-17 shrink-0"} aria-label="홈으로" onClick={() => to("/")}>
+        <button
+          className={"block h-[43px] w-17 shrink-0"}
+          aria-label="홈으로"
+          onClick={() => to("/")}
+        >
           <Logo />
         </button>
       )}
       <div className="flex h-11 items-center gap-1 overflow-hidden">
         <NotificationBell className={headerControl} onClick={openNotifications} />
-        {showChat && currentUserId !== null && <ChatShortcut className={headerControl} onClick={() => to("/chat")} />}
+        {showChat && currentUserId !== null && (
+          <ChatShortcut className={headerControl} onClick={() => to("/chat")} />
+        )}
         <button className={headerControl} aria-label="검색" onClick={onSearch}>
           <Asset name="v3-search.svg" />
         </button>
@@ -85,7 +93,11 @@ export function Header({
               className={cn(headerControl, !onSettings && "p-1.5 [&_.avatar]:border-0")}
               onClick={onSettings ?? (() => to("/profile"))}
             >
-              {onSettings ? <Asset name="settings.svg" /> : <Avatar size="md" src={headerProfileImageUrl} />}
+              {onSettings ? (
+                <Asset name="settings.svg" />
+              ) : (
+                <Avatar size="md" src={headerProfileImageUrl} />
+              )}
             </button>
           ))
         )}

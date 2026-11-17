@@ -36,17 +36,18 @@ export function NoteEditorScreen({
 }) {
   const load = useNoteEditorLoad(projectId, trackId, clipId);
   if (!load.composition) {
+    if (nativeApp())
+      return (
+        <NativeNoteEditorStateBridge
+          status={load.state === "loading" ? "loading" : "error"}
+          message={load.message}
+          onBack={onBack}
+        />
+      );
     return (
       <div className={cn(studioStyles.studio, studioStyles.studioState)}>
         <p role={load.state === "error" ? "alert" : "status"}>{load.message}</p>
         <button onClick={onBack}>돌아가기</button>
-        {nativeApp() && (
-          <NativeNoteEditorStateBridge
-            status={load.state === "loading" ? "loading" : "error"}
-            message={load.message}
-            onBack={onBack}
-          />
-        )}
       </div>
     );
   }
@@ -82,29 +83,38 @@ function LoadedNoteEditor({
   portrait: boolean;
   onToggleLayout?: () => void;
 }) {
-  const screen = useNoteEditorScreen({ composition, trackId, requestedClipId, onBack, onOpenLayers, portrait });
+  const screen = useNoteEditorScreen({
+    composition,
+    trackId,
+    requestedClipId,
+    onBack,
+    onOpenLayers,
+    portrait,
+  });
   const { track, editable, editor, playback, draft, dialogs, timing, positionTick, busy } = screen;
   useNoteEditorShortcuts({
-    editor, positionTick, playing: playback.playing, onPlay: screen.play, onPause: playback.pause,
+    editor,
+    positionTick,
+    playing: playback.playing,
+    onPlay: screen.play,
+    onPause: playback.pause,
   });
-  // In the app the native screen draws these dialogs from the same state; the web copies (aria-modal)
-  // would hide the native screen.
-  const inApp = nativeApp() !== null;
-  const bridge = inApp && (
-    <NativeNoteEditorBridge
-      screen={screen}
-      portrait={portrait}
-      onToggleLayout={onToggleLayout}
-      onBack={onBack}
-    />
-  );
-  if (screen.clipUnavailable) return (
-    <div className={cn(studioStyles.studio, studioStyles.studioState)}>
-      <p role="alert">선택한 MIDI 클립을 찾을 수 없습니다.</p>
-      <button onClick={onBack}>돌아가기</button>
-      {bridge}
-    </div>
-  );
+  if (nativeApp())
+    return (
+      <NativeNoteEditorBridge
+        screen={screen}
+        portrait={portrait}
+        onToggleLayout={onToggleLayout}
+        onBack={onBack}
+      />
+    );
+  if (screen.clipUnavailable)
+    return (
+      <div className={cn(studioStyles.studio, studioStyles.studioState)}>
+        <p role="alert">선택한 MIDI 클립을 찾을 수 없습니다.</p>
+        <button onClick={onBack}>돌아가기</button>
+      </div>
+    );
   const controls = editable && (
     <NoteEditorControls
       editor={editor}
@@ -117,7 +127,10 @@ function LoadedNoteEditor({
   const statusRow = (
     <div className="note-editor-status flex shrink-0 items-center gap-2 px-3 py-0.5">
       {screen.statusText !== null && (
-        <p role="status" className="m-0 min-w-0 flex-1 truncate text-caption leading-[16px] text-app-muted">
+        <p
+          role="status"
+          className="m-0 min-w-0 flex-1 truncate text-caption leading-[16px] text-app-muted"
+        >
           {screen.statusText}
         </p>
       )}
@@ -127,7 +140,11 @@ function LoadedNoteEditor({
           className="ml-auto flex shrink-0 items-center gap-1 rounded-[6px] px-1.5 text-caption leading-[18px] text-app-muted hover:text-app-fg"
           onClick={onToggleLayout}
         >
-          {portrait ? <MonitorSmartphone size={13} aria-hidden="true" /> : <Smartphone size={13} aria-hidden="true" />}
+          {portrait ? (
+            <MonitorSmartphone size={13} aria-hidden="true" />
+          ) : (
+            <Smartphone size={13} aria-hidden="true" />
+          )}
           {portrait ? "가로 모드" : "세로 모드"}
         </button>
       )}
@@ -152,7 +169,9 @@ function LoadedNoteEditor({
     />
   );
   return (
-    <div className={cn(studioStyles.studio, portrait && studioStyles.studioPortrait, "note-editor")}>
+    <div
+      className={cn(studioStyles.studio, portrait && studioStyles.studioPortrait, "note-editor")}
+    >
       {portrait ? (
         <PortraitNoteEditor
           title={`${track.name} · 피아노롤`}
@@ -178,31 +197,31 @@ function LoadedNoteEditor({
           roll={roll}
         />
       ) : (
-      <>
-      <StudioToolbar
-        signature={playback.signature}
-        title={`${track.name} · 피아노롤`}
-        bpm={composition.project.bpm}
-        onTiming={screen.onTiming}
-        instrument={screen.instrumentChoice}
-        playing={playback.playing}
-        positionMs={positionTick * timing.tickMs}
-        onPlay={screen.play}
-        onPause={playback.pause}
-        onRewind={screen.rewind}
-        onBack={screen.requestBack}
-        piano
-        volume={playback.volume}
-        onVolume={playback.setVolume}
-        metronome={playback.metronome}
-        onMetronome={screen.toggleMetronome}
-        onImportSource={screen.openSources}
-        onAdd={screen.openLayerList}
-        addLabel="레이어 목록"
-      />
-      {controls}
-      {statusRow}
-      </>
+        <>
+          <StudioToolbar
+            signature={playback.signature}
+            title={`${track.name} · 피아노롤`}
+            bpm={composition.project.bpm}
+            onTiming={screen.onTiming}
+            instrument={screen.instrumentChoice}
+            playing={playback.playing}
+            positionMs={positionTick * timing.tickMs}
+            onPlay={screen.play}
+            onPause={playback.pause}
+            onRewind={screen.rewind}
+            onBack={screen.requestBack}
+            piano
+            volume={playback.volume}
+            onVolume={playback.setVolume}
+            metronome={playback.metronome}
+            onMetronome={screen.toggleMetronome}
+            onImportSource={screen.openSources}
+            onAdd={screen.openLayerList}
+            addLabel="레이어 목록"
+          />
+          {controls}
+          {statusRow}
+        </>
       )}
       {screen.shownError && (
         <p className={studioStyles.studioError} role="alert">
@@ -224,7 +243,7 @@ function LoadedNoteEditor({
         </div>
       )}
       {!editable && <p>내 MIDI 레이어만 수정할 수 있습니다.</p>}
-      {!inApp && screen.showSources && editor.editable && (
+      {screen.showSources && editor.editable && (
         <StudioSourceDialog
           localFileImport={
             <JsonNoteImportControl
@@ -238,7 +257,7 @@ function LoadedNoteEditor({
           onResource={screen.importResource}
         />
       )}
-      {!inApp && screen.exitTarget && (
+      {screen.exitTarget && (
         <CanvasDialog
           className={studioStyles.studioAudioDialogContent}
           titleId="draft-exit-title"
@@ -270,7 +289,7 @@ function LoadedNoteEditor({
           </button>
         </CanvasDialog>
       )}
-      {!inApp && dialogs.showChords && editor.editable && (
+      {dialogs.showChords && editor.editable && (
         <ChordPickerDialog
           editor={editor}
           ppq={composition.project.ppq}
@@ -279,19 +298,22 @@ function LoadedNoteEditor({
           onClose={() => dialogs.setShowChords(false)}
         />
       )}
-      {!inApp && dialogs.settingsIndex !== null && editor.editable && editor.snapshot.notes[dialogs.settingsIndex] && (
-        <NoteSettingsDialog
-          key={`${dialogs.settingsIndex}:${editor.lastChange?.revision ?? 0}`}
-          note={editor.snapshot.notes[dialogs.settingsIndex]}
-          instrument={track.instrument}
-          stepTick={editor.bounds.stepTick}
-          maxTick={screen.maxTick}
-          onClose={() => dialogs.setSettingsIndex(null)}
-          onApply={(note) => editor.execute({ type: "replace", index: dialogs.settingsIndex!, note })}
-        />
-      )}
+      {dialogs.settingsIndex !== null &&
+        editor.editable &&
+        editor.snapshot.notes[dialogs.settingsIndex] && (
+          <NoteSettingsDialog
+            key={`${dialogs.settingsIndex}:${editor.lastChange?.revision ?? 0}`}
+            note={editor.snapshot.notes[dialogs.settingsIndex]}
+            instrument={track.instrument}
+            stepTick={editor.bounds.stepTick}
+            maxTick={screen.maxTick}
+            onClose={() => dialogs.setSettingsIndex(null)}
+            onApply={(note) =>
+              editor.execute({ type: "replace", index: dialogs.settingsIndex!, note })
+            }
+          />
+        )}
       {!portrait && roll}
-      {bridge}
     </div>
   );
 }

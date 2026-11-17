@@ -21,18 +21,52 @@ export default function SavedPage() {
     onOpenPost: (id: number) => to(`/posts/${id}`),
     onOpenSong: (id: number) => to(`/abyss/${id}`),
   };
+  if (nativeApp())
+    return (
+      <>
+        <NativeSavedBridge {...open} onSearch={search} onBack={() => back("/settings")} />
+        <Footer
+          activeTab={null}
+          createLabel={target.label}
+          onCreate={() =>
+            to(
+              target.path,
+              target.path === "/studio/new"
+                ? {
+                    state: { studioFrom: currentPath, studioIndex: window.history.state?.idx },
+                  }
+                : undefined,
+            )
+          }
+        />
+        <NotificationsOverlay />
+      </>
+    );
   return (
     <DesignViewport>
       <div className={sharedStyles.phoneFrame}>
-        <Header onBack={() => back("/settings")} onSettings={() => to("/settings")}
-          onSearch={search} />
+        <Header
+          onBack={() => back("/settings")}
+          onSettings={() => to("/settings")}
+          onSearch={search}
+        />
         <div className={sharedStyles.screenBody}>
           <SavedScreen {...open} />
-          {nativeApp() && <NativeSavedBridge {...open} onSearch={search} onBack={() => back("/settings")} />}
         </div>
-        <Footer activeTab={null} createLabel={target.label} onCreate={() => to(target.path, target.path === "/studio/new" ? {
-          state: { studioFrom: currentPath, studioIndex: window.history.state?.idx },
-        } : undefined)} />
+        <Footer
+          activeTab={null}
+          createLabel={target.label}
+          onCreate={() =>
+            to(
+              target.path,
+              target.path === "/studio/new"
+                ? {
+                    state: { studioFrom: currentPath, studioIndex: window.history.state?.idx },
+                  }
+                : undefined,
+            )
+          }
+        />
         <NotificationsOverlay />
       </div>
     </DesignViewport>

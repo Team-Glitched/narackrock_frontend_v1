@@ -23,6 +23,53 @@ export default function AbyssPage() {
   const target = creationTarget(scope, galleryId);
   const search = () => to(withQuery("/search", { scope, galleryId }));
   const inApp = nativeApp() !== null;
+  if (inApp)
+    return (
+      <>
+        {invalidId ? (
+          <NativeInvalidAbyssBridge onSearch={search} />
+        ) : (
+          <AbyssScreen
+            nativeScreen={{ onSearch: search, onToggleMute: () => setMuted((value) => !value) }}
+            onProfile={(id) => to(`/users/${id}`)}
+            muted={muted}
+            initialShortId={shortId}
+            onRememberShort={(id) => {
+              if (id !== shortId) to(`/abyss/${id}`, { replace: true, state });
+            }}
+            onJoin={(id) =>
+              to(`/studio/shorts/${id}`, {
+                state: { studioFrom: currentPath, studioIndex: window.history.state?.idx },
+              })
+            }
+            onOpenStudio={(id) =>
+              to(`/studio/${id}`, {
+                state: { studioFrom: currentPath, studioIndex: window.history.state?.idx },
+              })
+            }
+            onOpenRequest={(projectId, contributionId) =>
+              to(
+                contributionId == null
+                  ? "/submissions"
+                  : `/submissions/${contributionId}?projectId=${projectId}`,
+              )
+            }
+          />
+        )}
+        <Footer
+          activeTab="abyss"
+          createLabel={target.label}
+          onCreate={() =>
+            to(
+              target.path,
+              target.path === "/studio/new"
+                ? { state: { studioFrom: currentPath, studioIndex: window.history.state?.idx } }
+                : undefined,
+            )
+          }
+        />
+      </>
+    );
   return (
     <DesignViewport>
       <div className={sharedStyles.phoneFrame}>
@@ -36,16 +83,10 @@ export default function AbyssPage() {
         <div className={sharedStyles.screenBody}>
           {invalidId ? (
             <>
-              {inApp && <NativeInvalidAbyssBridge onSearch={search} />}
               <PageState error>올바르지 않은 페이지 주소입니다.</PageState>
             </>
           ) : (
             <AbyssScreen
-              nativeScreen={
-                inApp
-                  ? { onSearch: search, onToggleMute: () => setMuted((value) => !value) }
-                  : undefined
-              }
               onProfile={(id) => to(`/users/${id}`)}
               muted={muted}
               initialShortId={shortId}

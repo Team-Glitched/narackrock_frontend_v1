@@ -237,12 +237,7 @@ function CommentsSource({
     handler,
     onSheet,
   );
-  return (
-    <>
-      {native.node}
-      {comments.dialogs}
-    </>
-  );
+  return <>{native.node}</>;
 }
 
 /** The participant sheet (the web's ShortParticipants) for the native sheet. */

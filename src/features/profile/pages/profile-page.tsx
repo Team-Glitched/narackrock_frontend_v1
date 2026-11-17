@@ -1,6 +1,7 @@
 import { ProfileScreen } from "@/features/profile/profile-screens";
 import { NativeProfileBridge } from "@/features/profile/native-profile-bridge";
 import { nativeApp } from "@/lib/native-app";
+import { NativePageStateBridge } from "@/features/community/native-community-bridge";
 import { useAuthSession } from "@/features/auth/auth-session";
 import { DesignViewport } from "@/components/design-viewport";
 import { PageState } from "@/components/page-state";
@@ -31,23 +32,64 @@ export default function ProfilePage() {
     onOpenPost: (id: number) => to(`/posts/${id}`),
     onChat: (id: number) => to(`/chat?userId=${id}`),
   };
+  if (nativeApp())
+    return (
+      <>
+        {invalidId ? (
+          <NativePageStateBridge
+            state={{
+              tone: "error",
+              message: "올바르지 않은 페이지 주소입니다.",
+              createLabel: null,
+            }}
+            onBack={() => back("/")}
+            onSearch={search}
+          />
+        ) : (
+          <NativeProfileBridge
+            key={userId ?? "me"}
+            {...screen}
+            onNavigate={to}
+            onSearch={search}
+            onBack={() => back("/")}
+          />
+        )}
+        <Footer
+          activeTab={null}
+          createLabel={target.label}
+          onCreate={() =>
+            to(target.path, {
+              state: { studioFrom: currentPath, studioIndex: window.history.state?.idx },
+            })
+          }
+        />
+        <NotificationsOverlay />
+      </>
+    );
   return (
     <DesignViewport>
       <div className={sharedStyles.phoneFrame}>
-        <Header onBack={() => back("/")} onSearch={search}
-          onSettings={own ? () => to("/settings") : undefined} />
+        <Header
+          onBack={() => back("/")}
+          onSearch={search}
+          onSettings={own ? () => to("/settings") : undefined}
+        />
         <div className={sharedStyles.screenBody}>
-          {invalidId ? <PageState error>올바르지 않은 페이지 주소입니다.</PageState> : (
+          {invalidId ? (
+            <PageState error>올바르지 않은 페이지 주소입니다.</PageState>
+          ) : (
             <ProfileScreen key={userId ?? "me"} {...screen} />
           )}
-          {/* An invalid address keeps the web error page. */}
-          {nativeApp() && !invalidId && (
-            <NativeProfileBridge key={userId ?? "me"} {...screen} onNavigate={to} onSearch={search} onBack={() => back("/")} />
-          )}
         </div>
-        <Footer activeTab={null} createLabel={target.label} onCreate={() => to(target.path, {
-          state: { studioFrom: currentPath, studioIndex: window.history.state?.idx },
-        })} />
+        <Footer
+          activeTab={null}
+          createLabel={target.label}
+          onCreate={() =>
+            to(target.path, {
+              state: { studioFrom: currentPath, studioIndex: window.history.state?.idx },
+            })
+          }
+        />
         <NotificationsOverlay />
       </div>
     </DesignViewport>

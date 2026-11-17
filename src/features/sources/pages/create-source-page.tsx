@@ -73,6 +73,22 @@ export default function CreateSourcePage() {
       to("/sources?tab=mine", { replace: true });
     },
   };
+  if (nativeApp())
+    return (
+      <>
+        {signedIn ? (
+          <NativeSourceCreateContent
+            key={JSON.stringify([apiOrigin(), userId])}
+            {...createProps}
+            onBack={leave}
+            onSearch={search}
+          />
+        ) : (
+          <NativeSignedOutSourceCreateBridge onBack={leave} onSearch={search} />
+        )}
+        <NotificationsOverlay />
+      </>
+    );
   return (
     <DesignViewport landscape={pianoMode}>
       <div className={cn(sharedStyles.phoneFrame, pianoMode && sharedStyles.phoneFrameSourcePiano)}>
@@ -84,23 +100,9 @@ export default function CreateSourcePage() {
         )}
         <div className={sharedStyles.screenBody}>
           {signedIn ? (
-            nativeApp() ? (
-              <NativeSourceCreateContent
-                key={JSON.stringify([apiOrigin(), userId])}
-                {...createProps}
-                onBack={leave}
-                onSearch={search}
-              />
-            ) : (
-              <SocialCreate key={JSON.stringify([apiOrigin(), userId])} {...createProps} />
-            )
+            <SocialCreate key={JSON.stringify([apiOrigin(), userId])} {...createProps} />
           ) : (
-            <>
-              <SignInRequired>샘플 등록은 로그인 후 사용할 수 있습니다.</SignInRequired>
-              {nativeApp() && (
-                <NativeSignedOutSourceCreateBridge onBack={leave} onSearch={search} />
-              )}
-            </>
+            <SignInRequired>샘플 등록은 로그인 후 사용할 수 있습니다.</SignInRequired>
           )}
         </div>
         <NotificationsOverlay />

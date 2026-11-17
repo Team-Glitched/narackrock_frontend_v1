@@ -19,6 +19,7 @@ import { resolveSearchScope } from "@/features/search/search-scope";
 import { sharedStyles } from "@/styles/shared.styles";
 import { nativeApp } from "@/lib/native-app";
 import { NativeRecordBridge } from "@/features/composition/native-creation-bridges";
+import { NativePageStateBridge } from "@/features/community/native-community-bridge";
 export default function RecordPage() {
   const route = useRouteComposition();
   const instrument = useInstrumentPrompt(route.projectId);
@@ -91,6 +92,33 @@ export default function RecordPage() {
       throw cause;
     }
   }
+  if (nativeApp())
+    return (
+      <>
+        {route.projectId === null ? (
+          <NativePageStateBridge
+            state={{
+              message: "올바르지 않은 페이지 주소입니다.",
+              tone: "error",
+              createLabel: null,
+            }}
+            onBack={() => void cancel()}
+            onSearch={search}
+          />
+        ) : (
+          <NativeRecordBridge
+            onSave={save}
+            onTransform={transform}
+            instrument={instrument.native}
+            notice={cancelError || null}
+            onBack={() => void cancel()}
+            onSearch={search}
+          />
+        )}
+        <Footer activeTab={null} onCreate={onCreate} createLabel={target.label} />
+        <NotificationsOverlay />
+      </>
+    );
   return (
     <DesignViewport>
       <div className={sharedStyles.phoneFrame}>
@@ -104,16 +132,6 @@ export default function RecordPage() {
               onBack={() => void cancel()}
               onSave={save}
               onTransform={transform}
-            />
-          )}
-          {nativeApp() && route.projectId !== null && (
-            <NativeRecordBridge
-              onSave={save}
-              onTransform={transform}
-              instrument={instrument.native}
-              notice={cancelError || null}
-              onBack={() => void cancel()}
-              onSearch={search}
             />
           )}
         </div>

@@ -16,6 +16,14 @@ export default function CommunitiesPage() {
   const galleryId = readId(params.galleryId) ?? readId(query.get("galleryId"));
   const scope = resolveSearchScope(query.get("scope"), "communities", Boolean(galleryId));
   const search = () => to(withQuery("/search", { scope, galleryId }));
+  if (nativeApp())
+    return (
+      <>
+        <NativeSocialCommunitiesBridge onSearch={search} />
+        <Footer activeTab="social" />
+        <NotificationsOverlay />
+      </>
+    );
   return (
     <DesignViewport>
       <div className={sharedStyles.phoneFrame}>
@@ -35,7 +43,6 @@ export default function CommunitiesPage() {
             onOpenCommunity={(community) => to(`/communities/${community.galleryId}`)}
           />
           <ContextualCreate scope="communities" />
-          {nativeApp() && <NativeSocialCommunitiesBridge onSearch={search} />}
         </div>
         <Footer activeTab="social" />
         <NotificationsOverlay />

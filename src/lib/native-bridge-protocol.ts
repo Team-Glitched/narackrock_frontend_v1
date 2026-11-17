@@ -15,6 +15,7 @@
  */
 import type { MidiNoteDto, TrackDto } from "./api/composition.ts";
 import type { NativeScreenReport, NativeSession } from "./native-screens/index.ts";
+import type { NativeDialogReport } from "./native-dialog.ts";
 
 export type NativePlatform = "android" | "ios";
 
@@ -27,7 +28,7 @@ export type BridgeGlobals = {
 
 export type AppBackgroundEvent = "narackrock:app-background";
 
-/** Footer tabs; the app draws them natively over the web footer, which stays rendered but inert. */
+/** Footer tabs, drawn only by the native app. */
 export type NativeFooterTab = "home" | "abyss" | "social" | "opensource";
 
 /** A footer tab or the center create button. */
@@ -113,8 +114,8 @@ export type BridgeMethods = {
   "set-screen": { payload: { screen: NativeScreenReport }; result: null };
   /** The signed-in user and header badges; sent whenever they change. */
   "set-session": { payload: { session: NativeSession }; result: null };
-  /** Whether a web modal (aria-modal) is open; native views above the WebView step aside for it. */
-  "set-modal": { payload: { open: boolean }; result: null };
+  /** A data-only native dialog appeared, changed or left. Never exposes web content. */
+  "set-dialog": { payload: { dialog: NativeDialogReport }; result: null };
   /**
    * Whether the SPA has an earlier entry to return to (react-router's history index). The app's
    * back button uses this and `history.back()`: WebView.canGoBack() skips entries pushed without a

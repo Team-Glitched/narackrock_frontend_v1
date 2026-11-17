@@ -87,7 +87,7 @@ GitHub Actions 저장소 변수 `VITE_API_BASE_URL`, `VITE_GOOGLE_CLIENT_ID`와 
 
 배포 우선순위는 웹 → Android → iOS입니다. 웹 빌드·배포(`npm run build`, Docker)는 앱과 무관하게 그대로이고, 앱은 같은 웹 빌드를 담는 React Native(Expo) 셸(`native/`)입니다. `native/`는 루트와 별도 패키지라 웹의 React 버전과 의존성에 영향을 주지 않습니다.
 
-앱은 Vite 빌드 결과를 번들에 포함하고, 기기 안의 로컬 정적 서버(`@dr.pogodin/react-native-static-server`)로 `http://127.0.0.1:17173`에서 제공한 뒤 `react-native-webview`로 띄웁니다. `createBrowserRouter`와 origin 단위 `localStorage`가 웹과 똑같이 동작하도록 `file://` 대신 고정 포트의 HTTP origin을 사용합니다.
+앱은 Vite 빌드 결과를 번들에 포함하고, 기기 안의 로컬 정적 서버(`@dr.pogodin/react-native-static-server`)로 `http://127.0.0.1:17173`에서 제공합니다. WebView는 화면에 노출되지 않는 데이터·동작 컨트롤러이며 앱의 페이지와 대화창은 React Native가 그립니다. `createBrowserRouter`와 origin 단위 `localStorage`를 유지하기 위해 `file://` 대신 고정 포트의 HTTP origin을 사용합니다.
 
 ```sh
 cp .env.native.example .env.native   # API 주소, Google 웹 클라이언트 ID, 공유 링크용 웹 origin
@@ -112,11 +112,11 @@ npm run native:prebuild              # app.config.ts/플러그인 변경 후 nat
 
 ### 네이티브 화면
 
-네이티브 화면은 웹 위에 그리는 뷰입니다. 웹 페이지가 데이터(세션·토큰 갱신·쿼리 캐시·로컬 저장소)와 동작(이동·로그인 확인·신고 양식)을 계속 맡고, 화면에 필요한 값만 브리지로 보냅니다. 앱은 그 값을 그리고 사용자 동작을 웹에 돌려줍니다. 브라우저에서는 이 경로가 모두 꺼져 웹 화면은 그대로입니다.
+앱에서는 웹 페이지의 시각적 DOM을 마운트하지 않습니다. 웹 컨트롤러는 데이터(세션·토큰 갱신·쿼리 캐시·로컬 저장소)와 동작(이동·로그인 확인·신고 처리)을 맡고, 뷰 모델만 브리지로 보냅니다. 앱은 네이티브 UI를 그리고 사용자 동작을 컨트롤러에 돌려줍니다. WebView 자체도 비표시·입력 불가·접근성 제외 상태이므로 전환 중 웹 화면이 노출되지 않습니다. 원본 음원 재생용 비시각적 `<audio>`는 유지합니다. 브라우저에서는 기존 웹 화면을 렌더링합니다.
 
-- 하단 탭 바: 앱에서 웹 `Footer`는 레이아웃만 유지하는 비활성 줄로 남고 활성 탭·만들기 라벨을 보냅니다(`set-footer`). `native/tab-bar.tsx`가 390×844 디자인 캔버스와 같은 배율로 그 줄 위에 그리고, 누르면 `narackrock:footer-press`로 페이지의 만들기 동작을 그대로 실행합니다. 키보드가 열리면 숨깁니다.
+- 하단 탭 바: 앱의 `Footer`는 DOM 없이 활성 탭·만들기 라벨만 보냅니다(`set-footer`). `native/tab-bar.tsx`가 탭 바를 그리고, 누르면 `narackrock:footer-press`로 페이지의 만들기 동작을 실행합니다. 키보드와 네이티브 알림 오버레이가 열리면 숨깁니다.
 - 화면 브리지: `src/features/navigation/use-native-screen.tsx`의 `useNativeScreen`이 `set-screen`으로 화면 종류·헤더·뷰 모델을 보내고, 앱 동작을 `narackrock:screen-action`으로 받습니다. 계약은 `src/lib/native-screens/`, 웹 브리지는 각 기능 폴더, React Native 화면은 `native/screens/`에 둡니다. 공통 UI는 `native/ui/`를 씁니다.
-- 화면 스택: `native/screen-stack.tsx`가 최근 history 항목 8개를 마운트한 채 보관해 뒤로가기 시 스크롤과 입력 상태를 유지합니다. 키는 history 위치와 경로로 만들며, 같은 페이지에서 경로만 바꾸는 화면은 `useNativeScreen`의 `path` 옵션으로 고정합니다. 가려진 웹 화면의 `#root`는 `inert`와 `aria-hidden`으로 입력·화면 낭독기 탐색에서 제외하고, 웹 모달이 열리면 해제합니다.
+- 화면 스택: `native/screen-stack.tsx`가 최근 history 항목 8개를 마운트한 채 보관해 뒤로가기 시 스크롤과 입력 상태를 유지합니다. 키는 history 위치와 경로로 만들며, 같은 페이지에서 경로만 바꾸는 화면은 `useNativeScreen`의 `path` 옵션으로 고정합니다. 새 화면을 기다리는 동안에도 웹을 노출하지 않고 네이티브 로딩 상태를 표시합니다.
 - 적용 화면: 홈·차트·인기 게시글·검색, 게시글 상세·작성·댓글, 소셜·커뮤니티·친구, 샘플 탐색·상세·등록, 프로필·설정·개인정보·저장함·알림, 로그인·온보딩, 작업 공간·제출·검토·보관함, 어비스, 채팅, 관리자·커뮤니티 관리, 스튜디오(타임라인·새 프로젝트·레이어 선택)·노트 편집기(피아노롤·드럼·코드)·레이어 추가(업로드·녹음·가져오기). 브라우저에서는 기존 웹 화면을 렌더링합니다.
 - 오디오 엔진: 앱에서는 `useCompositionPlayback`이 같은 API로 `native/audio/`의 엔진(`react-native-audio-api`)을 `audio-engine` 브리지로 구동합니다. 샘플러·트랙 믹서·메트로놈·미리 듣기·노트 WAV 렌더링(`audio-render-notes`)·마이크 녹음(`audio-record`)이 네이티브에서 돌고, 타임라인 계산은 웹 모듈(`composition-playback-timeline.ts`, `instrument-catalog.ts`)을 그대로 씁니다. 엔진은 `narackrock:audio-state`로 웹에 재생 상태를 알리고, 네이티브 화면은 재생 위치를 `useNativeAudioState`로 매 프레임 읽습니다. 브라우저는 계속 Tone을 씁니다.
 - 재생: 보관함·샘플·어비스의 원본 음원(`<audio>`)은 웹이 재생하고 네이티브 화면은 상태 표시와 제어만 합니다. 어비스 참여자 부분 재생은 위 오디오 엔진을 씁니다. 어비스는 세로 스와이프로 곡을 바꾸며, 주소를 교체해도 같은 화면 키를 유지합니다.
@@ -124,9 +124,9 @@ npm run native:prebuild              # app.config.ts/플러그인 변경 후 nat
 - 파일 내보내기: WebView는 blob 다운로드를 무시하므로 `saveFile()`이 앱에서는 `share-file`(`expo-sharing`)로 공유 시트를 열고, 브라우저에서는 다운로드합니다(노트 복구본, 이관 원본).
 - 사진: `pickNativeImage()`가 `pick-image` 브리지로 시스템 사진 선택기를 열어 `File`을 돌려줍니다. 웹과 같은 검증·업로드 코드를 쓰며, 브라우저의 파일 입력은 그대로입니다. 플러그인을 변경하면 prebuild를 다시 실행해야 합니다.
 - 채팅: 앱은 웹 화면 대신 `NativeChatBridge`를 마운트하므로 대화 상태·실시간 연결·읽음 처리는 한 인스턴스가 맡습니다. 네이티브 입력은 전송 성공 카운터가 바뀔 때만 지워져 전송 실패 시 초안이 남습니다.
-- 웹 모달: `aria-modal` 요소가 열리면(`set-modal`) 네이티브 화면과 탭 바가 비켜서 웹 대화창을 보이고 누를 수 있게 합니다. 새 대화창도 `aria-modal`을 붙여야 합니다.
+- 대화창: 앱에서는 `NativeDialog`가 `set-dialog`로 제목·입력 필드·선택지·버튼만 보내고, `native/ui/dialog.tsx`의 React Native Modal이 표시합니다. 동작은 `narackrock:dialog-action`으로 컨트롤러에 돌려줍니다. 로그인 확인·신고·작성 취소·관리자 작업·이관/복구도 웹 모달을 마운트하지 않습니다. 다이얼로그별 ID로 갱신·종료하므로 이전 대화창의 cleanup이 새 대화창을 닫지 않습니다.
 - 샘플 등록·레이어 추가(업로드/녹음/가져오기): 오디오 선택·녹음·피아노와 썸네일 자르기까지 네이티브 화면(`native/screens/creation/`, `native/screens/sources/crop.tsx`)으로 그립니다. 오디오 파일은 `pickNativeAudio()`(`pick-audio`, `expo-document-picker`)로 고르고 파형·길이 계산과 저장은 웹이 맡으며, 구간 미리 듣기·녹음·피아노 렌더링은 앱 오디오 엔진을 씁니다. 업로드는 오디오 파일을 받으며 MIDI 파일 업로드 기능은 아닙니다.
-- 뒤로가기(Android): 열린 웹 모달에 Escape를 보내 닫고, 없으면 웹 history를 되돌리고, 첫 화면이면 앱을 닫습니다. `WebView.canGoBack()`은 페이지 안 사용자 제스처 없이 추가된 항목(네이티브 버튼으로 시작한 이동)을 건너뛰므로, 웹이 react-router history 위치를 보냅니다(`set-history`).
+- 뒤로가기(Android): 네이티브 Modal이 열렸으면 해당 대화창이 처리하고, 없으면 웹 history를 되돌리며 첫 화면이면 앱을 닫습니다. `WebView.canGoBack()`은 페이지 안 사용자 제스처 없이 추가된 항목(네이티브 버튼으로 시작한 이동)을 건너뛰므로, 컨트롤러가 react-router history 위치를 보냅니다(`set-history`).
 - 아이콘: 네이티브 화면은 `public/figma/*.svg`를 웹과 함께 쓰고, `native/svg-transformer.js`가 SVGR로 `react-native-svg` 컴포넌트로 바꿉니다. 색·글꼴 크기는 `src/styles/tokens.ts`를 씁니다.
 
 ### 배포 설정
@@ -225,7 +225,7 @@ Prettier 설정은 `.prettierrc.json`, 기본 편집 규칙은 `.editorconfig`�
 | 노트 편집               | `/studio/42/tracks/3/notes?clipId=9`         |
 
 검색 조건과 선택한 리소스는 URL에 보관하며, 뒤로·앞으로 가기는 React Router의 브라우저 기록을 사용합니다.
-알림은 현재 화면의 URL에 `notifications=1`을 추가해 표시하므로 작성·녹음 중인 화면을 유지합니다.
+알림은 현재 화면의 URL에 `notifications=1`을 추가해 표시하므로 작성·녹음 중인 컨트롤러를 유지합니다. 앱에서는 별도 네이티브 화면 스택(`overlay: true`)에 알림을 올리고, 닫으면 아래 화면과 입력 상태가 유지됩니다.
 `useUrlNavigation`은 `to`, `back`, `params`, `query`, `state`, `currentPath`만 제공합니다. 화면 컴포넌트에는 `onProfile`, `onStartSong`처럼 필요한 행동 callback만 전달합니다.
 검색 문맥은 query 값 → 커뮤니티의 posts → 페이지 기본값 순서로 결정합니다. 생성 목적지는 페이지가 계산하며 프로필의 생성은 항상 곡 만들기입니다.
 스튜디오 최초 진입은 `studioFrom`과 `studioIndex`를 기록하고 레이어·녹음·노트 이동에서는 이를 보존합니다. 알림은 기존 query와 route state를 유지합니다.
