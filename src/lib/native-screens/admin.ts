@@ -1,8 +1,8 @@
 /**
  * Native screen types of the admin feature; registered in ./index.ts.
  * - `admin-review`: the platform admin page `/admin` (src/features/admin/admin-screens.tsx AdminReviewScreen).
- * - `admin-community`: community management `/communities/manage`, `/communities/:id/manage` (until the
- *   manager's community detail, drawn by the social `community-detail` screen) and `/communities/:id/members`.
+ * - `admin-community`: community management `/communities/manage` (the manageable list) and
+ *   `/communities/:id/members`. A community's own page is the social `community-detail` screen.
  */
 
 /** A row's in-flight request and its last error ("" when none). */

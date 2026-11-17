@@ -22,7 +22,6 @@ export default function CommunityMembersPage() {
       <>
         <NativeCommunityAdminBridge
           galleryId={galleryId}
-          members
           invalid={invalidGalleryId}
           onSearch={() => to(withQuery("/search", { scope, galleryId }))}
         />
@@ -48,7 +47,7 @@ export default function CommunityMembersPage() {
           {invalidGalleryId ? (
             <PageState error>올바르지 않은 페이지 주소입니다.</PageState>
           ) : (
-            <CommunityManagementContent galleryId={galleryId} members={true} />
+            <CommunityManagementContent galleryId={galleryId} />
           )}
         </div>
         <Footer

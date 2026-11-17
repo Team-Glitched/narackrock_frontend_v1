@@ -15,7 +15,6 @@ import {
   type UseInfiniteQueryOptions,
 } from "@tanstack/react-query";
 import { Asset } from "@/components/asset";
-import { CommunityDetailScreen } from "@/features/community/community-detail";
 import { galleryToCommunity, type Community } from "@/features/community/community-card";
 import { usePagedItems } from "@/hooks/use-paged-items";
 import { useGalleryRole } from "@/features/community/use-gallery-role";
@@ -362,14 +361,11 @@ export function AdminReviewScreen() {
   );
 }
 
+/** `community` null: the manageable list (`/communities/manage`); otherwise that community's members page. */
 type CommunityAdminProps = {
   community: Community | null;
-  members: boolean;
-  onMembers: () => void;
   onBack: () => void;
   onSelect: (community: Community) => void;
-  onComments: (postId: number) => void;
-  onProfile: (userId: number) => void;
 };
 
 async function loadManageableGalleries(_: number, signal: AbortSignal) {
@@ -469,15 +465,7 @@ export function CommunityAdminScreen(props: CommunityAdminProps) {
         </button>
       </section>
     );
-  if (props.members) return <CommunityMembers community={props.community} onBack={props.onBack} />;
-  return (
-    <CommunityDetailScreen
-      community={props.community}
-      onManage={props.onMembers}
-      onComments={props.onComments}
-      onProfile={props.onProfile}
-    />
-  );
+  return <CommunityMembers community={props.community} onBack={props.onBack} />;
 }
 
 /** A manager's moderation of a community: its description, bans (with lifting) and log. */

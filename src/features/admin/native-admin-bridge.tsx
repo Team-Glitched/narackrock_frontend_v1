@@ -2,7 +2,6 @@ import type { ReactNode } from "react";
 import { useLoginPrompt } from "@/features/auth/login-prompt";
 import type { Community } from "@/features/community/community-card";
 import { useCommunityManagementNavigation } from "@/features/community/community-management-content";
-import { NativeCommunityDetailBridge } from "@/features/community/native-community-bridge";
 import { useRouteCommunity } from "@/features/community/use-route-community";
 import { useNativeScreen } from "@/features/navigation/use-native-screen";
 import { reportActions } from "@/lib/api/admin";
@@ -147,26 +146,24 @@ function AdminCommunityView({
 }
 
 /**
- * In the app the community management pages (/communities/manage, /communities/:id/manage,
- * /communities/:id/members; CommunityManagementContent) are drawn natively; a manager's
- * /communities/:id/manage is the community detail screen with the manage button.
+ * In the app the community management pages (/communities/manage and /communities/:id/members;
+ * CommunityManagementContent) are drawn natively. A community's own page (/communities/:id) is the
+ * social community detail screen, which shows managers the "관리자 페이지" button.
  */
 export function NativeCommunityAdminBridge({
   galleryId,
-  members,
   invalid,
   onBack,
   onSearch,
 }: {
   galleryId: number | null;
-  members: boolean;
   /** The route's gallery ID is not a number. */
   invalid: boolean;
   /** The web Header's back; absent on the members page (no Header). */
   onBack?: () => void;
   onSearch: () => void;
 }) {
-  const options: ScreenOptions = { header: members ? null : header, onBack, onSearch };
+  const options: ScreenOptions = { header: onBack ? header : null, onBack, onSearch };
   if (invalid)
     return (
       <AdminCommunityView
@@ -174,16 +171,14 @@ export function NativeCommunityAdminBridge({
         options={options}
       />
     );
-  return <ManagementBridge galleryId={galleryId} members={members} options={options} />;
+  return <ManagementBridge galleryId={galleryId} options={options} />;
 }
 
 function ManagementBridge({
   galleryId,
-  members,
   options,
 }: {
   galleryId: number | null;
-  members: boolean;
   options: ScreenOptions;
 }) {
   const result = useRouteCommunity(galleryId);
@@ -202,42 +197,28 @@ function ManagementBridge({
       />
     );
   const community = result.status === "ready" ? result.community : null;
-  return (
-    <GateBridge galleryId={galleryId} community={community} members={members} options={options} />
-  );
+  return <GateBridge galleryId={galleryId} community={community} options={options} />;
 }
 
 function GateBridge({
   galleryId,
   community,
-  members,
   options,
 }: {
   galleryId: number | null;
   community: Community | null;
-  members: boolean;
   options: ScreenOptions;
 }) {
-  const navigation = useCommunityManagementNavigation(galleryId, members);
+  const navigation = useCommunityManagementNavigation(galleryId);
   const { requestLogin } = useLoginPrompt();
   const gate = useCommunityAdminGate(community);
   if (gate.view === "manage" && community)
-    return members ? (
+    return (
       <MembersBridge
         key={community.galleryId}
         community={community}
         onLeave={navigation.onBack}
         options={options}
-      />
-    ) : (
-      <NativeCommunityDetailBridge
-        key={community.galleryId}
-        community={community}
-        onManage={navigation.onMembers}
-        onComments={navigation.onComments}
-        onProfile={navigation.onProfile}
-        onBack={options.onBack ?? navigation.onBack}
-        onSearch={options.onSearch}
       />
     );
   const { galleries } = gate;

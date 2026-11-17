@@ -85,12 +85,6 @@ export const appRoutes: RouteObject[] = [
       { path: "communities/:galleryId", element: <CommunityPage /> },
       { path: "communities/:galleryId/posts/:postId", element: <PostPage /> },
       {
-        path: "communities/:galleryId/manage",
-        lazy: async () => ({
-          Component: (await import("@/features/community/pages/community-admin-page")).default,
-        }),
-      },
-      {
         path: "communities/:galleryId/members",
         lazy: async () => ({
           Component: (await import("@/features/community/pages/community-members-page")).default,
