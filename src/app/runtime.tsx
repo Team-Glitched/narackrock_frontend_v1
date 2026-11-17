@@ -12,17 +12,10 @@ export function AppRuntime() {
   const location = useLocation();
   const navigate = useNavigate();
   const overlay = nativeApp() && new URLSearchParams(location.search).get("notifications") === "1";
-  const page = requiresLogin(location.pathname + location.search) ? (
-    <RequireAuth>
-      <Outlet />
-    </RequireAuth>
-  ) : (
-    <Outlet />
-  );
   return (
-    <>
-      {page}
+    <RequireAuth required={requiresLogin(location.pathname + location.search)}>
+      <Outlet />
       {overlay && <NativeNotificationsBridge overlay onSearch={() => navigate("/search")} />}
-    </>
+    </RequireAuth>
   );
 }

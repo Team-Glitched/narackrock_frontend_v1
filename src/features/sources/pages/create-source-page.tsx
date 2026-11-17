@@ -41,32 +41,30 @@ export default function CreateSourcePage() {
   const pianoMode = stage === "note";
   const galleryId = readId(params.galleryId) ?? readId(query.get("galleryId"));
   const scope = resolveSearchScope(query.get("scope"), "songs", Boolean(galleryId));
-  const backPath = !query.has("stage")
-    ? "/sources"
-    : stage === "choose"
-      ? "/sources/new"
-      : "/sources/new?stage=choose";
-  const leave = () => back(backPath);
   const search = () => to(withQuery("/search", { scope, galleryId }));
+  function changeAudioStage(next: SourceStage) {
+    if (next === stage) return;
+    const path = withQuery("/sources/new", { stage: next === "details" ? undefined : next });
+    // A direct link to an audio step has no details entry below it.
+    if (stage !== "details" && stageDepth === 0) {
+      to(path, { replace: true, state: { from: state.from } });
+    } else if (next === "details" && stageDepth > 0) {
+      navigate(-stageDepth);
+    } else if (next === "choose" && stageDepth > 1) {
+      navigate(-(stageDepth - 1));
+    } else {
+      to(path, { state: { stageDepth: stageDepth + 1 } });
+    }
+  }
+  const leave = () => {
+    if (stage === "details") back("/sources");
+    else changeAudioStage(stage === "choose" ? "details" : "choose");
+  };
   const createProps: SocialCreateProps = {
     kind: "source",
     galleryId: DEFAULT_GALLERY_ID,
     audioStage: stage,
-    // The steps form a stack over the details entry: going forward pushes, going back returns to
-    // the entry it came from. Pushing "details" again would leave stale step entries behind it,
-    // and "작성 취소" (one step back) would then land on a step of the discarded draft.
-    onAudioStage: (next) => {
-      if (next === "details") {
-        if (stageDepth > 0) navigate(-stageDepth);
-        else to("/sources/new", { replace: true });
-      } else if (next === "choose" && stageDepth > 1) {
-        navigate(-(stageDepth - 1));
-      } else {
-        to(withQuery("/sources/new", { stage: next }), {
-          state: { stageDepth: next === "choose" ? 1 : stageDepth + 1 },
-        });
-      }
-    },
+    onAudioStage: changeAudioStage,
     onCancel: () => back("/sources"),
     onCreated: () => {
       void queryClient.invalidateQueries({ queryKey: sourceKeys.all(userId) });
@@ -92,12 +90,7 @@ export default function CreateSourcePage() {
   return (
     <DesignViewport landscape={pianoMode}>
       <div className={cn(sharedStyles.phoneFrame, pianoMode && sharedStyles.phoneFrameSourcePiano)}>
-        {!pianoMode && (
-          <Header
-            onBack={() => back(backPath)}
-            onSearch={() => to(withQuery("/search", { scope, galleryId }))}
-          />
-        )}
+        {!pianoMode && <Header onBack={leave} onSearch={search} />}
         <div className={sharedStyles.screenBody}>
           {signedIn ? (
             <SocialCreate key={JSON.stringify([apiOrigin(), userId])} {...createProps} />
