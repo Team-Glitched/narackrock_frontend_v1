@@ -29,7 +29,12 @@ import { WebView, type WebViewMessageEvent } from "react-native-webview";
 import type { NativeFooter } from "../src/lib/native-bridge-protocol";
 import type { NativeScreenAction, NativeSession } from "../src/lib/native-screens";
 import { designTokens } from "../src/styles/tokens";
-import { cancelRecording, disposeAudioEngines, onAudioState } from "./audio";
+import {
+  cancelRecording,
+  disposeAudioEngines,
+  onAudioState,
+  requestMicrophoneAtLaunch,
+} from "./audio";
 import {
   appBackgroundScript,
   audioStateScript,
@@ -180,6 +185,11 @@ function WebShell() {
     () => onAudioState((state) => webView.current?.injectJavaScript(audioStateScript(state))),
     [],
   );
+
+  // The microphone is asked for at launch; recording asks again while it is missing.
+  useEffect(() => {
+    requestMicrophoneAtLaunch().catch(() => {});
+  }, []);
 
   // Back closes an open web modal first, then walks the SPA history, then leaves the app.
   useEffect(() => {
