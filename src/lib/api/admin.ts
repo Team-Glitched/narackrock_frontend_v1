@@ -8,6 +8,13 @@ const cursorQuery = (values: Record<string, string | number | null | undefined>)
   return params.toString();
 };
 
+export type OperatorAdminStatus = { operatorAdmin: boolean };
+
+/** Whether the caller is an operator admin (`users.role = ADMIN`); `false` for everyone else. */
+export function getOperatorAdminStatus(signal?: AbortSignal): Promise<OperatorAdminStatus> {
+  return data<OperatorAdminStatus>("/api/v1/admin/me", { signal });
+}
+
 export type ProposalStatus = "PENDING" | "APPROVED" | "REJECTED";
 export type GalleryProposal = {
   proposalId: number;

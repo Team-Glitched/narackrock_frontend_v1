@@ -23,7 +23,6 @@ export default function OwnedCommunitiesPage() {
       <>
         <NativeCommunityAdminBridge
           galleryId={null}
-          members={false}
           invalid={false}
           onBack={onBack}
           onSearch={onSearch}
@@ -48,7 +47,7 @@ export default function OwnedCommunitiesPage() {
       <div className={sharedStyles.phoneFrame}>
         <Header onBack={onBack} onSearch={onSearch} />
         <div className={sharedStyles.screenBody}>
-          <CommunityManagementContent galleryId={null} members={false} />
+          <CommunityManagementContent galleryId={null} />
         </div>
         <Footer
           activeTab="social"

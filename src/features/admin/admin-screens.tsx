@@ -3,31 +3,38 @@ import { sharedStyles } from "@/styles/shared.styles";
 import { cn } from "@/lib/utils";
 import { communityStyles } from "@/styles/community.styles";
 import { workspaceStyles } from "@/styles/workspace.styles";
-import { buttonVariants } from "@/styles/variants";
+import { badgeVariants, buttonVariants } from "@/styles/variants";
 import { socialStyles } from "@/styles/social.styles";
-import { useRef, useState } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import {
   useInfiniteQuery,
   useMutation,
+  useQuery,
   useQueryClient,
   type InfiniteData,
   type UseInfiniteQueryOptions,
 } from "@tanstack/react-query";
 import { Asset } from "@/components/asset";
-import { CommunityDetailScreen } from "@/features/community/community-detail";
+import { Avatar } from "@/components/avatar";
+import { SectionTitle } from "@/components/section-title";
 import { galleryToCommunity, type Community } from "@/features/community/community-card";
 import { usePagedItems } from "@/hooks/use-paged-items";
 import { useGalleryRole } from "@/features/community/use-gallery-role";
 import { useCurrentUserId } from "@/features/auth/use-current-user";
+import { mergeManagerSearchPage, prioritizeExactNickname } from "./admin-search";
 import { SignInRequired } from "@/features/auth/sign-in-required";
 import { ApiError } from "@/lib/api/client";
 import {
   fetchManageableGalleries,
+  grantGalleryManager,
   liftGalleryBan,
+  revokeGalleryManager,
   updateGalleryDescription,
   type GalleryBan,
+  type GalleryManager,
   type GalleryModerationLog,
 } from "@/lib/api/community";
+import { searchPeople, type SearchedPerson } from "@/lib/api/social";
 import {
   approveGalleryProposal,
   rejectGalleryProposal,
@@ -42,6 +49,7 @@ import { galleryKeys } from "@/features/community/community-queries";
 import {
   adminKeys,
   galleryBansQuery,
+  galleryManagersQuery,
   moderationLogsQuery,
   pendingProposalsQuery,
   pendingReportsQuery,
@@ -310,11 +318,11 @@ export function AdminReviewScreen() {
   const { userId, tab, setTab, proposals, reports, proposalTask, reportTask, review, handle } =
     useAdminReview();
   if (userId === null)
-    return <SignInRequired>관리자 화면은 로그인 후 사용할 수 있습니다.</SignInRequired>;
+    return <SignInRequired>운영자 관리 화면은 로그인 후 사용할 수 있습니다.</SignInRequired>;
   const list = tab === "proposals" ? proposals : reports;
   return (
-    <section className={cn("admin-view", sharedStyles.scrollContent)} aria-label="관리자 화면">
-      <h1>관리자</h1>
+    <section className={cn("admin-view", sharedStyles.scrollContent)} aria-label="운영자 관리">
+      <h1>운영자 관리</h1>
       <div className={workspaceStyles.workspaceTabs}>
         <button aria-pressed={tab === "proposals"} onClick={() => setTab("proposals")}>
           개설 신청
@@ -356,14 +364,11 @@ export function AdminReviewScreen() {
   );
 }
 
+/** `community` null: the manageable list (`/communities/manage`); otherwise that community's members page. */
 type CommunityAdminProps = {
   community: Community | null;
-  members: boolean;
-  onMembers: () => void;
   onBack: () => void;
   onSelect: (community: Community) => void;
-  onComments: (postId: number) => void;
-  onProfile: (userId: number) => void;
 };
 
 async function loadManageableGalleries(_: number, signal: AbortSignal) {
@@ -457,21 +462,13 @@ export function CommunityAdminScreen(props: CommunityAdminProps) {
     return (
       <section className={communityStyles.communityAdminStatus}>
         <h1>커뮤니티 관리</h1>
-        <p role="alert">이 커뮤니티의 관리자만 관리할 수 있습니다.</p>
+        <p role="alert">이 커뮤니티의 커뮤니티 어드민만 관리할 수 있습니다.</p>
         <button className={buttonVariants({ tone: "secondary" })} onClick={props.onBack}>
           돌아가기
         </button>
       </section>
     );
-  if (props.members) return <CommunityMembers community={props.community} onBack={props.onBack} />;
-  return (
-    <CommunityDetailScreen
-      community={props.community}
-      onManage={props.onMembers}
-      onComments={props.onComments}
-      onProfile={props.onProfile}
-    />
-  );
+  return <CommunityMembers community={props.community} onBack={props.onBack} />;
 }
 
 /** A manager's moderation of a community: its description, bans (with lifting) and log. */
@@ -517,95 +514,402 @@ export function useCommunityModeration(community: Community) {
   };
 }
 
+const MANAGER_SEARCH_PAGE_SIZE = 10;
+
+export type ManagerSearch = {
+  status: "idle" | "loading" | "error" | "ready";
+  items: SearchedPerson[];
+  hasMore: boolean;
+  loadingMore: boolean;
+};
+
+const IDLE_MANAGER_SEARCH: ManagerSearch = {
+  status: "idle",
+  items: [],
+  hasMore: false,
+  loadingMore: false,
+};
+
+/** The community admins (`MANAGER`) of a community: the list, a nickname search, granting and revoking. */
+export function useGalleryManagers(community: Community) {
+  const userId = useCurrentUserId();
+  const queryClient = useQueryClient();
+  const managers = useQuery(galleryManagersQuery(userId, community.galleryId));
+  const [search, setSearch] = useState<ManagerSearch>(IDLE_MANAGER_SEARCH);
+  const [notice, setNotice] = useState("");
+  // Only the latest search may fill the results.
+  const searchRun = useRef(0);
+  const searchMeta = useRef({ keyword: "", page: 0, totalCount: 0, loadingMore: false });
+  const onChanged = () => {
+    // The admin list and the log; the caller's own role when they revoked themselves.
+    void queryClient.invalidateQueries({ queryKey: adminKeys.gallery(userId, community.galleryId) });
+    void queryClient.invalidateQueries({ queryKey: galleryKeys.role(userId, community.galleryId) });
+    void queryClient.invalidateQueries({ queryKey: adminKeys.manageableGalleries(userId) });
+  };
+  const grant = useMutation({
+    mutationFn: (targetId: number) => grantGalleryManager(community.galleryId, targetId),
+    onSuccess: onChanged,
+  });
+  const revoke = useMutation({
+    mutationFn: (targetId: number) => revokeGalleryManager(community.galleryId, targetId),
+    onSuccess: onChanged,
+  });
+  const items: GalleryManager[] = managers.data ?? [];
+  return {
+    managers: {
+      loaded: managers.data !== undefined || managers.isError,
+      error: managers.isError
+        ? adminError(managers.error, "커뮤니티 어드민 목록을 불러오지 못했습니다.")
+        : null,
+      items,
+    },
+    search,
+    /** Whether a search result is already a community admin. */
+    isManager: (targetId: number) => items.some((manager) => manager.userId === targetId),
+    runSearch: (keyword: string) => {
+      const run = ++searchRun.current;
+      const trimmed = keyword.trim();
+      searchMeta.current = { keyword: trimmed, page: 0, totalCount: 0, loadingMore: false };
+      if (!trimmed) return setSearch(IDLE_MANAGER_SEARCH);
+      setSearch({ status: "loading", items: [], hasMore: false, loadingMore: false });
+      void searchPeople(trimmed, 0, MANAGER_SEARCH_PAGE_SIZE).then(
+        (page) => {
+          if (run !== searchRun.current) return;
+          const ordered = prioritizeExactNickname(page.users, trimmed);
+          searchMeta.current = {
+            keyword: trimmed,
+            page: 0,
+            totalCount: page.totalResultCount,
+            loadingMore: false,
+          };
+          setSearch({
+            status: "ready",
+            items: ordered,
+            hasMore: page.users.length > 0 && ordered.length < page.totalResultCount,
+            loadingMore: false,
+          });
+        },
+        () => {
+          if (run !== searchRun.current) return;
+          setSearch({ status: "error", items: [], hasMore: false, loadingMore: false });
+        },
+      );
+    },
+    loadMoreSearch: () => {
+      const meta = searchMeta.current;
+      if (!meta.keyword || meta.loadingMore) return;
+      const run = searchRun.current;
+      const nextPage = meta.page + 1;
+      meta.loadingMore = true;
+      setSearch((current) =>
+        current.status === "ready" && current.hasMore ? { ...current, loadingMore: true } : current,
+      );
+      void searchPeople(meta.keyword, nextPage, MANAGER_SEARCH_PAGE_SIZE).then(
+        (page) => {
+          if (run !== searchRun.current) return;
+          meta.page = nextPage;
+          meta.totalCount = page.totalResultCount;
+          meta.loadingMore = false;
+          setSearch((current) => {
+            const merged = mergeManagerSearchPage(current.items, page.users, meta.keyword);
+            return {
+              status: "ready",
+              items: merged,
+              hasMore: page.users.length > 0 && merged.length < page.totalResultCount,
+              loadingMore: false,
+            };
+          });
+        },
+        () => {
+          if (run !== searchRun.current) return;
+          meta.loadingMore = false;
+          setSearch((current) => ({ ...current, loadingMore: false }));
+        },
+      );
+    },
+    busy: grant.isPending || revoke.isPending,
+    grant: (targetId: number) => {
+      setNotice("");
+      grant.mutate(targetId, {
+        onSuccess: () => setNotice("커뮤니티 어드민으로 지정했습니다."),
+        onError: (cause) => setNotice(adminError(cause, "지정하지 못했습니다.")),
+      });
+    },
+    revoke: (targetId: number) => {
+      setNotice("");
+      revoke.mutate(targetId, {
+        onSuccess: () => setNotice("커뮤니티 어드민에서 해임했습니다."),
+        onError: (cause) => setNotice(adminError(cause, "해임하지 못했습니다.")),
+      });
+    },
+    notice,
+  };
+}
+
+export const managerTitle = (manager: { userId: number; nickname: string | null }) =>
+  manager.nickname ?? `사용자 #${manager.userId}`;
+
+const day = (value: string) => new Date(value).toLocaleDateString("ko-KR");
+
+export const managerMeta = (manager: GalleryManager) => `${day(manager.assignedAt)} 지정`;
+
+const moderationActionLabels: Record<string, string> = {
+  UPDATE_GALLERY: "커뮤니티 설명 수정",
+  SUSPEND_USER: "이용정지",
+  EXPEL_USER: "추방",
+  LIFT_BAN: "제재 해제",
+  DELETE_POST: "게시글 삭제",
+  DELETE_COMMENT: "댓글 삭제",
+  GRANT_MANAGER: "커뮤니티 어드민 지정",
+  REVOKE_MANAGER: "커뮤니티 어드민 해임",
+};
+
+/** One moderation log entry as the web and the app show it. */
+export const moderationLogRow = (log: GalleryModerationLog) => ({
+  title: moderationActionLabels[log.actionType] ?? log.actionType,
+  /** "사용자 #12 · 사유", or "" when the action has neither. */
+  detail: [log.targetUserId ? `사용자 #${log.targetUserId}` : null, log.reason].filter(Boolean).join(" · "),
+  time: date(log.createdAt),
+});
+
 export const banStatus = (ban: GalleryBan) =>
   `${ban.banType === "SUSPEND" ? "이용정지" : "추방"} · ${ban.active ? "진행 중" : ban.liftedAt ? "해제됨" : "만료"}`;
 
 export const banPeriod = (ban: GalleryBan) =>
-  `${date(ban.createdAt)}${ban.bannedUntil ? ` ~ ${date(ban.bannedUntil)}` : ""}`;
+  `${day(ban.createdAt)}${ban.bannedUntil ? ` ~ ${day(ban.bannedUntil)}` : ""}`;
 
-export const moderationLogText = (log: GalleryModerationLog) =>
-  `${date(log.createdAt)} · ${log.actionType}${log.targetUserId ? ` · 사용자 #${log.targetUserId}` : ""}${log.reason ? ` · ${log.reason}` : ""}`;
+/** A person-style row: avatar (when given), a bold title, muted lines, then the row's actions. */
+function ManageRow({
+  avatar,
+  title,
+  lines,
+  children,
+}: {
+  avatar?: { src: string | null };
+  title: string;
+  lines: string[];
+  children?: ReactNode;
+}) {
+  return (
+    <li className={communityStyles.communityMemberRow}>
+      <div className={communityStyles.communityMemberProfile}>
+        {avatar && <Avatar src={avatar.src} />}
+        <span>
+          <strong>{title}</strong>
+          {lines.filter(Boolean).map((line) => (
+            <small key={line}>{line}</small>
+          ))}
+        </span>
+      </div>
+      {children}
+    </li>
+  );
+}
+
+function ManageSection({ title, children }: { title: string; children: ReactNode }) {
+  return (
+    <section className={communityStyles.communityManageSection} aria-label={title}>
+      <SectionTitle className="mb-0 px-0">{title}</SectionTitle>
+      {children}
+    </section>
+  );
+}
+
+function Muted({ children, status = false }: { children: ReactNode; status?: boolean }) {
+  return (
+    <p className={communityStyles.communityAdminEmpty} role={status ? "status" : undefined}>
+      {children}
+    </p>
+  );
+}
+
+const moreButton = cn(buttonVariants({ tone: "secondary" }), "w-full");
+
+function CommunityManagers({ community }: { community: Community }) {
+  const [keyword, setKeyword] = useState("");
+  const { managers, search, isManager, runSearch, loadMoreSearch, busy, grant, revoke, notice } =
+    useGalleryManagers(community);
+  return (
+    <>
+      <ManageSection title="커뮤니티 어드민">
+        {notice && <Muted status>{notice}</Muted>}
+        {managers.error ? (
+          <p role="alert">{managers.error}</p>
+        ) : !managers.loaded ? (
+          <Muted status>불러오는 중...</Muted>
+        ) : (
+          managers.items.length === 0 && <Muted>지정된 커뮤니티 어드민이 없습니다.</Muted>
+        )}
+        <ul className={communityStyles.communityMemberList}>
+          {managers.items.map((manager) => (
+            <ManageRow
+              key={manager.userId}
+              avatar={{ src: manager.profileImageUrl }}
+              title={managerTitle(manager)}
+              lines={[managerMeta(manager)]}
+            >
+              <button
+                className={buttonVariants({ tone: "secondary" })}
+                disabled={busy}
+                onClick={() => revoke(manager.userId)}
+              >
+                해임
+              </button>
+            </ManageRow>
+          ))}
+        </ul>
+      </ManageSection>
+      <ManageSection title="어드민 지정">
+        <form
+          className={communityStyles.communityAdminSearch}
+          role="search"
+          onSubmit={(event) => {
+            event.preventDefault();
+            runSearch(keyword);
+          }}
+        >
+          <input
+            className="focus-visible:outline-none!"
+            aria-label="닉네임으로 사용자 검색"
+            placeholder="닉네임으로 사용자 검색"
+            value={keyword}
+            onChange={(event) => setKeyword(event.target.value)}
+          />
+          <button aria-label="검색">
+            <Asset name="search-input.svg" />
+          </button>
+        </form>
+        {search.status === "idle" && <Muted>지정할 사용자의 닉네임을 검색하세요.</Muted>}
+        {search.status === "loading" && <Muted status>검색 중...</Muted>}
+        {search.status === "error" && <p role="alert">사용자를 검색하지 못했습니다.</p>}
+        {search.status === "ready" && search.items.length === 0 && <Muted>검색 결과가 없습니다.</Muted>}
+        <ul className={communityStyles.communityMemberList}>
+          {search.items.map((person) => (
+            <ManageRow
+              key={person.userId}
+              avatar={{ src: person.profileImageUrl }}
+              title={managerTitle(person)}
+              lines={[person.primaryInstrument ?? ""]}
+            >
+              {isManager(person.userId) ? (
+                <span className={cn(badgeVariants({ status: "resource" }), "mb-0")}>어드민</span>
+              ) : (
+                <button
+                  className={buttonVariants({ tone: "primary" })}
+                  disabled={busy}
+                  onClick={() => grant(person.userId)}
+                >
+                  지정
+                </button>
+              )}
+            </ManageRow>
+          ))}
+        </ul>
+        {search.status === "ready" && search.hasMore && (
+          <button className={moreButton} disabled={search.loadingMore} onClick={loadMoreSearch}>
+            검색 결과 더보기
+          </button>
+        )}
+      </ManageSection>
+    </>
+  );
+}
+
+const DESCRIPTION_LIMIT = 1000;
 
 function CommunityMembers({ community, onBack }: { community: Community; onBack: () => void }) {
   const [description, setDescription] = useState(community.description ?? "");
   const { notice, bans, logs, saving, save, lifting, lift } = useCommunityModeration(community);
   return (
-    <section
-      className={cn(communityStyles.communityMembersView, sharedStyles.scrollContent)}
-      aria-label={`${community.name} 운영`}
-    >
+    <section className={communityStyles.communityMembersView} aria-label={`${community.name} 운영`}>
       <div className={socialStyles.searchLine}>
         <button onClick={onBack} aria-label="돌아가기">
           <Asset name="search-back.svg" />
         </button>
+        <h1 className={communityStyles.communityManageTitle}>
+          <strong>{community.name}</strong>
+          <small>커뮤니티 관리</small>
+        </h1>
       </div>
-      <p className={communityStyles.communityAdminEmpty} role="status">
-        전체 멤버 목록은 현재 서버에서 지원하지 않습니다. 게시글·댓글 메뉴에서 작성자를 제재할 수
-        있습니다.
-      </p>
-      <form
-        className={workspaceStyles.workspaceCard}
-        onSubmit={(event) => {
-          event.preventDefault();
-          save(description);
-        }}
-      >
-        <h2>커뮤니티 설명</h2>
-        <textarea
-          aria-label="커뮤니티 설명"
-          maxLength={1000}
-          value={description}
-          onChange={(event) => setDescription(event.target.value)}
-        />
-        {notice && <p role="status">{notice}</p>}
-        <button className={workspaceStyles.workspacePrimary} disabled={saving}>
-          {saving ? "저장 중..." : "설명 저장"}
-        </button>
-      </form>
-      <h2>제재 내역</h2>
-      {bans.error && <p role="alert">{bans.error}</p>}
-      {bans.loaded && bans.items.length === 0 && <p>제재 내역이 없습니다.</p>}
-      {bans.items.map((ban) => (
-        <article className={workspaceStyles.workspaceCard} key={ban.banId}>
-          <span className={workspaceStyles.workspaceStatus}>{banStatus(ban)}</span>
-          <h2>사용자 #{ban.userId}</h2>
-          <p>{ban.reason}</p>
-          <small>{banPeriod(ban)}</small>
-          {ban.active && (
-            <div className={workspaceStyles.workspaceActions}>
-              <button disabled={lifting} onClick={() => lift(ban.banId)}>
-                제재 해제
+      <div className={cn(communityStyles.communityMembersContent, sharedStyles.scrollContent)}>
+        <CommunityManagers community={community} />
+        <ManageSection title="커뮤니티 설명">
+          <form
+            className="flex flex-col gap-3"
+            onSubmit={(event) => {
+              event.preventDefault();
+              save(description);
+            }}
+          >
+            <textarea
+              className={communityStyles.communityManageTextarea}
+              aria-label="커뮤니티 설명"
+              placeholder="커뮤니티를 소개해 주세요."
+              maxLength={DESCRIPTION_LIMIT}
+              value={description}
+              onChange={(event) => setDescription(event.target.value)}
+            />
+            <div className={communityStyles.communityManageFooter}>
+              <small>
+                {description.length}/{DESCRIPTION_LIMIT}
+              </small>
+              <button className={buttonVariants({ tone: "primary" })} disabled={saving}>
+                {saving ? "저장 중..." : "저장"}
               </button>
             </div>
+            {notice && <Muted status>{notice}</Muted>}
+          </form>
+        </ManageSection>
+        <ManageSection title="제재 내역">
+          <Muted>멤버 제재는 게시글·댓글의 메뉴에서 할 수 있습니다.</Muted>
+          {bans.error && <p role="alert">{bans.error}</p>}
+          {bans.loaded && !bans.error && bans.items.length === 0 && (
+            <Muted>제재 내역이 없습니다.</Muted>
           )}
-        </article>
-      ))}
-      {bans.hasNext && (
-        <button
-          className={workspaceStyles.workspaceWide}
-          disabled={bans.busy}
-          onClick={() => void bans.more()}
-        >
-          제재 내역 더보기
-        </button>
-      )}
-      <h2>운영 기록</h2>
-      {logs.error && <p role="alert">{logs.error}</p>}
-      {logs.loaded && logs.items.length === 0 && <p>운영 기록이 없습니다.</p>}
-      <ul>
-        {logs.items.map((log) => (
-          <li key={log.logId}>{moderationLogText(log)}</li>
-        ))}
-      </ul>
-      {logs.hasNext && (
-        <button
-          className={workspaceStyles.workspaceWide}
-          disabled={logs.busy}
-          onClick={() => void logs.more()}
-        >
-          운영 기록 더보기
-        </button>
-      )}
+          <ul className={communityStyles.communityMemberList}>
+            {bans.items.map((ban) => (
+              <ManageRow
+                key={ban.banId}
+                avatar={{ src: null }}
+                title={`사용자 #${ban.userId}`}
+                lines={[`${banStatus(ban)} · ${ban.reason}`, banPeriod(ban)]}
+              >
+                {ban.active && (
+                  <button
+                    className={buttonVariants({ tone: "secondary" })}
+                    disabled={lifting}
+                    onClick={() => lift(ban.banId)}
+                  >
+                    해제
+                  </button>
+                )}
+              </ManageRow>
+            ))}
+          </ul>
+          {bans.hasNext && (
+            <button className={moreButton} disabled={bans.busy} onClick={() => void bans.more()}>
+              제재 내역 더보기
+            </button>
+          )}
+        </ManageSection>
+        <ManageSection title="운영 기록">
+          {logs.error && <p role="alert">{logs.error}</p>}
+          {logs.loaded && !logs.error && logs.items.length === 0 && (
+            <Muted>운영 기록이 없습니다.</Muted>
+          )}
+          <ul className={communityStyles.communityMemberList}>
+            {logs.items.map((log) => {
+              const row = moderationLogRow(log);
+              return <ManageRow key={log.logId} title={row.title} lines={[row.detail, row.time]} />;
+            })}
+          </ul>
+          {logs.hasNext && (
+            <button className={moreButton} disabled={logs.busy} onClick={() => void logs.more()}>
+              운영 기록 더보기
+            </button>
+          )}
+        </ManageSection>
+      </div>
     </section>
   );
 }

@@ -40,7 +40,7 @@ export function PostMemberModeration({
       onClose={onClose}
       onConfirm={async (reason, days) => {
         if (!canSanction(community, userId, member.userId))
-          throw new Error("이 커뮤니티의 관리자만 멤버를 제재할 수 있습니다.");
+          throw new Error("이 커뮤니티의 커뮤니티 어드민만 멤버를 제재할 수 있습니다.");
         try {
           await sanction.mutateAsync({ reason, days });
         } catch (cause) {

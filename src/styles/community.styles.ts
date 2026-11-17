@@ -319,9 +319,10 @@ export const communityStyles = {
   ].join(" "),
   communityManageTrigger: [
     "community-manage-trigger",
-    "relative grid place-items-center p-[3px_10px] bg-app-surface bg-none min-h-[26px] rounded-[20px]",
+    "relative grid grid-flow-col place-items-center gap-1 p-[3px_10px] bg-app-surface bg-none min-h-[26px] rounded-[20px]",
+    "text-[12px] leading-4 text-app-fg",
     "[&::after]:[content:''] [&::after]:absolute [&::after]:inset-[-9px_0]",
-    "[&_img]:h-auto [&_img]:w-[22px]",
+    "[&_img]:h-auto [&_img]:w-[18px]",
   ].join(" "),
   communityAdminStatus: [
     "community-admin-status",
@@ -333,29 +334,62 @@ export const communityStyles = {
     "community-members-view",
     "flex h-full min-h-0 flex-col overflow-hidden",
   ].join(" "),
-  communityMembersContent: ["community-members-content", "min-h-0 flex-1 p-[30px_20px]"].join(" "),
-  communityMemberList: ["community-member-list", "list-none m-0 flex flex-col gap-[30px] p-0"].join(
-    " ",
-  ),
+  communityMembersContent: [
+    "community-members-content",
+    "flex min-h-0 flex-1 flex-col gap-10 p-[20px_20px_40px]",
+  ].join(" "),
+  /** The members page title beside its back button. */
+  communityManageTitle: [
+    "community-manage-title",
+    "m-0 flex min-w-0 flex-1 flex-col",
+    "[&>strong]:truncate [&>strong]:text-title [&>strong]:leading-[26px] [&>strong]:font-bold [&>strong]:tracking-[-0.4px]",
+    "[&>small]:text-body [&>small]:leading-5 [&>small]:text-app-muted",
+  ].join(" "),
+  communityManageSection: [
+    "community-manage-section",
+    "flex min-w-0 flex-col gap-3",
+    "[&>[role=alert]]:m-0 [&>[role=alert]]:text-body [&>[role=alert]]:leading-5 [&>[role=alert]]:text-[#ff8d8d]",
+  ].join(" "),
+  communityMemberList: ["community-member-list", "m-0 flex list-none flex-col gap-1 p-0"].join(" "),
   communityMemberRow: [
     "community-member-row",
-    "flex min-h-[42px] items-center justify-between gap-3",
+    "flex min-h-14 items-center justify-between gap-3 py-1.5",
   ].join(" "),
   communityMemberProfile: [
     "community-member-profile",
     "flex min-w-0 flex-1 items-center gap-3 text-left",
-    "[&>span]:flex [&>span]:min-w-0 [&>span]:flex-col [&>span]:gap-2",
-    "[&_strong]:font-bold [&_strong]:text-label [&_strong]:font-sans [&_strong]:[overflow-wrap:anywhere] [&_strong]:leading-[22px]",
-    "[&_small]:font-normal [&_small]:text-body [&_small]:font-sans [&_small]:text-app-muted [&_small]:leading-[20px]",
+    "[&>span]:flex [&>span]:min-w-0 [&>span]:flex-col [&>span]:gap-[var(--supporting-copy-gap)]",
+    "[&_strong]:truncate [&_strong]:font-bold [&_strong]:text-label [&_strong]:font-sans [&_strong]:leading-[22px]",
+    "[&_small]:font-normal [&_small]:text-body [&_small]:font-sans [&_small]:text-app-muted [&_small]:leading-[20px] [&_small]:[overflow-wrap:anywhere]",
   ].join(" "),
   communityMemberOption: [
     "community-member-option",
     "grid h-10 w-10 flex-[0_0_40px] place-items-center",
     "[&_img]:h-5 [&_img]:w-5",
   ].join(" "),
+  /** Nickname search: the search screen's rounded field, submitted with Enter or the icon. */
+  communityAdminSearch: [
+    "community-admin-search",
+    "flex h-10 items-center gap-2 rounded-[20px] bg-app-surface p-[0_6px_0_14px] focus-within:ring-2 focus-within:ring-app-primary",
+    "[&_input]:h-full [&_input]:min-w-0 [&_input]:flex-1 [&_input]:border-0 [&_input]:bg-transparent [&_input]:text-label [&_input]:text-app-fg [&_input]:outline-none",
+    "[&_input::placeholder]:text-app-muted",
+    "[&_button]:grid [&_button]:size-8 [&_button]:flex-none [&_button]:place-items-center [&_button]:rounded-full [&_button]:p-0",
+    "[&_button_img]:size-6",
+  ].join(" "),
+  /** The create form's bordered field, as a multi-line description. */
+  communityManageTextarea: [
+    "community-manage-textarea",
+    "box-border min-h-[104px] w-full resize-y rounded-[10px] border border-solid border-app-border bg-transparent p-[10px]",
+    "text-label leading-[22px] text-app-fg outline-none focus-visible:border-app-primary",
+  ].join(" "),
+  communityManageFooter: [
+    "community-manage-footer",
+    "flex items-center justify-between gap-3",
+    "[&>small]:text-body [&>small]:leading-5 [&>small]:text-app-muted",
+  ].join(" "),
   communityAdminEmpty: [
     "community-admin-empty",
-    "font-normal text-body font-sans m-[24px_0_0] text-app-muted leading-[20px]",
+    "m-0 font-sans text-body leading-[20px] font-normal text-app-muted",
   ].join(" "),
   communityMemberDialog: [
     "community-member-dialog",

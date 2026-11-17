@@ -68,10 +68,11 @@ export function CommunityDetailScreen({
         {canManage && onManage && (
           <button
             className={communityStyles.communityManageTrigger}
-            aria-label="커뮤니티 멤버 관리"
+            aria-label="관리자 페이지"
             onClick={onManage}
           >
             <Asset name="admin-tool.svg" />
+            <span>관리자 페이지</span>
           </button>
         )}
       </div>

@@ -1,4 +1,4 @@
-import { createBrowserRouter, useNavigate, type RouteObject } from "react-router";
+import { createBrowserRouter, Navigate, useNavigate, useParams, type RouteObject } from "react-router";
 import { AppProviders } from "./providers";
 import { AppRuntime } from "./runtime";
 import NotFoundPage from "@/features/navigation/pages/not-found-page";
@@ -24,6 +24,11 @@ function NativeRouteErrorBody() {
       onCreate={() => window.location.reload()}
     />
   );
+}
+
+function LegacyCommunityManageRedirect() {
+  const { galleryId } = useParams();
+  return <Navigate to={galleryId ? `/communities/${galleryId}` : "/communities"} replace />;
 }
 
 export const appRoutes: RouteObject[] = [
@@ -129,16 +134,14 @@ export const appRoutes: RouteObject[] = [
         }),
       },
       {
-        path: "communities/:galleryId/manage",
-        lazy: async () => ({
-          Component: (await import("@/features/community/pages/community-admin-page")).default,
-        }),
-      },
-      {
         path: "communities/:galleryId/members",
         lazy: async () => ({
           Component: (await import("@/features/community/pages/community-members-page")).default,
         }),
+      },
+      {
+        path: "communities/:galleryId/manage",
+        element: <LegacyCommunityManageRedirect />,
       },
       {
         path: "communities/manage",

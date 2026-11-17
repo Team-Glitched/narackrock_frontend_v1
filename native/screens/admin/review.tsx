@@ -40,13 +40,13 @@ export function AdminReviewScreen({ model, header }: ScreenProps<"admin-review">
       <ScreenScroll>
         {!model.signedIn ? (
           <SignInRequired
-            text="관리자 화면은 로그인 후 사용할 수 있습니다."
+            text="운영자 관리 화면은 로그인 후 사용할 수 있습니다."
             onSignIn={() => act({ type: "sign-in" })}
           />
         ) : (
-          <View style={adminStyles.body} accessibilityLabel="관리자 화면">
+          <View style={adminStyles.body} accessibilityLabel="운영자 관리">
             <Text style={[type.title, adminStyles.title]} accessibilityRole="header">
-              관리자
+              운영자 관리
             </Text>
             <Pills options={tabs} value={model.tab} onChange={(tab) => act({ type: "tab", tab })} />
             {!list.loaded && <Line>불러오는 중...</Line>}

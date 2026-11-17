@@ -11,7 +11,7 @@ export function requiresLogin(path: string): boolean {
   )
     return true;
   if (pathname === "/posts/new") return true;
-  if (/^\/communities\/(new|joined|manage|\d+\/(manage|members))$/.test(pathname))
+  if (/^\/communities\/(new|joined|manage|\d+\/members)$/.test(pathname))
     return true;
   if (pathname === "/charts" && url.searchParams.get("kind") === "mine") return true;
   if (pathname === "/search" && ["people", "sources"].includes(url.searchParams.get("scope") ?? ""))

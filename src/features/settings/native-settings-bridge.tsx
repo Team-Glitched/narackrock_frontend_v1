@@ -1,8 +1,9 @@
 import { useAbyssPlaybackPreferences } from "@/features/abyss/playback-preferences";
+import { useOperatorAdmin } from "@/features/admin/use-operator-admin";
 import { useNativeScreen } from "@/features/navigation/use-native-screen";
 import type { NativeSettings } from "@/lib/native-screens";
 import { privacyPolicy } from "./privacy-policy";
-import { settingsGroups } from "./settings-screen";
+import { settingsGroupsFor } from "./settings-screen";
 
 /** In the app /settings is drawn natively (native/screens/profile/settings.tsx). */
 export function NativeSettingsBridge({
@@ -17,9 +18,10 @@ export function NativeSettingsBridge({
   onBack: () => void;
 }) {
   const { muted, setMuted } = useAbyssPlaybackPreferences();
+  const operator = useOperatorAdmin();
   const model: NativeSettings = {
     muted,
-    groups: settingsGroups.map((group) => ({
+    groups: settingsGroupsFor(operator).map((group) => ({
       title: group.title,
       items: group.items.map((item) => ({ ...item })),
     })),

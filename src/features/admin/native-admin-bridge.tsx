@@ -2,7 +2,6 @@ import type { ReactNode } from "react";
 import { useLoginPrompt } from "@/features/auth/login-prompt";
 import type { Community } from "@/features/community/community-card";
 import { useCommunityManagementNavigation } from "@/features/community/community-management-content";
-import { NativeCommunityDetailBridge } from "@/features/community/native-community-bridge";
 import { useRouteCommunity } from "@/features/community/use-route-community";
 import { useNativeScreen } from "@/features/navigation/use-native-screen";
 import { reportActions } from "@/lib/api/admin";
@@ -17,7 +16,9 @@ import type {
 import {
   banPeriod,
   banStatus,
-  moderationLogText,
+  managerMeta,
+  managerTitle,
+  moderationLogRow,
   proposalMeta,
   reportActionLabels,
   reportMeta,
@@ -25,6 +26,7 @@ import {
   useAdminReview,
   useCommunityAdminGate,
   useCommunityModeration,
+  useGalleryManagers,
 } from "./admin-screens";
 
 const header: NativeHeader = { left: "back", actions: ["notifications", "search", "account"] };
@@ -144,26 +146,24 @@ function AdminCommunityView({
 }
 
 /**
- * In the app the community management pages (/communities/manage, /communities/:id/manage,
- * /communities/:id/members; CommunityManagementContent) are drawn natively; a manager's
- * /communities/:id/manage is the community detail screen with the manage button.
+ * In the app the community management pages (/communities/manage and /communities/:id/members;
+ * CommunityManagementContent) are drawn natively. A community's own page (/communities/:id) is the
+ * social community detail screen, which shows managers the "관리자 페이지" button.
  */
 export function NativeCommunityAdminBridge({
   galleryId,
-  members,
   invalid,
   onBack,
   onSearch,
 }: {
   galleryId: number | null;
-  members: boolean;
   /** The route's gallery ID is not a number. */
   invalid: boolean;
   /** The web Header's back; absent on the members page (no Header). */
   onBack?: () => void;
   onSearch: () => void;
 }) {
-  const options: ScreenOptions = { header: members ? null : header, onBack, onSearch };
+  const options: ScreenOptions = { header: onBack ? header : null, onBack, onSearch };
   if (invalid)
     return (
       <AdminCommunityView
@@ -171,16 +171,14 @@ export function NativeCommunityAdminBridge({
         options={options}
       />
     );
-  return <ManagementBridge galleryId={galleryId} members={members} options={options} />;
+  return <ManagementBridge galleryId={galleryId} options={options} />;
 }
 
 function ManagementBridge({
   galleryId,
-  members,
   options,
 }: {
   galleryId: number | null;
-  members: boolean;
   options: ScreenOptions;
 }) {
   const result = useRouteCommunity(galleryId);
@@ -199,42 +197,28 @@ function ManagementBridge({
       />
     );
   const community = result.status === "ready" ? result.community : null;
-  return (
-    <GateBridge galleryId={galleryId} community={community} members={members} options={options} />
-  );
+  return <GateBridge galleryId={galleryId} community={community} options={options} />;
 }
 
 function GateBridge({
   galleryId,
   community,
-  members,
   options,
 }: {
   galleryId: number | null;
   community: Community | null;
-  members: boolean;
   options: ScreenOptions;
 }) {
-  const navigation = useCommunityManagementNavigation(galleryId, members);
+  const navigation = useCommunityManagementNavigation(galleryId);
   const { requestLogin } = useLoginPrompt();
   const gate = useCommunityAdminGate(community);
   if (gate.view === "manage" && community)
-    return members ? (
+    return (
       <MembersBridge
         key={community.galleryId}
         community={community}
         onLeave={navigation.onBack}
         options={options}
-      />
-    ) : (
-      <NativeCommunityDetailBridge
-        key={community.galleryId}
-        community={community}
-        onManage={navigation.onMembers}
-        onComments={navigation.onComments}
-        onProfile={navigation.onProfile}
-        onBack={options.onBack ?? navigation.onBack}
-        onSearch={options.onSearch}
       />
     );
   const { galleries } = gate;
@@ -268,7 +252,7 @@ function GateBridge({
             : { type: "status", text: "관리 권한을 확인하는 중...", error: false, button: null }
           : {
               type: "status",
-              text: "이 커뮤니티의 관리자만 관리할 수 있습니다.",
+              text: "이 커뮤니티의 커뮤니티 어드민만 관리할 수 있습니다.",
               error: true,
               button: "back",
             };
@@ -302,6 +286,7 @@ function MembersBridge({
   options: ScreenOptions;
 }) {
   const moderation = useCommunityModeration(community);
+  const managers = useGalleryManagers(community);
   const view: NativeAdminCommunity["view"] = {
     type: "members",
     galleryId: community.galleryId,
@@ -318,10 +303,32 @@ function MembersBridge({
       period: banPeriod(ban),
       active: ban.active,
     })),
-    logs: nativeList(moderation.logs, (log) => ({
-      logId: log.logId,
-      text: moderationLogText(log),
-    })),
+    logs: nativeList(moderation.logs, (log) => ({ logId: log.logId, ...moderationLogRow(log) })),
+    managers: {
+      ...managers.managers,
+      items: managers.managers.items.map((manager) => ({
+        userId: manager.userId,
+        title: managerTitle(manager),
+        meta: managerMeta(manager),
+        avatarUrl: manager.profileImageUrl,
+      })),
+      hasMore: false,
+      appending: false,
+    },
+    managerSearch: {
+      status: managers.search.status,
+      items: managers.search.items.map((person) => ({
+        userId: person.userId,
+        title: managerTitle(person),
+        subtitle: person.primaryInstrument ?? "",
+        avatarUrl: person.profileImageUrl,
+        manager: managers.isManager(person.userId),
+      })),
+      hasMore: managers.search.hasMore,
+      loadingMore: managers.search.loadingMore,
+    },
+    managerBusy: managers.busy,
+    managerNotice: managers.notice,
   };
   return (
     <AdminCommunityView
@@ -338,6 +345,16 @@ function MembersBridge({
             return moderation.bans.more();
           case "more-logs":
             return moderation.logs.more();
+          case "search-managers":
+            return managers.runSearch(action.keyword);
+          case "more-manager-search":
+            return managers.loadMoreSearch();
+          case "grant-manager":
+            if (!managers.busy) managers.grant(action.userId);
+            return;
+          case "revoke-manager":
+            if (!managers.busy) managers.revoke(action.userId);
+            return;
           case "leave":
             return onLeave();
         }

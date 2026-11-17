@@ -1,8 +1,8 @@
 /**
  * Native screen types of the admin feature; registered in ./index.ts.
  * - `admin-review`: the platform admin page `/admin` (src/features/admin/admin-screens.tsx AdminReviewScreen).
- * - `admin-community`: community management `/communities/manage`, `/communities/:id/manage` (until the
- *   manager's community detail, drawn by the social `community-detail` screen) and `/communities/:id/members`.
+ * - `admin-community`: community management `/communities/manage` (the manageable list) and
+ *   `/communities/:id/members`. A community's own page is the social `community-detail` screen.
  */
 
 /** A row's in-flight request and its last error ("" when none). */
@@ -86,7 +86,27 @@ export type NativeAdminMembers = {
   /** A ban lift is in flight. */
   lifting: boolean;
   bans: NativeAdminList<NativeAdminBan>;
-  logs: NativeAdminList<{ logId: number; text: string }>;
+  /** title "커뮤니티 어드민 지정", detail "사용자 #12 · 사유" (may be ""), time the full date. */
+  logs: NativeAdminList<{ logId: number; title: string; detail: string; time: string }>;
+  /** "커뮤니티 어드민": title is the nickname, meta "2026. 11. 17. 지정". Never paged. */
+  managers: NativeAdminList<{ userId: number; title: string; meta: string; avatarUrl: string | null }>;
+  /** Nickname search for a new community admin; `manager` results show "어드민" instead of "지정". */
+  managerSearch: {
+    status: "idle" | "loading" | "error" | "ready";
+    items: {
+      userId: number;
+      title: string;
+      /** The primary instrument, or "". */
+      subtitle: string;
+      avatarUrl: string | null;
+      manager: boolean;
+    }[];
+    hasMore: boolean;
+    loadingMore: boolean;
+  };
+  /** A grant or revoke is in flight. */
+  managerBusy: boolean;
+  managerNotice: string;
 };
 
 /** What the management pages show, in the web's order of checks. */
@@ -112,7 +132,11 @@ export type NativeAdminCommunityAction =
   | { type: "save-description"; text: string }
   | { type: "lift-ban"; banId: number }
   | { type: "more-bans" }
-  | { type: "more-logs" };
+  | { type: "more-logs" }
+  | { type: "search-managers"; keyword: string }
+  | { type: "more-manager-search" }
+  | { type: "grant-manager"; userId: number }
+  | { type: "revoke-manager"; userId: number };
 
 export type AdminScreens = {
   "admin-review": { model: NativeAdminReview; action: NativeAdminReviewAction };
