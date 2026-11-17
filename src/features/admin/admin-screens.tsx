@@ -316,11 +316,11 @@ export function AdminReviewScreen() {
   const { userId, tab, setTab, proposals, reports, proposalTask, reportTask, review, handle } =
     useAdminReview();
   if (userId === null)
-    return <SignInRequired>관리자 화면은 로그인 후 사용할 수 있습니다.</SignInRequired>;
+    return <SignInRequired>운영자 관리 화면은 로그인 후 사용할 수 있습니다.</SignInRequired>;
   const list = tab === "proposals" ? proposals : reports;
   return (
-    <section className={cn("admin-view", sharedStyles.scrollContent)} aria-label="관리자 화면">
-      <h1>관리자</h1>
+    <section className={cn("admin-view", sharedStyles.scrollContent)} aria-label="운영자 관리">
+      <h1>운영자 관리</h1>
       <div className={workspaceStyles.workspaceTabs}>
         <button aria-pressed={tab === "proposals"} onClick={() => setTab("proposals")}>
           개설 신청
@@ -463,7 +463,7 @@ export function CommunityAdminScreen(props: CommunityAdminProps) {
     return (
       <section className={communityStyles.communityAdminStatus}>
         <h1>커뮤니티 관리</h1>
-        <p role="alert">이 커뮤니티의 관리자만 관리할 수 있습니다.</p>
+        <p role="alert">이 커뮤니티의 커뮤니티 어드민만 관리할 수 있습니다.</p>
         <button className={buttonVariants({ tone: "secondary" })} onClick={props.onBack}>
           돌아가기
         </button>

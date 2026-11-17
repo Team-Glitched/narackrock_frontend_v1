@@ -271,7 +271,7 @@ function GateBridge({
             : { type: "status", text: "관리 권한을 확인하는 중...", error: false, button: null }
           : {
               type: "status",
-              text: "이 커뮤니티의 관리자만 관리할 수 있습니다.",
+              text: "이 커뮤니티의 커뮤니티 어드민만 관리할 수 있습니다.",
               error: true,
               button: "back",
             };

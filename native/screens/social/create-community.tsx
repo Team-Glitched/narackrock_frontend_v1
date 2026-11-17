@@ -40,7 +40,7 @@ function Proposals({ proposals }: { proposals: NonNullable<SignedInModel["propos
     <View style={styles.proposals} accessibilityLabel="내 커뮤니티 개설 신청">
       {proposals.submitted && (
         <Text style={styles.note}>
-          개설 신청이 접수되었습니다. 관리자 승인 후 커뮤니티가 만들어집니다.
+          개설 신청이 접수되었습니다. 운영자 어드민 승인 후 커뮤니티가 만들어집니다.
         </Text>
       )}
       {proposals.failed && (
@@ -92,7 +92,7 @@ function ProposalForm({ model }: { model: SignedInModel }) {
       </View>
       <Text style={styles.note}>
         커뮤니티 프로필 사진은 현재 서버에서 지원하지 않습니다. 이름과 설명으로 개설을 신청하면
-        관리자 승인 후 커뮤니티가 만들어집니다.
+        운영자 어드민 승인 후 커뮤니티가 만들어집니다.
       </Text>
       <Text style={styles.note} accessibilityLiveRegion="polite">
         {model.draftStatus}

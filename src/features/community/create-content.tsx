@@ -636,7 +636,7 @@ export function SocialCreateForm({ form }: { form: SocialCreateState }) {
         {kind === "community" ? (
           <p className={sharedStyles.creationSaveStatus}>
             커뮤니티 프로필 사진은 현재 서버에서 지원하지 않습니다. 이름과 설명으로 개설을 신청하면
-            관리자 승인 후 커뮤니티가 만들어집니다.
+            운영자 어드민 승인 후 커뮤니티가 만들어집니다.
           </p>
         ) : kind === "source" && image ? (
           // Not inside a <label>: a click or drag in the editor must not reopen the file picker.

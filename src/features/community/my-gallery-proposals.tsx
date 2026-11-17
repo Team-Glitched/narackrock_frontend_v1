@@ -29,7 +29,7 @@ export function MyGalleryProposals({ submitted }: { submitted: boolean }) {
   return (
     <section className={sharedStyles.creationSaveStatus} aria-label="내 커뮤니티 개설 신청">
       {submitted && (
-        <p role="status">개설 신청이 접수되었습니다. 관리자 승인 후 커뮤니티가 만들어집니다.</p>
+        <p role="status">개설 신청이 접수되었습니다. 운영자 어드민 승인 후 커뮤니티가 만들어집니다.</p>
       )}
       {proposals.failed && <p role="alert">내 개설 신청을 불러오지 못했습니다.</p>}
       {proposals.lines.length > 0 && (
