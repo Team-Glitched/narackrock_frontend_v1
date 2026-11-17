@@ -92,10 +92,8 @@ export function NativeNoteEditorBridge({ screen, portrait, onToggleLayout, onBac
         recommendation: suggestion.available ? {
           enabled: suggestion.enabled,
           panel: suggestion.result && choice ? {
-            bar: suggestion.result.targetBar,
             names: suggestion.result.candidates.map((candidate) => candidate.name),
             index: suggestion.index,
-            hint: `${choice.tones.join(" · ")} · ${choice.reason}`,
             playing: suggestion.playing,
           } : null,
         } : undefined,

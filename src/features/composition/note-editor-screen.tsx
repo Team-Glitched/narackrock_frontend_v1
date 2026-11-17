@@ -14,7 +14,7 @@ import { useNoteEditorShortcuts } from "./use-note-editor-shortcuts";
 import { PortraitNoteEditor } from "./note-editor-portrait";
 import { useNoteEditorLoad, useNoteEditorScreen } from "./use-note-editor-screen";
 import { NativeNoteEditorBridge, NativeNoteEditorStateBridge } from "./native-note-editor-bridge";
-import { MonitorSmartphone, Smartphone } from "lucide-react";
+import { LocateFixed, MonitorSmartphone, Smartphone } from "lucide-react";
 
 export function NoteEditorScreen({
   projectId,
@@ -127,62 +127,47 @@ function LoadedNoteEditor({
   const recommendation = screen.recommendation;
   const suggestion = recommendation.candidate;
   const statusRow = (
-    <div className="shrink-0">
-      <div className="note-editor-status flex shrink-0 items-center gap-2 px-3 py-0.5">
-        {screen.statusText !== null && (
-          <p
-            role="status"
-            className="m-0 min-w-0 flex-1 truncate text-caption leading-[16px] text-app-muted"
-          >
-            {screen.statusText}
-          </p>
-        )}
-        {recommendation.available && (
-          <button type="button" className="whitespace-nowrap rounded-md px-2 py-1 text-caption text-app-muted"
-            aria-pressed={recommendation.enabled}
-            onClick={() => recommendation.setEnabled(!recommendation.enabled)}>
-            코드 추천 {recommendation.enabled ? "켜짐" : "꺼짐"}
-          </button>
-        )}
-        {onToggleLayout && (
-          <button
-            type="button"
-            className="ml-auto flex shrink-0 items-center gap-1 rounded-[6px] px-1.5 text-caption leading-[18px] text-app-muted hover:text-app-fg"
-            onClick={onToggleLayout}
-          >
-            {portrait ? (
-              <MonitorSmartphone size={13} aria-hidden="true" />
-            ) : (
-              <Smartphone size={13} aria-hidden="true" />
-            )}
-            {portrait ? "가로 모드" : "세로 모드"}
-          </button>
-        )}
-      </div>
+    <div className="note-editor-status flex h-8 shrink-0 items-center gap-2 px-3 text-caption">
+      {screen.statusText !== null && (
+        <p role="status" className={suggestion ? "sr-only" : "m-0 min-w-0 flex-1 truncate text-app-muted"}>
+          {screen.statusText}
+        </p>
+      )}
       {recommendation.result && suggestion && (
-        <section aria-label="다음 마디 코드 추천" className="space-y-1 border-y border-app-surface bg-app-surface/40 px-3 py-1.5 text-caption">
-          <div className="flex flex-wrap items-center gap-1.5">
-            <button type="button" className="whitespace-nowrap underline decoration-dotted"
-              onClick={recommendation.reveal}>{recommendation.result.targetBar}마디 보기</button>
-            {recommendation.result.candidates.map((choice, index) => (
-              <button type="button" key={choice.name}
-                className="rounded border border-white/25 px-2 py-1 font-semibold aria-pressed:bg-app-primary"
-                aria-pressed={choice === suggestion}
-                onClick={() => recommendation.select(index)}>{choice.name}</button>
-            ))}
-            <button type="button" className="rounded px-2 py-1" onClick={recommendation.listen}>
-              {recommendation.playing ? "미리듣기 정지" : "미리듣기"}
-            </button>
-            <button type="button" className="rounded bg-app-primary px-2 py-1 font-semibold"
-              onClick={recommendation.apply} disabled={editor.gestureActive}>추천 코드 넣기</button>
-            <button type="button" className="rounded px-2 py-1" onClick={recommendation.dismiss}>건너뛰기</button>
-          </div>
-          <p className="m-0 text-app-muted">
-            {recommendation.result.current && `현재 화음 후보 ${recommendation.result.current} · `}
-            {suggestion.tones.join(" · ")} · {suggestion.reason}
-          </p>
-          {recommendation.error && <p role="status">{recommendation.error}</p>}
+        <section aria-label="다음 마디 코드 추천"
+          className="flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto whitespace-nowrap [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [&>button]:h-6 [&>button]:shrink-0">
+          <button type="button" className="grid w-6 place-items-center rounded text-app-muted"
+            aria-label="추천 노트 위치로 이동" title="추천 노트 위치로 이동" onClick={recommendation.reveal}>
+            <LocateFixed size={14} aria-hidden="true" />
+          </button>
+          {recommendation.result.candidates.map((choice, index) => (
+            <button type="button" key={choice.name}
+              className="rounded border border-white/25 px-2 font-semibold aria-pressed:bg-app-primary"
+              aria-pressed={choice === suggestion}
+              onClick={() => recommendation.select(index)}>{choice.name}</button>
+          ))}
+          <button type="button" className="rounded px-2" onClick={recommendation.listen}>
+            {recommendation.playing ? "미리듣기 정지" : "미리듣기"}
+          </button>
+          <button type="button" className="rounded bg-app-primary px-2 font-semibold"
+            onClick={recommendation.apply} disabled={editor.gestureActive}>추천 코드 넣기</button>
+          <button type="button" className="rounded px-2" onClick={recommendation.dismiss}>건너뛰기</button>
         </section>
+      )}
+      {recommendation.available && (
+        <button type="button" className="h-6 shrink-0 whitespace-nowrap rounded-md px-1.5 text-app-muted"
+          aria-pressed={recommendation.enabled}
+          onClick={() => recommendation.setEnabled(!recommendation.enabled)}>
+          코드 추천 {recommendation.enabled ? "켜짐" : "꺼짐"}
+        </button>
+      )}
+      {onToggleLayout && (
+        <button type="button"
+          className="ml-auto flex h-6 shrink-0 items-center gap-1 rounded-md px-1.5 text-app-muted hover:text-app-fg"
+          onClick={onToggleLayout}>
+          {portrait ? <MonitorSmartphone size={13} aria-hidden="true" /> : <Smartphone size={13} aria-hidden="true" />}
+          {portrait ? "가로 모드" : "세로 모드"}
+        </button>
       )}
     </div>
   );
@@ -203,7 +188,7 @@ function LoadedNoteEditor({
       onSettings={editor.editable ? dialogs.setSettingsIndex : undefined}
       initialPitch={screen.notes[0]?.pitch ?? 60}
       // Portrait shows fewer, larger rows and a narrower key column so each cell is easy to tap.
-      rowHeight={portrait ? 40 : suggestion && recommendation.revealState ? 19 : undefined}
+      rowHeight={portrait ? 40 : undefined}
       keyWidth={portrait ? 44 : undefined}
     />
   );
@@ -267,6 +252,7 @@ function LoadedNoteEditor({
           {screen.shownError}
         </p>
       )}
+      {recommendation.error && <p className={studioStyles.studioError} role="status">{recommendation.error}</p>}
       {draft.loadError && !draft.session && (
         <button onClick={draft.retryLoad}>초안 다시 불러오기</button>
       )}

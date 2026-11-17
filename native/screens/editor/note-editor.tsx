@@ -66,7 +66,6 @@ export function NoteEditorScreen({ model }: ScreenProps<"editor-notes">) {
         </StudioToolbar>
         {model.editable && <NoteControls roll={model.roll} />}
         <StatusRow model={model} />
-          <Recommendation model={model} />
         <Notices model={model} />
         <NoteRoll roll={model.roll} />
         <Overlays model={model} />
@@ -148,7 +147,6 @@ function Portrait({ model }: { model: Ready }) {
       </ScrollView>
       {model.editable && <NoteControls roll={model.roll} tools={false} />}
       <StatusRow model={model} />
-      <Recommendation model={model} />
       <Notices model={model} />
       <View style={styles.portraitRoll}>
         <NoteRoll roll={model.roll} rowHeight={40} keyWidth={44} />
@@ -167,37 +165,36 @@ function Recommendation({ model }: { model: Ready }) {
   if (!recommendation) return null;
   const panel = recommendation.panel;
   return (
-    <View style={styles.recommendation}>
-      <View style={styles.recommendationRow}>
-        <Touchable onPress={() => act({ type: "editor-chord-toggle" })}
-          accessibilityRole="button" accessibilityState={{ checked: recommendation.enabled }}>
-          <Text style={styles.recommendationText}>코드 추천 {recommendation.enabled ? "켜짐" : "꺼짐"}</Text>
-        </Touchable>
-        {panel && (
-          <>
-            <Touchable onPress={() => act({ type: "editor-chord-reveal" })}>
-              <Text style={styles.recommendationText}>{panel.bar}마디 보기</Text>
+    <ScrollView horizontal showsHorizontalScrollIndicator={false}
+      style={styles.recommendation} contentContainerStyle={styles.recommendationRow}>
+      {panel && (
+        <>
+          <Touchable accessibilityRole="button" accessibilityLabel="추천 노트 위치로 이동"
+            onPress={() => act({ type: "editor-chord-reveal" })}>
+            <Text style={styles.recommendationText}>◎</Text>
+          </Touchable>
+          {panel.names.map((name, index) => (
+            <Touchable key={name} accessibilityRole="button" accessibilityState={{ selected: index === panel.index }}
+              onPress={() => act({ type: "editor-chord-select", index })}>
+              <Text style={[styles.recommendationText, index === panel.index && styles.recommendationSelected]}>{name}</Text>
             </Touchable>
-            {panel.names.map((name, index) => (
-              <Touchable key={name} accessibilityRole="button" accessibilityState={{ selected: index === panel.index }}
-                onPress={() => act({ type: "editor-chord-select", index })}>
-                <Text style={[styles.recommendationText, index === panel.index && styles.recommendationSelected]}>{name}</Text>
-              </Touchable>
-            ))}
-            <Touchable onPress={() => act({ type: "editor-chord-listen" })}>
-              <Text style={styles.recommendationText}>{panel.playing ? "미리듣기 정지" : "미리듣기"}</Text>
-            </Touchable>
-            <Touchable onPress={() => act({ type: "editor-chord-apply" })}>
-              <Text style={[styles.recommendationText, styles.recommendationSelected]}>추천 코드 넣기</Text>
-            </Touchable>
-            <Touchable onPress={() => act({ type: "editor-chord-dismiss" })}>
-              <Text style={styles.recommendationText}>건너뛰기</Text>
-            </Touchable>
-          </>
-        )}
-      </View>
-      {panel && <Text style={styles.recommendationText} numberOfLines={1}>{panel.hint}</Text>}
-    </View>
+          ))}
+          <Touchable onPress={() => act({ type: "editor-chord-listen" })}>
+            <Text style={styles.recommendationText}>{panel.playing ? "미리듣기 정지" : "미리듣기"}</Text>
+          </Touchable>
+          <Touchable onPress={() => act({ type: "editor-chord-apply" })}>
+            <Text style={[styles.recommendationText, styles.recommendationSelected]}>추천 코드 넣기</Text>
+          </Touchable>
+          <Touchable onPress={() => act({ type: "editor-chord-dismiss" })}>
+            <Text style={styles.recommendationText}>건너뛰기</Text>
+          </Touchable>
+        </>
+      )}
+      <Touchable onPress={() => act({ type: "editor-chord-toggle" })}
+        accessibilityRole="button" accessibilityState={{ checked: recommendation.enabled }}>
+        <Text style={styles.recommendationText}>코드 추천 {recommendation.enabled ? "켜짐" : "꺼짐"}</Text>
+      </Touchable>
+    </ScrollView>
   );
 }
 
@@ -287,7 +284,8 @@ function StatusRow({ model }: { model: Ready }) {
   const { act } = useScreen();
   return (
     <View style={styles.status}>
-      {model.statusText !== null && (
+      <Recommendation model={model} />
+      {!model.recommendation && model.statusText !== null && (
         <Text accessibilityLiveRegion="polite" style={styles.statusText} numberOfLines={1}>
           {model.statusText}
         </Text>
@@ -410,9 +408,9 @@ function Overlays({ model }: { model: Ready }) {
 }
 
 const styles = StyleSheet.create({
-  recommendation: { paddingHorizontal: 12, paddingVertical: 3, gap: 3 },
-  recommendationRow: { flexDirection: "row", flexWrap: "wrap", gap: 7, alignItems: "center" },
-  recommendationText: { color: colors.fg, fontSize: 12, paddingVertical: 3 },
+  recommendation: { flex: 1, minWidth: 0 },
+  recommendationRow: { gap: 12, alignItems: "center" },
+  recommendationText: { color: colors.fg, fontSize: 12, lineHeight: 20, paddingVertical: 2 },
   recommendationSelected: { color: colors.accent, fontWeight: "700" },
   flex: { flex: 1 },
   page: { flex: 1, backgroundColor: colors.bg },
@@ -468,6 +466,8 @@ const styles = StyleSheet.create({
   pause: { flexDirection: "row", gap: 6 },
   pauseBar: { width: 6, height: 24, borderRadius: 2, backgroundColor: colors.fg },
   status: {
+    height: 32,
+    flexShrink: 0,
     flexDirection: "row",
     alignItems: "center",
     gap: 8,

@@ -188,7 +188,7 @@ export type NativeNoteEditor =
       roll: NativeNoteRoll;
       recommendation?: {
         enabled: boolean;
-        panel: { bar: number; names: string[]; index: number; hint: string; playing: boolean } | null;
+        panel: { names: string[]; index: number; playing: boolean } | null;
       };
       /** The viewer may change bpm/time signature. */
       timingEditable: boolean;
