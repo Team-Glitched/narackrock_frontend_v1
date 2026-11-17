@@ -32,7 +32,7 @@ const trailingTabs: Tab[] = [
 // has 20px bottom padding. Above it sits sharedStyles.appFooter: an 8px top margin, then a 48px box
 // with 6px top / 2px bottom padding around the 44px button row. The bar repeats that geometry in
 // canvas px times the same scale, so the space between page content and the icons matches the web.
-const CANVAS = { width: 390, height: 844, framePaddingBottom: 20 };
+const CANVAS = { width: 390, height: 844, framePaddingTop: 20, framePaddingBottom: 20 };
 const FOOTER = {
   margin: 8,
   paddingTop: 6,
@@ -56,6 +56,15 @@ export function footerFrame(viewport: Viewport): { top: number; scale: number } 
   const bottom = (viewport.height + CANVAS.height * scale) / 2 - CANVAS.framePaddingBottom * scale;
   const height = FOOTER.margin + FOOTER.paddingTop + FOOTER.row + FOOTER.paddingBottom;
   return { top: bottom - height * scale, scale };
+}
+
+/**
+ * Where the web header started in a view of this size: the canvas top plus the phoneFrame's 20px
+ * top padding. Portrait native screens begin there so the header keeps the web's space above it.
+ */
+export function headerTop(viewport: Viewport): number {
+  const scale = Math.min(viewport.width / CANVAS.width, viewport.height / CANVAS.height, 1);
+  return (viewport.height - CANVAS.height * scale) / 2 + CANVAS.framePaddingTop * scale;
 }
 
 export function TabBar({

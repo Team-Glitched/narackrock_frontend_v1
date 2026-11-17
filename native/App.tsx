@@ -51,7 +51,7 @@ import {
   userAgentToken,
 } from "./bridge";
 import { emptyStack, reduceStack, ScreenStack } from "./screen-stack";
-import { footerFrame, TabBar, type Viewport } from "./tab-bar";
+import { footerFrame, headerTop, TabBar, type Viewport } from "./tab-bar";
 
 const signedOut: NativeSession = {
   userId: null,
@@ -285,6 +285,7 @@ function WebShell() {
 
   // WebView is a nonvisual controller. Native UI is the only visible and accessible layer.
   const bottomInset = footer && viewport ? viewport.height - footerFrame(viewport).top : 0;
+  const topInset = viewport ? headerTop(viewport) : 0;
   const dialog = dialogs.at(-1);
   return (
     <View
@@ -336,6 +337,7 @@ function WebShell() {
         session={session}
         origin={origin}
         bottomInset={bottomInset}
+        topInset={topInset}
         onAction={onScreenAction}
       />
       {overlayStack.current !== null && (
@@ -345,6 +347,7 @@ function WebShell() {
           session={session}
           origin={origin}
           bottomInset={0}
+          topInset={topInset}
           onAction={onScreenAction}
         />
       )}

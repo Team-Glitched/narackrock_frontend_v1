@@ -2,6 +2,7 @@ import { useEffect, useRef, type ReactNode } from "react";
 import { BackHandler, Pressable, StyleSheet, View } from "react-native";
 
 import { Touchable } from "../../ui/kit";
+import { useScreen } from "../../ui/screen-context";
 import { colors } from "../../ui/theme";
 
 /** The app header above the screen (native/ui/header.tsx). */
@@ -23,6 +24,7 @@ export function AbyssSheet({
   onClose: () => void;
   children: ReactNode;
 }) {
+  const { topInset } = useScreen();
   // Back closes the sheet first, as Escape closes the web's sheet (the last listener runs first).
   const close = useRef(onClose);
   close.current = onClose;
@@ -36,7 +38,8 @@ export function AbyssSheet({
   return (
     <View style={StyleSheet.absoluteFill}>
       <Pressable
-        style={[StyleSheet.absoluteFill, styles.backdrop]}
+        // The backdrop also dims the space above the header, as the web's covers the whole canvas.
+        style={[StyleSheet.absoluteFill, styles.backdrop, { top: -topInset }]}
         accessibilityRole="button"
         accessibilityLabel={`${title} 닫기`}
         onPress={onClose}
