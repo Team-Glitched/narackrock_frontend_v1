@@ -5,9 +5,15 @@ import { sharedStyles } from "@/styles/shared.styles";
 import { SignInRequired } from "./sign-in-required";
 import { nativeApp } from "@/lib/native-app";
 
-export function RequireAuth({ children }: { children: ReactNode }) {
+export function RequireAuth({
+  children,
+  required = true,
+}: {
+  children: ReactNode;
+  required?: boolean;
+}) {
   const { currentUserId } = useAuthSession();
-  if (currentUserId !== null) return children;
+  if (!required || currentUserId !== null) return children;
   if (nativeApp())
     return <SignInRequired promptOnMount>로그인 후 이용할 수 있는 화면입니다.</SignInRequired>;
   return (
