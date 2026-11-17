@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import type { CompositionDto } from "@/lib/api/composition";
 import type { NoteEditorController } from "./use-note-editor";
 import { findInstrument } from "./instrument-catalog";
-import { recommendNextChord } from "./next-chord";
+import { recommendNextChord, type ChordSuggestion } from "./next-chord";
 import { useCompositionPlayback } from "./use-composition-playback";
 
 export function useNextChord({
@@ -117,12 +117,20 @@ export function useNextChord({
     if (editor.execute({ type: "insert", notes: candidate.notes })) setDismissed(revision + 1);
     else appliedRevision.current = null;
   }
-  function reveal() {
-    if (!result || !candidate) return;
+  function revealCandidate(choice: ChordSuggestion | null) {
+    if (!result || !choice) return;
     editor.setViewStartTick(
       editor.windowTicks >= 2 * bar ? Math.max(0, result.localTick - bar) : result.localTick,
     );
-    setRevealState({ pitch: candidate.notes[Math.floor(candidate.notes.length / 2)].pitch });
+    const pitches = choice.notes.map((note) => note.pitch);
+    setRevealState({ pitch: (Math.min(...pitches) + Math.max(...pitches)) / 2 });
+  }
+  function reveal() {
+    revealCandidate(candidate);
+  }
+  function select(index: number) {
+    setPicked({ revision, index });
+    revealCandidate(result?.candidates[index] ?? null);
   }
   function listen() {
     if (!candidate || !result) return;
@@ -149,7 +157,7 @@ export function useNextChord({
     playing: audition.playing,
     stop: pause,
     error: audition.error,
-    select: (index: number) => setPicked({ revision, index }),
+    select,
     dismiss: () => {
       pause();
       setDismissed(revision);

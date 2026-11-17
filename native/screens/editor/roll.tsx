@@ -175,8 +175,9 @@ export function NoteRoll({
   const reveal = roll.suggestion?.reveal;
   useEffect(() => {
     if (revealPitch === undefined) return;
-    const row = roll.rows.indexOf(revealPitch);
-    if (row >= 0) setScrollY(Math.max(0, row * rowHeight - (viewportHeight - rowHeight) / 2));
+    const row = roll.rows.indexOf(Math.ceil(revealPitch));
+    if (row >= 0) setScrollY(Math.max(0,
+      (row + Math.ceil(revealPitch) - revealPitch) * rowHeight - (viewportHeight - rowHeight) / 2));
   }, [reveal, revealPitch, roll.rows, rowHeight, viewportHeight]);
 
   // A pan keeps its local offset until the page moved the window (or clamped it to the same place).

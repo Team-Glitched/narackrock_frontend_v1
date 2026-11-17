@@ -253,3 +253,91 @@ test("notes ending at the target boundary or starting in the following bar leave
   };
   assert.ok(recommendNextChord(request));
 });
+
+test("dominant sevenths resolve to the tonic in all supported major and minor keys", () => {
+  const roots = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+  for (let root = 0; root < 12; root++) {
+    for (const mode of ["major", "minor"]) {
+      const composition = project({ songKey: `${roots[root]} ${mode}` });
+      const dominant = chord([0, 4, 7, 10].map((interval) => 55 + root + interval));
+      const result = recommendNextChord({
+        composition,
+        trackId: 1,
+        clipId: null,
+        clipStart: 0,
+        editTick: 0,
+        draft: dominant,
+      })!;
+      assert.equal(result.candidates[0].name, roots[root] + (mode === "minor" ? "m" : ""));
+      assert.equal(result.candidates.length, 3);
+      for (const candidate of result.candidates) {
+        assert.deepEqual(
+          candidate.notes.map((n) => n.pitch % 12).sort((a, b) => a - b),
+          candidate.tones.map((name) => roots.indexOf(name)).sort((a, b) => a - b),
+        );
+        assert.ok(
+          candidate.notes.every(
+            (n) =>
+              n.startTick === 1920 && n.durationTick === 1920 && n.pitch >= 48 && n.pitch <= 84,
+          ),
+        );
+      }
+    }
+  }
+});
+
+test("the target melody and bass agree on a compatible chord without blocking the empty layer", () => {
+  const composition = project();
+  const draft = chord([60, 64, 67]);
+  const request = { composition, trackId: 1, clipId: null, clipStart: 0, editTick: 0, draft };
+  composition.tracks.push(
+    track(2, "flute", [clip(2, 1920, [note(69, 0, 1920)])]),
+    track(3, "electric-bass", [clip(3, 1920, [note(41, 0, 1920)])]),
+  );
+  const result = recommendNextChord(request)!;
+  assert.equal(result.candidates[0].name, "F");
+  assert.ok(result.candidates[0].notes.some((n) => n.pitch % 12 === 9));
+  composition.tracks.push(track(4, "drum-kit", [clip(4, 1920, chord([36, 38, 42]))]));
+  assert.deepEqual(recommendNextChord(request), result);
+});
+
+test("changing only another layer's target harmony changes the recommendation", () => {
+  const draft = chord([60, 64, 67]);
+  for (const [pitches, expected] of [
+    [[55, 59, 62], "G"],
+    [[57, 60, 64], "Am"],
+  ] as const) {
+    const composition = project();
+    composition.tracks.push(track(2, "piano", [clip(2, 1920, chord([...pitches]))]));
+    const result = recommendNextChord({
+      composition,
+      trackId: 1,
+      clipId: null,
+      clipStart: 0,
+      editTick: 0,
+      draft,
+    })!;
+    assert.equal(result.candidates[0].name, expected);
+    assert.deepEqual(draft, chord([60, 64, 67]));
+  }
+});
+
+test("arpeggios in compound meter preserve chord tones and use a full following bar", () => {
+  const composition = project({ timeSignatureNumerator: 6, timeSignatureDenominator: 8 });
+  const draft = [note(60, 0, 360), note(64, 360, 360), note(67, 720, 360), note(72, 1080, 360)];
+  const result = recommendNextChord({
+    composition,
+    trackId: 1,
+    clipId: null,
+    clipStart: 0,
+    editTick: 0,
+    draft,
+  })!;
+  assert.equal(result.current, "C");
+  assert.equal(result.targetBar, 2);
+  assert.ok(
+    result.candidates.every((candidate) =>
+      candidate.notes.every((n) => n.startTick === 1440 && n.durationTick === 1440),
+    ),
+  );
+});

@@ -91,8 +91,12 @@ export function TeamPianoRoll({
   const rowIndices = useMemo(() => new Map(rows.map((pitch, row) => [pitch, row])), [rows]);
   useLayoutEffect(() => {
     const workspace = workspaceRef.current;
-    const row = revealSuggestion && rowIndices.get(revealSuggestion.pitch);
-    if (workspace && row != null) workspace.scrollTop = row * rowHeight - (workspace.clientHeight - rowHeight) / 2;
+    const pitch = revealSuggestion?.pitch;
+    const row = pitch === undefined ? undefined : rowIndices.get(Math.ceil(pitch));
+    if (workspace && row != null && pitch !== undefined) {
+      workspace.scrollTop = (row + Math.ceil(pitch) - pitch) * rowHeight
+        - (workspace.clientHeight - rulerHeight - rowHeight) / 2;
+    }
   }, [revealSuggestion, rowHeight, rowIndices]);
   const selected = new Set(editor.selection);
   const drum = findInstrument(instrument)?.kind === "drum";
