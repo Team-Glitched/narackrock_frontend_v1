@@ -47,13 +47,14 @@ export const studioStyles = {
   ].join(" "),
   studioVolume: [
     "studio-volume",
-    "[.design-canvas_&]:ml-auto [.design-canvas_&]:max-w-[210px] [.design-canvas_&]:min-w-20 [.design-canvas_&]:flex-[0_0_210px]",
+    // Shrinks (down to the icon and a short slider) so two toolbar buttons fit beside it.
+    "[.design-canvas_&]:ml-auto [.design-canvas_&]:max-w-[210px] [.design-canvas_&]:min-w-11 [.design-canvas_&]:flex-[0_1_210px]",
     "[.design-canvas_&]:mr-[30px] [.design-canvas_&]:flex [.design-canvas_&]:items-center [.design-canvas_&]:gap-[10px]",
     "ml-auto flex items-center gap-[9px]",
     "[&_img]:h-6 [&_img]:w-6",
-    "[&_i]:h-1 [&_i]:w-[178px] [&_i]:bg-app-panel [&_i]:bg-none [&_i]:relative [&_i]:rounded-[3px]",
+    "[&_i]:h-1 [&_i]:w-[178px] [&_i]:min-w-0 [&_i]:shrink [&_i]:bg-app-panel [&_i]:bg-none [&_i]:relative [&_i]:rounded-[3px]",
     "[&_b]:absolute [&_b]:top-[-3px] [&_b]:left-[20%] [&_b]:h-[10px] [&_b]:w-[7px] [&_b]:bg-[#d7dce2] [&_b]:bg-none [&_b]:rounded-[2px]",
-    "[&_input]:m-0 [&_input]:h-1 [&_input]:w-[178px] [&_input]:appearance-none [&_input]:bg-app-panel [&_input]:bg-none [&_input]:cursor-pointer",
+    "[&_input]:m-0 [&_input]:h-1 [&_input]:w-[178px] [&_input]:min-w-0 [&_input]:shrink [&_input]:appearance-none [&_input]:bg-app-panel [&_input]:bg-none [&_input]:cursor-pointer",
     "[&_input]:rounded-[3px]",
     "[&_input::-webkit-slider-thumb]:h-[10px] [&_input::-webkit-slider-thumb]:w-[7px] [&_input::-webkit-slider-thumb]:appearance-none",
     "[&_input::-webkit-slider-thumb]:bg-[#d7dce2] [&_input::-webkit-slider-thumb]:bg-none [&_input::-webkit-slider-thumb]:rounded-[2px]",
@@ -218,6 +219,7 @@ export const studioStyles = {
     "[.studio-toolbar_&]:ml-auto [.studio-toolbar_&]:h-[30px] [.studio-toolbar_&]:w-15 [.studio-toolbar_&]:rounded-[12px]",
     "[.studio-toolbar_&]:bg-app-surface [.studio-toolbar_&]:bg-none [.studio-toolbar_&]:relative [.studio-toolbar_&]:flex-[0_0_45px]",
     "[.design-canvas_.studio-toolbar_&]:ml-0 [.design-canvas_.studio-toolbar_&]:grid [.design-canvas_.studio-toolbar_&]:w-15",
+    "[.design-canvas_.studio-toolbar_.studio-submit+&]:ml-2",
     "[.design-canvas_.studio-toolbar_&]:place-items-center [.design-canvas_.studio-toolbar_&]:h-[30px]",
     "[.design-canvas_.studio-toolbar_&]:bg-app-primary [.design-canvas_.studio-toolbar_&]:bg-none",
     "[.design-canvas_.studio-toolbar_&]:rounded-[10px]",
@@ -436,6 +438,8 @@ export const studioStyles = {
   studioSubmit: [
     "studio-submit",
     "[.studio-toolbar_&]:ml-auto [.studio-toolbar_&]:h-[30px] [.studio-toolbar_&]:w-auto [.studio-toolbar_&]:min-w-[82px]",
+    // "임시 저장" + "공개하기"/"제출하기": the second sits next to the first instead of splitting the free space.
+    "[.studio-toolbar_.studio-submit+&]:ml-2",
     "[.studio-toolbar_&]:rounded-[9px] [.studio-toolbar_&]:p-[0_12px] [.studio-toolbar_&]:bg-app-primary [.studio-toolbar_&]:bg-none",
     "[.studio-toolbar_&]:text-caption [.studio-toolbar_&]:font-bold [.studio-toolbar_&]:whitespace-nowrap [.studio-toolbar_&]:text-[#fff]",
     "[.studio-toolbar_&:disabled]:opacity-[.5]",

@@ -29,7 +29,7 @@ export function HomeScreen({ model: home, header }: ScreenProps<"home">) {
         <Section title="인기 차트" onAll={() => act({ type: "show-songs", kind: "popular" })}>
           <SongRail list={home.popular} onOpen={open} menu />
         </Section>
-        <Section title="추천 음악" onAll={() => act({ type: "show-songs", kind: "recommended" })}>
+        <Section title="추천" onAll={() => act({ type: "show-songs", kind: "recommended" })}>
           <SongRail list={home.recommended} onOpen={open} menu />
         </Section>
         <Section title="인기 게시글" onAll={() => act({ type: "open-posts" })}>
