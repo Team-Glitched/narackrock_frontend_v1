@@ -39,14 +39,17 @@ export function ScreenStack({
   session,
   origin,
   bottomInset,
+  topInset,
   onAction,
 }: {
   stack: ScreenStackState;
-  /** A web modal is open: the WebView must be visible and reachable. */
+  /** Another native screen is above this stack (e.g. the notification inbox). */
   hidden: boolean;
   session: NativeSession;
   origin: string;
   bottomInset: number;
+  /** Space above portrait screens: the web canvas's top padding above its header. */
+  topInset: number;
   onAction: (key: string, action: NativeScreenAction) => void;
 }) {
   return (
@@ -59,6 +62,7 @@ export function ScreenStack({
           session={session}
           origin={origin}
           bottomInset={bottomInset}
+          topInset={topInset}
           onAction={onAction}
         />
       ))}
@@ -72,6 +76,7 @@ function ScreenHost({
   session,
   origin,
   bottomInset,
+  topInset,
   onAction,
 }: {
   entry: ScreenEntry;
@@ -79,6 +84,7 @@ function ScreenHost({
   session: NativeSession;
   origin: string;
   bottomInset: number;
+  topInset: number;
   onAction: (key: string, action: NativeScreenAction) => void;
 }) {
   const [menu, setMenu] = useState<MenuTarget | null>(null);
@@ -92,14 +98,16 @@ function ScreenHost({
       },
       openMenu: setMenu,
       bottomInset,
+      topInset: landscapeKinds.has(view.kind) ? 0 : topInset,
+      active: visible,
       refreshed: view.refreshed,
     }),
-    [key, onAction, session, origin, bottomInset, view.refreshed],
+    [key, onAction, session, origin, bottomInset, topInset, visible, view.kind, view.refreshed],
   );
   // The registry pairs each kind with its component; TypeScript cannot follow that through the union.
   const Screen = screens[view.kind] as ComponentType<ScreenProps<NativeScreenKind>>;
   return (
-    <View style={[styles.screen, !visible && styles.hidden]}>
+    <View style={[styles.screen, { paddingTop: context.topInset }, !visible && styles.hidden]}>
       <ScreenContext value={context}>
         <Screen model={view.model} header={view.header} />
         <ContentMenu
@@ -115,6 +123,12 @@ function ScreenHost({
   );
 }
 
+/** Screens that rotate into the studio's landscape layout and fill the whole view themselves. */
+const landscapeKinds = new Set<NativeScreenKind>([
+  "studio-timeline",
+  "editor-notes",
+  "creation-piano",
+]);
 const styles = StyleSheet.create({
   screen: { ...StyleSheet.absoluteFill, backgroundColor: colors.bg },
   hidden: { display: "none" },

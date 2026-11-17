@@ -1,7 +1,7 @@
 /**
- * Native screens: the app draws a page natively while the web page keeps owning its data (session,
- * queries, local stores) and its actions (navigation, login checks, web sheets). Each web page with a
- * native screen reports a view model for its history entry; the app draws it and sends actions back.
+ * Native screens: the app draws pages while headless web controllers own data (session, queries,
+ * local stores) and actions (navigation, login checks, mutations). Controllers report view models;
+ * the app draws them and sends actions back. Dialogs use the same data-only handoff.
  * Add a screen by adding its model/action types to its feature file (e.g. ./social.ts `SocialScreens`)
  * and its component to that feature's registry (native/screens/<feature>/index.tsx).
  */
@@ -78,6 +78,20 @@ type UnionToIntersection<U> = (U extends unknown ? (value: U) => void : never) e
 export type NativeScreens = UnionToIntersection<NativeFeatureScreens[NativeFeature]>;
 export type NativeScreenKind = keyof NativeScreens;
 
+/**
+ * Screen actions must not reuse a common action's type: `useNativeScreen` handles common actions
+ * first, so a screen action named like one never reaches its page (a profile's "chat" opened the
+ * chat list instead of the conversation). The type below fails to compile on such a collision.
+ */
+type CollidingActionTypes = Extract<
+  NativeScreens[NativeScreenKind]["action"]["type"],
+  NativeCommonAction["type"] | NativeMoreAction["type"]
+>;
+const screenActionsDoNotCollide: [CollidingActionTypes] extends [never]
+  ? true
+  : CollidingActionTypes = true;
+void screenActionsDoNotCollide;
+
 export type NativeScreenView = {
   [K in NativeScreenKind]: {
     kind: K;
@@ -98,7 +112,7 @@ export type NativeScreenAction<K extends NativeScreenKind = NativeScreenKind> =
  * left the screen; the app keeps the last view of recent entries mounted so Back restores them with
  * their scroll position.
  */
-export type NativeScreenReport = { key: string; view: NativeScreenView | null };
+export type NativeScreenReport = { key: string; view: NativeScreenView | null; overlay?: boolean };
 
 /** app → web window event detail: an action on the screen of history entry `key`. */
 export type NativeScreenActionEvent = { key: string; action: NativeScreenAction };

@@ -23,6 +23,25 @@ export default function FriendsListPage() {
   const target = creationTarget(scope, galleryId);
   if (!kind) return <NotFoundPage />;
   const search = () => to(withQuery("/search", { scope, galleryId }));
+  if (nativeApp())
+    return (
+      <>
+        <NativeFriendsListBridge kind={kind} onBack={() => back("/friends")} onSearch={search} />
+        <Footer
+          activeTab="social"
+          onCreate={() =>
+            to(
+              target.path,
+              target.path === "/studio/new"
+                ? { state: { studioFrom: currentPath, studioIndex: window.history.state?.idx } }
+                : undefined,
+            )
+          }
+          createLabel={target.label}
+        />
+        <NotificationsOverlay />
+      </>
+    );
   return (
     <DesignViewport>
       <div className={sharedStyles.phoneFrame}>
@@ -33,13 +52,6 @@ export default function FriendsListPage() {
             onProfile={(id) => to(`/users/${id}`)}
             onChat={(id) => to(`/chat?userId=${id}`)}
           />
-          {nativeApp() && (
-            <NativeFriendsListBridge
-              kind={kind}
-              onBack={() => back("/friends")}
-              onSearch={search}
-            />
-          )}
         </div>
         <Footer
           activeTab="social"

@@ -1,13 +1,11 @@
 import { useEffect, useEffectEvent, useState, type ReactNode } from "react";
 import { useLocation } from "react-router";
 import { useQueryClient } from "@tanstack/react-query";
-import { FigmaSheet } from "@/components/figma-sheet";
 import { useCurrentUserId } from "@/features/auth/use-current-user";
 import { useLoginPrompt } from "@/features/auth/login-prompt";
 import { ReportReasons } from "@/features/comments/report-reasons";
 import { useNotificationsNavigation } from "@/features/notifications/use-notifications-navigation";
 import { postError } from "@/features/posts/post-utils";
-import { useWebModalOpen } from "@/hooks/use-web-modal-open";
 import { ApiError } from "@/lib/api/client";
 import { getPostShareLink } from "@/lib/api/community";
 import { canonicalShareLink } from "@/lib/api/content-link";
@@ -67,6 +65,7 @@ export function useNativeScreen<K extends NativeScreenKind>(
     onBack,
     onSearch,
     path,
+    overlay = false,
   }: {
     header: NativeHeader | null;
     /** Screen-specific actions, and `more` for paged lists. */
@@ -75,6 +74,8 @@ export function useNativeScreen<K extends NativeScreenKind>(
     onBack?: () => void;
     /** Default: the search page. */
     onSearch?: () => void;
+    /** A native overlay such as the inbox; underlying controllers stay mounted. */
+    overlay?: boolean;
     /**
      * The app's entry path; default the location pathname. A page that rewrites its own path with
      * `replace` while it stays open (abyss swipes) passes a fixed path so its native screen keeps its key.
@@ -88,7 +89,7 @@ export function useNativeScreen<K extends NativeScreenKind>(
   const { requireLogin } = useLoginPrompt();
   const queryClient = useQueryClient();
   const userId = useCurrentUserId();
-  const key = screenKey(path ?? pathname);
+  const key = `${overlay ? "overlay:" : ""}${screenKey(path ?? pathname)}`;
   const [refreshed, setRefreshed] = useState(0);
   const [report, setReport] = useState<{ kind: NativeContentKind; id: number } | null>(null);
 
@@ -96,24 +97,13 @@ export function useNativeScreen<K extends NativeScreenKind>(
   const snapshot = JSON.stringify({ kind, model, header, refreshed });
   useEffect(() => {
     void requestNative("set-screen", {
-      screen: { key, view: JSON.parse(snapshot) as NativeScreenView },
+      screen: { key, view: JSON.parse(snapshot) as NativeScreenView, overlay },
     });
-  }, [key, snapshot]);
-  useEffect(() => () => void requestNative("set-screen", { screen: { key, view: null } }), [key]);
-
-  // The native screen covers this page; screen readers must not reach it underneath. A web modal
-  // hides the native screen (and may live inside #root, like the notifications sheet), so it lifts this.
-  const modalOpen = useWebModalOpen();
-  useEffect(() => {
-    const root = document.getElementById("root");
-    if (!root || modalOpen) return;
-    root.inert = true;
-    root.setAttribute("aria-hidden", "true");
-    return () => {
-      root.inert = false;
-      root.removeAttribute("aria-hidden");
-    };
-  }, [modalOpen]);
+  }, [key, snapshot, overlay]);
+  useEffect(
+    () => () => void requestNative("set-screen", { screen: { key, view: null, overlay } }),
+    [key, overlay],
+  );
 
   async function share(kind: NativeContentKind, id: number, title: string) {
     try {
@@ -167,17 +157,16 @@ export function useNativeScreen<K extends NativeScreenKind>(
     [key],
   );
 
-  // A web modal: while it is open the app shows the WebView, so the sheet is visible over the page.
+  // Dialogs remain native too; no DOM modal is mounted behind the screen.
   return report && userId !== null ? (
-    <FigmaSheet key={`${report.kind}-${report.id}`} title="신고" onClose={() => setReport(null)}>
-      <ReportReasons
-        onSubmit={(reason, description) =>
-          report.kind === "post"
-            ? reportPost(report.id, reason, description)
-            : reportShort(report.id, reason, description)
-        }
-        onDone={() => setReport(null)}
-      />
-    </FigmaSheet>
+    <ReportReasons
+      key={`${report.kind}-${report.id}`}
+      onSubmit={(reason, description) =>
+        report.kind === "post"
+          ? reportPost(report.id, reason, description)
+          : reportShort(report.id, reason, description)
+      }
+      onDone={() => setReport(null)}
+    />
   ) : null;
 }

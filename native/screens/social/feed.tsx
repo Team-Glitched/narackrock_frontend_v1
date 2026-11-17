@@ -2,7 +2,6 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import {
   ActivityIndicator,
   Image,
-  Modal,
   Pressable,
   StyleSheet,
   Text,
@@ -30,6 +29,7 @@ import type {
 } from "../../../src/lib/native-screens";
 import { Avatar, Button, ErrorRetry, MoreButton, TextField, Touchable } from "../../ui/kit";
 import { useScreen } from "../../ui/screen-context";
+import { ScreenModal } from "../../ui/screen-modal";
 import { colors, gutter, type } from "../../ui/theme";
 
 /**
@@ -282,7 +282,7 @@ function PostMenu({
   onChoose: (item: NativeFeedPostMenuItem) => void;
 }) {
   return (
-    <Modal
+    <ScreenModal
       visible={visible}
       transparent
       animationType="fade"
@@ -316,7 +316,7 @@ function PostMenu({
           </Touchable>
         </View>
       </View>
-    </Modal>
+    </ScreenModal>
   );
 }
 

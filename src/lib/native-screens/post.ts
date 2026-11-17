@@ -64,6 +64,8 @@ export type NativePostTarget = {
 export type NativePostCreate = {
   /** "작성 중인 내용을 불러오는 중..." while the draft is restored; the fields are not shown yet. */
   restoring: boolean;
+  /** A draft published or discarded elsewhere cannot be edited. */
+  blocked: string | null;
   /** The fields' values; the app starts from them and sends every change back. */
   title: string;
   content: string;
@@ -73,6 +75,8 @@ export type NativePostCreate = {
   error: string | null;
   storageError: string | null;
   restoreError: string | null;
+  /** Offers the existing recovery action when the draft's image cannot be restored. */
+  keepWithoutImage: boolean;
   /** Draft save line (초안을 저장하는 중... / ...). */
   draftStatus: string;
   /** Why the post cannot be sent to the chosen community yet. */
@@ -90,7 +94,7 @@ export type NativePostCreate = {
 
 export type NativePostCreateAction =
   | { type: "post-create-title" | "post-create-content"; value: string }
-  | { type: "post-create-image" | "post-create-remove-image" }
+  | { type: "post-create-image" | "post-create-remove-image" | "post-create-keep-without-image" }
   | { type: "post-create-submit" | "post-create-discard" }
   | { type: "post-create-community"; galleryId: number }
   | { type: "post-create-communities-retry" };

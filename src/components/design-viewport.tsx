@@ -1,10 +1,15 @@
 import { sharedStyles } from "@/styles/shared.styles";
 import { cn } from "@/lib/utils";
 import { useLayoutEffect, useRef, type ReactNode } from "react";
+import { nativeApp } from "@/lib/native-app";
+
+export function DesignViewport(props: { landscape?: boolean; children: ReactNode }) {
+  return nativeApp() ? props.children : <WebDesignViewport {...props} />;
+}
 
 /** The Figma canvases are 390×844 and 844×390. Scale the whole canvas,
  * never independently shrink its icons, text, or available content height. */
-export function DesignViewport({
+function WebDesignViewport({
   landscape = false,
   children,
 }: {

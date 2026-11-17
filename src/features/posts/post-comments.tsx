@@ -232,14 +232,20 @@ export function usePostDetail(postId: number, onHidden: () => void): PostDetailS
             }}
           />
         )}
-        {report && (
-          <FigmaSheet title="신고" onClose={() => setReport(false)}>
+        {report &&
+          (nativeApp() ? (
             <ReportReasons
               onSubmit={(reason, description) => reportPost(postId, reason, description)}
               onDone={() => setReport(false)}
             />
-          </FigmaSheet>
-        )}
+          ) : (
+            <FigmaSheet title="신고" onClose={() => setReport(false)}>
+              <ReportReasons
+                onSubmit={(reason, description) => reportPost(postId, reason, description)}
+                onDone={() => setReport(false)}
+              />
+            </FigmaSheet>
+          ))}
       </>
     ),
   };
@@ -260,18 +266,15 @@ export function PostCommentsScreen({
   onSearch: () => void;
 }) {
   const detail = usePostDetail(postId, onHidden);
-  return (
-    <>
-      <PostCommentsView detail={detail} onProfile={onProfile} />
-      {nativeApp() && (
-        <NativePostDetailBridge
-          detail={detail}
-          onProfile={onProfile}
-          onBack={onBack}
-          onSearch={onSearch}
-        />
-      )}
-    </>
+  return nativeApp() ? (
+    <NativePostDetailBridge
+      detail={detail}
+      onProfile={onProfile}
+      onBack={onBack}
+      onSearch={onSearch}
+    />
+  ) : (
+    <PostCommentsView detail={detail} onProfile={onProfile} />
   );
 }
 

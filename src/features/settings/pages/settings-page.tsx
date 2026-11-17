@@ -26,13 +26,37 @@ export default function SettingsPage() {
     navigate("/login", { replace: true, flushSync: true });
     logout();
   };
-  return (
-    <DesignViewport>
-      <div className={sharedStyles.phoneFrame}>
-        <Header
+  if (nativeApp())
+    return (
+      <>
+        <NativeSettingsBridge
+          onNavigate={to}
+          onLogout={signOut}
           onSearch={search}
           onBack={() => back("/profile")}
         />
+        {query.get("migration") === "1" && <MigrationScreen />}
+        <Footer
+          activeTab={null}
+          createLabel={target.label}
+          onCreate={() =>
+            to(
+              target.path,
+              target.path === "/studio/new"
+                ? {
+                    state: { studioFrom: currentPath, studioIndex: window.history.state?.idx },
+                  }
+                : undefined,
+            )
+          }
+        />
+        <NotificationsOverlay />
+      </>
+    );
+  return (
+    <DesignViewport>
+      <div className={sharedStyles.phoneFrame}>
+        <Header onSearch={search} onBack={() => back("/profile")} />
         <div className={sharedStyles.screenBody}>
           {query.get("migration") === "1" ? (
             <MigrationScreen />
@@ -42,9 +66,6 @@ export default function SettingsPage() {
               <button onClick={() => to("/settings?migration=1")}>
                 이 브라우저 데이터 이관·복구
               </button>
-              {nativeApp() && (
-                <NativeSettingsBridge onNavigate={to} onLogout={signOut} onSearch={search} onBack={() => back("/profile")} />
-              )}
             </>
           )}
         </div>

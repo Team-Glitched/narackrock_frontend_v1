@@ -21,17 +21,15 @@ export default function OnboardingPage() {
     refreshProfile();
     to(safeReturnPath(state.returnTo), { replace: true, state: { from: state.from } });
   };
+  if (nativeApp())
+    return (
+      <NativeOnboardingBridge suggestedNickname={pending.suggestedNickname} onSaved={onSaved} />
+    );
   return (
     <DesignViewport>
       <div className={sharedStyles.phoneFrame}>
         <div className={sharedStyles.screenBody}>
           <InitialProfileSetupScreen {...pending} onSaved={onSaved} />
-          {nativeApp() && (
-            <NativeOnboardingBridge
-              suggestedNickname={pending.suggestedNickname}
-              onSaved={onSaved}
-            />
-          )}
         </div>
         <NotificationsOverlay />
       </div>

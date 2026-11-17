@@ -31,20 +31,25 @@ export default function WorkspacePage() {
     to(studioPath(id, shortId), {
       state: { studioFrom: currentPath, studioIndex: window.history.state?.idx },
     });
+  if (nativeApp())
+    return (
+      <>
+        <NativeWorkspaceBridge
+          onStartSong={onStartSong}
+          onResume={onResume}
+          onSearch={search}
+          onBack={() => back("/settings")}
+        />
+        <Footer activeTab={null} onCreate={onCreate} createLabel={target.label} />
+        <NotificationsOverlay />
+      </>
+    );
   return (
     <DesignViewport>
       <div className={sharedStyles.phoneFrame}>
         <Header onSearch={search} onBack={() => back("/settings")} />
         <div className={sharedStyles.screenBody}>
           <WorkspaceScreen onStartSong={onStartSong} onResume={onResume} />
-          {nativeApp() && (
-            <NativeWorkspaceBridge
-              onStartSong={onStartSong}
-              onResume={onResume}
-              onSearch={search}
-              onBack={() => back("/settings")}
-            />
-          )}
         </div>
         <Footer activeTab={null} onCreate={onCreate} createLabel={target.label} />
         <NotificationsOverlay />

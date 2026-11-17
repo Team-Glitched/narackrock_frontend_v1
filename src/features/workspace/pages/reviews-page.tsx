@@ -35,15 +35,20 @@ export default function ReviewsPage() {
       }),
     onOpenProfile: (id: number) => to(`/users/${id}`),
   };
+  if (nativeApp())
+    return (
+      <>
+        <NativeReviewsBridge {...inbox} onSearch={search} onBack={() => back("/settings")} />
+        <Footer activeTab={null} onCreate={onCreate} createLabel={target.label} />
+        <NotificationsOverlay />
+      </>
+    );
   return (
     <DesignViewport>
       <div className={sharedStyles.phoneFrame}>
         <Header onSearch={search} onBack={() => back("/settings")} />
         <div className={sharedStyles.screenBody}>
           <ReviewInboxScreen {...inbox} />
-          {nativeApp() && (
-            <NativeReviewsBridge {...inbox} onSearch={search} onBack={() => back("/settings")} />
-          )}
         </div>
         <Footer activeTab={null} onCreate={onCreate} createLabel={target.label} />
         <NotificationsOverlay />

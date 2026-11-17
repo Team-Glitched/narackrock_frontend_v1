@@ -760,8 +760,7 @@ function SourceDetailView({
       <CommentsView
         comments={detail.comments}
         onProfile={onProfile}
-        // In the app the native composer takes the focus; the hidden web input must not open the keyboard.
-        focus={nativeApp() ? 0 : detail.focus}
+        focus={detail.focus}
         header={<SourceDetail source={source} detail={detail} onProfile={onProfile} />}
       />
     </div>

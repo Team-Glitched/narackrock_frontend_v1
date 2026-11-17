@@ -18,7 +18,7 @@ import type { PostDetailResponse } from "@/lib/api/contracts";
 import { useShareLink } from "@/hooks/use-share-link";
 
 export type PostInteractions = {
-  /** The manual-copy share dialog (a web modal). */
+  /** The platform-specific manual-copy share dialog. */
   shareDialog: ReactNode;
   reaction: PostReaction | null;
   bookmarked: boolean | undefined;

@@ -18,6 +18,19 @@ const formatRecordingTime = (seconds: number) =>
 /** Horizontal pixels per level column; the waveform scrolls right to left like the web's meter. */
 const columnWidth = 2;
 
+/** Quietest peak the meter shows (dBFS); the meter spans it to full scale. */
+const meterFloorDb = -45;
+
+/**
+ * A peak (0–1) as meter height (0–1) on a decibel scale. The web draws the raw waveform, which the
+ * browser's automatic gain control keeps large; the app's microphone has none, so speech peaks
+ * around -15 dBFS and a linear drawing stays nearly flat.
+ */
+function meterLevel(peak: number): number {
+  if (peak <= 0) return 0;
+  return Math.max(0, Math.min(1, 1 - (20 * Math.log10(peak)) / meterFloorDb));
+}
+
 /** The web's CompositionRecordScreen; the app records and draws the live meter. */
 export function CreationRecordScreen({ model, header }: ScreenProps<"creation-record">) {
   const { act, bottomInset } = useScreen();
@@ -123,7 +136,7 @@ function RecordingMeter() {
   const middle = height / 2;
   const shown = levels.slice(-(Math.ceil(width / columnWidth) + 1));
   const x = (index: number) => width - (shown.length - 1 - index) * columnWidth;
-  const level = (value: number) => Math.max(0.75, Math.min(1, value) * (middle - 1));
+  const level = (value: number) => Math.max(0.75, meterLevel(value) * (middle - 1));
   const path = shown.length
     ? `M${shown.map((value, index) => `${x(index)},${middle - level(value)}`).join("L")}L${shown
         .map((value, index) => `${x(index)},${middle + level(value)}`)

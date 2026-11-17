@@ -17,6 +17,25 @@ export default function FriendsPage() {
   const scope = resolveSearchScope(query.get("scope"), "people", Boolean(galleryId));
   const target = creationTarget(scope, galleryId);
   const search = () => to(withQuery("/search", { scope, galleryId }));
+  if (nativeApp())
+    return (
+      <>
+        <NativeSocialFriendsBridge onSearch={search} />
+        <Footer
+          activeTab="social"
+          onCreate={() =>
+            to(
+              target.path,
+              target.path === "/studio/new"
+                ? { state: { studioFrom: currentPath, studioIndex: window.history.state?.idx } }
+                : undefined,
+            )
+          }
+          createLabel={target.label}
+        />
+        <NotificationsOverlay />
+      </>
+    );
   return (
     <DesignViewport>
       <div className={sharedStyles.phoneFrame}>
@@ -36,7 +55,6 @@ export default function FriendsPage() {
             onComments={(id) => to(`/posts/${id}`)}
             onOpenCommunity={(community) => to(`/communities/${community.galleryId}`)}
           />
-          {nativeApp() && <NativeSocialFriendsBridge onSearch={search} />}
         </div>
         <Footer
           activeTab="social"

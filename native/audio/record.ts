@@ -122,3 +122,12 @@ export async function record(op: "start" | "stop" | "cancel"): Promise<NativeAud
 export function cancelRecording(): void {
   void finish(false).catch(() => {});
 }
+
+/**
+ * App launch: asks for the microphone up front. Recording still asks when it is missing (denied
+ * here, or revoked later); the OS stops showing the prompt once the user chose "don't ask again".
+ */
+export async function requestMicrophoneAtLaunch(): Promise<void> {
+  if ((await AudioManager.checkRecordingPermissions()) === "Granted") return;
+  await AudioManager.requestRecordingPermissions();
+}

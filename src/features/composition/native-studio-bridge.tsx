@@ -1,7 +1,7 @@
 import { useQueries } from "@tanstack/react-query";
 import { useNativeScreen } from "@/features/navigation/use-native-screen";
 import type { ClipDto } from "@/lib/api/composition";
-import { pickNativeImage } from "@/lib/native-app";
+import { pickNativeAudio, pickNativeImage } from "@/lib/native-app";
 import {
   isNativeInstrumentAction,
   isNativeSourcePickerAction,
@@ -9,6 +9,8 @@ import {
   isNativeTransportAction,
 } from "@/lib/native-screens/studio";
 import type { NativeStudio, NativeStudioAction, NativeStudioClip } from "@/lib/native-screens";
+import { isNativeAudioTrimAction } from "@/lib/native-screens/creation";
+import { useNativeAudioTrim } from "./native-audio-trim";
 import { useNativeInstrumentPicker } from "./instrument-dialog";
 import { partLabel } from "./instrument-parts";
 import { midiPreviewHeight, midiPreviewNotes } from "./midi-preview-notes";
@@ -67,6 +69,7 @@ export function studioStateModel(message: string, failed: boolean): NativeStudio
     submit: null,
     publishConfirm: false,
     publishForm: null,
+    audioTrim: null,
     trackSettings: null,
     instrument: null,
     timing: null,
@@ -94,6 +97,16 @@ export function NativeStudioBridge({ studio }: { studio: Studio }) {
   const { composition, playback, tracks } = studio;
   const project = composition?.project;
   const viewer = composition?.viewerPermission;
+  const pendingAudio = studio.pendingAudio;
+  const trim = useNativeAudioTrim(pendingAudio, {
+    saveLabel: "선택 구간을 레이어에 저장",
+    onCancel: () => studio.setPendingAudio(null),
+    onSave: async (selection) => {
+      if (!pendingAudio) return;
+      await studio.addAudio(pendingAudio.trackId, pendingAudio.file, selection);
+      studio.setPendingAudio(null);
+    },
+  });
   const timing = useNativeTiming(
     { bpm: project?.bpm ?? 120, signature: playback.signature },
     studio.onTiming,
@@ -153,6 +166,13 @@ export function NativeStudioBridge({ studio }: { studio: Studio }) {
             trackId: track.trackId,
             name: track.name,
             highlighted: studio.highlightedTracks.has(track.trackId),
+            add:
+              track.ownerId === viewer.userId
+                ? {
+                    notes: Boolean(track.instrument),
+                    audioDisabled: studio.busy || !viewer.canContribute,
+                  }
+                : null,
             muted: playback.mutedTrackIds.has(track.trackId),
             settingsLabel:
               studio.selectMidiLayer && track.clips.some((clip) => clip.clipType === "MIDI")
@@ -179,6 +199,10 @@ export function NativeStudioBridge({ studio }: { studio: Studio }) {
           publishForm: studio.showPublishForm
             ? { busy: studio.busy, imageName: studio.publishImage?.name ?? null }
             : null,
+          audioTrim:
+            pendingAudio && trim.model
+              ? { fileName: pendingAudio.file.name, picker: trim.model }
+              : null,
           trackSettings: studio.trackSettings && {
             trackId: studio.trackSettings.track.trackId,
             name: studio.trackSettings.track.name,
@@ -209,6 +233,7 @@ export function NativeStudioBridge({ studio }: { studio: Studio }) {
     if (isNativeTimingAction(action)) return timing.act(action);
     if (isNativeInstrumentAction(action)) return instrument.act(action);
     if (isNativeSourcePickerAction(action)) return sources.act(action);
+    if (isNativeAudioTrimAction(action)) return trim.act(action);
     switch (action.type) {
       case "studio-exit":
         return studio.onExit();
@@ -222,6 +247,36 @@ export function NativeStudioBridge({ studio }: { studio: Studio }) {
           studio.setShowSubmitForm(true);
         } else if (primary.kind === "publish") studio.requestPublish();
         else studio.onAddLayer();
+        return;
+      }
+      case "studio-track-notes": {
+        const track = tracks.find((item) => item.trackId === action.trackId);
+        if (track && track.ownerId === viewer?.userId && track.instrument)
+          studio.onEditTrack(track.trackId, null);
+        return;
+      }
+      case "studio-track-audio": {
+        const track = tracks.find((item) => item.trackId === action.trackId);
+        if (
+          !viewer ||
+          !track ||
+          track.ownerId !== viewer.userId ||
+          !viewer.canContribute ||
+          studio.busy
+        )
+          return;
+        void pickNativeAudio()
+          .then((file) => {
+            if (file) {
+              playback.pause();
+              studio.setPendingAudio({
+                trackId: track.trackId,
+                file,
+                url: URL.createObjectURL(file),
+              });
+            }
+          })
+          .catch((cause) => studio.setError(errorText(cause)));
         return;
       }
       case "studio-track": {
@@ -293,9 +348,15 @@ export function NativeStudioBridge({ studio }: { studio: Studio }) {
     }
   }
 
-  return useNativeScreen("studio-timeline", model, {
+  const node = useNativeScreen("studio-timeline", model, {
     header: null,
     onBack: studio.onExit,
     onAction,
   });
+  return (
+    <>
+      {node}
+      {trim.node}
+    </>
+  );
 }

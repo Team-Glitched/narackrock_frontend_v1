@@ -15,6 +15,8 @@ import { cn } from "@/lib/utils";
 import { buttonVariants } from "@/styles/variants";
 import { useAuthSession } from "./auth-session";
 import { loginDestination, requiresLogin } from "./login-access";
+import { nativeApp } from "@/lib/native-app";
+import { NativeDialog } from "@/components/native-dialog";
 
 type LoginRequest = { returnTo: string; from: string; locationKey: string };
 type LoginPrompt = {
@@ -113,7 +115,22 @@ function LoginConfirmation({
       if (previous?.isConnected) previous.focus();
     };
   }, []);
-  // A native modal uses the top layer, including over comment sheets and the landscape studio canvas.
+  if (nativeApp())
+    return (
+      <NativeDialog
+        model={{
+          title: "로그인이 필요합니다",
+          message: "로그인하시겠습니까?",
+          actions: [
+            { id: "cancel", label: "아니오" },
+            { id: "confirm", label: "예" },
+          ],
+        }}
+        onAction={(id) => (id === "confirm" ? onConfirm() : onCancel())}
+        onClose={onCancel}
+      />
+    );
+  // Browser dialog uses the top layer, including over sheets and the studio canvas.
   return createPortal(
     <dialog
       ref={dialog}

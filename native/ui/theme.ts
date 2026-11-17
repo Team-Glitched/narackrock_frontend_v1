@@ -1,10 +1,13 @@
-import { StyleSheet } from "react-native";
+import { Platform, StyleSheet } from "react-native";
 
 import { designTokens } from "../../src/styles/tokens";
 
 export const colors = { ...designTokens.colors, error: "#ff8d8d", danger: "#ef4444" };
 
 export const ripple = { color: "rgba(255, 255, 255, 0.12)" };
+
+/** The web's Pretendard (linked by expo-font in app.config.ts); iOS registers it by its own name. */
+export const fontFamily = Platform.OS === "ios" ? "Pretendard Variable" : "Pretendard";
 
 /** Text styles of the web's type scale (src/styles/tokens.ts fontSize). */
 export const type = StyleSheet.create({
