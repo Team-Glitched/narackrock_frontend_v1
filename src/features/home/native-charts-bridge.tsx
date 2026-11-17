@@ -84,7 +84,7 @@ function useRankedChart(kind: "popular" | "recommended") {
   const { popular, recommended } = useHomeSongs(100, kind);
   const selected = kind === "popular" ? popular : recommended;
   const chart: NativeCharts = {
-    title: kind === "popular" ? "인기 차트" : "추천 음악",
+    title: kind === "popular" ? "인기 차트" : "추천",
     tab: null,
     hint: null,
     notice: null,
