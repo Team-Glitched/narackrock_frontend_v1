@@ -25,13 +25,15 @@ export function Footer({
   createLabel?: string;
 }) {
   const { to, currentPath } = useUrlNavigation();
-  const create = onCreate ?? (() => {
-    to("/studio/new", { state: { studioFrom: currentPath, studioIndex: window.history.state?.idx } });
-  });
+  const create =
+    onCreate ??
+    (() => {
+      to("/studio/new", {
+        state: { studioFrom: currentPath, studioIndex: window.history.state?.idx },
+      });
+    });
 
-  // The app draws the footer natively (native/tab-bar.tsx) over this one, which stays rendered but
-  // inert: it keeps the canvas layout and shows, dimmed by the backdrop, while a web modal hides the
-  // native bar. Native presses come back here so each page keeps its own create action.
+  // Only the controller mounts in the app; native presses retain each page's create action.
   const inApp = nativeApp() !== null;
   const press = useEffectEvent((pressed: NativeFooterPress) => {
     const tab = nav.find((item) => item.id === pressed);
@@ -45,9 +47,10 @@ export function Footer({
   useEffect(() => {
     if (inApp) return () => void requestNative("set-footer", { footer: null });
   }, [inApp]);
+  if (inApp) return null;
 
   return (
-    <footer className={sharedStyles.appFooter} inert={inApp}>
+    <footer className={sharedStyles.appFooter}>
       {nav.map((item) => (
         <button
           key={item.id}
@@ -55,7 +58,7 @@ export function Footer({
             item.id === "studio" ? sharedStyles.makeButton : "",
             item.id === activeTab ? sharedStyles.active : "",
           )}
-          onClick={() => item.id === "studio" ? create() : to(item.path)}
+          onClick={() => (item.id === "studio" ? create() : to(item.path))}
           aria-label={item.id === "studio" ? createLabel : item.label}
           aria-current={item.id === activeTab ? "page" : undefined}
         >

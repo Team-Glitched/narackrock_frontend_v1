@@ -40,23 +40,56 @@ export default function SearchPage() {
     onQuery: (value: string) => update("q", value),
     community,
     onBack: () => back("/"),
-    onPost: (id: number) => to(galleryId ? `/communities/${galleryId}/posts/${id}` : `/posts/${id}`),
+    onPost: (id: number) =>
+      to(galleryId ? `/communities/${galleryId}/posts/${id}` : `/posts/${id}`),
     onSong: (id: number) => to(`/abyss/${id}`),
     onSource: (id: number) => to(`/sources/${id}`),
     onProfile: (id: number) => to(`/users/${id}`),
   };
+  if (nativeApp())
+    return (
+      <>
+        <NativeSearchBridge {...search} onCommunity={(id) => to(`/communities/${id}`)} />
+        <Footer
+          activeTab={null}
+          createLabel={target.label}
+          onCreate={() =>
+            to(
+              target.path,
+              target.path === "/studio/new"
+                ? {
+                    state: { studioFrom: currentPath, studioIndex: window.history.state?.idx },
+                  }
+                : undefined,
+            )
+          }
+        />
+        <NotificationsOverlay />
+      </>
+    );
   return (
     <DesignViewport>
       <div className={sharedStyles.phoneFrame}>
         <div className={sharedStyles.screenBody}>
-          <ScopedSearch {...search} onCommunity={(value) => to(`/communities/${value.galleryId}`)} />
-          {nativeApp() && (
-            <NativeSearchBridge {...search} onCommunity={(id) => to(`/communities/${id}`)} />
-          )}
+          <ScopedSearch
+            {...search}
+            onCommunity={(value) => to(`/communities/${value.galleryId}`)}
+          />
         </div>
-        <Footer activeTab={null} createLabel={target.label} onCreate={() => to(target.path, target.path === "/studio/new" ? {
-          state: { studioFrom: currentPath, studioIndex: window.history.state?.idx },
-        } : undefined)} />
+        <Footer
+          activeTab={null}
+          createLabel={target.label}
+          onCreate={() =>
+            to(
+              target.path,
+              target.path === "/studio/new"
+                ? {
+                    state: { studioFrom: currentPath, studioIndex: window.history.state?.idx },
+                  }
+                : undefined,
+            )
+          }
+        />
         <NotificationsOverlay />
       </div>
     </DesignViewport>

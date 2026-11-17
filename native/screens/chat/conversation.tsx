@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   FlatList,
-  KeyboardAvoidingView,
   Platform,
   StyleSheet,
   Text,
@@ -20,6 +19,7 @@ import type {
 } from "../../../src/lib/native-screens";
 import { HeaderButton } from "../../ui/header";
 import { Avatar, Button, Touchable } from "../../ui/kit";
+import { KeyboardAvoiding } from "../../ui/keyboard-avoiding";
 import { useScreen } from "../../ui/screen-context";
 import { colors, gutter, type } from "../../ui/theme";
 import { SignInRequired } from "../social/friends";
@@ -29,10 +29,7 @@ import { ChatBell } from "./parts";
 /** /chat?userId=: the web's conversation (src/features/social/chat-screen.tsx Conversation). */
 export function ChatConversationScreen({ model }: ScreenProps<"chat-conversation">) {
   return (
-    <KeyboardAvoidingView
-      style={styles.flex}
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
-    >
+    <KeyboardAvoiding style={styles.flex}>
       <TopBar model={model} />
       {model.signedOut ? (
         <SignInRequired message="채팅은 로그인 후 사용할 수 있습니다." />
@@ -48,7 +45,7 @@ export function ChatConversationScreen({ model }: ScreenProps<"chat-conversation
           <Composer composer={model.thread.composer} />
         </>
       ) : null}
-    </KeyboardAvoidingView>
+    </KeyboardAvoiding>
   );
 }
 

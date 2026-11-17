@@ -34,6 +34,21 @@ export default function SubmissionPage() {
         inbox: true,
       },
     });
+  if (nativeApp())
+    return (
+      <>
+        <NativeSubmissionBridge
+          key={`${submissionId}:${query.get("projectId")}`}
+          id={submissionId}
+          projectId={projectId}
+          onResume={onResume}
+          onSearch={search}
+          onBack={() => back("/submissions")}
+        />
+        <Footer activeTab={null} onCreate={onCreate} createLabel={target.label} />
+        <NotificationsOverlay />
+      </>
+    );
   return (
     <DesignViewport>
       <div className={sharedStyles.phoneFrame}>
@@ -47,16 +62,6 @@ export default function SubmissionPage() {
               id={submissionId}
               projectId={projectId}
               onResume={onResume}
-            />
-          )}
-          {nativeApp() && (
-            <NativeSubmissionBridge
-              key={`${submissionId}:${query.get("projectId")}`}
-              id={submissionId}
-              projectId={projectId}
-              onResume={onResume}
-              onSearch={search}
-              onBack={() => back("/submissions")}
             />
           )}
         </div>

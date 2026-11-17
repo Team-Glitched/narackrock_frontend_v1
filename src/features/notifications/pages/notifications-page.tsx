@@ -12,13 +12,13 @@ export default function NotificationsPage() {
   const galleryId = readId(params.galleryId) ?? readId(query.get("galleryId"));
   const scope = resolveSearchScope(query.get("scope"), "songs", Boolean(galleryId));
   const search = () => to(withQuery("/search", { scope, galleryId }));
+  if (nativeApp()) return <NativeNotificationsBridge onSearch={search} />;
   return (
     <DesignViewport>
       <div className={sharedStyles.phoneFrame}>
         <Header onSearch={search} onBack={() => back("/")} />
-        {/* The web inbox is an aria-modal dialog, which would hide the native screen; the app draws it natively instead. */}
         <div className={sharedStyles.screenBody}>
-          {nativeApp() ? <NativeNotificationsBridge onSearch={search} /> : <NotificationPanel />}
+          <NotificationPanel />
         </div>
       </div>
     </DesignViewport>

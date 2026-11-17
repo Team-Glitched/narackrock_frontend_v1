@@ -13,6 +13,7 @@
  * - volume: app `VolumeSheet` (plain props; the page keeps the value and handles its own action).
  * App sheets live in native/screens/studio/parts.tsx.
  */
+import type { NativeAudioTrim, NativeAudioTrimAction } from "./creation.ts";
 
 /** Transport readouts of the studio toolbar (the web's StudioToolbar). */
 export type NativeTransport = {
@@ -203,6 +204,8 @@ export type NativeStudioTrack = {
   /** The avatar button's accessibility label: "{name} 피아노롤 열기" or "{name} 트랙 설정". */
   settingsLabel: string;
   clips: NativeStudioClip[];
+  /** Own-track "+ 노트" and "+ 파일"; other participants do not expose append actions. */
+  add: { notes: boolean; audioDisabled: boolean } | null;
 };
 
 /** The toolbar's right button: "제출하기", or the round add button ("곡 올리기" / "레이어 추가"). */
@@ -244,6 +247,8 @@ export type NativeStudio = {
   publishConfirm: boolean;
   /** "곡 올리기" metadata form (title + optional album image picked natively). */
   publishForm: { action: "save" | "publish"; busy: boolean; error: string | null; imageName: string | null } | null;
+  /** A chosen file appended to an existing track, trimmed before saving. */
+  audioTrim: { fileName: string; picker: NativeAudioTrim } | null;
   /** Track settings (volume + "악기/보컬 변경"). */
   trackSettings: {
     trackId: number;
@@ -262,11 +267,14 @@ export type NativeStudioAction =
   | NativeInstrumentAction
   | NativeTimingAction
   | NativeSourcePickerAction
+  | NativeAudioTrimAction
   | { type: "studio-exit" }
   | { type: "studio-retry-contribution" }
   | { type: "studio-primary" }
   | { type: "studio-private-save" }
   | { type: "studio-track"; trackId: number }
+  | { type: "studio-track-notes"; trackId: number }
+  | { type: "studio-track-audio"; trackId: number }
   /** A tap (`edit` false: track settings) or the piano-roll gesture on a MIDI clip (`edit` true). */
   | { type: "studio-clip"; trackId: number; clipId: number; edit: boolean }
   | { type: "studio-move-clip"; trackId: number; clipId: number; startTick: number }

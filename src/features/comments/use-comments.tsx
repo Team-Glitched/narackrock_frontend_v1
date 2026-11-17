@@ -27,6 +27,7 @@ import {
   updateCachedReaction,
 } from "./comment-queries";
 import { ReportReasons } from "./report-reasons";
+import { nativeApp } from "@/lib/native-app";
 
 export function errorText(cause: unknown, fallback: string) {
   return cause instanceof Error ? cause.message : fallback;
@@ -483,14 +484,21 @@ export function useComments({
           if (requireLogin()) setReportTarget(id);
         }
       : undefined,
-    /** Web modals of the list (the comment report sheet). */
+    /** Platform-specific report confirmation, mounted by the active comments view. */
     dialogs: (reportTarget !== null && report ? (
-      <FigmaSheet title="신고" onClose={() => setReportTarget(null)}>
+      nativeApp() ? (
         <ReportReasons
           onSubmit={(reason, description) => report(reportTarget, reason, description)}
           onDone={() => setReportTarget(null)}
         />
-      </FigmaSheet>
+      ) : (
+        <FigmaSheet title="신고" onClose={() => setReportTarget(null)}>
+          <ReportReasons
+            onSubmit={(reason, description) => report(reportTarget, reason, description)}
+            onDone={() => setReportTarget(null)}
+          />
+        </FigmaSheet>
+      )
     ) : null) satisfies ReactNode,
   };
 }

@@ -17,7 +17,7 @@ export function AppHeader({ header, onLogo }: { header: NativeHeader; onLogo?: (
   const { act, session, uri } = useScreen();
   const signedIn = session.userId !== null;
   return (
-    <View style={styles.header}>
+    <View style={[styles.header, header.left === "back" && styles.headerBack]}>
       {header.left === "logo" && (
         <Touchable accessibilityRole="button" accessibilityLabel="맨 위로" onPress={onLogo}>
           <Logo width={68} height={43} />
@@ -134,6 +134,8 @@ const styles = StyleSheet.create({
     paddingRight: 8,
     gap: 4,
   },
+  /** The web header's `pl-1.5` beside a back button. */
+  headerBack: { paddingLeft: 6 },
   title: { flex: 1 },
   actions: { flexDirection: "row", alignItems: "center", gap: 4 },
   button: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },

@@ -25,19 +25,20 @@ export default function LoginPage() {
     },
     [setPendingProfileSetup, to, state.returnTo, state.from],
   );
+  if (nativeApp())
+    return (
+      <NativeLoginBridge
+        onAuthenticated={onAuthenticated}
+        onFirstLogin={onFirstLogin}
+        onHome={() => to("/")}
+        onPrivacy={() => to("/privacy")}
+      />
+    );
   return (
     <DesignViewport>
       <div className={sharedStyles.phoneFrame}>
         <div className={sharedStyles.screenBody}>
           <AuthScreen onAuthenticated={onAuthenticated} onFirstLogin={onFirstLogin} />
-          {nativeApp() && (
-            <NativeLoginBridge
-              onAuthenticated={onAuthenticated}
-              onFirstLogin={onFirstLogin}
-              onHome={() => to("/")}
-              onPrivacy={() => to("/privacy")}
-            />
-          )}
         </div>
         <NotificationsOverlay />
       </div>

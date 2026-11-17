@@ -23,7 +23,6 @@ export type NativeAbyssPlayback = {
   playing: boolean;
   /** The play/pause button is enabled. */
   canPlay: boolean;
-  muted: boolean;
   positionMs: number;
   /** 0 until the length is known (the seek bar is disabled). */
   totalMs: number;
@@ -74,12 +73,10 @@ export type NativeAbyssReady = {
   /** 1-based position in the loaded list and its length (the carousel's live label). */
   position: number;
   count: number;
-  /** "이전 숏폼" is enabled (it wraps to the last short at the start). */
+  /** The previous button is enabled (it wraps to the last short at the start). */
   canPrevious: boolean;
-  /** "다음 숏폼" is enabled (the feed never ends; disabled while the next page loads). */
+  /** The next button is enabled (the feed never ends; disabled while the next page loads). */
   canNext: boolean;
-  /** A next short is being looked up in the following pages. */
-  advancing: boolean;
   playback: NativeAbyssPlayback;
   /** Lines under the player, in the web's order (selection, missing/failed audio, playback error). */
   messages: { text: string; alert: boolean }[];
@@ -108,7 +105,6 @@ export type NativeAbyssAction =
   | { type: "abyss-previous" }
   | { type: "abyss-next" }
   | { type: "abyss-toggle" }
-  | { type: "abyss-mute" }
   | { type: "abyss-seek"; ms: number }
   | { type: "abyss-vote"; vote: "like" | "dislike" }
   | { type: "abyss-save" }

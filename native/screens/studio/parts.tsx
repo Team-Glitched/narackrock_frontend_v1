@@ -4,10 +4,9 @@
  * Dialogs are in-tree overlays (not RN `Modal`) so they rotate with the landscape canvas: render
  * them at the screen root, after the scrolling content.
  */
-import { createContext, useContext, useEffect, useRef, useState, type ReactNode } from "react";
+import { createContext, useContext, useRef, useState, type ReactNode } from "react";
 import {
   ActivityIndicator,
-  BackHandler,
   PanResponder,
   Pressable,
   ScrollView,
@@ -32,6 +31,7 @@ import type {
 import CloseIcon from "../../../public/figma/search-close.svg";
 import VolumeIcon from "../../../public/figma/dialog-volume-sound.svg";
 import { Avatar, Touchable } from "../../ui/kit";
+import { useScreenBack } from "../../ui/screen-back";
 import { useScreen } from "../../ui/screen-context";
 import { colors } from "../../ui/theme";
 
@@ -100,15 +100,7 @@ export function Dialog({
   children: ReactNode;
   style?: StyleProp<ViewStyle>;
 }) {
-  const close = useRef(onClose);
-  close.current = onClose;
-  useEffect(() => {
-    const subscription = BackHandler.addEventListener("hardwareBackPress", () => {
-      close.current();
-      return true;
-    });
-    return () => subscription.remove();
-  }, []);
+  useScreenBack(onClose);
   return (
     <View style={styles.overlay}>
       <Pressable

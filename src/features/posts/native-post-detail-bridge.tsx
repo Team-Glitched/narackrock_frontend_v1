@@ -94,6 +94,8 @@ export function NativePostDetailBridge({
     <>
       {node}
       {comments.node}
+      {detail.dialogs}
+      {interactions.shareDialog}
     </>
   );
 }

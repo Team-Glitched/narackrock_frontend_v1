@@ -54,6 +54,22 @@ export default function LayerChoicePage() {
     }
   }
   const search = () => to(withQuery("/search", { scope, galleryId }));
+  if (nativeApp())
+    return (
+      <>
+        <NativeLayerChoiceBridge
+          invalid={route.projectId === null}
+          busy={busy}
+          error={error}
+          instrument={instrument.native}
+          onChoose={(method) => void choose(method)}
+          onBack={() => back(route.studioUrl)}
+          onSearch={search}
+        />
+        <Footer activeTab={null} onCreate={onCreate} createLabel={target.label} />
+        <NotificationsOverlay />
+      </>
+    );
   return (
     <DesignViewport>
       <div className={sharedStyles.phoneFrame}>
@@ -75,17 +91,6 @@ export default function LayerChoicePage() {
         <Footer activeTab={null} onCreate={onCreate} createLabel={target.label} />
         <NotificationsOverlay />
         {instrument.dialog}
-        {nativeApp() && (
-          <NativeLayerChoiceBridge
-            invalid={route.projectId === null}
-            busy={busy}
-            error={error}
-            instrument={instrument.native}
-            onChoose={(method) => void choose(method)}
-            onBack={() => back(route.studioUrl)}
-            onSearch={search}
-          />
-        )}
       </div>
     </DesignViewport>
   );

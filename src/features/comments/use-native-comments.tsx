@@ -169,9 +169,14 @@ export function useNativeComments(
   return {
     model,
     act,
-    node: open.map(({ item }) => (
-      <ReplySource key={item.id} comments={comments} parentId={item.id} onPage={report} />
-    )),
+    node: (
+      <>
+        {open.map(({ item }) => (
+          <ReplySource key={item.id} comments={comments} parentId={item.id} onPage={report} />
+        ))}
+        {comments.dialogs}
+      </>
+    ),
   };
 }
 

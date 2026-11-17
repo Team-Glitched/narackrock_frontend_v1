@@ -18,6 +18,29 @@ export default function JoinedPage() {
   const target = creationTarget(scope, galleryId);
   const onBack = () => back("/communities");
   const onSearch = () => to(withQuery("/search", { scope, galleryId }));
+  if (nativeApp())
+    return (
+      <>
+        <NativeJoinedBridge
+          onOpen={(id) => to(`/communities/${id}`)}
+          onBack={onBack}
+          onSearch={onSearch}
+        />
+        <Footer
+          activeTab="social"
+          onCreate={() =>
+            to(
+              target.path,
+              target.path === "/studio/new"
+                ? { state: { studioFrom: currentPath, studioIndex: window.history.state?.idx } }
+                : undefined,
+            )
+          }
+          createLabel={target.label}
+        />
+        <NotificationsOverlay />
+      </>
+    );
   return (
     <DesignViewport>
       <div className={sharedStyles.phoneFrame}>
@@ -26,13 +49,6 @@ export default function JoinedPage() {
           <JoinedCommunitiesScreen
             onOpen={(community) => to(`/communities/${community.galleryId}`)}
           />
-          {nativeApp() && (
-            <NativeJoinedBridge
-              onOpen={(id) => to(`/communities/${id}`)}
-              onBack={onBack}
-              onSearch={onSearch}
-            />
-          )}
         </div>
         <Footer
           activeTab="social"

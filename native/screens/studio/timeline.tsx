@@ -22,8 +22,10 @@ import SoundMutedIcon from "../../../public/figma/sound-muted.svg";
 import SoundIcon from "../../../public/figma/sound.svg";
 import { Avatar, Touchable } from "../../ui/kit";
 import { useScreen } from "../../ui/screen-context";
+import { ScreenModal } from "../../ui/screen-modal";
 import { colors } from "../../ui/theme";
 import type { ScreenProps } from "../types";
+import { AudioTrim } from "../creation/trim";
 import {
   CanvasState,
   Dialog,
@@ -165,6 +167,27 @@ function Studio({ model }: { model: NativeStudio }) {
       <InstrumentSheet picker={model.instrument} />
       <TimingSheet sheet={model.timing} />
       <SourceSheet picker={model.sources} />
+      {model.audioTrim && (
+        <ScreenModal
+          transparent
+          animationType="fade"
+          onRequestClose={() => {
+            if (!model.audioTrim?.picker.busy) act({ type: "trim-cancel" });
+          }}
+        >
+          <View style={styles.trimBackdrop}>
+            <View style={styles.trimDialog} accessibilityViewIsModal>
+              <ScrollView>
+                <Text style={styles.formTitle} accessibilityRole="header">
+                  파일 구간 선택
+                </Text>
+                <Text style={styles.formText}>{model.audioTrim.fileName}</Text>
+                <AudioTrim trim={model.audioTrim.picker} />
+              </ScrollView>
+            </View>
+          </View>
+        </ScreenModal>
+      )}
     </View>
   );
 }
@@ -173,6 +196,7 @@ function Studio({ model }: { model: NativeStudio }) {
 function Timeline({ model }: { model: NativeStudio }) {
   const { act } = useScreen();
   const sidebarScroll = useRef<ScrollViewInstance>(null);
+  const actionsScroll = useRef<ScrollViewInstance>(null);
   const signature = {
     numerator: model.transport.numerator,
     denominator: model.transport.denominator,
@@ -198,12 +222,11 @@ function Timeline({ model }: { model: NativeStudio }) {
             showsVerticalScrollIndicator={false}
             scrollEventThrottle={16}
             onLayout={(event) => setVisibleHeight(event.nativeEvent.layout.height)}
-            onScroll={(event) =>
-              sidebarScroll.current?.scrollTo({
-                y: event.nativeEvent.contentOffset.y,
-                animated: false,
-              })
-            }
+            onScroll={(event) => {
+              const offset = { y: event.nativeEvent.contentOffset.y, animated: false };
+              sidebarScroll.current?.scrollTo(offset);
+              actionsScroll.current?.scrollTo(offset);
+            }}
           >
             <View style={{ width, height: lanes * laneHeight }}>
               <Grid
@@ -244,6 +267,45 @@ function Timeline({ model }: { model: NativeStudio }) {
           <Playhead model={model} />
         </View>
       </ScrollView>
+      {model.tracks.some((track) => track.add !== null) && (
+        <View style={styles.trackActions}>
+          <View style={styles.corner} />
+          <ScrollView
+            ref={actionsScroll}
+            scrollEnabled={false}
+            showsVerticalScrollIndicator={false}
+          >
+            {model.tracks.map((track) => (
+              <View key={track.trackId} style={styles.trackActionRow}>
+                {track.add?.notes && (
+                  <Touchable
+                    accessibilityRole="button"
+                    accessibilityLabel={`${track.name} 노트 추가`}
+                    onPress={() => act({ type: "studio-track-notes", trackId: track.trackId })}
+                  >
+                    <Text style={styles.trackActionText}>+ 노트</Text>
+                  </Touchable>
+                )}
+                {track.add && (
+                  <Touchable
+                    accessibilityRole="button"
+                    accessibilityLabel={`${track.name} 오디오 파일 추가`}
+                    accessibilityState={{ disabled: track.add.audioDisabled }}
+                    disabled={track.add.audioDisabled}
+                    onPress={() => act({ type: "studio-track-audio", trackId: track.trackId })}
+                  >
+                    <Text
+                      style={[styles.trackActionText, track.add.audioDisabled && styles.disabled]}
+                    >
+                      + 파일
+                    </Text>
+                  </Touchable>
+                )}
+              </View>
+            ))}
+          </ScrollView>
+        </View>
+      )}
     </View>
   );
 }
@@ -793,6 +855,28 @@ const styles = StyleSheet.create({
   timeline: { flex: 1, flexDirection: "row", backgroundColor: colors.bg },
   sidebar: { width: sidebar, backgroundColor: colors.bg },
   corner: { height: rulerHeight, backgroundColor: colors.bg },
+  trackActions: { width: 112, backgroundColor: colors.bg },
+  trackActionRow: {
+    height: laneHeight,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-evenly",
+  },
+  trackActionText: { color: colors.fg, fontSize: 13, paddingVertical: 10 },
+  trimBackdrop: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(0,0,0,0.65)",
+  },
+  trimDialog: {
+    width: "94%",
+    maxWidth: 600,
+    maxHeight: "90%",
+    padding: 16,
+    borderRadius: 12,
+    backgroundColor: colors.bg,
+  },
   person: {
     height: laneHeight,
     flexDirection: "row",

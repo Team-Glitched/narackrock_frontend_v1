@@ -4,6 +4,8 @@ import { PageState } from "@/components/page-state";
 import { NoteEditorScreen } from "@/features/composition/note-editor-screen";
 import { useRouteComposition } from "@/features/composition/use-route-composition";
 import { readId } from "@/features/navigation/paths";
+import { nativeApp } from "@/lib/native-app";
+import { NativeNoteEditorStateBridge } from "@/features/composition/native-note-editor-bridge";
 
 /**
  * Touch devices open the piano roll upright (390×844) and desktops in the landscape canvas, unless this browser
@@ -36,7 +38,15 @@ export default function NoteEditorPage() {
   return (
     <DesignViewport landscape={!portrait}>
       {route.projectId === null || readId(route.params.trackId) === null ? (
-        <PageState error>올바르지 않은 페이지 주소입니다.</PageState>
+        nativeApp() ? (
+          <NativeNoteEditorStateBridge
+            status="error"
+            message="올바르지 않은 페이지 주소입니다."
+            onBack={() => route.back("/workspace")}
+          />
+        ) : (
+          <PageState error>올바르지 않은 페이지 주소입니다.</PageState>
+        )
       ) : (
         <NoteEditorScreen
           key={`${route.projectId}:${route.trackId}:${route.clipId}`}

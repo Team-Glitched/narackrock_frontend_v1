@@ -34,16 +34,18 @@ export default function ChatPage() {
     },
     onProfile: (id: number) => to(`/users/${id}`),
   };
+  if (nativeApp())
+    return (
+      <>
+        <NativeChatBridge {...chat} />
+        <NotificationsOverlay />
+      </>
+    );
   return (
     <DesignViewport>
       <div className={sharedStyles.phoneFrame}>
         <div className={sharedStyles.screenBody}>
-          {/* One instance of the chat state and realtime connection: the app draws it natively. */}
-          {nativeApp() ? (
-            <NativeChatBridge {...chat} />
-          ) : (
-            <ChatScreen {...chat} onNotifications={openNotifications} />
-          )}
+          <ChatScreen {...chat} onNotifications={openNotifications} />
         </div>
         <NotificationsOverlay />
       </div>

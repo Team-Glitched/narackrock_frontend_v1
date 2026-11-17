@@ -8,15 +8,20 @@ import { PrivacyPolicyScreen } from "../privacy-policy-screen";
 
 export default function PrivacyPage() {
   const { to, back } = useUrlNavigation();
+  if (nativeApp())
+    return (
+      <NativePrivacyBridge
+        onHome={() => to("/")}
+        onSearch={() => to("/search")}
+        onBack={() => back("/settings")}
+      />
+    );
   return (
     <DesignViewport>
       <div className={sharedStyles.phoneFrame}>
         <Header onBack={() => back("/settings")} onSearch={() => to("/search")} />
         <div className={sharedStyles.screenBody}>
           <PrivacyPolicyScreen />
-          {nativeApp() && (
-            <NativePrivacyBridge onHome={() => to("/")} onSearch={() => to("/search")} onBack={() => back("/settings")} />
-          )}
         </div>
       </div>
     </DesignViewport>

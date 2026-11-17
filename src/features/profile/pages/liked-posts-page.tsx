@@ -9,15 +9,20 @@ import { sharedStyles } from "@/styles/shared.styles";
 export default function LikedPostsPage() {
   const { to, back } = useUrlNavigation();
   const search = () => to("/search?scope=posts");
+  if (nativeApp())
+    return (
+      <NativeLikedPostsBridge
+        onOpenPost={(id) => to(`/posts/${id}`)}
+        onSearch={search}
+        onBack={() => back("/profile")}
+      />
+    );
   return (
     <DesignViewport>
       <div className={sharedStyles.phoneFrame}>
         <Header onBack={() => back("/profile")} onSearch={search} />
         <div className={sharedStyles.screenBody}>
           <LikedPostsScreen onOpenPost={(id) => to(`/posts/${id}`)} />
-          {nativeApp() && (
-            <NativeLikedPostsBridge onOpenPost={(id) => to(`/posts/${id}`)} onSearch={search} onBack={() => back("/profile")} />
-          )}
         </div>
       </div>
     </DesignViewport>
