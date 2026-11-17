@@ -74,7 +74,7 @@ export function HomeScreen({
         )}
       </section>
       <section>
-        <SectionTitle onAll={() => onShowSongs("recommended")}>추천 음악</SectionTitle>
+        <SectionTitle onAll={() => onShowSongs("recommended")}>추천</SectionTitle>
         {songs.recommended.status !== "ready" ? (
           <SongRailStatus state={songs.recommended.status} />
         ) : songs.recommended.firstPage.length === 0 ? (
@@ -419,7 +419,7 @@ function RankedSongsChart({
   return (
     <div className={cn(sharedStyles.listView, sharedStyles.scrollContent)}>
       <h1 className={sharedStyles.postsListTitle}>
-        {kind === "popular" ? "인기 차트" : "추천 음악"}
+        {kind === "popular" ? "인기 차트" : "추천"}
       </h1>
       <div className={sharedStyles.chartList}>
         {selected.status !== "ready" ? (
