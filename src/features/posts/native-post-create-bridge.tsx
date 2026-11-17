@@ -57,13 +57,20 @@ export function NativePostCreateBridge({
   const items = galleries.status === "ready" ? galleries.galleries : [];
   const model: NativePostCreate = {
     restoring: form.restoring,
+    blocked:
+      form.draftExpired && !form.busy
+        ? "다른 탭에서 이 초안을 등록하거나 삭제했습니다. 작성 화면을 다시 열어주세요."
+        : null,
     title: form.title,
     content: form.content,
     image: file ? { preview: preview?.file === file ? preview.url : null } : null,
     busy: form.busy,
     error: pickError ?? form.error,
     storageError: form.storageError || null,
-    restoreError: form.imageRestoreFailed ? null : form.restoreError || null,
+    restoreError: form.imageRestoreFailed
+      ? "앨범 이미지를 복원하지 못했습니다. 다시 첨부하거나 이미지 없이 등록을 선택해주세요."
+      : form.restoreError || null,
+    keepWithoutImage: form.imageRestoreFailed,
     draftStatus: form.draftStatus,
     targetNotice: form.targetNotice,
     canSubmit: form.canSubmit,
@@ -106,6 +113,8 @@ export function NativePostCreateBridge({
           return;
         case "post-create-remove-image":
           return form.removeImage();
+        case "post-create-keep-without-image":
+          return form.keepWithoutImage();
         case "post-create-submit":
           return void form.submit();
         case "post-create-discard":

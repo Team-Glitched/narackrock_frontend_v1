@@ -18,21 +18,37 @@ export default function OwnedCommunitiesPage() {
   const target = creationTarget(scope, galleryId);
   const onBack = () => back("/communities");
   const onSearch = () => to(withQuery("/search", { scope, galleryId }));
+  if (nativeApp())
+    return (
+      <>
+        <NativeCommunityAdminBridge
+          galleryId={null}
+          members={false}
+          invalid={false}
+          onBack={onBack}
+          onSearch={onSearch}
+        />
+        <Footer
+          activeTab="social"
+          onCreate={() =>
+            to(
+              target.path,
+              target.path === "/studio/new"
+                ? { state: { studioFrom: currentPath, studioIndex: window.history.state?.idx } }
+                : undefined,
+            )
+          }
+          createLabel={target.label}
+        />
+        <NotificationsOverlay />
+      </>
+    );
   return (
     <DesignViewport>
       <div className={sharedStyles.phoneFrame}>
         <Header onBack={onBack} onSearch={onSearch} />
         <div className={sharedStyles.screenBody}>
           <CommunityManagementContent galleryId={null} members={false} />
-          {nativeApp() && (
-            <NativeCommunityAdminBridge
-              galleryId={null}
-              members={false}
-              invalid={false}
-              onBack={onBack}
-              onSearch={onSearch}
-            />
-          )}
         </div>
         <Footer
           activeTab="social"

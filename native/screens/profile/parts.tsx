@@ -1,8 +1,9 @@
 import type { ReactNode } from "react";
-import { Modal, Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Touchable } from "../../ui/kit";
+import { ScreenModal } from "../../ui/screen-modal";
 import { colors, gutter, type } from "../../ui/theme";
 
 /** The web's preference row: title, description, and a switch (preferenceRow / preferenceSwitch). */
@@ -61,7 +62,7 @@ export function Sheet({
 }) {
   const { bottom } = useSafeAreaInsets();
   return (
-    <Modal transparent animationType="slide" onRequestClose={onClose} statusBarTranslucent>
+    <ScreenModal transparent animationType="slide" onRequestClose={onClose} statusBarTranslucent>
       <View style={styles.sheetRoot}>
         <Pressable
           style={StyleSheet.absoluteFill}
@@ -83,7 +84,7 @@ export function Sheet({
           </ScrollView>
         </View>
       </View>
-    </Modal>
+    </ScreenModal>
   );
 }
 

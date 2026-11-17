@@ -18,16 +18,31 @@ export default function PostPage() {
   const invalidGalleryId = params.galleryId !== undefined && readId(params.galleryId) === null;
   const leave = () => back(galleryId ? `/communities/${galleryId}` : "/posts");
   const search = () => to(withQuery("/search", { scope, galleryId }));
+  if (nativeApp())
+    return (
+      <>
+        {postId === null || invalidGalleryId ? (
+          <NativeInvalidPostBridge onBack={leave} onSearch={search} />
+        ) : (
+          <PostCommentsScreen
+            key={postId}
+            postId={postId}
+            onHidden={leave}
+            onProfile={(id) => to(`/users/${id}`)}
+            onBack={leave}
+            onSearch={search}
+          />
+        )}
+        <NotificationsOverlay />
+      </>
+    );
   return (
     <DesignViewport>
       <div className={sharedStyles.phoneFrame}>
         <Header onBack={leave} onSearch={search} />
         <div className={sharedStyles.screenBody}>
           {postId === null || invalidGalleryId ? (
-            <>
-              <PageState error>올바르지 않은 페이지 주소입니다.</PageState>
-              {nativeApp() && <NativeInvalidPostBridge onBack={leave} onSearch={search} />}
-            </>
+            <PageState error>올바르지 않은 페이지 주소입니다.</PageState>
           ) : (
             <PostCommentsScreen
               key={postId}

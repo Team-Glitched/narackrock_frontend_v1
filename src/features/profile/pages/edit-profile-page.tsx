@@ -23,25 +23,47 @@ export default function EditProfilePage() {
     refreshProfile();
     back("/profile");
   };
+  if (nativeApp())
+    return (
+      <>
+        <NativeEditProfileBridge
+          onSaved={saved}
+          onPrivacyPolicy={() => to("/privacy")}
+          onSearch={search}
+          onBack={() => back("/profile")}
+        />
+        <Footer
+          activeTab={null}
+          createLabel={target.label}
+          onCreate={() =>
+            to(target.path, {
+              state: { studioFrom: currentPath, studioIndex: window.history.state?.idx },
+            })
+          }
+        />
+        <NotificationsOverlay />
+      </>
+    );
   return (
     <DesignViewport>
       <div className={sharedStyles.phoneFrame}>
-        <Header onBack={() => back("/profile")} onSettings={() => to("/settings")}
-          onSearch={search} />
+        <Header
+          onBack={() => back("/profile")}
+          onSettings={() => to("/settings")}
+          onSearch={search}
+        />
         <div className={sharedStyles.screenBody}>
           <EditProfileScreen onSaved={saved} />
-          {nativeApp() && (
-            <NativeEditProfileBridge
-              onSaved={saved}
-              onPrivacyPolicy={() => to("/privacy")}
-              onSearch={search}
-              onBack={() => back("/profile")}
-            />
-          )}
         </div>
-        <Footer activeTab={null} createLabel={target.label} onCreate={() => to(target.path, {
-          state: { studioFrom: currentPath, studioIndex: window.history.state?.idx },
-        })} />
+        <Footer
+          activeTab={null}
+          createLabel={target.label}
+          onCreate={() =>
+            to(target.path, {
+              state: { studioFrom: currentPath, studioIndex: window.history.state?.idx },
+            })
+          }
+        />
         <NotificationsOverlay />
       </div>
     </DesignViewport>

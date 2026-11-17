@@ -52,10 +52,11 @@ export default function StudioPage() {
   return (
     <DesignViewport landscape>
       {invalidAddress ? (
-        <>
+        nativeApp() ? (
+          <NativeStudioInvalidBridge onExit={exit} />
+        ) : (
           <PageState error>올바르지 않은 페이지 주소입니다.</PageState>
-          {nativeApp() && <NativeStudioInvalidBridge onExit={exit} />}
-        </>
+        )
       ) : (
         <StudioRoute
           key={`${userId ?? "guest"}:${projectId}:${shortId}`}

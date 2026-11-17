@@ -28,23 +28,43 @@ const trailingTabs: Tab[] = [
   { id: "opensource", label: "샘플", on: SourcesOn, off: SourcesOff },
 ];
 
-// The web renders a fixed 390×844 canvas scaled to fit the WebView (src/components/design-viewport.tsx).
-// Every footer page lays out in sharedStyles.phoneFrame, whose 20px bottom padding sits under the
-// (inert) 44px footer row (sharedStyles.appFooter). The bar is laid out in canvas px and multiplied
-// by the same scale so it covers that row exactly.
-const CANVAS = { width: 390, height: 844, framePaddingBottom: 20 };
-const FOOTER = { height: 44, paddingX: 17, gap: 34, item: 44, icon: 20, labelGap: 4 };
+// The web lays pages out on a 390×844 canvas (src/components/design-viewport.tsx) whose phoneFrame
+// has 20px bottom padding. Above it sits sharedStyles.appFooter: an 8px top margin, then a 48px box
+// with 6px top / 2px bottom padding around the 44px button row. The bar repeats that geometry in
+// canvas px times the same scale, so the space between page content and the icons matches the web.
+const CANVAS = { width: 390, height: 844, framePaddingTop: 20, framePaddingBottom: 20 };
+const FOOTER = {
+  margin: 8,
+  paddingTop: 6,
+  paddingBottom: 2,
+  row: 44,
+  paddingX: 17,
+  gap: 34,
+  item: 44,
+  icon: 20,
+  labelGap: 4,
+};
 const CREATE = { circle: 40, plus: 20, stroke: 2 };
 const CREATE_COLORS = { circle: designTokens.colors["blue-gray"], plus: "#d7dce2" };
 const RIPPLE = "rgba(255, 255, 255, 0.16)";
 
 export type Viewport = { width: number; height: number };
 
-/** Where the web footer row sits in a WebView of this size, and the canvas scale. */
-export function footerFrame(viewport: Viewport): { top: number; height: number; scale: number } {
+/** Where the web footer (its top margin included) starts in a view of this size, and the canvas scale. */
+export function footerFrame(viewport: Viewport): { top: number; scale: number } {
   const scale = Math.min(viewport.width / CANVAS.width, viewport.height / CANVAS.height, 1);
   const bottom = (viewport.height + CANVAS.height * scale) / 2 - CANVAS.framePaddingBottom * scale;
-  return { top: bottom - FOOTER.height * scale, height: FOOTER.height * scale, scale };
+  const height = FOOTER.margin + FOOTER.paddingTop + FOOTER.row + FOOTER.paddingBottom;
+  return { top: bottom - height * scale, scale };
+}
+
+/**
+ * Where the web header started in a view of this size: the canvas top plus the phoneFrame's 20px
+ * top padding. Portrait native screens begin there so the header keeps the web's space above it.
+ */
+export function headerTop(viewport: Viewport): number {
+  const scale = Math.min(viewport.width / CANVAS.width, viewport.height / CANVAS.height, 1);
+  return (viewport.height - CANVAS.height * scale) / 2 + CANVAS.framePaddingTop * scale;
 }
 
 export function TabBar({
@@ -93,8 +113,20 @@ export function TabBar({
   };
 
   return (
-    <View style={[styles.bar, { top: frame.top, height: frame.height }]}>
-      <View style={[styles.row, { gap: px(FOOTER.gap), paddingHorizontal: px(FOOTER.paddingX) }]}>
+    // The bar starts where the web footer's top margin starts, and its background runs to the bottom
+    // edge so content scrolled under it never shows through the canvas's bottom padding.
+    <View style={[styles.bar, { top: frame.top }]}>
+      <View
+        style={[
+          styles.row,
+          {
+            marginTop: px(FOOTER.margin + FOOTER.paddingTop),
+            height: px(FOOTER.row),
+            gap: px(FOOTER.gap),
+            paddingHorizontal: px(FOOTER.paddingX),
+          },
+        ]}
+      >
         {leadingTabs.map(renderTab)}
         <Pressable
           accessibilityRole="button"
@@ -151,8 +183,8 @@ const styles = StyleSheet.create({
     position: "absolute",
     left: 0,
     right: 0,
+    bottom: 0,
     alignItems: "center",
-    justifyContent: "center",
     backgroundColor: designTokens.colors.bg,
   },
   row: { flexDirection: "row", alignItems: "center" },

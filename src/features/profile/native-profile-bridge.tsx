@@ -248,7 +248,7 @@ export function NativeProfileBridge({
           return relation.controls.current?.change();
         case "recheck-follow":
           return relation.controls.current?.recheck();
-        case "chat":
+        case "profile-chat":
           return relation.controls.current?.chat();
         case "open-list":
           if (requireLogin()) setListKind(action.kind);

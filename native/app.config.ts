@@ -78,6 +78,23 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     "./plugins/with-android-network-security",
     "./plugins/with-android-release-signing",
     "./plugins/with-ios-google-sign-in-release-check",
+    // The web's Pretendard (public/fonts, converted to TTF because native loaders cannot read WOFF2).
+    // One variable file backs every weight the screens use.
+    [
+      "expo-font",
+      {
+        ios: { fonts: ["./assets/fonts/PretendardVariable.ttf"] },
+        android: {
+          fonts: [
+            {
+              fontFamily: "Pretendard",
+              path: "./assets/fonts/PretendardVariable.ttf",
+              fontDefinitions: [400, 500, 600, 700].map((weight) => ({ weight })),
+            },
+          ],
+        },
+      },
+    ],
     // Native studio audio. Playback stops in the background, so no background audio mode or
     // foreground service; RECORD_AUDIO and the iOS microphone text are declared above.
     [

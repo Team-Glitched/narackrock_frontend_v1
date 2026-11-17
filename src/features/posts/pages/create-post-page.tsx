@@ -51,6 +51,21 @@ export default function CreatePostPage() {
       back("/social");
     },
   });
+  if (nativeApp())
+    return (
+      <>
+        <SocialCreateForm form={form} />
+        <NativePostCreateBridge
+          form={form}
+          galleries={galleries}
+          galleryId={target}
+          onCommunity={choose}
+          onBack={() => back("/social")}
+          onSearch={search}
+        />
+        <NotificationsOverlay />
+      </>
+    );
   return (
     <DesignViewport>
       <div className={sharedStyles.phoneFrame}>
@@ -63,16 +78,6 @@ export default function CreatePostPage() {
         />
         <div className={sharedStyles.screenBody}>
           <SocialCreateForm form={form} />
-          {nativeApp() && (
-            <NativePostCreateBridge
-              form={form}
-              galleries={galleries}
-              galleryId={target}
-              onCommunity={choose}
-              onBack={() => back("/social")}
-              onSearch={search}
-            />
-          )}
         </div>
 
         <NotificationsOverlay />

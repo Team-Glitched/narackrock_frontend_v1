@@ -25,19 +25,24 @@ export default function SubmissionsPage() {
   const search = () => to(withQuery("/search", { scope, galleryId }));
   const onSelect = (id: number, projectId: number) =>
     to(withQuery(`/submissions/${id}`, { projectId }));
+  if (nativeApp())
+    return (
+      <>
+        <NativeSubmissionsBridge
+          onSelect={onSelect}
+          onSearch={search}
+          onBack={() => back("/settings")}
+        />
+        <Footer activeTab={null} onCreate={onCreate} createLabel={target.label} />
+        <NotificationsOverlay />
+      </>
+    );
   return (
     <DesignViewport>
       <div className={sharedStyles.phoneFrame}>
         <Header onSearch={search} onBack={() => back("/settings")} />
         <div className={sharedStyles.screenBody}>
           <SubmissionsScreen onSelect={onSelect} />
-          {nativeApp() && (
-            <NativeSubmissionsBridge
-              onSelect={onSelect}
-              onSearch={search}
-              onBack={() => back("/settings")}
-            />
-          )}
         </div>
         <Footer activeTab={null} onCreate={onCreate} createLabel={target.label} />
         <NotificationsOverlay />

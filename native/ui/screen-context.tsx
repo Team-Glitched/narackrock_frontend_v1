@@ -18,6 +18,10 @@ export type ScreenContextValue = {
   openMenu: (target: MenuTarget) => void;
   /** Space kept free at the bottom for the tab bar. */
   bottomInset: number;
+  /** Space kept free above the screen (the web canvas's top padding); 0 for landscape screens. */
+  topInset: number;
+  /** This screen is the one on display (not a cached entry behind it, nor under an overlay). */
+  active: boolean;
   /** Completed refreshes reported by the page (`NativeScreenView.refreshed`). */
   refreshed: number;
 };

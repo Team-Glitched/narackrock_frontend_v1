@@ -19,7 +19,11 @@ export default function ChartsPage() {
   const value = query.get("kind");
   const kind: SongChartKind = value === "mine" || value === "recommended" ? value : "popular";
   const chart = {
-    tab: (query.get("tab") === "featured" ? "featured" : query.get("tab") === "participated" ? "participated" : "authored") as MusicListTab,
+    tab: (query.get("tab") === "featured"
+      ? "featured"
+      : query.get("tab") === "participated"
+        ? "participated"
+        : "authored") as MusicListTab,
     featuredUserId: readId(query.get("userId")) ?? undefined,
     onTabChange: (tab: MusicListTab) => {
       const next = new URLSearchParams(query);
@@ -30,19 +34,48 @@ export default function ChartsPage() {
     onOpenShort: (id: number) => to(`/abyss/${id}`),
   };
   const search = () => to(withQuery("/search", { scope, galleryId }));
+  if (nativeApp())
+    return (
+      <>
+        <NativeChartsBridge kind={kind} {...chart} onSearch={search} onBack={() => back("/")} />
+        <Footer
+          activeTab={null}
+          createLabel={target.label}
+          onCreate={() =>
+            to(
+              target.path,
+              target.path === "/studio/new"
+                ? {
+                    state: { studioFrom: currentPath, studioIndex: window.history.state?.idx },
+                  }
+                : undefined,
+            )
+          }
+        />
+        <NotificationsOverlay />
+      </>
+    );
   return (
     <DesignViewport>
       <div className={sharedStyles.phoneFrame}>
         <Header onBack={() => back("/")} onSearch={search} />
         <div className={sharedStyles.screenBody}>
           <ChartsScreen kind={kind} {...chart} />
-          {nativeApp() && (
-            <NativeChartsBridge kind={kind} {...chart} onSearch={search} onBack={() => back("/")} />
-          )}
         </div>
-        <Footer activeTab={null} createLabel={target.label} onCreate={() => to(target.path, target.path === "/studio/new" ? {
-          state: { studioFrom: currentPath, studioIndex: window.history.state?.idx },
-        } : undefined)} />
+        <Footer
+          activeTab={null}
+          createLabel={target.label}
+          onCreate={() =>
+            to(
+              target.path,
+              target.path === "/studio/new"
+                ? {
+                    state: { studioFrom: currentPath, studioIndex: window.history.state?.idx },
+                  }
+                : undefined,
+            )
+          }
+        />
         <NotificationsOverlay />
       </div>
     </DesignViewport>

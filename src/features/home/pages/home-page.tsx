@@ -23,27 +23,60 @@ export default function HomePage() {
   const screen = {
     onOpenPosts: () => to("/posts"),
     onOpenWorkspace: () => to("/workspace"),
-    onStartSong: () => to("/studio/new", {
-      state: { studioFrom: currentPath, studioIndex: window.history.state?.idx },
-    }),
+    onStartSong: () =>
+      to("/studio/new", {
+        state: { studioFrom: currentPath, studioIndex: window.history.state?.idx },
+      }),
     onOpenPost: (id: number) => to(`/posts/${id}`),
     onOpenShort: (id: number) => to(`/abyss/${id}`),
     onShowSongs: (kind: string) => to(`/charts?kind=${kind}`),
-    onResume: (id: number, shortId: number | null) => to(studioPath(id, shortId), {
-      state: { studioFrom: currentPath, studioIndex: window.history.state?.idx },
-    }),
+    onResume: (id: number, shortId: number | null) =>
+      to(studioPath(id, shortId), {
+        state: { studioFrom: currentPath, studioIndex: window.history.state?.idx },
+      }),
   };
+  if (nativeApp())
+    return (
+      <>
+        <NativeHomeBridge {...screen} onSearch={search} />
+        <Footer
+          activeTab="home"
+          createLabel={target.label}
+          onCreate={() =>
+            to(
+              target.path,
+              target.path === "/studio/new"
+                ? {
+                    state: { studioFrom: currentPath, studioIndex: window.history.state?.idx },
+                  }
+                : undefined,
+            )
+          }
+        />
+        <NotificationsOverlay />
+      </>
+    );
   return (
     <DesignViewport>
       <div className={sharedStyles.phoneFrame}>
         <Header showChat onSearch={search} />
         <div className={sharedStyles.screenBody}>
           <HomeScreen {...screen} />
-          {nativeApp() && <NativeHomeBridge {...screen} onSearch={search} />}
         </div>
-        <Footer activeTab="home" createLabel={target.label} onCreate={() => to(target.path, target.path === "/studio/new" ? {
-          state: { studioFrom: currentPath, studioIndex: window.history.state?.idx },
-        } : undefined)} />
+        <Footer
+          activeTab="home"
+          createLabel={target.label}
+          onCreate={() =>
+            to(
+              target.path,
+              target.path === "/studio/new"
+                ? {
+                    state: { studioFrom: currentPath, studioIndex: window.history.state?.idx },
+                  }
+                : undefined,
+            )
+          }
+        />
         <NotificationsOverlay />
       </div>
     </DesignViewport>

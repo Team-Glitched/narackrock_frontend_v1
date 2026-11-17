@@ -11,6 +11,7 @@ import { resolveSearchScope } from "@/features/search/search-scope";
 import { sharedStyles } from "@/styles/shared.styles";
 import { nativeApp } from "@/lib/native-app";
 import { NativeLibraryBridge } from "@/features/workspace/native-library-bridge";
+import { NativePageStateBridge } from "@/features/community/native-community-bridge";
 export default function ImportSourcePage() {
   const route = useRouteComposition();
   const { to, back, params, query, currentPath } = route;
@@ -28,6 +29,26 @@ export default function ImportSourcePage() {
         : undefined,
     );
   const search = () => to(withQuery("/search", { scope, galleryId }));
+  if (nativeApp())
+    return (
+      <>
+        {route.projectId === null ? (
+          <NativePageStateBridge
+            state={{
+              message: "올바르지 않은 페이지 주소입니다.",
+              tone: "error",
+              createLabel: null,
+            }}
+            onBack={() => back(returnPath)}
+            onSearch={search}
+          />
+        ) : (
+          <NativeLibraryBridge importing onSearch={search} onBack={() => back(returnPath)} />
+        )}
+        <Footer activeTab={null} onCreate={onCreate} createLabel={target.label} />
+        <NotificationsOverlay />
+      </>
+    );
   return (
     <DesignViewport>
       <div className={sharedStyles.phoneFrame}>
@@ -37,9 +58,6 @@ export default function ImportSourcePage() {
             <PageState error>올바르지 않은 페이지 주소입니다.</PageState>
           ) : (
             <SourceLibraryContent importing />
-          )}
-          {nativeApp() && route.projectId !== null && (
-            <NativeLibraryBridge importing onSearch={search} onBack={() => back(returnPath)} />
           )}
         </div>
         <Footer activeTab={null} onCreate={onCreate} createLabel={target.label} />

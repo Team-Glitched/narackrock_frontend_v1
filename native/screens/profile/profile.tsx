@@ -103,7 +103,7 @@ function Relation({ relation }: { relation: NonNullable<NativeProfile["relation"
           <Touchable
             accessibilityRole="button"
             style={[styles.relationButton, styles.relationSecondary]}
-            onPress={() => act({ type: "chat" })}
+            onPress={() => act({ type: "profile-chat" })}
           >
             <Text style={styles.relationText}>채팅</Text>
           </Touchable>

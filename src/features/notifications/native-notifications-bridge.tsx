@@ -64,13 +64,27 @@ function usePreferencesModel(userId: number, open: boolean) {
 }
 
 /** In the app /notifications is drawn natively (native/screens/profile/notifications.tsx). */
-export function NativeNotificationsBridge({ onSearch }: { onSearch: () => void }) {
+export function NativeNotificationsBridge({
+  onSearch,
+  overlay = false,
+}: {
+  onSearch: () => void;
+  overlay?: boolean;
+}) {
   const userId = useCurrentUserId();
-  return <Inbox key={userId ?? "guest"} userId={userId} onSearch={onSearch} />;
+  return <Inbox key={userId ?? "guest"} userId={userId} onSearch={onSearch} overlay={overlay} />;
 }
 
-function Inbox({ userId, onSearch }: { userId: number | null; onSearch: () => void }) {
-  const { onBack, ...navigation } = useNotificationPanelNavigation(false);
+function Inbox({
+  userId,
+  onSearch,
+  overlay,
+}: {
+  userId: number | null;
+  onSearch: () => void;
+  overlay: boolean;
+}) {
+  const { onBack, ...navigation } = useNotificationPanelNavigation(overlay);
   const inbox = useNotificationInbox(userId, navigation);
   const now = useNow();
   const preferences = usePreferencesModel(userId ?? 0, userId !== null && inbox.settings);
@@ -115,6 +129,7 @@ function Inbox({ userId, onSearch }: { userId: number | null; onSearch: () => vo
 
   const group = (id: number) => groups.find((entry) => entry.first.id === id);
   return useNativeScreen("profile-notifications", model, {
+    overlay,
     header: { left: "back", actions: ["notifications", "search", "account"] },
     onBack,
     onSearch,

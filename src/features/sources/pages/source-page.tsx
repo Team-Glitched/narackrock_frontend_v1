@@ -21,16 +21,44 @@ export default function SourcePage() {
   const target = creationTarget(scope, galleryId);
   const leave = () => back("/sources");
   const search = () => to(withQuery("/search", { scope, galleryId }));
+  if (nativeApp())
+    return (
+      <>
+        {sourceId === null ? (
+          <NativeInvalidSourceBridge onBack={leave} onSearch={search} />
+        ) : (
+          <OpensourceDetailScreen
+            sourceId={sourceId}
+            focusComments={comments}
+            onProfile={(id) => to(`/users/${id}`)}
+            onBack={leave}
+            onSearch={search}
+          />
+        )}
+        <Footer
+          activeTab="opensource"
+          createLabel={target.label}
+          onCreate={() =>
+            to(
+              target.path,
+              target.path === "/studio/new"
+                ? {
+                    state: { studioFrom: currentPath, studioIndex: window.history.state?.idx },
+                  }
+                : undefined,
+            )
+          }
+        />
+        <NotificationsOverlay />
+      </>
+    );
   return (
     <DesignViewport>
       <div className={sharedStyles.phoneFrame}>
         <Header onBack={leave} onSearch={search} />
         <div className={sharedStyles.screenBody}>
           {sourceId === null ? (
-            <>
-              <PageState error>올바르지 않은 페이지 주소입니다.</PageState>
-              {nativeApp() && <NativeInvalidSourceBridge onBack={leave} onSearch={search} />}
-            </>
+            <PageState error>올바르지 않은 페이지 주소입니다.</PageState>
           ) : (
             <OpensourceDetailScreen
               sourceId={sourceId}

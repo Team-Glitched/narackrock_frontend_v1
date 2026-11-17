@@ -1,14 +1,5 @@
 import { useState } from "react";
-import {
-  Image,
-  Modal,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from "react-native";
+import { Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import Svg, { Path } from "react-native-svg";
 
 import CloseIcon from "../../../public/figma/search-close.svg";
@@ -17,6 +8,7 @@ import type { NativePostCreate } from "../../../src/lib/native-screens";
 import { AppHeader } from "../../ui/header";
 import { Avatar, Button, Status, Touchable } from "../../ui/kit";
 import { useScreen } from "../../ui/screen-context";
+import { ScreenModal } from "../../ui/screen-modal";
 import { colors, gutter, type } from "../../ui/theme";
 import type { ScreenProps } from "../types";
 
@@ -45,6 +37,10 @@ export function PostCreateScreen({ model }: ScreenProps<"post-create">) {
       {model.restoring ? (
         <Text style={styles.restoring} accessibilityLiveRegion="polite">
           작성 중인 내용을 불러오는 중...
+        </Text>
+      ) : model.blocked ? (
+        <Text style={styles.restoring} accessibilityLiveRegion="polite">
+          {model.blocked}
         </Text>
       ) : (
         <PostForm model={model} />
@@ -149,6 +145,14 @@ function PostForm({ model }: { model: NativePostCreate }) {
       {model.error && <Alert text={model.error} />}
       {model.storageError && <Alert text={model.storageError} />}
       {model.restoreError && <Alert text={model.restoreError} />}
+      {model.keepWithoutImage && (
+        <Button
+          label="앨범 이미지 없이 등록"
+          tone="secondary"
+          disabled={model.busy}
+          onPress={() => act({ type: "post-create-keep-without-image" })}
+        />
+      )}
       <Touchable
         accessibilityRole="button"
         accessibilityState={{ disabled: !model.canSubmit, busy: model.busy }}
@@ -218,7 +222,7 @@ function CommunityPicker({ communities }: { communities: NativePostCreate["commu
           <Path d="m6 9 6 6 6-6" strokeLinecap="round" strokeLinejoin="round" />
         </Svg>
       </Touchable>
-      <Modal
+      <ScreenModal
         visible={open}
         transparent
         animationType="slide"
@@ -315,7 +319,7 @@ function CommunityPicker({ communities }: { communities: NativePostCreate["commu
             </ScrollView>
           </View>
         </View>
-      </Modal>
+      </ScreenModal>
     </>
   );
 }

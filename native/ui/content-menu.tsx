@@ -1,7 +1,8 @@
-import { Modal, Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 
 import { Touchable } from "./kit";
 import type { MenuTarget } from "./screen-context";
+import { ScreenModal } from "./screen-modal";
 import { colors } from "./theme";
 
 /** Share/report sheet of a card; the web performs both (login check, share link, report form). */
@@ -22,7 +23,7 @@ export function ContentMenu({
     onChoose(type, target);
   };
   return (
-    <Modal
+    <ScreenModal
       visible={target !== null}
       transparent
       animationType="fade"
@@ -45,7 +46,7 @@ export function ContentMenu({
           <Item label="취소" muted onPress={onClose} />
         </View>
       </View>
-    </Modal>
+    </ScreenModal>
   );
 }
 

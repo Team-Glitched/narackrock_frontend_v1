@@ -32,6 +32,25 @@ export default function SourcesPage() {
     else next.set("tab", value);
     to(`/sources${next.size ? `?${next}` : ""}`);
   }
+  if (nativeApp())
+    return (
+      <>
+        <NativeSourcesBridge
+          key={JSON.stringify([apiOrigin(), userId, tab])}
+          tab={tab}
+          nav={{
+            onHome: () => to("/"),
+            onTab: selectTab,
+            onCreate: () => to("/sources/new"),
+            onOpen: (id, comments) => to(comments ? `/sources/${id}/comments` : `/sources/${id}`),
+            onProfile: (id) => to(`/users/${id}`),
+            onSearch: () => to(withQuery("/search", { scope, galleryId })),
+          }}
+        />
+        <Footer activeTab="opensource" />
+        <NotificationsOverlay />
+      </>
+    );
   return (
     <DesignViewport>
       <div className={sharedStyles.phoneFrame}>
@@ -65,20 +84,7 @@ export default function SourcesPage() {
               key={JSON.stringify([apiOrigin(), userId, tab])}
               className="min-h-0 flex-1 overflow-hidden"
             >
-              {nativeApp() ? (
-                <NativeSourcesBridge
-                  tab={tab}
-                  nav={{
-                    onHome: () => to("/"),
-                    onTab: selectTab,
-                    onCreate: () => to("/sources/new"),
-                    onOpen: (id, comments) =>
-                      to(comments ? `/sources/${id}/comments` : `/sources/${id}`),
-                    onProfile: (id) => to(`/users/${id}`),
-                    onSearch: () => to(withQuery("/search", { scope, galleryId })),
-                  }}
-                />
-              ) : tab === "feed" ? (
+              {tab === "feed" ? (
                 <OpensourceScreen
                   onOpen={(id, comments) =>
                     to(comments ? `/sources/${id}/comments` : `/sources/${id}`)
