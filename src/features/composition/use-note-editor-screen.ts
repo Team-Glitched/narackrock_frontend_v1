@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCompositionPlayback } from "./use-composition-playback";
 import {
+  deleteEmptyTrack,
   insertOpenSourceClip,
   updateProjectTiming,
   updateTrackInstrument,
@@ -13,7 +14,7 @@ import { apiOrigin } from "@/lib/api/client";
 import { saveFile } from "@/lib/native-app";
 import { errorText } from "./studio-helpers";
 import { useEditorDraft } from "./use-editor-draft";
-import { cancelEmptyLayer, resourceNotes } from "./composition-actions";
+import { resourceNotes } from "./composition-actions";
 import { findInstrument, invalidPitchesFor } from "./instrument-catalog";
 import { supportsMidi } from "./instrument-parts";
 import { useCurrentUserId } from "@/features/auth/use-current-user";
@@ -448,7 +449,7 @@ export function useNoteEditorScreen({
   const isNewEmptyLayer = targetClipId === null && working.midiNotes.length === 0;
   async function discardNewEmptyLayer() {
     await draft.discard();
-    await cancelEmptyLayer(context.projectId, trackId);
+    await deleteEmptyTrack(context.projectId, trackId);
     await queryClient.invalidateQueries({
       queryKey: compositionKeys.detail(context.userId, context.projectId),
     });
@@ -540,7 +541,7 @@ export function useNoteEditorScreen({
         await draft.discard();
         // A layer that never got a shared clip only existed for this draft; keeping the empty track
         // would use up the viewer's one layer in this song.
-        await cancelEmptyLayer(context.projectId, trackId);
+        await deleteEmptyTrack(context.projectId, trackId);
         await queryClient.invalidateQueries({
           queryKey: compositionKeys.detail(context.userId, context.projectId),
         });
