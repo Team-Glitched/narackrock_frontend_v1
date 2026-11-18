@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import {
   PanResponder,
   Pressable,
@@ -322,7 +322,7 @@ function TrackPerson({ track }: { track: NativeStudioTrack }) {
         style={styles.personButton}
         onPress={() => act({ type: "studio-track", trackId: track.trackId })}
       >
-        <Avatar uri={null} size={32} />
+        <Avatar uri={track.profileImageUrl} size={32} />
       </Touchable>
       <Touchable
         accessibilityRole="button"
@@ -455,8 +455,8 @@ function Playhead({ model }: { model: NativeStudio }) {
 }
 
 /**
- * A clip (the web's TimelineClip): a tap opens the track settings, a double tap (or a tap while
- * choosing a MIDI layer) the piano roll; movable clips drag along the grid and send the final start.
+ * A clip (the web's TimelineClip): one tap opens the MIDI piano roll or audio track settings.
+ * Movable clips drag along the grid without opening the editor.
  */
 function Clip({
   clip,
@@ -472,13 +472,6 @@ function Clip({
   const { act } = useScreen();
   const { rotated } = useLandscape();
   const [position, setPosition] = useState<number | null>(null);
-  const tapTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  useEffect(
-    () => () => {
-      clearTimeout(tapTimer.current ?? undefined);
-    },
-    [],
-  );
   // The model's start moved (saved or re-read): drop the local drag position.
   const [shownStart, setShownStart] = useState(clip.startTick);
   if (shownStart !== clip.startTick) {
@@ -497,22 +490,13 @@ function Clip({
   const drag = useRef({ tick: clip.startTick, moved: false });
 
   const tap = () => {
-    const { clip: current, model: studio } = latest.current;
-    const select = () =>
-      act({ type: "studio-clip", trackId: track.trackId, clipId: current.clipId, edit: false });
-    const edit = () =>
-      act({ type: "studio-clip", trackId: track.trackId, clipId: current.clipId, edit: true });
-    if (!current.opensEditor) return select();
-    if (studio.selectMidiLayer) return edit();
-    if (tapTimer.current) {
-      clearTimeout(tapTimer.current);
-      tapTimer.current = null;
-      return edit();
-    }
-    tapTimer.current = setTimeout(() => {
-      tapTimer.current = null;
-      select();
-    }, 240);
+    const current = latest.current.clip;
+    act({
+      type: "studio-clip",
+      trackId: track.trackId,
+      clipId: current.clipId,
+      edit: current.opensEditor,
+    });
   };
 
   const responder = useRef(
@@ -571,12 +555,12 @@ function Clip({
       accessibilityActions={
         clip.opensEditor ? [{ name: "activate" }, { name: "longpress" }] : undefined
       }
-      onAccessibilityAction={(event) =>
+      onAccessibilityAction={() =>
         act({
           type: "studio-clip",
           trackId: track.trackId,
           clipId: clip.clipId,
-          edit: event.nativeEvent.actionName === "longpress" || model.selectMidiLayer,
+          edit: clip.opensEditor,
         })
       }
       style={[
@@ -779,9 +763,17 @@ function PublishForm({ form }: { form: NonNullable<NativeStudio["publishForm"]> 
           </Text>
         </View>
       </View>
-      {form.error && <Text style={styles.formText} accessibilityRole="alert">{form.error}</Text>}
+      {form.error && (
+        <Text style={styles.formText} accessibilityRole="alert">
+          {form.error}
+        </Text>
+      )}
       <View style={styles.formButtons}>
-        <FormButton label="취소" disabled={form.busy} onPress={() => act({ type: "studio-publish-form-close" })} />
+        <FormButton
+          label="취소"
+          disabled={form.busy}
+          onPress={() => act({ type: "studio-publish-form-close" })}
+        />
         <FormButton
           label={form.busy ? "저장 중..." : form.action === "save" ? "비공개로 저장" : "다음"}
           disabled={form.busy || !title.trim()}

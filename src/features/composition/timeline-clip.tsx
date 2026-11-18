@@ -1,6 +1,6 @@
 import { studioStyles } from "@/styles/studio.styles";
 import { cn } from "@/lib/utils";
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { AudioLines, Music2 } from "lucide-react";
 import type { ClipDto } from "@/lib/api/composition";
 import { pointerAxes } from "./pointer-coordinates";
@@ -36,7 +36,6 @@ export function TimelineClip({
   onMove,
   onSelect,
   onEdit,
-  openOnClick = false,
   onError,
 }: {
   clip: ClipDto;
@@ -49,16 +48,8 @@ export function TimelineClip({
   onMove: (tick: number) => Promise<void>;
   onSelect: () => void;
   onEdit?: () => void;
-  openOnClick?: boolean;
   onError: (text: string) => void;
 }) {
-  const clickTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  useEffect(
-    () => () => {
-      if (clickTimer.current) clearTimeout(clickTimer.current);
-    },
-    [],
-  );
   const drag = useRef<{ x: number; tick: number; moved: boolean } | null>(null),
     ignoreClick = useRef(false);
   const [position, setPosition] = useState<number | null>(null),
@@ -144,23 +135,13 @@ export function TimelineClip({
           setPosition(null);
         }
       }}
-      onClick={(event) => {
+      onClick={() => {
         if (ignoreClick.current) {
           ignoreClick.current = false;
           return;
         }
-        if (onEdit && (openOnClick || event.detail === 0)) {
-          onEdit();
-          return;
-        }
-        if (onEdit) {
-          if (clickTimer.current) clearTimeout(clickTimer.current);
-          clickTimer.current = setTimeout(onSelect, 240);
-        } else onSelect();
-      }}
-      onDoubleClick={() => {
-        if (clickTimer.current) clearTimeout(clickTimer.current);
-        if (!openOnClick) onEdit?.();
+        if (onEdit) onEdit();
+        else onSelect();
       }}
       onKeyDown={(event) => {
         if (!movable || saving || !["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key))

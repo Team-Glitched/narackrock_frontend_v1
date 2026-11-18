@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCompositionPlayback } from "./use-composition-playback";
 import {
+  deleteEmptyTrack,
   insertOpenSourceClip,
   updateProjectTiming,
   updateTrackInstrument,
@@ -13,7 +14,7 @@ import { apiOrigin } from "@/lib/api/client";
 import { saveFile } from "@/lib/native-app";
 import { errorText } from "./studio-helpers";
 import { useEditorDraft } from "./use-editor-draft";
-import { cancelEmptyLayer, resourceNotes } from "./composition-actions";
+import { resourceNotes } from "./composition-actions";
 import { findInstrument, invalidPitchesFor } from "./instrument-catalog";
 import { supportsMidi } from "./instrument-parts";
 import { useCurrentUserId } from "@/features/auth/use-current-user";
@@ -445,13 +446,27 @@ export function useNoteEditorScreen({
         },
       }
     : undefined;
-  const requestBack = () => (editable ? setExitTarget("studio") : onBack());
+  const isNewEmptyLayer = targetClipId === null && working.midiNotes.length === 0;
+  async function discardNewEmptyLayer() {
+    await draft.discard();
+    await deleteEmptyTrack(context.projectId, trackId);
+    await queryClient.invalidateQueries({
+      queryKey: compositionKeys.detail(context.userId, context.projectId),
+    });
+  }
+  const saveOrDiscardEmpty = () => (isNewEmptyLayer ? discardNewEmptyLayer() : draft.commit());
+  const requestBack = () => {
+    if (!editable) onBack();
+    else if (isNewEmptyLayer && draft.session && draft.state?.status !== "conflict")
+      void action(discardNewEmptyLayer, onBack);
+    else setExitTarget("studio");
+  };
   const finishExit = exitTarget === "layers" ? onOpenLayers : onBack;
   function openLayerList() {
     if (busy) return;
     if (!editable) onOpenLayers();
     else if (draft.session && draft.state?.status !== "conflict")
-      void action(draft.commit, onOpenLayers);
+      void action(saveOrDiscardEmpty, onOpenLayers);
     else setExitTarget("layers");
   }
   const openSources = editor.editable ? () => setShowSources(true) : undefined;
@@ -506,10 +521,14 @@ export function useNoteEditorScreen({
     useServer: () => void action(draft.useServer),
     keepLocal: () => void action(draft.keepLocal),
     /** Exit dialog: "저장 후 나가기". */
-    saveAndExit: () => void action(draft.commit, finishExit),
+    saveAndExit: () => void action(saveOrDiscardEmpty, finishExit),
     /** Exit dialog: "개인 초안 유지". */
     keepAndExit: () =>
       void action(async () => {
+        if (isNewEmptyLayer) {
+          await discardNewEmptyLayer();
+          return;
+        }
         if (draft.state?.status !== "conflict")
           await draft.session?.flush().catch(() => {
             if (!draft.session?.getSnapshot().localProtected)
@@ -522,7 +541,7 @@ export function useNoteEditorScreen({
         await draft.discard();
         // A layer that never got a shared clip only existed for this draft; keeping the empty track
         // would use up the viewer's one layer in this song.
-        await cancelEmptyLayer(context.projectId, trackId);
+        await deleteEmptyTrack(context.projectId, trackId);
         await queryClient.invalidateQueries({
           queryKey: compositionKeys.detail(context.userId, context.projectId),
         });
