@@ -14,7 +14,6 @@ import { useNoteEditorShortcuts } from "./use-note-editor-shortcuts";
 import { PortraitNoteEditor } from "./note-editor-portrait";
 import { useNoteEditorLoad, useNoteEditorScreen } from "./use-note-editor-screen";
 import { NativeNoteEditorBridge, NativeNoteEditorStateBridge } from "./native-note-editor-bridge";
-import { MonitorSmartphone, Smartphone } from "lucide-react";
 
 export function NoteEditorScreen({
   projectId,
@@ -22,8 +21,7 @@ export function NoteEditorScreen({
   clipId,
   onBack,
   onOpenLayers,
-  portrait = false,
-  onToggleLayout,
+  portrait = true,
 }: {
   projectId: number | null;
   trackId: number | null;
@@ -32,7 +30,6 @@ export function NoteEditorScreen({
   onOpenLayers: () => void;
   /** Upright 390×844 layout instead of the landscape canvas; the page owns the choice. */
   portrait?: boolean;
-  onToggleLayout?: () => void;
 }) {
   const load = useNoteEditorLoad(projectId, trackId, clipId);
   if (!load.composition) {
@@ -45,7 +42,7 @@ export function NoteEditorScreen({
         />
       );
     return (
-      <div className={cn(studioStyles.studio, studioStyles.studioState)}>
+      <div className={cn(studioStyles.studio, studioStyles.studioState, portrait && studioStyles.studioPortrait)}>
         <p role={load.state === "error" ? "alert" : "status"}>{load.message}</p>
         <button onClick={onBack}>돌아가기</button>
       </div>
@@ -60,7 +57,6 @@ export function NoteEditorScreen({
       onBack={onBack}
       onOpenLayers={onOpenLayers}
       portrait={portrait}
-      onToggleLayout={onToggleLayout}
     />
   );
 }
@@ -72,7 +68,6 @@ function LoadedNoteEditor({
   onBack,
   onOpenLayers,
   portrait,
-  onToggleLayout,
 }: {
   /** The live project; working notes and their base snapshot are kept apart from it. */
   composition: CompositionDto;
@@ -81,7 +76,6 @@ function LoadedNoteEditor({
   onBack: () => void;
   onOpenLayers: () => void;
   portrait: boolean;
-  onToggleLayout?: () => void;
 }) {
   const screen = useNoteEditorScreen({
     composition,
@@ -104,13 +98,12 @@ function LoadedNoteEditor({
       <NativeNoteEditorBridge
         screen={screen}
         portrait={portrait}
-        onToggleLayout={onToggleLayout}
         onBack={onBack}
       />
     );
   if (screen.clipUnavailable)
     return (
-      <div className={cn(studioStyles.studio, studioStyles.studioState)}>
+      <div className={cn(studioStyles.studio, studioStyles.studioState, portrait && studioStyles.studioPortrait)}>
         <p role="alert">선택한 MIDI 클립을 찾을 수 없습니다.</p>
         <button onClick={onBack}>돌아가기</button>
       </div>
@@ -133,20 +126,6 @@ function LoadedNoteEditor({
         >
           {screen.statusText}
         </p>
-      )}
-      {onToggleLayout && (
-        <button
-          type="button"
-          className="ml-auto flex shrink-0 items-center gap-1 rounded-[6px] px-1.5 text-caption leading-[18px] text-app-muted hover:text-app-fg"
-          onClick={onToggleLayout}
-        >
-          {portrait ? (
-            <MonitorSmartphone size={13} aria-hidden="true" />
-          ) : (
-            <Smartphone size={13} aria-hidden="true" />
-          )}
-          {portrait ? "가로 모드" : "세로 모드"}
-        </button>
       )}
     </div>
   );

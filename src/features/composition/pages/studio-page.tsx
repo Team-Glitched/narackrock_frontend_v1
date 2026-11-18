@@ -1,3 +1,4 @@
+import { useDevicePortrait } from "@/hooks/use-device-portrait";
 import { useCallback } from "react";
 import { useNavigate } from "react-router";
 import { DesignViewport } from "@/components/design-viewport";
@@ -13,13 +14,18 @@ import { useCurrentUserId } from "@/features/auth/use-current-user";
 import { nativeApp } from "@/lib/native-app";
 
 /** One studio state per account/project; browsers draw the web studio, the app the native one. */
-function StudioRoute(options: StudioOptions) {
+function StudioRoute({ portrait, ...options }: StudioOptions & { portrait: boolean }) {
   const studio = useStudio(options);
-  return nativeApp() ? <NativeStudioBridge studio={studio} /> : <StudioScreen studio={studio} />;
+  return nativeApp() ? (
+    <NativeStudioBridge studio={studio} />
+  ) : (
+    <StudioScreen studio={studio} portrait={portrait} />
+  );
 }
 
 export default function StudioPage() {
   const route = useRouteComposition();
+  const portrait = useDevicePortrait();
   const userId = useCurrentUserId();
   const navigate = useNavigate();
   const { projectId, shortId, to, params } = route;
@@ -50,7 +56,7 @@ export default function StudioPage() {
     else to(safeReturnPath(studioFrom), { replace: true, state: { from: undefined } });
   };
   return (
-    <DesignViewport landscape>
+    <DesignViewport landscape={!portrait}>
       {invalidAddress ? (
         nativeApp() ? (
           <NativeStudioInvalidBridge onExit={exit} />
@@ -59,6 +65,7 @@ export default function StudioPage() {
         )
       ) : (
         <StudioRoute
+          portrait={portrait}
           key={`${userId ?? "guest"}:${projectId}:${shortId}`}
           projectId={projectId}
           shortId={shortId}
