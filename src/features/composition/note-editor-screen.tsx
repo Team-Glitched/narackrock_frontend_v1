@@ -97,7 +97,6 @@ function LoadedNoteEditor({
     return (
       <NativeNoteEditorBridge
         screen={screen}
-        portrait={portrait}
         onBack={onBack}
       />
     );

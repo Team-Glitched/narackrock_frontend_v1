@@ -31,7 +31,7 @@ import {
   Dialog,
   DialogButton,
   InstrumentSheet,
-  Landscape,
+  StudioCanvas,
   SourceSheet,
   TimingSheet,
   VolumeSheet,
@@ -46,11 +46,11 @@ const rulerHeight = 25;
 const laneHeight = 46;
 const layerHeight = 40;
 
-/** The studio timeline (the web's StudioScreen), drawn landscape like the web's canvas. */
+/** The studio timeline (the web's StudioScreen), following the device orientation. */
 export function StudioTimelineScreen({ model }: ScreenProps<"studio-timeline">) {
   const { act } = useScreen();
   return (
-    <Landscape>
+    <StudioCanvas>
       {model.state ? (
         <CanvasState
           message={model.state.message}
@@ -61,7 +61,7 @@ export function StudioTimelineScreen({ model }: ScreenProps<"studio-timeline">) 
       ) : (
         <Studio model={model} />
       )}
-    </Landscape>
+    </StudioCanvas>
   );
 }
 

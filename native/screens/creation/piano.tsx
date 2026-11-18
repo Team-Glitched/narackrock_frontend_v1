@@ -1,16 +1,18 @@
 import { StyleSheet, Text, View } from "react-native";
 
+import { useDevicePortrait } from "../../ui/use-device-portrait";
 import { useScreen } from "../../ui/screen-context";
 import { NoteControls, NoteRoll, NoteRollSheets } from "../editor/roll";
-import { Landscape, TimingSheet } from "../studio/parts";
+import { StudioCanvas, TimingSheet } from "../studio/parts";
 import { AddButton, StudioToolbar } from "../studio/toolbar";
 import type { ScreenProps } from "../types";
 
-/** The web's SourcePianoEditor (sample registration "피아노롤"), on the landscape canvas. */
+/** The web's SourcePianoEditor (sample registration "피아노롤"), following the device orientation. */
 export function CreationPianoScreen({ model }: ScreenProps<"creation-piano">) {
   const { act } = useScreen();
+  const portrait = useDevicePortrait();
   return (
-    <Landscape>
+    <StudioCanvas>
       <View style={styles.studio}>
         <StudioToolbar
           transport={model.transport}
@@ -27,7 +29,7 @@ export function CreationPianoScreen({ model }: ScreenProps<"creation-piano">) {
         </StudioToolbar>
         <NoteControls roll={model.roll} />
         <View style={styles.roll}>
-          <NoteRoll roll={model.roll} />
+          <NoteRoll roll={model.roll} rowHeight={portrait ? 40 : undefined} keyWidth={portrait ? 44 : undefined} />
         </View>
         {model.error ? (
           <Text accessibilityRole="alert" style={styles.banner}>
@@ -43,7 +45,7 @@ export function CreationPianoScreen({ model }: ScreenProps<"creation-piano">) {
       </View>
       <NoteRollSheets roll={model.roll} />
       <TimingSheet sheet={model.timing} />
-    </Landscape>
+    </StudioCanvas>
   );
 }
 
