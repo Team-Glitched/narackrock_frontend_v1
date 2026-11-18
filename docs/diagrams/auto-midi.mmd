@@ -1,0 +1,11 @@
+flowchart LR
+    recording["프론트 · 녹음"] --> spring["Spring · 권한 확인"]
+    spring --> routing{"Python · 신호 분석"}
+    routing -->|"단선율"| hti["HTI"]
+    routing -->|"다중음 / 모호함"| basicPitch["Basic Pitch 워커"]
+    hti --> notes["midiNotes + 판별 이유"]
+    basicPitch --> notes
+    notes -->|"Spring 응답"| draft["프론트 · 편집 초안"]
+    classDef default fill:#fff,stroke:#64748b,stroke-width:1px,color:#172033;
+    classDef engine fill:#f1f5f9,stroke:#64748b,color:#172033;
+    class hti,basicPitch engine;

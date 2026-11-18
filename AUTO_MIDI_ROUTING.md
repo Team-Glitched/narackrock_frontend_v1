@@ -4,27 +4,44 @@
 `허밍 · 한 음씩` / `악기 · 화음`은 사용자가 판단을 수정하는 입력 옵션이며 MIDI 재생 악기와 별개다.
 변환 결과의 이유를 피아노롤 상태 줄에 표시하고 기존 개인 초안·저장 흐름을 사용한다.
 
+### 자동 MIDI 변환
+
 ```mermaid
 flowchart LR
-    F["프론트: 녹음 → WAV<br/>MIDI로 변환 · AUTO"] --> S["Spring: 인증·프로젝트 권한<br/>BPM / PPQ 전달"]
-    S --> D["Python: FFmpeg 디코딩"]
-    D --> R{"신호 규칙 분석"}
-    R -->|"단선율 근거"| H["기존 HTI"]
-    R -->|"여러 음 / 어택 / 모호함"| B["Basic Pitch ONNX<br/>별도 Python 프로세스"]
-    R -->|"무음·손상 파일"| E["입력 오류<br/>추론 실행 안 함"]
-    H --> N["공통 midiNotes + routing"]
-    B --> N
-    N --> O["Spring 응답 DTO"]
-    O --> P["프론트 피아노롤 개인 초안"]
-    L["Spring 프로젝트·레이어 조회<br/>조성·박자·다른 레이어 노트"] --> C["추천 문맥: 초안으로 저장본 대체<br/>프로젝트 절대 tick으로 정렬"]
-    P --> C
-    C --> Q["프론트: 음악 이론 규칙·점수<br/>다음 마디 코드 후보 3개"]
-    Q --> V["반투명 미리보기<br/>후보 선택만으로 노트 저장 안 함"]
-    V -->|"코드 전체 적용"| P
-    P -->|"기존 저장 API"| DB["Spring → DB"]
+    recording["프론트 · 녹음"] --> spring["Spring · 권한 확인"]
+    spring --> routing{"Python · 신호 분석"}
+    routing -->|"단선율"| hti["HTI"]
+    routing -->|"다중음 / 모호함"| basicPitch["Basic Pitch 워커"]
+    hti --> notes["midiNotes + 판별 이유"]
+    basicPitch --> notes
+    notes -->|"Spring 응답"| draft["프론트 · 편집 초안"]
+    classDef default fill:#fff,stroke:#64748b,stroke-width:1px,color:#172033;
+    classDef engine fill:#f1f5f9,stroke:#64748b,color:#172033;
+    class hti,basicPitch engine;
 ```
 
-[벡터 다이어그램](AUTO_MIDI_ROUTING.svg)
+### 다음 마디 코드 추천
+
+```mermaid
+flowchart LR
+    draft["현재 편집 초안"] --> context["추천 문맥 구성"]
+    layers["다른 레이어 · 조성 · 박자"] --> context
+    context --> target{"다음 마디가 비었나?"}
+    target -->|"예"| candidates["규칙 기반 후보 3개"]
+    target -->|"아니요"| hidden["추천 숨김"]
+    candidates --> preview["반투명 노트 미리보기"]
+    preview -->|"적용 클릭"| applied["실제 노트 추가"]
+    applied -->|"저장"| database[("Spring · DB")]
+    classDef default fill:#fff,stroke:#64748b,stroke-width:1px,color:#172033;
+    classDef ghost fill:#f3efff,stroke:#8b70bc,stroke-dasharray:5 4,color:#49316f;
+    classDef muted fill:#f8fafc,stroke:#94a3b8,color:#64748b;
+    class preview ghost;
+    class hidden muted;
+```
+
+[벡터 다이어그램](AUTO_MIDI_ROUTING.svg) · [변환 Mermaid 원본](docs/diagrams/auto-midi.mmd) · [추천 Mermaid 원본](docs/diagrams/next-chord.mmd)
+
+빈 마디 여부는 현재 편집하는 레이어를 기준으로 판단한다. 다른 레이어의 노트는 추천 문맥으로 사용한다.
 
 다이어그램은 이번 자동 변환과 기존 코드 추천을 함께 적용한 구조다. 코드 추천은 별도
 [프론트 PR #111](https://github.com/Team-Glitched/narackrock_frontend_v1/pull/111),
