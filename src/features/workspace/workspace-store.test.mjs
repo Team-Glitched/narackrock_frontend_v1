@@ -67,6 +67,19 @@ test("removes only confirmed missing visits and preserves local resources and ot
   assert.equal(values.get(key()), cleaned);
 });
 
+test("cleanup preserves storage updates from another tab before its storage event arrives", () => {
+  workspace.rememberWork({ project: { projectId: 32, title: "work 32" } }, null);
+  workspace.rememberWork({ project: { projectId: 8, title: "work 8" } }, null);
+  const { works: [missing, previous] } = JSON.parse(values.get(key()));
+  const revisited = visit(32, new Date(Date.parse(previous.updatedAt) + 1000).toISOString());
+  const resource = { id: 99, composition: { tracks: ["local MIDI"] } };
+
+  values.set(key(), JSON.stringify({ works: [visit(9), revisited, missing], resources: [resource] }));
+  workspace.forgetMissingWorkVisits([missing, previous], scope);
+
+  assert.deepEqual(JSON.parse(values.get(key())), { works: [visit(9), revisited], resources: [resource] });
+});
+
 test("an old lookup cannot remove a newly revisited project", () => {
   values.set(key(), JSON.stringify({ works: [visit(32, "2026-11-18T01:00:00Z")], resources: [] }));
   workspace.forgetMissingWorkVisits([visit(32)], scope);
