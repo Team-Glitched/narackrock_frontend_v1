@@ -166,6 +166,7 @@ export function NativeStudioBridge({ studio }: { studio: Studio }) {
           status: studio.status,
           tracks: tracks.map((track) => ({
             trackId: track.trackId,
+            profileImageUrl: track.ownerProfileImageUrl ?? null,
             name: track.name,
             highlighted: studio.highlightedTracks.has(track.trackId),
             add:

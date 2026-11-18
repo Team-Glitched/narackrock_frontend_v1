@@ -197,6 +197,7 @@ export type NativeStudioClip = {
 
 export type NativeStudioTrack = {
   trackId: number;
+  profileImageUrl: string | null;
   name: string;
   /** Added by the highlighted contribution request ("추가 트랙"). */
   highlighted: boolean;
@@ -246,7 +247,12 @@ export type NativeStudio = {
   /** "정말로 올리시겠습니까?" */
   publishConfirm: boolean;
   /** "곡 올리기" metadata form (title + optional album image picked natively). */
-  publishForm: { action: "save" | "publish"; busy: boolean; error: string | null; imageName: string | null } | null;
+  publishForm: {
+    action: "save" | "publish";
+    busy: boolean;
+    error: string | null;
+    imageName: string | null;
+  } | null;
   /** A chosen file appended to an existing track, trimmed before saving. */
   audioTrim: { fileName: string; picker: NativeAudioTrim } | null;
   /** Track settings (volume + "악기/보컬 변경"). */

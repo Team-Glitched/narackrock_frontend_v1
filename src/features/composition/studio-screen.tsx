@@ -1063,7 +1063,7 @@ export function StudioScreen({ studio }: { studio: Studio }) {
                   }
                   onClick={() => studio.openTrack(track)}
                 >
-                  <Avatar />
+                  <Avatar src={track.ownerProfileImageUrl} />
                 </button>
                 <button
                   aria-label={`${track.name} ${playback.mutedTrackIds.has(track.trackId) ? "소리 켜기" : "음소거"}`}

@@ -322,7 +322,7 @@ function TrackPerson({ track }: { track: NativeStudioTrack }) {
         style={styles.personButton}
         onPress={() => act({ type: "studio-track", trackId: track.trackId })}
       >
-        <Avatar uri={null} size={32} />
+        <Avatar uri={track.profileImageUrl} size={32} />
       </Touchable>
       <Touchable
         accessibilityRole="button"
@@ -779,9 +779,17 @@ function PublishForm({ form }: { form: NonNullable<NativeStudio["publishForm"]> 
           </Text>
         </View>
       </View>
-      {form.error && <Text style={styles.formText} accessibilityRole="alert">{form.error}</Text>}
+      {form.error && (
+        <Text style={styles.formText} accessibilityRole="alert">
+          {form.error}
+        </Text>
+      )}
       <View style={styles.formButtons}>
-        <FormButton label="취소" disabled={form.busy} onPress={() => act({ type: "studio-publish-form-close" })} />
+        <FormButton
+          label="취소"
+          disabled={form.busy}
+          onPress={() => act({ type: "studio-publish-form-close" })}
+        />
         <FormButton
           label={form.busy ? "저장 중..." : form.action === "save" ? "비공개로 저장" : "다음"}
           disabled={form.busy || !title.trim()}
