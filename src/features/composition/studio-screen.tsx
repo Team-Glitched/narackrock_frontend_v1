@@ -1,3 +1,4 @@
+import { emptyLayerEditor } from "./studio-layer-editor";
 import { contributionsQuery } from "@/features/workspace/workspace-queries";
 import { contributionTrackIds } from "@/features/workspace/contribution-presentation";
 import { studioStyles } from "@/styles/studio.styles";
@@ -497,14 +498,23 @@ export function useStudio({
     viewerPermission !== undefined && shouldOfferSongPublish(shortId, viewerPermission, tracks);
   const layerCreationAllowed =
     viewerPermission !== undefined && canCreateLayer(viewerPermission, tracks, shortId === null);
+  const resumableLayer =
+    viewerPermission && project
+      ? tracks
+          .map((track) => emptyLayerEditor(viewerPermission, project.status, track))
+          .find(Boolean)
+      : null;
   const primary: StudioPrimary = canSubmit
     ? { kind: "submit", disabled: busy }
     : {
         kind: canPublish ? "publish" : "add",
         disabled:
-          busy || (!(shortId == null && viewerPermission?.canExport) && !layerCreationAllowed),
+          busy ||
+          (!(shortId == null && viewerPermission?.canExport) &&
+            !layerCreationAllowed &&
+            !resumableLayer),
         hint:
-          !layerCreationAllowed && viewerPermission?.canContribute
+          !layerCreationAllowed && !resumableLayer && viewerPermission?.canContribute
             ? "한 곡에는 하나의 레이어만 만들 수 있습니다."
             : null,
       };
@@ -614,7 +624,7 @@ export function useStudio({
     canImportSource: layerCreationAllowed,
     onTiming,
     onExit,
-    onAddLayer,
+    onAddLayer: () => (resumableLayer ? onEditTrack(resumableLayer.trackId, null) : onAddLayer()),
     onEditTrack,
     showSources,
     setShowSources,
@@ -668,7 +678,12 @@ export function useStudio({
       const midiClip = selectMidiLayer
         ? track.clips.find((clip) => clip.clipType === "MIDI")
         : undefined;
+      const empty =
+        viewerPermission && project
+          ? emptyLayerEditor(viewerPermission, project.status, track)
+          : null;
       if (midiClip) onEditTrack(track.trackId, midiClip.clipId > 0 ? midiClip.clipId : null);
+      else if (empty) onEditTrack(empty.trackId, null);
       else setTrackSettingsId(track.trackId);
     },
     clipMovable: (clip: ClipDto) =>
@@ -899,7 +914,11 @@ export function StudioScreen({ studio }: { studio: Studio }) {
               취소
             </button>
             <button disabled={studio.busy} type="submit">
-              {studio.busy ? "저장 중..." : studio.metadataAction === "save" ? "비공개로 저장" : "다음"}
+              {studio.busy
+                ? "저장 중..."
+                : studio.metadataAction === "save"
+                  ? "비공개로 저장"
+                  : "다음"}
             </button>
           </div>
         </form>
@@ -1062,6 +1081,15 @@ export function StudioScreen({ studio }: { studio: Studio }) {
                 className={studioStyles.studioTrackClips}
                 style={{ width: timelineWidth, flexBasis: timelineWidth }}
               >
+                {emptyLayerEditor(viewerPermission, project.status, track) && (
+                  <button
+                    type="button"
+                    className="absolute inset-y-1 left-1 rounded-md border border-dashed border-app-primary-soft px-4 text-caption text-app-primary-soft"
+                    onClick={() => onEditTrack(track.trackId, null)}
+                  >
+                    + 노트 · 이어서 편집
+                  </button>
+                )}
                 {track.clips.map((clip) => (
                   <TimelineClip
                     key={clip.clipId}
