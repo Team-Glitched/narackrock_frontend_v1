@@ -498,6 +498,10 @@ export function useStudio({
     viewerPermission !== undefined && shouldOfferSongPublish(shortId, viewerPermission, tracks);
   const layerCreationAllowed =
     viewerPermission !== undefined && canCreateLayer(viewerPermission, tracks, shortId === null);
+  const trackEditorTarget = (track: TrackDto) =>
+    viewerPermission && project && (selectMidiLayer || track.clips.length === 0)
+      ? layerEditorTarget(viewerPermission, project.status, track)
+      : null;
   const resumableLayer =
     viewerPermission && project
       ? tracks
@@ -673,12 +677,9 @@ export function useStudio({
     },
     instrumentChoice,
     closeInstrument: () => setInstrumentTrackId(null),
-    /** Keep the avatar available for track settings; empty layers and layer-selection mode open editing. */
+    trackEditorTarget,
     openTrack: (track: TrackDto) => {
-      const target =
-        viewerPermission && project && (selectMidiLayer || track.clips.length === 0)
-          ? layerEditorTarget(viewerPermission, project.status, track)
-          : null;
+      const target = trackEditorTarget(track);
       if (target) onEditTrack(target.trackId, target.clipId);
       else setTrackSettingsId(track.trackId);
     },
@@ -1053,8 +1054,7 @@ export function StudioScreen({ studio }: { studio: Studio }) {
                 <button
                   className={"track-settings-trigger"}
                   aria-label={
-                    (selectMidiLayer || track.clips.length === 0) &&
-                    layerEditorTarget(viewerPermission, project.status, track)
+                    studio.trackEditorTarget(track)
                       ? `${track.name} 피아노롤 열기`
                       : `${track.name} 트랙 설정`
                   }
