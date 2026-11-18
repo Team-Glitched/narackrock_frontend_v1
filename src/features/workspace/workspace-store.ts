@@ -10,6 +10,7 @@ export type Work = {
   composition: CompositionDto;
 };
 export type WorkVisit = Omit<Work, "composition">;
+export type WorkspaceScope = { origin: string; userId: number | null };
 export type Resource = {
   id: number;
   title: string;
@@ -91,6 +92,23 @@ export function rememberWork(composition: CompositionDto, shortId: number | null
     };
     s.works = [work, ...s.works.filter((w) => w.id !== work.id)];
   });
+}
+/** Removes visit pointers only; local MIDI/resources and project drafts are never deleted here. */
+export function forgetMissingWorkVisits(visits: readonly WorkVisit[], scope: WorkspaceScope) {
+  if (scope.origin !== apiOrigin() || scope.userId !== getCurrentUserId()) return;
+  const current = read();
+  const missing = new Map(visits.map((visit) => [visit.id, visit.updatedAt]));
+  // A project revisited while the lookup was in flight belongs to a newer snapshot.
+  const works = current.works.filter((visit) => missing.get(visit.id) !== visit.updatedAt);
+  if (works.length === current.works.length) return;
+  const next = { ...current, works };
+  try {
+    window.localStorage.setItem(key(), JSON.stringify(next));
+  } catch {
+    // Cleanup is best effort; a storage failure must not hide successfully loaded projects.
+  }
+  cache.set(key(), next);
+  listeners.forEach((fn) => fn());
 }
 export function toggleResource(id: number) {
   mutate((s) => {
