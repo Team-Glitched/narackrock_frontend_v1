@@ -100,3 +100,25 @@ test("blocked storage still removes missing pointers from memory without discard
   assert.deepEqual(stored.works.map(({ id }) => id), [9, 8]);
   assert.deepEqual(stored.resources, resources);
 });
+
+test("later reads no longer request deleted projects but can revalidate denied and temporarily failed visits", async (t) => {
+  const originalFetch = globalThis.fetch;
+  t.after(() => { globalThis.fetch = originalFetch; });
+  const { loadVisitedWorksPage } = await server.ssrLoadModule("/src/features/workspace/visited-works.ts");
+  const visits = [visit(32), visit(6), visit(8), visit(9)];
+  values.set(key(), JSON.stringify({ works: visits, resources: [] }));
+  const calls = [];
+  globalThis.fetch = async (url) => {
+    const id = Number(String(url).match(/projects\/(\d+)/)[1]);
+    calls.push(id);
+    if (id === 32) return Response.json({ errorCode: "PROJECT_NOT_FOUND" }, { status: 404 });
+    if (id === 6) return Response.json({ errorCode: "PROJECT_ACCESS_DENIED" }, { status: 403 });
+    if (id === 9) return new Response(null, { status: 503 });
+    return Response.json({ success: true, data: { project: { title: "live" } } });
+  };
+  const page = await loadVisitedWorksPage(visits, 0, new AbortController().signal);
+  workspace.forgetMissingWorkVisits(page.items.flatMap(({ missingVisit }) => missingVisit ? [missingVisit] : []), scope);
+  calls.length = 0;
+  await loadVisitedWorksPage(JSON.parse(values.get(key())).works, 0, new AbortController().signal);
+  assert.deepEqual(calls, [6, 8, 9]);
+});
