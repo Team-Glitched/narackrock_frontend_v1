@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { after, before, beforeEach, test } from "node:test";
 import { fileURLToPath } from "node:url";
 import { createServer } from "vite";
+import { InfiniteQueryObserver, QueryClient } from "@tanstack/react-query";
 
 let server;
 let workspace;
@@ -122,3 +123,85 @@ test("later reads no longer request deleted projects but can revalidate denied a
   await loadVisitedWorksPage(JSON.parse(values.get(key())).works, 0, new AbortController().signal);
   assert.deepEqual(calls, [6, 8, 9]);
 });
+
+test("cleanup preserves loaded pages and adjusts cursors so the next page neither skips nor reloads works", async (t) => {
+  const { cleanupMissingVisitedWorks } = await server.ssrLoadModule("/src/features/workspace/visited-works-cache.ts");
+  const { pagedItemsKey } = await server.ssrLoadModule("/src/hooks/use-paged-items.ts");
+  const client = new QueryClient({ defaultOptions: { queries: { staleTime: Infinity, gcTime: Infinity, retry: false } } });
+  t.after(() => client.clear());
+  const visits = Array.from({ length: 14 }, (_, i) => visit(i + 1));
+  const missing = [visits[0], visits[6]];
+  values.set(key(), JSON.stringify({ works: visits, resources: [] }));
+  const item = (visit) => missing.includes(visit)
+    ? { work: null, error: null, missingVisit: visit }
+    : { work: { ...visit }, error: null, missingVisit: null };
+  const queryKey = (visits) => pagedItemsKey(4, ["composition", "visited", false, visits]);
+  client.setQueryData(queryKey(visits), {
+    pages: [
+      { items: visits.slice(0, 6).map(item), next: 6 },
+      { items: visits.slice(6, 12).map(item), next: 12 },
+    ],
+    pageParams: [0, 6],
+  });
+
+  cleanupMissingVisitedWorks(client, visits, missing, scope, false);
+
+  const remaining = JSON.parse(values.get(key())).works;
+  const cached = client.getQueryData(queryKey(remaining));
+  assert.deepEqual(cached.pageParams, [0, 5]);
+  assert.deepEqual(cached.pages.map(({ next }) => next), [5, 10]);
+  assert.deepEqual(cached.pages.flatMap(({ items }) => items.map(({ work }) => work.id)), [2, 3, 4, 5, 6, 8, 9, 10, 11, 12]);
+
+  const reads = [];
+  const observer = new InfiniteQueryObserver(client, {
+    queryKey: queryKey(remaining),
+    initialPageParam: 0,
+    queryFn: async ({ pageParam }) => {
+      reads.push(pageParam);
+      return { items: remaining.slice(pageParam, pageParam + 6).map(item), next: null };
+    },
+    getNextPageParam: (last) => last.next,
+  });
+  const result = await observer.fetchNextPage();
+  assert.deepEqual(reads, [10]);
+  assert.deepEqual(result.data.pages.at(-1).items.map(({ work }) => work.id), [13, 14]);
+  assert.equal(result.hasNextPage, false);
+});
+
+for (const missingPage of [0, 1]) {
+  test(`an entirely deleted page ${missingPage + 1} cannot hide the remaining works`, async (t) => {
+    const { cleanupMissingVisitedWorks } = await server.ssrLoadModule("/src/features/workspace/visited-works-cache.ts");
+    const { pagedItemsKey } = await server.ssrLoadModule("/src/hooks/use-paged-items.ts");
+    const client = new QueryClient({ defaultOptions: { queries: { staleTime: Infinity, gcTime: Infinity, retry: false } } });
+    t.after(() => client.clear());
+    const visits = Array.from({ length: 14 }, (_, i) => visit(i + 1));
+    const missing = visits.slice(missingPage * 6, missingPage * 6 + 6);
+    const item = (visit) => missing.includes(visit)
+      ? { work: null, error: null, missingVisit: visit }
+      : { work: { ...visit }, error: null, missingVisit: null };
+    const queryKey = (history) => pagedItemsKey(4, ["composition", "visited", false, history]);
+    values.set(key(), JSON.stringify({ works: visits, resources: [] }));
+    client.setQueryData(queryKey(visits), {
+      pages: Array.from({ length: missingPage + 1 }, (_, page) => ({
+        items: visits.slice(page * 6, page * 6 + 6).map(item), next: page * 6 + 6,
+      })),
+      pageParams: Array.from({ length: missingPage + 1 }, (_, page) => page * 6),
+    });
+    cleanupMissingVisitedWorks(client, visits, missing, scope, false);
+    const remaining = JSON.parse(values.get(key())).works;
+    const observer = new InfiniteQueryObserver(client, {
+      queryKey: queryKey(remaining),
+      initialPageParam: 0,
+      queryFn: async ({ pageParam }) => ({
+        items: remaining.slice(pageParam, pageParam + 6).map(item),
+        next: pageParam + 6 < remaining.length ? pageParam + 6 : null,
+      }),
+      getNextPageParam: (last, _pages, _lastParam, requested) =>
+        last.next !== null && !requested.includes(last.next) ? last.next : undefined,
+    });
+    if (missingPage === 1) assert.equal(observer.getCurrentResult().hasNextPage, true);
+    const result = await observer.fetchNextPage();
+    assert.deepEqual(result.data.pages.at(-1).items.map(({ work }) => work.id),
+      missingPage === 0 ? [7, 8, 9, 10, 11, 12] : [13, 14]);
+  });
+}
