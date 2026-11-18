@@ -20,47 +20,52 @@ function WebDesignViewport({
   useLayoutEffect(() => {
     const host = ref.current;
     if (!host) return;
-    const touchPortrait = window.matchMedia("(pointer: coarse) and (orientation: portrait)");
+    // A layout change must not reuse the keyboard height/scale of the previous orientation.
+    host.style.height = "";
+    const width = landscape ? 844 : 390;
+    const height = landscape ? 390 : 844;
+    let fullWidth = host.clientWidth;
     let fullHeight = host.clientHeight;
-    let normalScale = 1;
+    let normalScale = Math.min(fullWidth / width, fullHeight / height, 1);
     const viewport = window.visualViewport;
     const fit = () => {
+      if (host.clientWidth !== fullWidth) {
+        host.style.height = "";
+        fullWidth = host.clientWidth;
+        fullHeight = host.clientHeight;
+        normalScale = Math.min(fullWidth / width, fullHeight / height, 1);
+      }
       const editable =
         document.activeElement instanceof HTMLElement &&
         document.activeElement.matches(
           "input:not([type=range]):not([type=file]),textarea,[contenteditable=true]",
         );
       const keyboardVisible =
-        !landscape &&
         window.matchMedia("(pointer: coarse)").matches &&
         editable &&
         Boolean(viewport && viewport.height < fullHeight * 0.8);
       host.dataset.keyboardVisible = String(keyboardVisible);
       if (keyboardVisible && viewport) {
+        host.style.setProperty("--canvas-scale", String(normalScale));
         host.style.height = `${viewport.height}px`;
         host.style.setProperty(
           "--visible-canvas-height",
-          `${Math.min(844, viewport.height / normalScale)}px`,
+          `${Math.min(landscape ? 390 : 844, viewport.height / normalScale)}px`,
         );
         return;
       }
       host.style.height = "";
       fullHeight = host.clientHeight;
-      const rotated = landscape && touchPortrait.matches;
-      const width = landscape ? 844 : 390;
-      const height = landscape ? 390 : 844;
       const scale = Math.min(
-        host.clientWidth / (rotated ? height : width),
-        host.clientHeight / (rotated ? width : height),
+        host.clientWidth / width,
+        host.clientHeight / height,
         1,
       );
       normalScale = scale;
       host.style.setProperty("--canvas-scale", String(scale));
-      host.dataset.rotated = String(rotated);
     };
     const observer = new ResizeObserver(fit);
     observer.observe(host);
-    touchPortrait.addEventListener("change", fit);
     let frame = 0;
     const focusChanged = () => {
       cancelAnimationFrame(frame);
@@ -73,7 +78,6 @@ function WebDesignViewport({
     fit();
     return () => {
       observer.disconnect();
-      touchPortrait.removeEventListener("change", fit);
       viewport?.removeEventListener("resize", fit);
       viewport?.removeEventListener("scroll", fit);
       document.removeEventListener("focusin", focusChanged);
