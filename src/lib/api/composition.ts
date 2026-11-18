@@ -109,9 +109,9 @@ export async function createTrack(
   });
 }
 
-/** Removes the caller's own track (used only to cancel a just-created empty track). */
-export async function deleteTrack(trackId: number) {
-  return apiRequest(`/api/v1/tracks/${trackId}`, { method: "DELETE" });
+/** Removes the caller's track if the server still finds it empty. */
+export async function deleteEmptyTrack(projectId: number, trackId: number) {
+  return apiRequest<void>(`/api/v1/tracks/${trackId}/empty?projectId=${projectId}`, { method: "DELETE" });
 }
 
 /** Original owner only, DRAFT/IN_PROGRESS projects; all three fields are required. */

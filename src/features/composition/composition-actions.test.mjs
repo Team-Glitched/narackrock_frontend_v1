@@ -103,13 +103,13 @@ test("preserves locally kept notes after the first server save fails, including 
   assert.deepEqual(deleted, []);
   removeLocalDraft(storage, context, session.getLocalRecord().draftId);
   await releaseAbandonedLayer(2);
-  assert.deepEqual(deleted, ["/api/v1/tracks/3"]);
+  assert.deepEqual(deleted, ["/api/v1/tracks/3/empty?projectId=2"]);
 });
 
 test("releases an empty track without any server or local draft", async (t) => {
   const { deleted } = setup(t);
   await releaseAbandonedLayer(2);
-  assert.deepEqual(deleted, ["/api/v1/tracks/3"]);
+  assert.deepEqual(deleted, ["/api/v1/tracks/3/empty?projectId=2"]);
 });
 
 test("preserves tracks with server drafts, shared clips, or another owner", async (t) => {
@@ -140,7 +140,7 @@ test("unrelated accounts, projects and servers do not prevent abandoned track cl
     session.dispose();
   }
   await releaseAbandonedLayer(2);
-  assert.deepEqual(deleted, ["/api/v1/tracks/3"]);
+  assert.deepEqual(deleted, ["/api/v1/tracks/3/empty?projectId=2"]);
 });
 
 test("does not delete a track when browser recovery storage is inaccessible", async (t) => {

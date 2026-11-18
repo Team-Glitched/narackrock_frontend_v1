@@ -2,7 +2,7 @@ import type { AudioTranscriptionMode } from "@/lib/api/composition";
 import {
   createAudioClip,
   createTrack,
-  deleteTrack,
+  deleteEmptyTrack,
   getComposition,
   transformRecordingToMidi,
   uploadMedia,
@@ -32,14 +32,6 @@ export class PartialLayerError extends Error {
   }
 }
 
-/** Only an explicitly cancelled, newly created empty track belonging to the current viewer is removable. */
-export async function cancelEmptyLayer(projectId: number, trackId: number) {
-  const composition = await getComposition(projectId);
-  const track = composition.tracks.find((item) => item.trackId === trackId);
-  if (track && track.ownerId === composition.viewerPermission.userId && track.clips.length === 0)
-    await deleteTrack(trackId);
-}
-
 /**
  * Frees the viewer's one layer in a song when an earlier flow left an empty track behind: no shared clip and no
  * personal draft that "개인 초안 유지" kept for later.
@@ -61,7 +53,7 @@ export async function releaseAbandonedLayer(projectId: number) {
       !localDrafts.some((draft) => draft.trackId === track.trackId) &&
       !drafts.some((draft) => draft.trackId === track.trackId && draft.status === "ACTIVE"),
   );
-  if (abandoned) await deleteTrack(abandoned.trackId);
+  if (abandoned) await deleteEmptyTrack(projectId, abandoned.trackId);
 }
 
 async function saveNewLayerDraft(projectId: number, trackId: number, content: DraftContent) {
