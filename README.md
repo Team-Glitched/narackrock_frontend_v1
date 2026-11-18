@@ -339,3 +339,12 @@ Studio·피아노롤·source·악기 선택·작업함 재생은 `useComposition
 ### 백엔드 후속 계약
 
 openSourceId 기반 usageCount 집계, source 인기/추천·신고·댓글 관리, 전체 커뮤니티 회원 명부, 일반 알림 이력/read, 전체 프로젝트와 cross-project 제출 목록, 불변 제출 snapshot, 영속 mute 조회가 필요합니다. 미리듣기 URL 재업로드로 source 삽입을 우회하지 않습니다. cross-tab session sync와 실제 OAuth·HTI·배포 share 환경 검증도 별도 준비 항목입니다.
+
+## 녹음의 자동 MIDI 변환
+
+녹음 후 `MIDI로 변환`을 누르면 기본 `자동 판별`로 오디오 신호를 분석합니다.
+단선율 근거가 있는 입력은 HTI, 화음·악기 어택이 있거나 모호한 입력은 Basic Pitch로 변환합니다.
+사용자는 변환 방식을 수정할 수 있고, 재생할 MIDI 악기는 별도로 선택합니다.
+판별 이유는 변환 후 피아노롤 상태 줄에 표시합니다.
+
+[구조 다이어그램·검증·지원 범위](AUTO_MIDI_ROUTING.md)

@@ -17,6 +17,7 @@ import { NativeNoteEditorBridge, NativeNoteEditorStateBridge } from "./native-no
 import { MonitorSmartphone, Smartphone } from "lucide-react";
 
 export function NoteEditorScreen({
+  conversionNotice,
   projectId,
   trackId,
   clipId,
@@ -25,6 +26,7 @@ export function NoteEditorScreen({
   portrait = false,
   onToggleLayout,
 }: {
+  conversionNotice?: string;
   projectId: number | null;
   trackId: number | null;
   clipId: number | null;
@@ -54,6 +56,7 @@ export function NoteEditorScreen({
   return (
     <LoadedNoteEditor
       key={load.editorKey}
+      conversionNotice={conversionNotice}
       composition={load.composition}
       trackId={load.track.trackId}
       requestedClipId={clipId}
@@ -66,6 +69,7 @@ export function NoteEditorScreen({
 }
 
 function LoadedNoteEditor({
+  conversionNotice,
   composition,
   trackId,
   requestedClipId,
@@ -74,6 +78,7 @@ function LoadedNoteEditor({
   portrait,
   onToggleLayout,
 }: {
+  conversionNotice?: string;
   /** The live project; working notes and their base snapshot are kept apart from it. */
   composition: CompositionDto;
   trackId: number;
@@ -84,6 +89,7 @@ function LoadedNoteEditor({
   onToggleLayout?: () => void;
 }) {
   const screen = useNoteEditorScreen({
+    conversionNotice,
     composition,
     trackId,
     requestedClipId,

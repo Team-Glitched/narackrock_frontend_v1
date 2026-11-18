@@ -1,3 +1,4 @@
+import type { AudioTranscriptionMode } from "../api/composition.ts";
 /**
  * Native screen types of layer creation (upload, record, piano sketch) and their reusable parts;
  * registered in ./index.ts. The studio's upload/record pages and the sample registration audio steps
@@ -96,8 +97,9 @@ export type NativeCreationRecord = {
   /** The recording's player is playing. */
   previewing: boolean;
   saveLabel: string;
-  /** Shows "HTI로 MIDI 변환" (studio pages only). */
+  /** Enables automatic MIDI conversion (studio pages only). */
   transform: boolean;
+  soundKind: AudioTranscriptionMode;
   /** A failed "신규 트랙" cancel (studio pages). */
   notice: string | null;
   instrument: NativeInstrumentPicker | null;
@@ -107,6 +109,7 @@ export type NativeCreationRecordAction =
   | { type: "creation-record-toggle" }
   | { type: "creation-record-save" }
   | { type: "creation-record-transform" }
+  | { type: "creation-record-sound-kind"; kind: AudioTranscriptionMode }
   | { type: "creation-record-preview" }
   | NativeInstrumentAction;
 

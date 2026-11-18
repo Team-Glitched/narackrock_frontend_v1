@@ -137,6 +137,7 @@ export type NoteEditorScreenState = ReturnType<typeof useNoteEditorScreen>;
  * the personal draft, the note editor controller, playback, dialogs and the exit flow.
  */
 export function useNoteEditorScreen({
+  conversionNotice,
   composition,
   trackId,
   requestedClipId,
@@ -144,6 +145,7 @@ export function useNoteEditorScreen({
   onOpenLayers,
   portrait,
 }: {
+  conversionNotice?: string;
   /** The live project; working notes and their base snapshot are kept apart from it. */
   composition: CompositionDto;
   trackId: number;
@@ -160,7 +162,7 @@ export function useNoteEditorScreen({
   const [showSources, setShowSources] = useState(false);
   const [exitTarget, setExitTarget] = useState<"studio" | "layers" | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(conversionNotice ?? null);
   const [busy, setBusy] = useState(false);
   const track = composition.tracks.find((item) => item.trackId === trackId)!;
   const clip = track.clips.find((item) => item.clipId === targetClipId && item.clipType === "MIDI");

@@ -3,6 +3,14 @@ import type { ApiEnvelope } from "./contracts.ts";
 
 export { uploadMedia } from "./media.ts";
 
+export type AudioTranscriptionMode = "AUTO" | "HUMMING" | "INSTRUMENT";
+export type AudioRouting = {
+  engine: "HTI" | "BASIC_PITCH";
+  kind: string;
+  reason: string;
+  version: string;
+};
+
 export type MidiNoteDto = {
   pitch: number;
   startTick: number;
@@ -161,10 +169,15 @@ export async function insertOpenSourceClip(
   });
 }
 
-export async function transformRecordingToMidi(projectId: number, file: File) {
+export async function transformRecordingToMidi(
+  projectId: number,
+  file: File,
+  soundKind: AudioTranscriptionMode = "AUTO",
+) {
   const form = new FormData();
   form.append("audio", file);
-  return data<{ durationTick: number; midiNotes: MidiNoteDto[] }>(
+  form.append("soundKind", soundKind);
+  return data<{ durationTick: number; midiNotes: MidiNoteDto[]; routing?: AudioRouting }>(
     `/api/v1/projects/${projectId}/hti-transform`,
     {
       method: "POST",
