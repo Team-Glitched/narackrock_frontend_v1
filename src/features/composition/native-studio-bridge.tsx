@@ -1,3 +1,4 @@
+import { layerEditorTarget } from "./studio-layer-editor";
 import { useQueries } from "@tanstack/react-query";
 import { useNativeScreen } from "@/features/navigation/use-native-screen";
 import type { ClipDto } from "@/lib/api/composition";
@@ -177,10 +178,9 @@ export function NativeStudioBridge({ studio }: { studio: Studio }) {
                   }
                 : null,
             muted: playback.mutedTrackIds.has(track.trackId),
-            settingsLabel:
-              studio.selectMidiLayer && track.clips.some((clip) => clip.clipType === "MIDI")
-                ? `${track.name} 피아노롤 열기`
-                : `${track.name} 트랙 설정`,
+            settingsLabel: layerEditorTarget(viewer, project.status, track)
+              ? `${track.name} 피아노롤 열기`
+              : `${track.name} 트랙 설정`,
             clips: track.clips.map((clip): NativeStudioClip => {
               const { label, clipTypeLabel } = clipLabels(clip, track.name, track.instrument);
               return {

@@ -1,9 +1,9 @@
-import type { TrackDto } from "../../lib/api/composition.ts";
+import type { ClipDto, TrackDto } from "../../lib/api/composition.ts";
 import { supportsMidi } from "./instrument-parts.ts";
 
 type Permission = { userId: number; canEdit: boolean; canContribute: boolean };
 type Layer = Pick<TrackDto, "trackId" | "ownerId" | "instrument" | "approvalStatus"> & {
-  clips: readonly unknown[];
+  clips: readonly Pick<ClipDto, "clipId" | "clipType">[];
 };
 
 /** Empty tracks reserve the owner's layer while editing; they must remain reachable after leaving. */
@@ -16,4 +16,12 @@ export function emptyLayerEditor(permission: Permission, projectStatus: string, 
     (permission.canEdit || permission.canContribute)
     ? { trackId: track.trackId, clipId: null }
     : null;
+}
+
+/** Existing MIDI is viewable even for teammates; new notes require an editable own layer. */
+export function layerEditorTarget(permission: Permission, projectStatus: string, track: Layer) {
+  const midi = track.clips.find((clip) => clip.clipType === "MIDI");
+  return midi
+    ? { trackId: track.trackId, clipId: midi.clipId > 0 ? midi.clipId : null }
+    : emptyLayerEditor(permission, projectStatus, track);
 }

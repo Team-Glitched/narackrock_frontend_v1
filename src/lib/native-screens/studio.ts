@@ -281,7 +281,7 @@ export type NativeStudioAction =
   | { type: "studio-track"; trackId: number }
   | { type: "studio-track-notes"; trackId: number }
   | { type: "studio-track-audio"; trackId: number }
-  /** A tap (`edit` false: track settings) or the piano-roll gesture on a MIDI clip (`edit` true). */
+  /** A single tap opens MIDI editing (`edit` true) or audio track settings (`edit` false). */
   | { type: "studio-clip"; trackId: number; clipId: number; edit: boolean }
   | { type: "studio-move-clip"; trackId: number; clipId: number; startTick: number }
   | { type: "studio-mute"; trackId: number }

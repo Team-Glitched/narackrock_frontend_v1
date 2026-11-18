@@ -1,4 +1,4 @@
-import { emptyLayerEditor } from "./studio-layer-editor";
+import { emptyLayerEditor, layerEditorTarget } from "./studio-layer-editor";
 import { contributionsQuery } from "@/features/workspace/workspace-queries";
 import { contributionTrackIds } from "@/features/workspace/contribution-presentation";
 import { studioStyles } from "@/styles/studio.styles";
@@ -673,17 +673,13 @@ export function useStudio({
     },
     instrumentChoice,
     closeInstrument: () => setInstrumentTrackId(null),
-    /** The avatar button: the piano roll while choosing a MIDI layer, otherwise the track settings. */
+    /** Keep the avatar available for track settings; empty layers and layer-selection mode open editing. */
     openTrack: (track: TrackDto) => {
-      const midiClip = selectMidiLayer
-        ? track.clips.find((clip) => clip.clipType === "MIDI")
-        : undefined;
-      const empty =
-        viewerPermission && project
-          ? emptyLayerEditor(viewerPermission, project.status, track)
+      const target =
+        viewerPermission && project && (selectMidiLayer || track.clips.length === 0)
+          ? layerEditorTarget(viewerPermission, project.status, track)
           : null;
-      if (midiClip) onEditTrack(track.trackId, midiClip.clipId > 0 ? midiClip.clipId : null);
-      else if (empty) onEditTrack(empty.trackId, null);
+      if (target) onEditTrack(target.trackId, target.clipId);
       else setTrackSettingsId(track.trackId);
     },
     clipMovable: (clip: ClipDto) =>
@@ -1057,7 +1053,8 @@ export function StudioScreen({ studio }: { studio: Studio }) {
                 <button
                   className={"track-settings-trigger"}
                   aria-label={
-                    selectMidiLayer && track.clips.some((clip) => clip.clipType === "MIDI")
+                    (selectMidiLayer || track.clips.length === 0) &&
+                    layerEditorTarget(viewerPermission, project.status, track)
                       ? `${track.name} 피아노롤 열기`
                       : `${track.name} 트랙 설정`
                   }
@@ -1102,7 +1099,6 @@ export function StudioScreen({ studio }: { studio: Studio }) {
                     movable={studio.clipMovable(clip)}
                     onError={setError}
                     onSelect={() => studio.setTrackSettingsId(track.trackId)}
-                    openOnClick={selectMidiLayer}
                     onEdit={
                       // Other participants' MIDI opens read-only; the editor never creates their drafts.
                       clip.clipType === "MIDI"
