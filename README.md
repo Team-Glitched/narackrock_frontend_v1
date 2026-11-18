@@ -347,4 +347,4 @@ openSourceId 기반 usageCount 집계, source 인기/추천·신고·댓글 관�
 사용자는 변환 방식을 수정할 수 있고, 재생할 MIDI 악기는 별도로 선택합니다.
 판별 이유는 변환 후 피아노롤 상태 줄에 표시합니다.
 
-[구조 다이어그램·검증·지원 범위](AUTO_MIDI_ROUTING.md)
+[검증·지원 범위](AUTO_MIDI_ROUTING.md)

@@ -4,50 +4,6 @@
 `허밍 · 한 음씩` / `악기 · 화음`은 사용자가 판단을 수정하는 입력 옵션이며 MIDI 재생 악기와 별개다.
 변환 결과의 이유를 피아노롤 상태 줄에 표시하고 기존 개인 초안·저장 흐름을 사용한다.
 
-### 자동 MIDI 변환
-
-```mermaid
-flowchart LR
-    recording["프론트 · 녹음"] --> spring["Spring · 권한 확인"]
-    spring --> routing{"Python · 신호 분석"}
-    routing -->|"단선율"| hti["HTI"]
-    routing -->|"다중음 / 모호함"| basicPitch["Basic Pitch 워커"]
-    hti --> notes["midiNotes + 판별 이유"]
-    basicPitch --> notes
-    notes -->|"Spring 응답"| draft["프론트 · 편집 초안"]
-    classDef default fill:#fff,stroke:#64748b,stroke-width:1px,color:#172033;
-    classDef engine fill:#f1f5f9,stroke:#64748b,color:#172033;
-    class hti,basicPitch engine;
-```
-
-### 다음 마디 코드 추천
-
-```mermaid
-flowchart LR
-    draft["현재 편집 초안"] --> context["추천 문맥 구성"]
-    layers["다른 레이어 · 조성 · 박자"] --> context
-    context --> target{"다음 마디가 비었나?"}
-    target -->|"예"| candidates["규칙 기반 후보 3개"]
-    target -->|"아니요"| hidden["추천 숨김"]
-    candidates --> preview["반투명 노트 미리보기"]
-    preview -->|"적용 클릭"| applied["실제 노트 추가"]
-    applied -->|"저장"| database[("Spring · DB")]
-    classDef default fill:#fff,stroke:#64748b,stroke-width:1px,color:#172033;
-    classDef ghost fill:#f3efff,stroke:#8b70bc,stroke-dasharray:5 4,color:#49316f;
-    classDef muted fill:#f8fafc,stroke:#94a3b8,color:#64748b;
-    class preview ghost;
-    class hidden muted;
-```
-
-[벡터 다이어그램](AUTO_MIDI_ROUTING.svg) · [변환 Mermaid 원본](docs/diagrams/auto-midi.mmd) · [추천 Mermaid 원본](docs/diagrams/next-chord.mmd)
-
-빈 마디 여부는 현재 편집하는 레이어를 기준으로 판단한다. 다른 레이어의 노트는 추천 문맥으로 사용한다.
-
-다이어그램은 이번 자동 변환과 기존 코드 추천을 함께 적용한 구조다. 코드 추천은 별도
-[프론트 PR #111](https://github.com/Team-Glitched/narackrock_frontend_v1/pull/111),
-오디오 분석 데이터 연결은 [백엔드 PR #129](https://github.com/Team-Glitched/narackrock-backend-v1/pull/129)의 기능이다.
-이번 브랜치는 추천 규칙을 다시 구현하거나 변경하지 않는다. 추천 계산은 현재 프론트에서 수행한다.
-
 ## 저장소별 변경
 
 - 프론트: `soundKind=AUTO` multipart 전송, 변환 방식 수정 옵션, 모델에 종속되지 않는 버튼명,
