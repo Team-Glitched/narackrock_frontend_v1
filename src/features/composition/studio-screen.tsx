@@ -2,6 +2,7 @@ import {
   emptyLayerEditor,
   layerEditorTarget,
   canChangeTrackInstrument,
+  midiEditorView,
 } from "./studio-layer-editor";
 import { contributionsQuery } from "@/features/workspace/workspace-queries";
 import { contributionTrackIds } from "@/features/workspace/contribution-presentation";
@@ -87,7 +88,7 @@ export type StudioOptions = {
   onProjectSelected: (id: number) => void;
   onImportResource: (resource: Resource) => Promise<void>;
   onAddLayer: () => void;
-  onEditTrack: (trackId: number, clipId: number | null) => void;
+  onEditTrack: (trackId: number, clipId: number | null, view?: CompositionView) => void;
 };
 
 /** The pending "+ 파일" audio: the chosen file for one of the viewer's tracks. */
@@ -113,7 +114,7 @@ export function useStudio({
   onReturnToShort,
   onProjectSelected,
   onAddLayer,
-  onEditTrack,
+  onEditTrack: navigateToEditor,
   onImportResource,
   onExit,
 }: StudioOptions) {
@@ -551,6 +552,19 @@ export function useStudio({
     } finally {
       setBusy(false);
     }
+  }
+
+  function onEditTrack(trackId: number, clipId: number | null) {
+    const editorView = composition
+      ? midiEditorView(
+          composition.viewerPermission.userId,
+          composition.project.status,
+          composition.tracks.find((track) => track.trackId === trackId),
+          clipId,
+          view,
+        )
+      : view;
+    navigateToEditor(trackId, clipId, editorView);
   }
 
   const viewerPermission = composition?.viewerPermission;

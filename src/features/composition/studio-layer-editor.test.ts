@@ -4,6 +4,7 @@ import {
   emptyLayerEditor,
   layerEditorTarget,
   canChangeTrackInstrument,
+  midiEditorView,
 } from "./studio-layer-editor.ts";
 
 const permission = { userId: 2, canEdit: true, canContribute: true };
@@ -77,4 +78,46 @@ test("public studio allows owners to change their approved instrument without co
     canChangeTrackInstrument(viewer.userId, "IN_PROGRESS", { ...track, ownerId: 1 }),
     false,
   );
+});
+
+test("own approved MIDI opens personal working view even when public permissions are read-only", () => {
+  const own = {
+    ...track,
+    approvalStatus: "APPROVED",
+    clips: [{ clipId: 44, clipType: "MIDI" as const, ownerId: 2, approvalStatus: "APPROVED" }],
+  };
+  assert.equal(midiEditorView(2, "IN_PROGRESS", own, 44, "approved"), "working");
+  assert.equal(midiEditorView(2, "IN_PROGRESS", own, 44, "studio"), "working");
+  assert.equal(midiEditorView(2, "IN_PROGRESS", own, 44, "working"), "working");
+  const review = { contributionId: 7 };
+  assert.equal(midiEditorView(2, "IN_PROGRESS", own, 44, review), review);
+  for (const patch of [
+    { ownerId: 3 },
+    { approvalStatus: "PENDING" },
+    { approvalStatus: "REJECTED" },
+    { instrument: "vocal" },
+  ])
+    assert.equal(
+      midiEditorView(2, "IN_PROGRESS", { ...own, ...patch }, 44, "approved"),
+      "approved",
+    );
+  assert.equal(midiEditorView(2, "COMPLETED", own, 44, "approved"), "approved");
+  for (const patch of [
+    { ownerId: 3 },
+    { approvalStatus: "PENDING" },
+    { approvalStatus: "REJECTED" },
+    { clipType: "AUDIO" as const },
+  ])
+    assert.equal(
+      midiEditorView(
+        2,
+        "IN_PROGRESS",
+        { ...own, clips: [{ ...own.clips[0], ...patch }] },
+        44,
+        "approved",
+      ),
+      "approved",
+    );
+  assert.equal(midiEditorView(2, "IN_PROGRESS", own, 99, "approved"), "approved");
+  assert.equal(midiEditorView(2, "IN_PROGRESS", undefined, 44, "approved"), "approved");
 });

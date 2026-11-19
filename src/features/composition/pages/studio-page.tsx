@@ -77,8 +77,8 @@ export default function StudioPage() {
           onReturnToShort={(id) => to(`/abyss/${id}`, { replace: true })}
           onProjectSelected={selectProject}
           onAddLayer={() => to(route.layerUrl("layers/new"), { state: route.studioState })}
-          onEditTrack={(trackId, clipId) =>
-            to(route.notesUrl({ trackId, clipId }), {
+          onEditTrack={(trackId, clipId, view) =>
+            to(route.notesUrl({ trackId, clipId }, view), {
               replace: route.state.selectMidiLayer === true,
               state: route.studioState,
             })
