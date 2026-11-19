@@ -74,6 +74,7 @@ export type CompositionDto = {
     title: string;
     ownerId: number;
     albumImageFileId: number | null;
+    albumImageUrl?: string | null;
     bpm: number;
     songKey?: string | null;
     timeSignatureNumerator: number;

@@ -25,3 +25,12 @@ export function layerEditorTarget(permission: Permission, projectStatus: string,
     ? { trackId: track.trackId, clipId: midi.clipId > 0 ? midi.clipId : null }
     : emptyLayerEditor(permission, projectStatus, track);
 }
+
+/** Public studio permissions describe note editing; an approved layer's owner can still change its tone. */
+export function canChangeTrackInstrument(userId: number, projectStatus: string, track: Layer) {
+  return (
+    track.ownerId === userId &&
+    ["DRAFT", "IN_PROGRESS"].includes(projectStatus) &&
+    ["DRAFT", "APPROVED"].includes(track.approvalStatus)
+  );
+}
