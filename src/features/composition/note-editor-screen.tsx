@@ -5,7 +5,7 @@ import { nativeApp } from "@/lib/native-app";
 import { NoteSettingsDialog } from "./note-settings-dialog";
 import { StudioSourceDialog } from "./studio-source-dialog";
 import { TeamPianoRoll } from "./team-piano-roll";
-import type { CompositionDto } from "@/lib/api/composition";
+import type { CompositionDto, CompositionView } from "@/lib/api/composition";
 import { StudioToolbar } from "./studio-toolbar";
 import { JsonNoteImportControl } from "./json-note-import-control";
 import { NoteEditorControls, NoteTools } from "./note-editor-controls";
@@ -20,6 +20,7 @@ export function NoteEditorScreen({
   projectId,
   trackId,
   clipId,
+  view = "working",
   onBack,
   onOpenLayers,
   portrait = false,
@@ -28,13 +29,14 @@ export function NoteEditorScreen({
   projectId: number | null;
   trackId: number | null;
   clipId: number | null;
+  view?: CompositionView;
   onBack: () => void;
   onOpenLayers: () => void;
   /** Upright 390×844 layout instead of the landscape canvas; the page owns the choice. */
   portrait?: boolean;
   onToggleLayout?: () => void;
 }) {
-  const load = useNoteEditorLoad(projectId, trackId, clipId);
+  const load = useNoteEditorLoad(projectId, trackId, clipId, view);
   if (!load.composition) {
     if (nativeApp())
       return (

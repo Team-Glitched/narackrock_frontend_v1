@@ -49,10 +49,11 @@ export default function NoteEditorPage() {
         )
       ) : (
         <NoteEditorScreen
-          key={`${route.projectId}:${route.trackId}:${route.clipId}`}
+          key={`${route.projectId}:${route.trackId}:${route.clipId}:${JSON.stringify(route.view)}`}
           projectId={route.projectId}
           trackId={route.trackId}
           clipId={route.clipId}
+          view={route.view}
           onBack={() => route.to(route.studioUrl, { replace: true, state: route.studioState })}
           onOpenLayers={() =>
             route.to(route.studioUrl, {

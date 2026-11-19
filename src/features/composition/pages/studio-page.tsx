@@ -22,17 +22,17 @@ export default function StudioPage() {
   const route = useRouteComposition();
   const userId = useCurrentUserId();
   const navigate = useNavigate();
-  const { projectId, shortId, to, params } = route;
+  const { projectId, shortId, to, params, viewScope } = route;
   const { studioFrom, studioIndex, inbox, contributionId } = route.studioState;
   const selectProject = useCallback(
     (id: number) => {
       if (id !== projectId)
-        to(studioPath(id, shortId), {
+        to(studioPath(id, shortId, viewScope), {
           replace: true,
           state: { studioFrom, studioIndex, inbox, contributionId },
         });
     },
-    [projectId, shortId, to, studioFrom, studioIndex, inbox, contributionId],
+    [projectId, shortId, to, studioFrom, studioIndex, inbox, contributionId, viewScope],
   );
   const invalidAddress =
     (params.projectId !== undefined && readId(params.projectId) === null) ||
@@ -59,10 +59,11 @@ export default function StudioPage() {
         )
       ) : (
         <StudioRoute
-          key={`${userId ?? "guest"}:${projectId}:${shortId}`}
+          key={`${userId ?? "guest"}:${projectId}:${shortId}:${JSON.stringify(route.view)}`}
           projectId={projectId}
           shortId={shortId}
           contributionId={contributionId}
+          view={route.view}
           selectMidiLayer={route.state.selectMidiLayer === true}
           onSubmitted={() => to("/submissions")}
           onExit={exit}

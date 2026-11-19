@@ -1,4 +1,5 @@
-import { useRef } from "react";
+import type { CompositionView } from "@/lib/api/composition";
+import { useMemo, useRef } from "react";
 import { useUrlNavigation } from "@/features/navigation/use-url-navigation";
 import type { StudioLocationState } from "./studio-location-state";
 import {
@@ -28,8 +29,28 @@ export function useRouteComposition() {
     studioFrom: nav.state.studioFrom ?? safeReturnPath(nav.state.from),
     studioIndex: nav.state.studioIndex,
     inbox: nav.state.inbox,
-    contributionId: readId(nav.query.get("contributionId")) ?? readId(String(nav.state.contributionId)) ?? undefined,
+    contributionId:
+      readId(nav.query.get("contributionId")) ??
+      readId(String(nav.state.contributionId)) ??
+      undefined,
   };
+  const viewName = nav.query.get("view");
+  const scope = useMemo(
+    () => ({
+      view: (viewName === "approved" || viewName === "working" || viewName === "studio"
+        ? viewName
+        : shortId !== null
+          ? "working"
+          : "studio") as "approved" | "working" | "studio",
+      contributionId: state.contributionId,
+    }),
+    [viewName, shortId, state.contributionId],
+  );
+  const view: CompositionView = useMemo(
+    () =>
+      state.contributionId !== undefined ? { contributionId: state.contributionId } : scope.view,
+    [state.contributionId, scope.view],
+  );
   async function importResource(resource: Resource, work?: Work) {
     if (locked.current) throw new Error("다른 레이어를 추가하는 중입니다.");
     const target: CompositionTarget | null = work
@@ -68,14 +89,17 @@ export function useRouteComposition() {
     trackId,
     clipId,
     studioState: state,
+    view,
+    viewScope: scope,
     importResource,
-    studioUrl: projectId ? studioPath(projectId, shortId) : "/studio/new",
+    studioUrl: projectId ? studioPath(projectId, shortId, scope) : "/studio/new",
     layerUrl: (step: "layers/new" | "upload" | "record" | "import") =>
       withQuery(`/studio/${projectId}/${step}`, {
         shortId,
+        view: "working",
         ...(step === "import" ? { trackId, clipId } : {}),
       }),
     notesUrl: (editor: EditorTarget) =>
-      notesPath(projectId!, editor.trackId, editor.clipId, shortId),
+      notesPath(projectId!, editor.trackId, editor.clipId, shortId, scope),
   };
 }
