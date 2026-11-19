@@ -50,6 +50,7 @@ export type ClipDto = {
 export type TrackDto = {
   trackId: number;
   ownerProfileImageUrl?: string | null;
+  ownerNickname?: string | null;
   ownerId: number;
   name: string;
   instrument: string | null;
