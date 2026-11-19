@@ -99,7 +99,13 @@ export function useRouteComposition() {
         view: "working",
         ...(step === "import" ? { trackId, clipId } : {}),
       }),
-    notesUrl: (editor: EditorTarget) =>
-      notesPath(projectId!, editor.trackId, editor.clipId, shortId, scope),
+    notesUrl: (editor: EditorTarget, editorView?: CompositionView) =>
+      notesPath(
+        projectId!,
+        editor.trackId,
+        editor.clipId,
+        shortId,
+        typeof editorView === "string" ? { ...scope, view: editorView } : scope,
+      ),
   };
 }
