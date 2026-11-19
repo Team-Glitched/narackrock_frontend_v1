@@ -665,6 +665,11 @@ export const sharedStyles = {
     "relative h-1 w-[50px] flex-[0_0_4px] bg-app-surface bg-none rounded-[20px]",
     "[&::after]:[content:''] [&::after]:absolute [&::after]:inset-[-10px_-20px]",
   ].join(" "),
+  /** Covers the grip and the gap under it so the sheet's top edge can be dragged. */
+  figmaSheetDragHandle: [
+    "figma-sheet-drag-handle",
+    "absolute inset-x-0 top-0 z-[1] h-11 cursor-grab touch-none active:cursor-grabbing",
+  ].join(" "),
   figmaSheetContent: [
     "figma-sheet-content",
     "min-h-0 w-[350px] flex-1 overflow-auto [scrollbar-width:none]",

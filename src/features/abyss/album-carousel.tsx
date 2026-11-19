@@ -1,4 +1,5 @@
 import { abyssStyles } from "@/styles/abyss.styles";
+import { cn } from "@/lib/utils";
 import { useLayoutEffect, useRef } from "react";
 import type { ShortItemDto } from "@/lib/api/contracts";
 import defaultCover from "./assets/shortform-default-cover.png";
@@ -8,14 +9,17 @@ export function AlbumCarousel({
   cycle,
   onPrevious,
   onNext,
+  onToggle,
 }: {
   items: ShortItemDto[];
   index: number;
   cycle: { key: number; previous: ShortItemDto; direction: "next" | "previous" } | null;
   onPrevious: () => void;
   onNext: () => void;
+  /** A tap (or Enter/Space) on the current cover: the same play/pause as the player's toggle. */
+  onToggle?: () => void;
 }) {
-  const gesture = useRef<{ x: number; y: number; id: number } | null>(null);
+  const gesture = useRef<{ x: number; y: number; id: number; onCover: boolean } | null>(null);
   const track = useRef<HTMLDivElement>(null);
   function resetDrag() {
     const element = track.current;
@@ -51,11 +55,20 @@ export function AlbumCarousel({
           event.preventDefault();
           if (event.key === "ArrowLeft") onPrevious();
           else onNext();
+        } else if ((event.key === "Enter" || event.key === " ") && onToggle) {
+          event.preventDefault();
+          onToggle();
         }
       }}
       onPointerDown={(event) => {
         if (event.button !== 0) return;
-        gesture.current = { x: event.clientX, y: event.clientY, id: event.pointerId };
+        gesture.current = {
+          x: event.clientX,
+          y: event.clientY,
+          id: event.pointerId,
+          onCover:
+            event.target instanceof HTMLElement && event.target.dataset.currentCover !== undefined,
+        };
         event.currentTarget.setPointerCapture(event.pointerId);
       }}
       onPointerMove={(event) => {
@@ -84,6 +97,8 @@ export function AlbumCarousel({
         if (Math.abs(dx) >= 40 && Math.abs(dx) > Math.abs(dy) * 1.3) {
           if (dx < 0) onNext();
           else onPrevious();
+        } else if (start.onCover && Math.abs(dx) < 6 && Math.abs(dy) < 6) {
+          onToggle?.();
         }
       }}
       onPointerCancel={() => {
@@ -103,7 +118,11 @@ export function AlbumCarousel({
             src={item.albumImageUrl?.trim() || defaultCover}
             alt={position === coverIndex ? `${item.title} 앨범 커버` : ""}
             aria-hidden={position !== coverIndex}
-            className={abyssStyles.abyssCover}
+            className={cn(
+              abyssStyles.abyssCover,
+              onToggle && position === coverIndex && "cursor-pointer",
+            )}
+            data-current-cover={position === coverIndex ? "" : undefined}
             draggable={false}
             loading={Math.abs(position - coverIndex) > 1 ? "lazy" : "eager"}
           />

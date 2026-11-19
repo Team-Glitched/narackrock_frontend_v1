@@ -609,6 +609,7 @@ function AbyssView({ abyss }: { abyss: AbyssState }) {
           onNext={() => {
             void abyss.selectNext();
           }}
+          onToggle={playback.canPlay ? () => void playback.toggle() : undefined}
         />
         <div className={abyssStyles.abyssTitle}>
           <h1 ref={titleViewport} className="overflow-hidden">

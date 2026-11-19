@@ -93,7 +93,7 @@ export default function CreateSourcePage() {
     <DesignViewport landscape={pianoMode && !portrait}>
       <div className={cn(sharedStyles.phoneFrame, pianoMode && sharedStyles.phoneFrameSourcePiano)}>
         {!pianoMode && <Header onBack={leave} onSearch={search} />}
-        <div className={sharedStyles.screenBody}>
+        <div className={cn(sharedStyles.screenBody, pianoMode && "p-0")}>
           {signedIn ? (
             <SocialCreate key={JSON.stringify([apiOrigin(), userId])} {...createProps} />
           ) : (

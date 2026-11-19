@@ -59,6 +59,8 @@ export const readAllNotifications = (throughId: number) =>
     method: "PATCH",
     body: JSON.stringify({ throughId }),
   });
+export const deleteReadNotifications = () =>
+  data<void>("/api/v1/notifications/read", { method: "DELETE" });
 export const getNotificationPreferences = () =>
   data<NotificationPreferences>("/api/v1/notifications/preferences");
 export const setNotificationPreferences = (values: NotificationPreferences) =>

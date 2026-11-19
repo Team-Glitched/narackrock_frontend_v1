@@ -464,8 +464,11 @@ export function TeamPianoRoll({
             onClick={() => onAudition(pitch)}
             style={{ height: rowHeight, minHeight: rowHeight, width: keyWidth }}
           >
-            {drum && <DrumPadIcon kind={drumPadFor(pitch)?.icon ?? "percussion"} />}
-            <span style={{ display: "inline", position: "static", transform: "none" }}>{pitchLabel(pitch)}</span>
+            {drum ? (
+              <DrumPadIcon kind={drumPadFor(pitch)?.icon ?? "percussion"} />
+            ) : (
+              <span style={{ display: "inline", position: "static", transform: "none" }}>{pitchLabel(pitch)}</span>
+            )}
           </button>
         ))}
       </div>

@@ -85,14 +85,14 @@ export const socialStyles = {
   ].join(" "),
   mutualFriendCard: [
     "mutual-friend-card",
-    "h-54 flex-[0_0_140px] p-[10px] rounded-[12px] border border-solid border-app-border",
+    "min-h-54 flex flex-col justify-between gap-3 flex-[0_0_140px] p-[10px] rounded-[12px] border border-solid border-app-border",
     "[.design-canvas_&]:h-auto [.design-canvas_&]:min-h-56",
   ].join(" "),
   mutualFriendIdentity: [
     "mutual-friend-identity",
     "flex w-30 flex-col items-center",
     "[&_strong]:text-label [&_strong]:font-bold [&_strong]:leading-[20px]",
-    "[&_small]:mt-1 [&_small]:text-body [&_small]:text-app-muted [&_small]:leading-[20px]",
+    "[&_small]:line-clamp-3 [&_small]:mt-1 [&_small]:text-body [&_small]:text-app-muted [&_small]:leading-[20px]",
     "[.design-canvas_&_small]:mt-[var(--supporting-copy-gap)]",
   ].join(" "),
   chatScreen: ["chat-screen", "flex h-full flex-col"].join(" "),

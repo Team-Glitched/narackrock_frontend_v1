@@ -81,7 +81,7 @@ export function AbyssComments({
   const adapter = useShortCommentAdapter(shortId);
   if (!open) return null;
   return (
-    <FigmaSheet title="댓글" onClose={onClose}>
+    <FigmaSheet title="댓글" onClose={onClose} resizable>
       <CommonComments key={userId} adapter={adapter} currentUserId={userId} onChanged={onChanged} />
     </FigmaSheet>
   );

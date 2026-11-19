@@ -98,6 +98,7 @@ function Inbox({
     category: inbox.category,
     unreadOnly: inbox.unreadOnly,
     readAllDisabled: inbox.readAllDisabled,
+    deleteReadDisabled: inbox.deleteReadDisabled,
     error: inbox.error,
     notice: inbox.notice,
     status: list.isPending ? "loading" : list.isError ? "error" : "ready",
@@ -144,6 +145,9 @@ function Inbox({
           return inbox.setUnreadOnly(!inbox.unreadOnly);
         case "read-all":
           if (!inbox.readAllDisabled) inbox.readAllNow();
+          return;
+        case "delete-read":
+          if (!inbox.deleteReadDisabled) inbox.deleteReadNow();
           return;
         case "toggle-preferences":
           return inbox.setSettings(!inbox.settings);

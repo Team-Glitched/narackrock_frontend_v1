@@ -1,7 +1,15 @@
 import { useDevicePortrait } from "@/hooks/use-device-portrait";
 import { studioStyles } from "@/styles/studio.styles";
 import { cn } from "@/lib/utils";
-import { useId, useMemo, useState, type Dispatch, type SetStateAction } from "react";
+import {
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+  type Dispatch,
+  type SetStateAction,
+} from "react";
 import type { MidiNoteDto } from "@/lib/api/composition";
 import { StudioToolbar } from "@/features/composition/studio-toolbar";
 import { NoteSettingsDialog } from "@/features/composition/note-settings-dialog";
@@ -10,7 +18,9 @@ import { useCompositionPlayback, type PlaybackComposition } from "./use-composit
 import { renderPianoAudio } from "./source-piano-render";
 import { defaultSignature } from "./time-signature";
 import { useNoteEditor } from "./use-note-editor";
-import { NoteEditorControls } from "./note-editor-controls";
+import { NoteEditorControls, NoteTools } from "./note-editor-controls";
+import { PortraitNoteEditor } from "./note-editor-portrait";
+import { importJsonNoteFile } from "./json-note-import";
 import { ChordPickerDialog } from "./chord-picker-dialog";
 import { useNoteEditorShortcuts } from "./use-note-editor-shortcuts";
 import { clipLocalTiming, clipPositionTick, projectPositionMs } from "./clip-local-timing";
@@ -145,6 +155,7 @@ export function useSourcePiano({ notes, setNotes, bpm, onBpm, onSave }: SourcePi
     dialogs,
     play,
     applyTiming,
+    clearError: () => setError(null),
     rewind: () => player.seek(projectPositionMs(0, timing)),
     seekTick: (tick: number) => player.seek(projectPositionMs(tick, timing)),
     save,
@@ -217,6 +228,26 @@ export function SourcePianoEditor(props: SourcePianoProps) {
   const portrait = useDevicePortrait();
   const piano = useSourcePiano(props);
   const { maxTick, signature, player, pending, error, positionTick, editor, dialogs, play } = piano;
+  const jsonInput = useRef<HTMLInputElement>(null);
+  const [importing, setImporting] = useState(false);
+  const [importError, setImportError] = useState<string | null>(null);
+  const busy = pending || importing;
+  async function importJson(file: File) {
+    if (busy) return;
+    player.pause();
+    piano.clearError();
+    setImportError(null);
+    setImporting(true);
+    try {
+      await importJsonNoteFile(editor, file, 480);
+    } catch (cause) {
+      setImportError(cause instanceof Error ? cause.message : "JSON 파일을 읽지 못했습니다.");
+    } finally {
+      setImporting(false);
+    }
+  }
+  const { setVisibleBars } = editor;
+  useEffect(() => setVisibleBars(portrait ? 1 : 2), [portrait, setVisibleBars]);
   const {
     settingsIndex: settings,
     setSettingsIndex: setSettings,
@@ -230,50 +261,130 @@ export function SourcePianoEditor(props: SourcePianoProps) {
     onPlay: play,
     onPause: player.pause,
   });
+  const controls = (
+    <NoteEditorControls
+      editor={editor}
+      positionTick={positionTick}
+      tools={!portrait}
+      onSettings={() => {
+        if (editor.selection.length === 1) setSettings(editor.selection[0]);
+      }}
+      onChord={() => {
+        player.pause();
+        setShowChords(true);
+      }}
+    />
+  );
+  const status = (
+    <div className="note-editor-status flex min-h-8 shrink-0 items-center gap-2 px-3 py-1 text-caption text-app-muted">
+      {importError || error || player.error || editor.error ? (
+        <p className="m-0 min-w-0 flex-1" role="alert">
+          {importError ?? error ?? player.error ?? editor.error}
+        </p>
+      ) : (
+        <p className="m-0 min-w-0 flex-1" role="status">
+          {importing
+            ? "JSON 파일을 읽는 중..."
+            : pending
+              ? "오디오를 만드는 중..."
+              : `${editor.snapshot.notes.length}개 노트`}
+        </p>
+      )}
+      <button
+        type="button"
+        className="h-9 shrink-0 rounded-[10px] bg-app-surface px-3 text-body text-app-fg disabled:opacity-50"
+        disabled={busy}
+        onClick={() => jsonInput.current?.click()}
+      >
+        + JSON으로 추가
+      </button>
+    </div>
+  );
+  const roll = (
+    <TeamPianoRoll
+      editor={editor}
+      signature={signature}
+      ppq={480}
+      maxTick={maxTick}
+      positionTick={positionTick}
+      onSeekTick={piano.seekTick}
+      playing={player.playing}
+      instrument="piano"
+      onAudition={(pitch) => void player.audition(pitch, "piano")}
+      rowHeight={portrait ? 40 : undefined}
+      keyWidth={portrait ? 44 : undefined}
+      initialPitch={props.notes[0]?.pitch ?? 60}
+      onSettings={editor.editable ? setSettings : undefined}
+    />
+  );
+  const leave = () => {
+    if (!busy) onBack();
+  };
   return (
-    <div className={cn(studioStyles.studio, portrait && studioStyles.studioUpright, "note-editor")}>
-      <StudioToolbar
-        signature={player.signature}
-        onTiming={pending ? undefined : piano.applyTiming}
-        piano
-        title="샘플 피아노롤"
-        bpm={bpm}
-        playing={player.playing}
-        positionMs={player.positionMs}
-        onPlay={play}
-        onPause={player.pause}
-        onRewind={piano.rewind}
-        onBack={() => {
-          if (!pending) onBack();
-        }}
-        volume={player.volume}
-        onVolume={player.setVolume}
-        metronome={player.metronome}
-        onMetronome={() => player.setMetronome((value) => !value)}
-        addLabel="오디오 선택 완료"
-        onAdd={pending ? undefined : () => void piano.save()}
-      />
-      <NoteEditorControls
-        editor={editor}
-        positionTick={positionTick}
-        onSettings={() => {
-          if (editor.selection.length === 1) setSettings(editor.selection[0]);
-        }}
-        onChord={() => {
-          player.pause();
-          setShowChords(true);
-        }}
-      />
-      {(error || player.error || editor.error) && (
-        <p className={studioStyles.studioError} role="alert">
-          {error ?? player.error ?? editor.error}
-        </p>
+    <div
+      className={cn(studioStyles.studio, portrait && studioStyles.studioPortrait, "note-editor")}
+    >
+      {portrait ? (
+        <PortraitNoteEditor
+          title="샘플 피아노롤"
+          bpm={bpm}
+          signature={signature}
+          onTiming={busy ? undefined : piano.applyTiming}
+          timeMs={player.positionMs}
+          playing={player.playing}
+          onPlay={play}
+          onPause={player.pause}
+          onRewind={piano.rewind}
+          metronome={player.metronome}
+          onMetronome={() => player.setMetronome((value) => !value)}
+          volume={player.volume}
+          onVolume={player.setVolume}
+          onBack={leave}
+          action={{ label: "오디오 선택 완료", onClick: () => void piano.save(), disabled: busy }}
+          controls={controls}
+          status={status}
+          tools={<NoteTools editor={editor} large />}
+          roll={roll}
+        />
+      ) : (
+        <>
+          <StudioToolbar
+            signature={signature}
+            onTiming={busy ? undefined : piano.applyTiming}
+            piano
+            title="샘플 피아노롤"
+            bpm={bpm}
+            playing={player.playing}
+            positionMs={player.positionMs}
+            onPlay={play}
+            onPause={player.pause}
+            onRewind={piano.rewind}
+            onBack={leave}
+            volume={player.volume}
+            onVolume={player.setVolume}
+            metronome={player.metronome}
+            onMetronome={() => player.setMetronome((value) => !value)}
+            addLabel="오디오 선택 완료"
+            onAdd={busy ? undefined : () => void piano.save()}
+          />
+          {controls}
+          {status}
+          {roll}
+        </>
       )}
-      {pending && (
-        <p className={studioStyles.studioError} role="status">
-          오디오를 만드는 중...
-        </p>
-      )}
+      <input
+        ref={jsonInput}
+        type="file"
+        accept=".json,application/json"
+        aria-label="JSON 음표 파일"
+        hidden
+        disabled={busy}
+        onChange={(event) => {
+          const file = event.currentTarget.files?.[0];
+          event.currentTarget.value = "";
+          if (file) void importJson(file);
+        }}
+      />
       {showChords && editor.editable && (
         <ChordPickerDialog
           editor={editor}
@@ -294,21 +405,6 @@ export function SourcePianoEditor(props: SourcePianoProps) {
           onApply={(note) => editor.execute({ type: "replace", index: settings, note })}
         />
       )}
-      <TeamPianoRoll
-        editor={editor}
-        signature={signature}
-        ppq={480}
-        maxTick={maxTick}
-        positionTick={positionTick}
-        onSeekTick={piano.seekTick}
-        playing={player.playing}
-        instrument="piano"
-        onAudition={(pitch) => void player.audition(pitch, "piano")}
-        rowHeight={portrait ? 40 : undefined}
-        keyWidth={portrait ? 44 : undefined}
-        initialPitch={60}
-        onSettings={editor.editable ? setSettings : undefined}
-      />
     </div>
   );
 }
