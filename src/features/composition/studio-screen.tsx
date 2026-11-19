@@ -713,7 +713,9 @@ export function useStudio({
       if (!busy) setMetadataAction(null);
     },
     canSavePrivate,
-    canEditMetadata: project?.ownerId === userId && typeof view === "string",
+    // Unpublished songs need room for both private save and publish. Metadata is
+    // collected by those flows; the separate editor is for already published songs.
+    canEditMetadata: project?.isPublic === true && project.ownerId === userId && typeof view === "string",
     requestMetadataEdit: () => {
       playback.pause();
       setShowMetadataEditor(true);

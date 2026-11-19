@@ -238,15 +238,16 @@ export const studioStyles = {
     "[.design-canvas_.phone-frame--source-piano_&]:bg-app-bg [.design-canvas_.phone-frame--source-piano_&]:bg-none",
     "[.design-canvas_.phone-frame--source-piano_&]:rounded-none",
   ].join(" "),
-  /** Existing studio controls rearranged into two rows on an upright phone. */
+  /** Portrait rows: playback/actions, full-width volume, then timing and samples. */
   studioUpright: [
     "studio-upright",
-    "[.design-canvas_&_.studio-toolbar]:grid [.design-canvas_&_.studio-toolbar]:grid-cols-[auto_minmax(44px,1fr)_auto]",
+    "[.design-canvas_&_.studio-toolbar]:grid [.design-canvas_&_.studio-toolbar]:grid-cols-[auto_minmax(0,1fr)_auto]",
     "[.design-canvas_&_.studio-toolbar]:h-auto! [.design-canvas_&_.studio-toolbar]:flex-none! [.design-canvas_&_.studio-toolbar]:gap-2 [.design-canvas_&_.studio-toolbar]:p-2",
-    "[.design-canvas_&_.studio-readouts]:row-start-2 [.design-canvas_&_.studio-readouts]:col-span-3 [.design-canvas_&_.studio-readouts]:m-0",
+    "[.design-canvas_&_.studio-readouts]:row-start-3 [.design-canvas_&_.studio-readouts]:col-span-3 [.design-canvas_&_.studio-readouts]:m-0",
     "[.design-canvas_&_.studio-readouts]:min-w-0 [.design-canvas_&_.studio-readouts]:overflow-x-auto [.design-canvas_&_.studio-readouts]:py-1",
-    "[.design-canvas_&_.studio-volume]:m-0 [.design-canvas_&_.studio-volume]:min-w-0! [.design-canvas_&_.studio-volume]:pl-0",
-    "[.design-canvas_&_.studio-volume_input]:w-full [.design-canvas_&_.studio-volume_input]:min-w-0",
+    "[.design-canvas_&_.studio-volume]:row-start-2 [.design-canvas_&_.studio-volume]:col-start-1 [.design-canvas_&_.studio-volume]:col-span-3",
+    "[.design-canvas_&_.studio-volume]:m-0 [.design-canvas_&_.studio-volume]:w-full [.design-canvas_&_.studio-volume]:max-w-none! [.design-canvas_&_.studio-volume]:min-w-0! [.design-canvas_&_.studio-volume]:pl-0",
+    "[.design-canvas_&_.studio-volume_input]:w-full [.design-canvas_&_.studio-volume_input]:min-w-0 [.design-canvas_&_.studio-volume_input]:flex-1",
     "[.design-canvas_&_.studio-toolbar-actions]:col-start-3 [.design-canvas_&_.studio-toolbar-actions]:row-start-1",
     "[&_.piano-key.black_span]:invisible",
     "[.design-canvas_&_.note-editor-controls]:flex-wrap [.design-canvas_&_.note-editor-controls]:shrink-0",
