@@ -166,8 +166,8 @@ function Recommendation({ model }: { model: Ready }) {
   if (!recommendation) return null;
   const panel = recommendation.panel;
   return (
-    <ScrollView horizontal showsHorizontalScrollIndicator={false}
-      style={styles.recommendation} contentContainerStyle={styles.recommendationRow}>
+    // Wraps instead of scrolling so "추천 코드 넣기" stays visible on an upright phone.
+    <View style={[styles.recommendation, panel && styles.flex]}>
       {panel && (
         <>
           <Touchable accessibilityRole="button" accessibilityLabel="추천 노트 위치로 이동"
@@ -195,7 +195,7 @@ function Recommendation({ model }: { model: Ready }) {
         accessibilityRole="button" accessibilityState={{ checked: recommendation.enabled }}>
         <Text style={styles.recommendationText}>코드 추천 {recommendation.enabled ? "켜짐" : "꺼짐"}</Text>
       </Touchable>
-    </ScrollView>
+    </View>
   );
 }
 
@@ -280,16 +280,21 @@ function Readout({
   );
 }
 
-/** Draft status ("변경 없음", "개인 초안 저장됨", …). */
+/** Draft status ("변경 없음", "개인 초안 저장됨", …); visually yields to a shown chord suggestion. */
 function StatusRow({ model }: { model: Ready }) {
+  const suggesting = Boolean(model.recommendation?.panel);
   return (
     <View style={styles.status}>
-      <Recommendation model={model} />
-      {!model.recommendation && model.statusText !== null && (
-        <Text accessibilityLiveRegion="polite" style={styles.statusText} numberOfLines={1}>
+      {model.statusText !== null && (
+        <Text
+          accessibilityLiveRegion="polite"
+          style={suggesting ? styles.srOnly : styles.statusText}
+          numberOfLines={1}
+        >
           {model.statusText}
         </Text>
       )}
+      <Recommendation model={model} />
     </View>
   );
 }
@@ -397,8 +402,14 @@ function Overlays({ model }: { model: Ready }) {
 }
 
 const styles = StyleSheet.create({
-  recommendation: { flex: 1, minWidth: 0 },
-  recommendationRow: { gap: 12, alignItems: "center" },
+  recommendation: {
+    minWidth: 0,
+    flexDirection: "row",
+    flexWrap: "wrap",
+    alignItems: "center",
+    columnGap: 12,
+    rowGap: 2,
+  },
   recommendationText: { color: colors.fg, fontSize: 12, lineHeight: 20, paddingVertical: 2 },
   recommendationSelected: { color: colors.accent, fontWeight: "700" },
   flex: { flex: 1 },
@@ -455,7 +466,7 @@ const styles = StyleSheet.create({
   pause: { flexDirection: "row", gap: 6 },
   pauseBar: { width: 6, height: 24, borderRadius: 2, backgroundColor: colors.fg },
   status: {
-    height: 32,
+    minHeight: 32,
     flexShrink: 0,
     flexDirection: "row",
     alignItems: "center",

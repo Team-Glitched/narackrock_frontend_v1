@@ -254,8 +254,9 @@ export type NativeStudio = {
     error: string | null;
     imageName: string | null;
   } | null;
-  /** A chosen file appended to an existing track, trimmed before saving. */
+  /** Audio-analysis dialog for the viewer's own recorded/uploaded clip (chord recommendation input). */
   audioAnalysis?: { busy: boolean; error: string | null; cachedKind: AudioSoundKind | null; noteCount: number };
+  /** A chosen file appended to an existing track, trimmed before saving. */
   audioTrim: { fileName: string; picker: NativeAudioTrim } | null;
   /** Track settings (volume + "악기/보컬 변경"). */
   trackSettings: {

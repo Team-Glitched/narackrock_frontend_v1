@@ -4,6 +4,7 @@ import { contributionTrackIds } from "@/features/workspace/contribution-presenta
 import { studioStyles } from "@/styles/studio.styles";
 import { cn } from "@/lib/utils";
 import { sharedStyles } from "@/styles/shared.styles";
+import { buttonVariants } from "@/styles/variants";
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { queryScope } from "@/lib/query";
@@ -278,7 +279,8 @@ export function useStudio({
     try {
       const projectId = composition.project.projectId;
       const reply = await analyzeAudioClip(projectId, analysisClip.clipId, kind, force);
-      queryClient.setQueryData<CompositionDto>(compositionKeys.detail(userId, projectId), (old) =>
+      // Every cached view of the project (studio, working, approved, request) shows the same clip.
+      queryClient.setQueriesData<CompositionDto>({ queryKey: compositionKeys.detail(userId, projectId) }, (old) =>
         old ? {
           ...old,
           tracks: old.tracks.map((track) => ({ ...track, clips: track.clips.map((clip) =>
@@ -1236,11 +1238,12 @@ function AudioAnalysisDialog({ studio }: { studio: Studio }) {
       </fieldset>
       {studio.analysisError && <p role="alert">{studio.analysisError}</p>}
       <div className="flex flex-wrap gap-2">
-        <button type="button" disabled={busy || !kind}
+        <button type="button" className={buttonVariants({ tone: "primary" })} disabled={busy || !kind}
           onClick={() => kind && void studio.analyze(kind, cached?.soundKind === kind)}>
           {busy ? "분석 중…" : cached ? "다시 분석" : "음 분석 시작"}
         </button>
-        <button type="button" disabled={busy} onClick={studio.closeAnalysis}>닫기</button>
+        <button type="button" className={buttonVariants({ tone: "secondary" })} disabled={busy}
+          onClick={studio.closeAnalysis}>닫기</button>
       </div>
     </CanvasDialog>
   );

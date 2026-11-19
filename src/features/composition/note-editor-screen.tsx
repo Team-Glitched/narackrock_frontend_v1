@@ -122,7 +122,8 @@ function LoadedNoteEditor({
   const recommendation = screen.recommendation;
   const suggestion = recommendation.candidate;
   const statusRow = (
-    <div className="note-editor-status flex h-8 shrink-0 items-center gap-2 px-3 text-caption">
+    // Wraps instead of scrolling: on an upright phone the apply button would otherwise sit off-screen.
+    <div className="note-editor-status flex min-h-8 shrink-0 flex-wrap items-center gap-x-2 gap-y-1 px-3 py-1 text-caption">
       {screen.statusText !== null && (
         <p role="status" className={suggestion ? "sr-only" : "m-0 min-w-0 flex-1 truncate text-app-muted"}>
           {screen.statusText}
@@ -130,7 +131,7 @@ function LoadedNoteEditor({
       )}
       {recommendation.result && suggestion && (
         <section aria-label="다음 마디 코드 추천"
-          className="flex min-w-0 flex-1 items-center gap-1.5 overflow-x-auto whitespace-nowrap [scrollbar-width:none] [&::-webkit-scrollbar]:hidden [&>button]:h-6 [&>button]:shrink-0">
+          className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5 whitespace-nowrap [&>button]:h-6 [&>button]:shrink-0">
           <button type="button" className="grid w-6 place-items-center rounded text-app-muted"
             aria-label="추천 노트 위치로 이동" title="추천 노트 위치로 이동" onClick={recommendation.reveal}>
             <LocateFixed size={14} aria-hidden="true" />
