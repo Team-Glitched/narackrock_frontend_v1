@@ -28,7 +28,7 @@ export default function WorkspacePage() {
       state: { studioFrom: currentPath, studioIndex: window.history.state?.idx },
     });
   const onResume = (id: number, shortId: number | null) =>
-    to(studioPath(id, shortId), {
+    to(studioPath(id, shortId, { view: "working" }), {
       state: { studioFrom: currentPath, studioIndex: window.history.state?.idx },
     });
   if (nativeApp())

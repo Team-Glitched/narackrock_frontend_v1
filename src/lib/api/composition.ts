@@ -81,11 +81,20 @@ export async function enterComposition(
   return data(`/api/v1/shorts/${shortId}/composition`, { signal });
 }
 
+/** A public studio shows approved work; working mode additionally reads only the viewer's own work. */
+export type CompositionView = "studio" | "approved" | "working" | { contributionId: number };
+
 export async function getComposition(
   projectId: number,
   signal?: AbortSignal,
+  view: CompositionView = "working",
 ): Promise<CompositionDto> {
-  return data(`/api/v1/projects/${projectId}/tracks`, { signal });
+  const query = new URLSearchParams(
+    typeof view === "string"
+      ? { view: view.toUpperCase() }
+      : { contributionId: String(view.contributionId) },
+  );
+  return data(`/api/v1/projects/${projectId}/tracks?${query}`, { signal });
 }
 
 /** Creates a track. `instrument` must be a sampled instrument or a recorded role; the server rejects others. */
@@ -103,7 +112,9 @@ export async function createTrack(
 
 /** Removes the caller's track if the server still finds it empty. */
 export async function deleteEmptyTrack(projectId: number, trackId: number) {
-  return apiRequest<void>(`/api/v1/tracks/${trackId}/empty?projectId=${projectId}`, { method: "DELETE" });
+  return apiRequest<void>(`/api/v1/tracks/${trackId}/empty?projectId=${projectId}`, {
+    method: "DELETE",
+  });
 }
 
 /** Original owner only, DRAFT/IN_PROGRESS projects; all three fields are required. */

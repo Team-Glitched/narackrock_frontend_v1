@@ -41,6 +41,7 @@ import {
   updateProjectMetadata,
   updateTrackInstrument,
   uploadMedia,
+  type CompositionView,
   type ClipDto,
   type TrackDto,
 } from "@/lib/api/composition";
@@ -68,6 +69,7 @@ import {
 export type StudioOptions = {
   onSubmitted: () => void;
   contributionId?: number;
+  view?: CompositionView;
   selectMidiLayer: boolean;
   shortId: number | null;
   projectId: number | null;
@@ -95,6 +97,7 @@ export type StudioPrimary =
 export function useStudio({
   onSubmitted,
   contributionId,
+  view: requestedView = "studio",
   selectMidiLayer,
   shortId,
   projectId,
@@ -106,6 +109,7 @@ export function useStudio({
   onExit,
 }: StudioOptions) {
   const userId = useCurrentUserId();
+  const view = contributionId !== undefined ? { contributionId } : requestedView;
   const origin = apiOrigin();
   const queryClient = useQueryClient();
   const [showSources, setShowSources] = useState(false);
@@ -130,16 +134,19 @@ export function useStudio({
   const loadedProjectId = shortId == null ? projectId : (entry.data?.projectId ?? null);
   // Layer pages write without touching this cache, so opening the studio always re-reads the project.
   const compositionResult = useQuery({
-    ...compositionQuery(userId, loadedProjectId ?? 0),
+    ...compositionQuery(userId, loadedProjectId ?? 0, view),
     enabled: loadedProjectId !== null,
     refetchOnMount: "always",
   });
+  const readOnly =
+    view !== "working" && !(view === "studio" && compositionResult.data?.viewerPermission.canEdit);
   const draftsResult = useQuery({
     ...editorDraftsQuery(userId, loadedProjectId ?? 0),
-    enabled: loadedProjectId !== null,
+    enabled: loadedProjectId !== null && !readOnly,
     refetchOnMount: "always",
   });
-  const composition = compositionResult.data && draftsResult.data ? compositionResult.data : null;
+  const composition =
+    compositionResult.data && (readOnly || draftsResult.data) ? compositionResult.data : null;
   const personalDrafts = draftsResult.data;
   const requestList = useQuery({
     ...contributionsQuery(userId, loadedProjectId ?? 0),
@@ -152,10 +159,12 @@ export function useStudio({
     () => contributionTrackIds(highlightedRequest?.items ?? [], composition?.tracks ?? []),
     [highlightedRequest, composition],
   );
-  const loadFailure = entry.error ?? compositionResult.error ?? draftsResult.error;
+  const loadFailure =
+    entry.error ?? compositionResult.error ?? (readOnly ? null : draftsResult.error);
   const preview = useMemo(() => {
-    if (!composition || !personalDrafts || composition.viewerPermission.userId !== userId)
-      return null;
+    if (!composition || composition.viewerPermission.userId !== userId) return null;
+    if (readOnly) return composition;
+    if (!personalDrafts) return null;
     const local = listLocalDrafts(
       browserDraftStorage(),
       apiOrigin(),
@@ -172,9 +181,14 @@ export function useStudio({
       ...local,
     ];
     return withPersonalDrafts(composition, merged);
-  }, [composition, personalDrafts, userId]);
+  }, [composition, personalDrafts, userId, readOnly]);
   const playback = useCompositionPlayback(preview, {
-    scopeKey: JSON.stringify([origin, userId, projectId ?? composition?.project.projectId ?? null]),
+    scopeKey: JSON.stringify([
+      origin,
+      userId,
+      projectId ?? composition?.project.projectId ?? null,
+      view,
+    ]),
   });
 
   useEffect(
@@ -185,7 +199,7 @@ export function useStudio({
   );
 
   // A different route/account/backend starts without the previous screen's dialogs and errors.
-  const loadKey = JSON.stringify([shortId, projectId, userId, origin]);
+  const loadKey = JSON.stringify([shortId, projectId, userId, origin, view]);
   const [loadedKey, setLoadedKey] = useState(loadKey);
   if (loadedKey !== loadKey) {
     setLoadedKey(loadKey);
@@ -526,6 +540,7 @@ export function useStudio({
   const onTiming =
     project &&
     viewerPermission &&
+    viewerPermission.canEdit &&
     project.ownerId === viewerPermission.userId &&
     ["DRAFT", "IN_PROGRESS"].includes(project.status)
       ? async ({ bpm, signature }: ProjectTiming) => {
@@ -562,6 +577,7 @@ export function useStudio({
           track: settingsTrack,
           volume: playback.trackVolumes[settingsTrack.trackId] ?? settingsTrack.volume,
           roleEditable:
+            viewerPermission.canEdit &&
             settingsTrack.ownerId === viewerPermission.userId &&
             ["DRAFT", "IN_PROGRESS"].includes(project.status) &&
             ["DRAFT", "APPROVED"].includes(settingsTrack.approvalStatus),
@@ -619,7 +635,7 @@ export function useStudio({
     busy,
     error,
     setError,
-    status,
+    status: status ?? (readOnly && contributionId == null ? "승인된 레이어만 표시합니다." : null),
     selectMidiLayer,
     highlightedTracks,
     contribution,

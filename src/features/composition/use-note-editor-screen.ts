@@ -7,6 +7,7 @@ import {
   updateProjectTiming,
   updateTrackInstrument,
   type CompositionDto,
+  type CompositionView,
   type MidiNoteDto,
   type TrackDto,
 } from "@/lib/api/composition";
@@ -71,15 +72,16 @@ export function useNoteEditorLoad(
   projectId: number | null,
   trackId: number | null,
   clipId: number | null,
+  view: CompositionView = "working",
 ): NoteEditorLoad {
   const currentUserId = useCurrentUserId();
   // Layer pages write without touching this cache, so the editor only opens on a response read after mounting.
   const query = useQuery({
-    ...compositionQuery(currentUserId, projectId ?? 0),
+    ...compositionQuery(currentUserId, projectId ?? 0, view),
     enabled: projectId !== null,
     refetchOnMount: "always",
   });
-  const editorKey = `${apiOrigin()}:${projectId}:${trackId}:${clipId}:${currentUserId}`;
+  const editorKey = `${apiOrigin()}:${projectId}:${trackId}:${clipId}:${currentUserId}:${JSON.stringify(view)}`;
   const composition =
     query.data?.viewerPermission.userId === currentUserId ? query.data : undefined;
   const track = composition?.tracks.find((item) => item.trackId === trackId);
