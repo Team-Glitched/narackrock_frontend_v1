@@ -22,6 +22,7 @@ import { useCurrentUserId } from "@/features/auth/use-current-user";
 import { useNoteEditor } from "./use-note-editor";
 import { clipLocalTiming, clipPositionTick, projectPositionMs } from "./clip-local-timing";
 import { sameNotes } from "./note-editing";
+import { canLeaveUnchangedDraft } from "./note-editor-exit";
 import { compositionEndMs } from "./composition-playback-timeline";
 import { compositionKeys, compositionQuery } from "./composition-queries";
 import { getOpenSourcePlayback, type OpenSourceSummary } from "@/lib/api/open-sources";
@@ -463,8 +464,11 @@ export function useNoteEditorScreen({
     });
   }
   const saveOrDiscardEmpty = () => (isNewEmptyLayer ? discardNewEmptyLayer() : draft.commit());
+  const canLeaveUnchanged = () =>
+    canLeaveUnchangedDraft(baseClip, draft.session?.getSnapshot() ?? null);
   const requestBack = () => {
-    if (!editable) onBack();
+    if (busy) return;
+    if (!editable || canLeaveUnchanged()) onBack();
     else if (isNewEmptyLayer && draft.session && draft.state?.status !== "conflict")
       void action(discardNewEmptyLayer, onBack);
     else setExitTarget("studio");
@@ -472,7 +476,7 @@ export function useNoteEditorScreen({
   const finishExit = exitTarget === "layers" ? onOpenLayers : onBack;
   function openLayerList() {
     if (busy) return;
-    if (!editable) onOpenLayers();
+    if (!editable || canLeaveUnchanged()) onOpenLayers();
     else if (draft.session && draft.state?.status !== "conflict")
       void action(saveOrDiscardEmpty, onOpenLayers);
     else setExitTarget("layers");
