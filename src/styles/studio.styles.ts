@@ -99,11 +99,11 @@ export const studioStyles = {
   ].join(" "),
   timelineContent: [
     "timeline-content",
-    "[.design-canvas_.studio_&]:relative [.design-canvas_.studio_&]:min-h-full [.design-canvas_.studio_&]:[isolation:isolate]",
+    "[.design-canvas_.studio_&]:relative [.design-canvas_.studio_&]:grid [.design-canvas_.studio_&]:grid-cols-1 [.design-canvas_.studio_&]:min-h-full [.design-canvas_.studio_&]:[isolation:isolate]",
     "[.design-canvas_.studio_&::before]:[content:''] [.design-canvas_.studio_&::before]:sticky [.design-canvas_.studio_&::before]:top-0",
-    "[.design-canvas_.studio_&::before]:left-0 [.design-canvas_.studio_&::before]:z-[6]",
-    "[.design-canvas_.studio_&::before]:mb-[calc(-1_*_var(--timeline-ruler))] [.design-canvas_.studio_&::before]:block",
-    "[.design-canvas_.studio_&::before]:h-[var(--timeline-ruler)] [.design-canvas_.studio_&::before]:w-[var(--timeline-sidebar)]",
+    "[.design-canvas_.studio_&::before]:left-[-1px] [.design-canvas_.studio_&::before]:z-[6]",
+    "[.design-canvas_.studio_&::before]:col-start-1 [.design-canvas_.studio_&::before]:row-start-1 [.design-canvas_.studio_&::before]:ml-[-1px] [.design-canvas_.studio_&::before]:block",
+    "[.design-canvas_.studio_&::before]:h-[var(--timeline-ruler)] [.design-canvas_.studio_&::before]:w-[calc(var(--timeline-sidebar)_+_1px)]",
     "[.design-canvas_.studio_&::before]:bg-app-bg [.design-canvas_.studio_&::before]:bg-none",
     "relative min-h-full w-[max-content] min-w-full",
   ].join(" "),
@@ -116,15 +116,16 @@ export const studioStyles = {
   ].join(" "),
   timelineSidebarFill: [
     "timeline-sidebar-fill",
-    "[.design-canvas_.studio_&]:[--sidebar-height:max(321px,_calc(var(--timeline-lanes)_*_var(--lane-height)))] [.design-canvas_.studio_&]:sticky",
-    "[.design-canvas_.studio_&]:left-0 [.design-canvas_.studio_&]:z-[1] [.design-canvas_.studio_&]:mb-[calc(-1_*_var(--sidebar-height))]",
-    "[.design-canvas_.studio_&]:h-[var(--sidebar-height)] [.design-canvas_.studio_&]:w-[var(--timeline-sidebar)]",
+    // Span every lane and the unused space below them; overlap the scroll edge by one canvas pixel.
+    "[.design-canvas_.studio_&]:sticky [.design-canvas_.studio_&]:left-[-1px] [.design-canvas_.studio_&]:z-[1]",
+    "[.design-canvas_.studio_&]:col-start-1 [.design-canvas_.studio_&]:row-[2_/_-1] [.design-canvas_.studio_&]:self-stretch",
+    "[.design-canvas_.studio_&]:ml-[-1px] [.design-canvas_.studio_&]:w-[calc(var(--timeline-sidebar)_+_1px)]",
     "[.design-canvas_.studio_&]:bg-app-bg [.design-canvas_.studio_&]:bg-none [.design-canvas_.studio_&]:pointer-events-none",
   ].join(" "),
   ruler: [
     "ruler",
     "[.design-canvas_.studio_&]:sticky [.design-canvas_.studio_&]:top-0 [.design-canvas_.studio_&]:z-[5]",
-    "[.design-canvas_.studio_&]:ml-[var(--timeline-sidebar)] [.design-canvas_.studio_&]:flex [.design-canvas_.studio_&]:h-[var(--timeline-ruler)]",
+    "[.design-canvas_.studio_&]:col-start-1 [.design-canvas_.studio_&]:row-start-1 [.design-canvas_.studio_&]:ml-[var(--timeline-sidebar)] [.design-canvas_.studio_&]:flex [.design-canvas_.studio_&]:h-[var(--timeline-ruler)]",
     "[.design-canvas_.studio_&]:items-end [.design-canvas_.studio_&]:p-0 [.design-canvas_.studio_&]:border-t-0",
     "[.design-canvas_.studio_&]:[border-top-style:none] [.design-canvas_.studio_&]:border-t-current [.design-canvas_.studio_&]:border-r-0",
     "[.design-canvas_.studio_&]:[border-right-style:none] [.design-canvas_.studio_&]:border-r-current",
@@ -143,7 +144,7 @@ export const studioStyles = {
   studioTrack: [
     "studio-track",
     "[.design-canvas_.studio_&]:relative [.design-canvas_.studio_&]:flex [.design-canvas_.studio_&]:h-[var(--lane-height)]",
-    "[.design-canvas_.studio_&]:min-h-[var(--lane-height)] [.design-canvas_.studio_&]:items-start [.design-canvas_.studio_&]:gap-0",
+    "[.design-canvas_.studio_&]:col-start-1 [.design-canvas_.studio_&]:min-h-[var(--lane-height)] [.design-canvas_.studio_&]:items-start [.design-canvas_.studio_&]:gap-0",
     "w-[max-content] min-w-full gap-0",
   ].join(" "),
   trackPerson: [

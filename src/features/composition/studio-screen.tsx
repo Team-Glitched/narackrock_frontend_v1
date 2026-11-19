@@ -4,7 +4,7 @@ import { contributionTrackIds } from "@/features/workspace/contribution-presenta
 import { studioStyles } from "@/styles/studio.styles";
 import { cn } from "@/lib/utils";
 import { sharedStyles } from "@/styles/shared.styles";
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { queryScope } from "@/lib/query";
 import { PublishConfirmation } from "@/features/composition/publish-confirmation";
@@ -980,11 +980,14 @@ export function StudioScreen({ studio, portrait = true }: { studio: Studio; port
           onResource={studio.importResource}
         />
       )}
-      <div
-        className={studioStyles.timeline}
-        style={{ "--timeline-lanes": tracks.length } as CSSProperties}
-      >
-        <div className={studioStyles.timelineContent} style={{ minWidth: 98 + timelineWidth }}>
+      <div className={studioStyles.timeline}>
+        <div
+          className={studioStyles.timelineContent}
+          style={{
+            minWidth: 98 + timelineWidth,
+            gridTemplateRows: `var(--timeline-ruler) ${tracks.length ? `repeat(${tracks.length}, var(--lane-height))` : ""} minmax(0, 1fr)`,
+          }}
+        >
           <div
             className={studioStyles.ruler}
             style={{ width: timelineWidth }}
@@ -1044,7 +1047,7 @@ export function StudioScreen({ studio, portrait = true }: { studio: Studio; port
               backgroundImage: `repeating-linear-gradient(to bottom,transparent 0 42px,var(--black) 42px 46px),${musicalGridBackground(playback.signature)},repeating-linear-gradient(to bottom,var(--grid-cell) 0 1px,var(--grid-row) 1px 41px,var(--grid-cell) 41px 42px,var(--black) 42px 46px,var(--grid-cell) 46px 47px,var(--grid-row-alt) 47px 87px,var(--grid-cell) 87px 88px,var(--black) 88px 92px)`,
             }}
           />
-          {tracks.map((track) => (
+          {tracks.map((track, index) => (
             <div
               className={cn(
                 sharedStyles.track,
@@ -1053,6 +1056,7 @@ export function StudioScreen({ studio, portrait = true }: { studio: Studio; port
                   "after:pointer-events-none after:absolute after:inset-0 after:z-[3] after:rounded-md after:border-2 after:border-solid after:border-app-primary-soft after:content-['']",
               )}
               key={track.trackId}
+              style={{ gridRow: index + 2 }}
               ref={track.trackId === [...highlightedTracks][0] ? firstHighlightedTrack : undefined}
               data-contribution-highlighted={highlightedTracks.has(track.trackId) || undefined}
               aria-label={
