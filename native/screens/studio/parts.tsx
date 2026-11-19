@@ -4,7 +4,7 @@
  * Dialogs are in-tree overlays (not RN `Modal`) so they share the canvas bounds: render
  * them at the screen root, after the scrolling content.
  */
-import { createContext, useContext, useRef, useState, type ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import {
   ActivityIndicator,
   PanResponder,
@@ -14,7 +14,6 @@ import {
   Text,
   TextInput,
   View,
-  useWindowDimensions,
   type StyleProp,
   type ViewStyle,
 } from "react-native";
@@ -35,39 +34,9 @@ import { useScreenBack } from "../../ui/screen-back";
 import { useScreen } from "../../ui/screen-context";
 import { colors } from "../../ui/theme";
 
-type LandscapeValue = { rotated: boolean; width: number; height: number };
-const LandscapeContext = createContext<LandscapeValue>({ rotated: false, width: 0, height: 0 });
-
-/** The available studio canvas bounds, also used by gesture controls. */
-export function useLandscape(): LandscapeValue {
-  return useContext(LandscapeContext);
-}
-
-/**
- * Screen-space gesture deltas → canvas deltas. Adaptive canvases keep their screen axes;
- * the rotated mapping remains available for older gesture callers.
- */
-export function landscapeDelta(rotated: boolean, dx: number, dy: number) {
-  return rotated ? { dx: dy, dy: -dx } : { dx, dy };
-}
-
-/** Fill the current window without rotating content independently of the system keyboard. */
+/** Fill the current window; the OS rotates it, so content keeps the screen axes. */
 export function StudioCanvas({ children }: { children: ReactNode }) {
-  const window = useWindowDimensions();
-  const [size, setSize] = useState({ width: window.width, height: window.height });
-  return (
-    <View
-      style={styles.canvas}
-      onLayout={(event) => {
-        const { width, height } = event.nativeEvent.layout;
-        if (width !== size.width || height !== size.height) setSize({ width, height });
-      }}
-    >
-      <LandscapeContext.Provider value={{ rotated: false, ...size }}>
-        {children}
-      </LandscapeContext.Provider>
-    </View>
-  );
+  return <View style={styles.canvas}>{children}</View>;
 }
 
 /** Centered dialog over the screen (the web's CanvasDialog); a tap outside or Back closes it. */
@@ -118,11 +87,10 @@ export function Slider({
   onChange: (value: number) => void;
   style?: StyleProp<ViewStyle>;
 }) {
-  const { rotated } = useLandscape();
   const width = useRef(1);
   const start = useRef(0);
-  const latest = useRef({ min, max, onChange, disabled, rotated });
-  latest.current = { min, max, onChange, disabled, rotated };
+  const latest = useRef({ min, max, onChange, disabled });
+  latest.current = { min, max, onChange, disabled };
   const valueAt = (x: number) => {
     const { min: low, max: high } = latest.current;
     return Math.round(low + Math.max(0, Math.min(1, x / width.current)) * (high - low));
@@ -137,8 +105,7 @@ export function Slider({
         latest.current.onChange(valueAt(start.current));
       },
       onPanResponderMove: (_, gesture) => {
-        const { dx } = landscapeDelta(latest.current.rotated, gesture.dx, gesture.dy);
-        latest.current.onChange(valueAt(start.current + dx));
+        latest.current.onChange(valueAt(start.current + gesture.dx));
       },
     }),
   ).current;

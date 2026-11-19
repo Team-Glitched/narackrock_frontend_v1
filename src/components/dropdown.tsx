@@ -29,24 +29,17 @@ function getMenuPosition(
   optionCount: number,
 ): CSSProperties {
   const canvas = trigger.closest<HTMLElement>(".design-canvas");
-  const viewport = canvas?.closest<HTMLElement>(".design-viewport");
-  const rotated =
-    viewport?.dataset.rotated === "true" && viewport.dataset.keyboardVisible !== "true";
   const anchor = trigger.getBoundingClientRect();
   const bounds = host.getBoundingClientRect();
   const insideCanvas = Boolean(canvas);
   // The dialog overlay fills the canvas, so both hosts share its logical coordinates.
-  const scale = canvas ? (rotated ? bounds.height : bounds.width) / host.offsetWidth : 1;
+  const scale = canvas ? bounds.width / host.offsetWidth : 1;
   const availableWidth = canvas ? host.offsetWidth : window.innerWidth;
   const availableHeight = canvas ? host.offsetHeight : window.innerHeight;
-  const left = rotated
-    ? (anchor.top - bounds.top) / scale
-    : (anchor.left - (canvas ? bounds.left : 0)) / scale;
-  const top = rotated
-    ? (bounds.right - anchor.right) / scale
-    : (anchor.top - (canvas ? bounds.top : 0)) / scale;
-  const anchorWidth = (rotated ? anchor.height : anchor.width) / scale;
-  const anchorHeight = (rotated ? anchor.width : anchor.height) / scale;
+  const left = (anchor.left - (canvas ? bounds.left : 0)) / scale;
+  const top = (anchor.top - (canvas ? bounds.top : 0)) / scale;
+  const anchorWidth = anchor.width / scale;
+  const anchorHeight = anchor.height / scale;
   const width = Math.min(Math.max(anchorWidth, 128), availableWidth - 2 * inset);
   const below = availableHeight - (top + anchorHeight + gap) - inset;
   const above = top - gap - inset;

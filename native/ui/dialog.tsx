@@ -33,7 +33,12 @@ export function Dialog({
               onPress={close}
               style={[
                 styles.container,
-                { paddingTop: insets.top + gutter, paddingBottom: insets.bottom + gutter },
+                {
+                  paddingTop: insets.top + gutter,
+                  paddingBottom: insets.bottom + gutter,
+                  paddingLeft: insets.left + gutter,
+                  paddingRight: insets.right + gutter,
+                },
               ]}
             >
               <Pressable

@@ -35,8 +35,6 @@ import {
   SourceSheet,
   TimingSheet,
   VolumeSheet,
-  landscapeDelta,
-  useLandscape,
 } from "./parts";
 import { AddButton, StudioToolbar, ToolbarTextButton, useTransport } from "./toolbar";
 
@@ -429,7 +427,6 @@ function Clip({
   onMove: (startTick: number) => void;
 }) {
   const { act } = useScreen();
-  const { rotated } = useLandscape();
   const [position, setPosition] = useState<number | null>(null);
   // The model's start moved (saved or re-read): drop the local drag position.
   const [shownStart, setShownStart] = useState(clip.startTick);
@@ -444,8 +441,8 @@ function Clip({
     setSaving(null);
     setPosition(null);
   }
-  const latest = useRef({ clip, model, rotated, onMove });
-  latest.current = { clip, model, rotated, onMove };
+  const latest = useRef({ clip, model, onMove });
+  latest.current = { clip, model, onMove };
   const drag = useRef({ tick: clip.startTick, moved: false });
 
   const tap = () => {
@@ -464,10 +461,9 @@ function Clip({
       onPanResponderGrant: () => {
         drag.current = { tick: latest.current.clip.startTick, moved: false };
       },
-      onPanResponderMove: (_, gesture) => {
-        const { clip: current, model: studio, rotated: turned } = latest.current;
+      onPanResponderMove: (_, { dx }) => {
+        const { clip: current, model: studio } = latest.current;
         if (!current.movable) return;
-        const { dx } = landscapeDelta(turned, gesture.dx, gesture.dy);
         if (Math.abs(dx) > 3) drag.current.moved = true;
         if (!drag.current.moved) return;
         drag.current.tick = snappedClipStart(
