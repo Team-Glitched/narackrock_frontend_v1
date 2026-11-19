@@ -220,6 +220,7 @@ export type NativeNotifications = {
   category: string | null;
   unreadOnly: boolean;
   readAllDisabled: boolean;
+  deleteReadDisabled: boolean;
   error: string | null;
   notice: string | null;
   status: "loading" | "error" | "ready";
@@ -231,7 +232,15 @@ export type NativeNotifications = {
 
 export type NativeNotificationsAction =
   | { type: "category"; id: string | null }
-  | { type: "unread-only" | "read-all" | "toggle-preferences" | "preferences-retry" | "retry" }
+  | {
+      type:
+        | "unread-only"
+        | "read-all"
+        | "delete-read"
+        | "toggle-preferences"
+        | "preferences-retry"
+        | "retry";
+    }
   | { type: "preference"; key: string; value: boolean }
   | { type: "open" | "read" | "project"; id: number }
   | { type: "review"; id: number; accept: boolean };
