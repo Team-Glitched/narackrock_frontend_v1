@@ -22,7 +22,7 @@ const rowScroll = "overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]
  */
 export function PortraitNoteEditor({
   title, bpm, signature, onTiming, timeMs, instrument, playing, onPlay, onPause, onRewind, metronome,
-  onMetronome, volume, onVolume, onBack, onOpenLayers, onImportSource, controls, status, tools, roll,
+  onMetronome, volume, onVolume, onBack, action, onImportSource, controls, status, tools, roll,
 }: {
   title: string;
   bpm: number;
@@ -40,7 +40,8 @@ export function PortraitNoteEditor({
   volume: number;
   onVolume: (value: number) => void;
   onBack: () => void;
-  onOpenLayers: () => void;
+  /** Shared top-right action: layer navigation for projects, audio completion for samples. */
+  action: { label: string; onClick: () => void; disabled?: boolean };
   onImportSource?: () => void;
   /** Selection, history, grid actions and the status row from the landscape layout. */
   controls: ReactNode;
@@ -72,9 +73,11 @@ export function PortraitNoteEditor({
           />
         </label>
         <button
-          className={cn(studioStyles.studioAdd, "relative h-9 w-14 shrink-0 rounded-[10px] bg-app-primary [&_i]:top-[17px]! [&_i]:left-[18px]!")}
-          aria-label="레이어 목록"
-          onClick={onOpenLayers}
+          className={cn(studioStyles.studioAdd, "relative h-9 w-14 shrink-0 rounded-[10px] bg-app-primary disabled:opacity-50 [&_i]:top-[17px]! [&_i]:left-[18px]!")}
+          aria-label={action.label}
+          title={action.label}
+          disabled={action.disabled}
+          onClick={action.onClick}
         >
           <i />
         </button>

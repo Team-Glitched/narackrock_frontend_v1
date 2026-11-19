@@ -207,7 +207,7 @@ function LoadedNoteEditor({
           volume={playback.volume}
           onVolume={playback.setVolume}
           onBack={screen.requestBack}
-          onOpenLayers={screen.openLayerList}
+          action={{ label: "레이어 목록", onClick: screen.openLayerList }}
           onImportSource={screen.openSources}
           controls={controls}
           status={statusRow}
