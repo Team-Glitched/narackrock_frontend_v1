@@ -45,7 +45,7 @@ import { useNativeAudioState } from "../../audio";
 import { Touchable } from "../../ui/kit";
 import { useScreen } from "../../ui/screen-context";
 import { colors } from "../../ui/theme";
-import { Dialog, DialogButton, NumberField, Slider, landscapeDelta, useLandscape } from "../studio/parts";
+import { Dialog, DialogButton, NumberField, Slider } from "../studio/parts";
 import { DrumPadIcon } from "./drum-pad-icon";
 import { Icon, type IconName } from "./icons";
 
@@ -119,9 +119,10 @@ type Layout = {
   height: number;
   scroll: Point;
   maxScroll: Point;
-  rotated: boolean;
   rowIndex: Map<number, number>;
 };
+
+const landscapeKeyWidth = 87;
 
 /**
  * Pitch grid with the keyboard (or drum pads), ruler and playhead. Fills its parent. Taps on keys and
@@ -130,7 +131,7 @@ type Layout = {
 export function NoteRoll({
   roll,
   rowHeight = 30,
-  keyWidth = 87,
+  keyWidth = landscapeKeyWidth,
 }: {
   roll: NativeNoteRoll;
   /** Pitch row height and key column width; the portrait layout enlarges the touch targets. */
@@ -138,7 +139,8 @@ export function NoteRoll({
   keyWidth?: number;
 }) {
   const { act } = useScreen();
-  const { rotated } = useLandscape();
+  // Like the web's upright layout: a narrower key column leaves no room beside a black key for its name.
+  const blackKeyLabels = keyWidth >= landscapeKeyWidth;
   const [size, setSize] = useState({ width: 0, height: 0 });
   const [scrollY, setScrollY] = useState(0);
   const [panX, setPanX] = useState<number | null>(null);
@@ -203,7 +205,7 @@ export function NoteRoll({
   }, [config]);
 
   const layout = useRef<Layout>(null as unknown as Layout);
-  layout.current = { roll, rowHeight, ppt, width, height, scroll, maxScroll, rotated, rowIndex };
+  layout.current = { roll, rowHeight, ppt, width, height, scroll, maxScroll, rowIndex };
   const actRef = useRef(act);
   actRef.current = act;
 
@@ -306,8 +308,7 @@ export function NoteRoll({
       active.previous = point;
     }
     function current(active: Gesture, state: PanResponderGestureState): Point {
-      const delta = landscapeDelta(layout.current.rotated, state.dx, state.dy);
-      return { x: active.origin.x + delta.dx, y: active.origin.y + delta.dy };
+      return { x: active.origin.x + state.dx, y: active.origin.y + state.dy };
     }
     function grant(event: GestureResponderEvent) {
       const { roll: model, ppt: scale, rowHeight: rh, scroll: offset, width: w } = layout.current;
@@ -372,10 +373,9 @@ export function NoteRoll({
       if (!active.moved && Math.hypot(state.dx, state.dy) < dragSlop) return;
       active.moved = true;
       if (active.kind === "pan") {
-        const { maxScroll: limit, rotated: turned } = layout.current;
-        const delta = landscapeDelta(turned, state.dx, state.dy);
-        setPanX(clamp(active.scroll.x - delta.dx, 0, limit.x));
-        setScrollY(clamp(active.scroll.y - delta.dy, 0, limit.y));
+        const limit = layout.current.maxScroll;
+        setPanX(clamp(active.scroll.x - state.dx, 0, limit.x));
+        setScrollY(clamp(active.scroll.y - state.dy, 0, limit.y));
       } else if (active.kind !== "tap") show(active, current(active, state));
     }
     function release(_: GestureResponderEvent, state: PanResponderGestureState) {
@@ -409,9 +409,8 @@ export function NoteRoll({
         }
       } else if (active.kind === "pan") {
         if (active.moved && scale > 0) {
-          const { maxScroll: limit, rotated: turned } = layout.current;
-          const delta = landscapeDelta(turned, state.dx, state.dy);
-          send({ type: "roll-view", tick: clamp(active.scroll.x - delta.dx, 0, limit.x) / scale });
+          const limit = layout.current.maxScroll;
+          send({ type: "roll-view", tick: clamp(active.scroll.x - state.dx, 0, limit.x) / scale });
         }
         setPreview(null);
       } else {
@@ -456,8 +455,7 @@ export function NoteRoll({
       onPanResponderMove: (_, state) => {
         if (!start.moved && Math.hypot(state.dx, state.dy) < dragSlop) return;
         start.moved = true;
-        const { rotated: turned, maxScroll: limit } = layout.current;
-        setScrollY(clamp(start.y - landscapeDelta(turned, state.dx, state.dy).dy, 0, limit.y));
+        setScrollY(clamp(start.y - state.dy, 0, layout.current.maxScroll.y));
       },
       onPanResponderRelease: () => {
         if (start.moved) return;
@@ -491,9 +489,9 @@ export function NoteRoll({
         seek(tickAt(start.location), true);
       },
       onPanResponderMove: (_, state) =>
-        seek(tickAt(start.location + landscapeDelta(layout.current.rotated, state.dx, state.dy).dx), false),
+        seek(tickAt(start.location + state.dx), false),
       onPanResponderRelease: (_, state) => {
-        seek(tickAt(start.location + landscapeDelta(layout.current.rotated, state.dx, state.dy).dx), true);
+        seek(tickAt(start.location + state.dx), true);
         setDragTick(null);
       },
       onPanResponderTerminate: () => setDragTick(null),
@@ -580,7 +578,7 @@ export function NoteRoll({
               ) : (
                 <>
                   {sharp(pitch) && <View style={styles.blackKey} />}
-                  <Text style={styles.keyLabel}>{label}</Text>
+                  {(blackKeyLabels || !sharp(pitch)) && <Text style={styles.keyLabel}>{label}</Text>}
                 </>
               )}
             </View>
