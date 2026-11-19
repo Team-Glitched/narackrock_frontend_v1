@@ -6,6 +6,7 @@ export type RulerTickWindow = {
   startTick: number;
   endTick: number;
   pixelsPerTick: number;
+  originTick?: number;
 };
 
 export function MusicalRuler({ signature, width, tickWindow }: {
@@ -14,11 +15,11 @@ export function MusicalRuler({ signature, width, tickWindow }: {
   tickWindow?: RulerTickWindow;
 }) {
   if (tickWindow) {
-    const { ppq, startTick, endTick, pixelsPerTick } = tickWindow;
+    const { ppq, startTick, endTick, pixelsPerTick, originTick = 0 } = tickWindow;
     const beatTicks = ppq * 4 / signature.denominator;
     if (!(beatTicks > 0) || !(pixelsPerTick > 0) || endTick <= startTick) return null;
-    const firstBeat = Math.ceil(startTick / beatTicks - 1e-9);
-    const lastBeat = Math.floor(endTick / beatTicks + 1e-9);
+    const firstBeat = Math.ceil((startTick + originTick) / beatTicks - 1e-9);
+    const lastBeat = Math.floor((endTick + originTick) / beatTicks + 1e-9);
     return (
       <div
         className={studioStyles.musicalRulerMarks}
@@ -32,7 +33,7 @@ export function MusicalRuler({ signature, width, tickWindow }: {
             <span
               key={beat}
               style={{
-                left: (beat * beatTicks - startTick) * pixelsPerTick,
+                left: (beat * beatTicks - startTick - originTick) * pixelsPerTick,
                 height: bar ? "100%" : "40%",
                 top: bar ? 0 : "60%",
                 borderLeft: `1px solid ${bar ? "var(--grid-bar)" : "var(--grid-beat)"}`,

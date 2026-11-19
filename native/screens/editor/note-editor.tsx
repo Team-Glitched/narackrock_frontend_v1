@@ -8,20 +8,20 @@ import ReturnIcon from "../../../public/figma/return.svg";
 import SoundIcon from "../../../public/figma/sound.svg";
 import { Touchable } from "../../ui/kit";
 import { useScreen } from "../../ui/screen-context";
+import { useDevicePortrait } from "../../ui/use-device-portrait";
 import { colors } from "../../ui/theme";
 import {
   CanvasState,
   Dialog,
   DialogButton,
   InstrumentSheet,
-  Landscape,
+  StudioCanvas,
   Slider,
   SourceSheet,
   TimingSheet,
 } from "../studio/parts";
 import { AddButton, StudioToolbar, useTransport } from "../studio/toolbar";
 import type { ScreenProps } from "../types";
-import { Icon } from "./icons";
 import { NoteControls, NoteRoll, NoteRollSheets, NoteTools } from "./roll";
 
 type Ready = Extract<NativeNoteEditor, { status: "ready" }>;
@@ -29,6 +29,7 @@ type Ready = Extract<NativeNoteEditor, { status: "ready" }>;
 /** /studio/:projectId/tracks/:trackId/notes: the web's NoteEditorScreen, landscape or portrait. */
 export function NoteEditorScreen({ model }: ScreenProps<"editor-notes">) {
   const { act } = useScreen();
+  const portrait = useDevicePortrait();
   if (model.status !== "ready")
     return (
       <View style={styles.page}>
@@ -40,13 +41,13 @@ export function NoteEditorScreen({ model }: ScreenProps<"editor-notes">) {
         />
       </View>
     );
-  return model.portrait ? (
+  return portrait ? (
     <View style={styles.page}>
       <Portrait model={model} />
       <Overlays model={model} />
     </View>
   ) : (
-    <Landscape>
+    <StudioCanvas>
       <View style={styles.page}>
         <StudioToolbar
           transport={model.transport}
@@ -70,7 +71,7 @@ export function NoteEditorScreen({ model }: ScreenProps<"editor-notes">) {
         <NoteRoll roll={model.roll} />
         <Overlays model={model} />
       </View>
-    </Landscape>
+    </StudioCanvas>
   );
 }
 
@@ -159,6 +160,45 @@ function Portrait({ model }: { model: Ready }) {
   );
 }
 
+function Recommendation({ model }: { model: Ready }) {
+  const { act } = useScreen();
+  const recommendation = model.recommendation;
+  if (!recommendation) return null;
+  const panel = recommendation.panel;
+  return (
+    // Wraps instead of scrolling so "추천 코드 넣기" stays visible on an upright phone.
+    <View style={[styles.recommendation, panel && styles.flex]}>
+      {panel && (
+        <>
+          <Touchable accessibilityRole="button" accessibilityLabel="추천 노트 위치로 이동"
+            onPress={() => act({ type: "editor-chord-reveal" })}>
+            <Text style={styles.recommendationText}>◎</Text>
+          </Touchable>
+          {panel.names.map((name, index) => (
+            <Touchable key={name} accessibilityRole="button" accessibilityState={{ selected: index === panel.index }}
+              onPress={() => act({ type: "editor-chord-select", index })}>
+              <Text style={[styles.recommendationText, index === panel.index && styles.recommendationSelected]}>{name}</Text>
+            </Touchable>
+          ))}
+          <Touchable onPress={() => act({ type: "editor-chord-listen" })}>
+            <Text style={styles.recommendationText}>{panel.playing ? "미리듣기 정지" : "미리듣기"}</Text>
+          </Touchable>
+          <Touchable onPress={() => act({ type: "editor-chord-apply" })}>
+            <Text style={[styles.recommendationText, styles.recommendationSelected]}>추천 코드 넣기</Text>
+          </Touchable>
+          <Touchable onPress={() => act({ type: "editor-chord-dismiss" })}>
+            <Text style={styles.recommendationText}>건너뛰기</Text>
+          </Touchable>
+        </>
+      )}
+      <Touchable onPress={() => act({ type: "editor-chord-toggle" })}
+        accessibilityRole="button" accessibilityState={{ checked: recommendation.enabled }}>
+        <Text style={styles.recommendationText}>코드 추천 {recommendation.enabled ? "켜짐" : "꺼짐"}</Text>
+      </Touchable>
+    </View>
+  );
+}
+
 function PortraitTransport({ transport }: { transport: NativeTransport }) {
   const { act } = useScreen();
   const { playing } = useTransport(transport);
@@ -240,27 +280,21 @@ function Readout({
   );
 }
 
-/** Draft status ("변경 없음", "개인 초안 저장됨", …) and the layout toggle. */
+/** Draft status ("변경 없음", "개인 초안 저장됨", …); visually yields to a shown chord suggestion. */
 function StatusRow({ model }: { model: Ready }) {
-  const { act } = useScreen();
+  const suggesting = Boolean(model.recommendation?.panel);
   return (
     <View style={styles.status}>
       {model.statusText !== null && (
-        <Text accessibilityLiveRegion="polite" style={styles.statusText} numberOfLines={1}>
+        <Text
+          accessibilityLiveRegion="polite"
+          style={suggesting ? styles.srOnly : styles.statusText}
+          numberOfLines={1}
+        >
           {model.statusText}
         </Text>
       )}
-      {model.layoutToggle && (
-        <Touchable
-          accessibilityRole="button"
-          style={styles.layout}
-          hitSlop={8}
-          onPress={() => act({ type: "editor-layout" })}
-        >
-          <Icon name={model.portrait ? "landscape" : "portrait"} size={13} color={colors.muted} />
-          <Text style={styles.layoutText}>{model.portrait ? "가로 모드" : "세로 모드"}</Text>
-        </Touchable>
-      )}
+      <Recommendation model={model} />
     </View>
   );
 }
@@ -368,6 +402,16 @@ function Overlays({ model }: { model: Ready }) {
 }
 
 const styles = StyleSheet.create({
+  recommendation: {
+    minWidth: 0,
+    flexDirection: "row",
+    flexWrap: "wrap",
+    alignItems: "center",
+    columnGap: 12,
+    rowGap: 2,
+  },
+  recommendationText: { color: colors.fg, fontSize: 12, lineHeight: 20, paddingVertical: 2 },
+  recommendationSelected: { color: colors.accent, fontWeight: "700" },
   flex: { flex: 1 },
   page: { flex: 1, backgroundColor: colors.bg },
   srOnly: { position: "absolute", width: 1, height: 1, opacity: 0 },
@@ -422,6 +466,8 @@ const styles = StyleSheet.create({
   pause: { flexDirection: "row", gap: 6 },
   pauseBar: { width: 6, height: 24, borderRadius: 2, backgroundColor: colors.fg },
   status: {
+    minHeight: 32,
+    flexShrink: 0,
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
@@ -429,8 +475,6 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
   },
   statusText: { flex: 1, minWidth: 0, color: colors.muted, fontSize: 14, lineHeight: 16 },
-  layout: { marginLeft: "auto", flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 6 },
-  layoutText: { color: colors.muted, fontSize: 14, lineHeight: 18 },
   notices: {
     flexDirection: "row",
     flexWrap: "wrap",

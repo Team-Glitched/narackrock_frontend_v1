@@ -2,10 +2,12 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCompositionPlayback } from "./use-composition-playback";
 import {
+  deleteEmptyTrack,
   insertOpenSourceClip,
   updateProjectTiming,
   updateTrackInstrument,
   type CompositionDto,
+  type CompositionView,
   type MidiNoteDto,
   type TrackDto,
 } from "@/lib/api/composition";
@@ -13,13 +15,14 @@ import { apiOrigin } from "@/lib/api/client";
 import { saveFile } from "@/lib/native-app";
 import { errorText } from "./studio-helpers";
 import { useEditorDraft } from "./use-editor-draft";
-import { cancelEmptyLayer, resourceNotes } from "./composition-actions";
+import { resourceNotes } from "./composition-actions";
 import { findInstrument, invalidPitchesFor } from "./instrument-catalog";
 import { supportsMidi } from "./instrument-parts";
 import { useCurrentUserId } from "@/features/auth/use-current-user";
 import { useNoteEditor } from "./use-note-editor";
 import { clipLocalTiming, clipPositionTick, projectPositionMs } from "./clip-local-timing";
 import { sameNotes } from "./note-editing";
+import { canLeaveUnchangedDraft } from "./note-editor-exit";
 import { compositionEndMs } from "./composition-playback-timeline";
 import { compositionKeys, compositionQuery } from "./composition-queries";
 import { getOpenSourcePlayback, type OpenSourceSummary } from "@/lib/api/open-sources";
@@ -27,6 +30,7 @@ import type { Resource } from "@/features/workspace/workspace-store";
 import type { ProjectTiming } from "./project-timing";
 import type { InstrumentChoice } from "./instrument-dialog";
 import { openSourceStartTick, insertThenRefresh } from "./open-source-insertion";
+import { useNextChord } from "./use-next-chord";
 import { useNoteEditorDialogs } from "./use-note-editor-native";
 
 /** The playback answer may omit the length; the audio metadata is read then. */
@@ -70,15 +74,16 @@ export function useNoteEditorLoad(
   projectId: number | null,
   trackId: number | null,
   clipId: number | null,
+  view: CompositionView = "working",
 ): NoteEditorLoad {
   const currentUserId = useCurrentUserId();
   // Layer pages write without touching this cache, so the editor only opens on a response read after mounting.
   const query = useQuery({
-    ...compositionQuery(currentUserId, projectId ?? 0),
+    ...compositionQuery(currentUserId, projectId ?? 0, view),
     enabled: projectId !== null,
     refetchOnMount: "always",
   });
-  const editorKey = `${apiOrigin()}:${projectId}:${trackId}:${clipId}:${currentUserId}`;
+  const editorKey = `${apiOrigin()}:${projectId}:${trackId}:${clipId}:${currentUserId}:${JSON.stringify(view)}`;
   const composition =
     query.data?.viewerPermission.userId === currentUserId ? query.data : undefined;
   const track = composition?.tracks.find((item) => item.trackId === trackId);
@@ -137,6 +142,7 @@ export type NoteEditorScreenState = ReturnType<typeof useNoteEditorScreen>;
  * the personal draft, the note editor controller, playback, dialogs and the exit flow.
  */
 export function useNoteEditorScreen({
+  conversionNotice,
   composition,
   trackId,
   requestedClipId,
@@ -144,6 +150,7 @@ export function useNoteEditorScreen({
   onOpenLayers,
   portrait,
 }: {
+  conversionNotice?: string;
   /** The live project; working notes and their base snapshot are kept apart from it. */
   composition: CompositionDto;
   trackId: number;
@@ -160,7 +167,7 @@ export function useNoteEditorScreen({
   const [showSources, setShowSources] = useState(false);
   const [exitTarget, setExitTarget] = useState<"studio" | "layers" | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(conversionNotice ?? null);
   const [busy, setBusy] = useState(false);
   const track = composition.tracks.find((item) => item.trackId === trackId)!;
   const clip = track.clips.find((item) => item.clipId === targetClipId && item.clipType === "MIDI");
@@ -333,11 +340,16 @@ export function useNoteEditorScreen({
     editable: editable && Boolean(draft.session) && !busy && draft.state?.status !== "conflict",
     onCommit: commitNotes,
   });
+  const recommendation = useNextChord({
+    composition, trackId, clipId: targetClipId, clipStart: working.startTick,
+    editor, stopMainPlayback: playback.pause, volume: playback.volume,
+  });
   // Each orientation opens with its own bar count: one bar keeps portrait cells wide enough to tap.
   const { setVisibleBars } = editor;
   useEffect(() => setVisibleBars(portrait ? 1 : 2), [portrait, setVisibleBars]);
   const dialogs = useNoteEditorDialogs(editor, () => setShowSources(false));
   function play() {
+    recommendation.stop();
     if (
       playback.positionMs < timing.clipStartMs ||
       (preview && playback.positionMs >= compositionEndMs(preview, preview.tracks))
@@ -445,13 +457,30 @@ export function useNoteEditorScreen({
         },
       }
     : undefined;
-  const requestBack = () => (editable ? setExitTarget("studio") : onBack());
+  const isNewEmptyLayer = targetClipId === null && working.midiNotes.length === 0;
+  async function discardNewEmptyLayer() {
+    await draft.discard();
+    await deleteEmptyTrack(context.projectId, trackId);
+    await queryClient.invalidateQueries({
+      queryKey: compositionKeys.detail(context.userId, context.projectId),
+    });
+  }
+  const saveOrDiscardEmpty = () => (isNewEmptyLayer ? discardNewEmptyLayer() : draft.commit());
+  const canLeaveUnchanged = () =>
+    canLeaveUnchangedDraft(baseClip, draft.session?.getSnapshot() ?? null);
+  const requestBack = () => {
+    if (busy) return;
+    if (!editable || canLeaveUnchanged()) onBack();
+    else if (isNewEmptyLayer && draft.session && draft.state?.status !== "conflict")
+      void action(discardNewEmptyLayer, onBack);
+    else setExitTarget("studio");
+  };
   const finishExit = exitTarget === "layers" ? onOpenLayers : onBack;
   function openLayerList() {
     if (busy) return;
-    if (!editable) onOpenLayers();
+    if (!editable || canLeaveUnchanged()) onOpenLayers();
     else if (draft.session && draft.state?.status !== "conflict")
-      void action(draft.commit, onOpenLayers);
+      void action(saveOrDiscardEmpty, onOpenLayers);
     else setExitTarget("layers");
   }
   const openSources = editor.editable ? () => setShowSources(true) : undefined;
@@ -481,6 +510,8 @@ export function useNoteEditorScreen({
     playback,
     draft,
     editor,
+    recommendation,
+    clipStartTick: working.startTick,
     dialogs,
     showSources,
     setShowSources,
@@ -506,10 +537,14 @@ export function useNoteEditorScreen({
     useServer: () => void action(draft.useServer),
     keepLocal: () => void action(draft.keepLocal),
     /** Exit dialog: "저장 후 나가기". */
-    saveAndExit: () => void action(draft.commit, finishExit),
+    saveAndExit: () => void action(saveOrDiscardEmpty, finishExit),
     /** Exit dialog: "개인 초안 유지". */
     keepAndExit: () =>
       void action(async () => {
+        if (isNewEmptyLayer) {
+          await discardNewEmptyLayer();
+          return;
+        }
         if (draft.state?.status !== "conflict")
           await draft.session?.flush().catch(() => {
             if (!draft.session?.getSnapshot().localProtected)
@@ -522,7 +557,7 @@ export function useNoteEditorScreen({
         await draft.discard();
         // A layer that never got a shared clip only existed for this draft; keeping the empty track
         // would use up the viewer's one layer in this song.
-        await cancelEmptyLayer(context.projectId, trackId);
+        await deleteEmptyTrack(context.projectId, trackId);
         await queryClient.invalidateQueries({
           queryKey: compositionKeys.detail(context.userId, context.projectId),
         });

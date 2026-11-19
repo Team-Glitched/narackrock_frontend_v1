@@ -1,7 +1,8 @@
+import type { AudioTranscriptionMode } from "@/lib/api/composition";
 import {
   createAudioClip,
   createTrack,
-  deleteTrack,
+  deleteEmptyTrack,
   getComposition,
   transformRecordingToMidi,
   uploadMedia,
@@ -18,7 +19,7 @@ import { listLocalDrafts, type DraftContent } from "./editor-draft";
 import { apiOrigin } from "@/lib/api/client";
 
 export type CompositionTarget = { projectId: number; shortId: number | null };
-export type EditorTarget = { trackId: number; clipId: number | null };
+export type EditorTarget = { trackId: number; clipId: number | null; conversionNotice?: string };
 
 /** A layer whose track was created but whose clip was not; retrying reuses `trackId` instead of a new track. */
 export class PartialLayerError extends Error {
@@ -29,14 +30,6 @@ export class PartialLayerError extends Error {
     this.trackId = trackId;
     this.retry = retry;
   }
-}
-
-/** Only an explicitly cancelled, newly created empty track belonging to the current viewer is removable. */
-export async function cancelEmptyLayer(projectId: number, trackId: number) {
-  const composition = await getComposition(projectId);
-  const track = composition.tracks.find((item) => item.trackId === trackId);
-  if (track && track.ownerId === composition.viewerPermission.userId && track.clips.length === 0)
-    await deleteTrack(trackId);
 }
 
 /**
@@ -60,7 +53,7 @@ export async function releaseAbandonedLayer(projectId: number) {
       !localDrafts.some((draft) => draft.trackId === track.trackId) &&
       !drafts.some((draft) => draft.trackId === track.trackId && draft.status === "ACTIVE"),
   );
-  if (abandoned) await deleteTrack(abandoned.trackId);
+  if (abandoned) await deleteEmptyTrack(projectId, abandoned.trackId);
 }
 
 async function saveNewLayerDraft(projectId: number, trackId: number, content: DraftContent) {
@@ -156,11 +149,12 @@ export async function saveAudioLayer(
   }
 }
 
-/** HTI: converts a recording to notes for a chosen MIDI instrument (never a hard-coded piano). */
+/** Automatically routes a recording to notes for a chosen MIDI instrument (never a hard-coded piano). */
 export async function recordingToMidi(
   projectId: number,
   file: File,
   instrument: string,
+  soundKind: AudioTranscriptionMode = "AUTO",
 ): Promise<EditorTarget> {
   const [{ wav, durationMs }, composition] = await Promise.all([
     prepareAudioFile(file),
@@ -168,7 +162,7 @@ export async function recordingToMidi(
   ]);
   if (durationMs > composition.project.maxDurationMs)
     throw new Error("녹음은 곡의 최대 길이 이하여야 합니다.");
-  const result = await transformRecordingToMidi(projectId, wav);
+  const result = await transformRecordingToMidi(projectId, wav, soundKind);
   const plan = createHtiMidiLayerPlan(
     result,
     composition.tracks.length,
@@ -186,7 +180,7 @@ export async function recordingToMidi(
     durationTick: plan.durationTick,
     midiNotes: plan.midiNotes,
   });
-  return { trackId, clipId: null };
+  return { trackId, clipId: null, conversionNotice: result.routing?.reason };
 }
 
 /** Notes of a local MIDI resource scaled to the project's PPQ, appended after `afterTick`. */

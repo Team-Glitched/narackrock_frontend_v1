@@ -5,4 +5,5 @@ export type StudioLocationState = NavigationState & {
   inbox?: boolean;
   contributionId?: number;
   selectMidiLayer?: boolean;
+  conversionNotice?: string;
 };

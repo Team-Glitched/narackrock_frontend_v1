@@ -98,7 +98,7 @@ function ScreenHost({
       },
       openMenu: setMenu,
       bottomInset,
-      topInset: landscapeKinds.has(view.kind) ? 0 : topInset,
+      topInset: canvasKinds.has(view.kind) ? 0 : topInset,
       active: visible,
       refreshed: view.refreshed,
     }),
@@ -123,8 +123,8 @@ function ScreenHost({
   );
 }
 
-/** Screens that rotate into the studio's landscape layout and fill the whole view themselves. */
-const landscapeKinds = new Set<NativeScreenKind>([
+/** Studio canvases fill the available view in either orientation. */
+const canvasKinds = new Set<NativeScreenKind>([
   "studio-timeline",
   "editor-notes",
   "creation-piano",

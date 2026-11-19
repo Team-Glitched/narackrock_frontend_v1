@@ -57,7 +57,7 @@ function setup(t, { clips = [], drafts = [], ownerId = 1 } = {}) {
       deleted.push(String(url));
       data = {};
     } else if (String(url).endsWith("/editor-drafts")) data = drafts;
-    else if (String(url).endsWith("/projects/2/tracks")) {
+    else if (String(url).split("?")[0].endsWith("/projects/2/tracks")) {
       data = { viewerPermission: { userId: 1 }, tracks: [{ trackId: 3, ownerId, clips }] };
     } else throw new Error(`Unexpected request: ${url}`);
     return new Response(JSON.stringify({ success: true, data }), { status: 200 });
@@ -103,13 +103,13 @@ test("preserves locally kept notes after the first server save fails, including 
   assert.deepEqual(deleted, []);
   removeLocalDraft(storage, context, session.getLocalRecord().draftId);
   await releaseAbandonedLayer(2);
-  assert.deepEqual(deleted, ["/api/v1/tracks/3"]);
+  assert.deepEqual(deleted, ["/api/v1/tracks/3/empty?projectId=2"]);
 });
 
 test("releases an empty track without any server or local draft", async (t) => {
   const { deleted } = setup(t);
   await releaseAbandonedLayer(2);
-  assert.deepEqual(deleted, ["/api/v1/tracks/3"]);
+  assert.deepEqual(deleted, ["/api/v1/tracks/3/empty?projectId=2"]);
 });
 
 test("preserves tracks with server drafts, shared clips, or another owner", async (t) => {
@@ -140,7 +140,7 @@ test("unrelated accounts, projects and servers do not prevent abandoned track cl
     session.dispose();
   }
   await releaseAbandonedLayer(2);
-  assert.deepEqual(deleted, ["/api/v1/tracks/3"]);
+  assert.deepEqual(deleted, ["/api/v1/tracks/3/empty?projectId=2"]);
 });
 
 test("does not delete a track when browser recovery storage is inaccessible", async (t) => {

@@ -21,10 +21,10 @@ export function createHtiMidiLayerPlan(result: HtiMidiResult, trackCount: number
     throw new Error("변환된 녹음이 곡의 최대 길이를 초과했습니다.");
   }
   if (result.midiNotes.length === 0) {
-    throw new Error("녹음에서 변환할 음정을 찾지 못했습니다. 반주 없이 다시 녹음해 주세요.");
+    throw new Error("녹음에서 변환할 음정을 찾지 못했습니다. 음량이나 변환 방식을 확인해 주세요.");
   }
   return {
-    name: `HTI MIDI ${trackCount + 1}`,
+    name: `MIDI ${trackCount + 1}`,
     sortOrder: trackCount,
     durationTick: result.durationTick,
     midiNotes: result.midiNotes,

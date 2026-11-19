@@ -1,12 +1,15 @@
+import { emptyLayerEditor, layerEditorTarget } from "./studio-layer-editor";
 import { contributionsQuery } from "@/features/workspace/workspace-queries";
 import { contributionTrackIds } from "@/features/workspace/contribution-presentation";
 import { studioStyles } from "@/styles/studio.styles";
 import { cn } from "@/lib/utils";
 import { sharedStyles } from "@/styles/shared.styles";
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { buttonVariants } from "@/styles/variants";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { queryScope } from "@/lib/query";
 import { PublishConfirmation } from "@/features/composition/publish-confirmation";
+import { CanvasDialog } from "@/components/canvas-dialog";
 import { VolumeDialog } from "@/features/composition/volume-dialog";
 import { InstrumentDialog, type InstrumentChoice } from "@/features/composition/instrument-dialog";
 import { findInstrument, invalidPitchesFor } from "@/features/composition/instrument-catalog";
@@ -40,7 +43,11 @@ import {
   updateProjectMetadata,
   updateTrackInstrument,
   uploadMedia,
+  type CompositionView,
   type ClipDto,
+  type CompositionDto,
+  type AudioSoundKind,
+  analyzeAudioClip,
   type TrackDto,
 } from "@/lib/api/composition";
 import { errorText } from "./studio-helpers";
@@ -67,6 +74,7 @@ import {
 export type StudioOptions = {
   onSubmitted: () => void;
   contributionId?: number;
+  view?: CompositionView;
   selectMidiLayer: boolean;
   shortId: number | null;
   projectId: number | null;
@@ -94,6 +102,7 @@ export type StudioPrimary =
 export function useStudio({
   onSubmitted,
   contributionId,
+  view: requestedView = "studio",
   selectMidiLayer,
   shortId,
   projectId,
@@ -105,6 +114,7 @@ export function useStudio({
   onExit,
 }: StudioOptions) {
   const userId = useCurrentUserId();
+  const view = contributionId !== undefined ? { contributionId } : requestedView;
   const origin = apiOrigin();
   const queryClient = useQueryClient();
   const [showSources, setShowSources] = useState(false);
@@ -121,6 +131,10 @@ export function useStudio({
   const [publishTitle, setPublishTitle] = useState("");
   const [publishImage, setPublishImage] = useState<File | null>(null);
   const [pendingAudio, setPendingAudio] = useState<PendingStudioAudio | null>(null);
+  const [analysisClip, setAnalysisClip] = useState<ClipDto | null>(null);
+  const [analysisBusy, setAnalysisBusy] = useState(false);
+  const [analysisError, setAnalysisError] = useState<string | null>(null);
+  const activeAnalysis = useRef(false);
   // A short opens its project; the shared tracks and personal drafts are then read together.
   const entry = useQuery({
     ...compositionEntryQuery(userId, shortId ?? 0),
@@ -129,16 +143,19 @@ export function useStudio({
   const loadedProjectId = shortId == null ? projectId : (entry.data?.projectId ?? null);
   // Layer pages write without touching this cache, so opening the studio always re-reads the project.
   const compositionResult = useQuery({
-    ...compositionQuery(userId, loadedProjectId ?? 0),
+    ...compositionQuery(userId, loadedProjectId ?? 0, view),
     enabled: loadedProjectId !== null,
     refetchOnMount: "always",
   });
+  const readOnly =
+    view !== "working" && !(view === "studio" && compositionResult.data?.viewerPermission.canEdit);
   const draftsResult = useQuery({
     ...editorDraftsQuery(userId, loadedProjectId ?? 0),
-    enabled: loadedProjectId !== null,
+    enabled: loadedProjectId !== null && !readOnly,
     refetchOnMount: "always",
   });
-  const composition = compositionResult.data && draftsResult.data ? compositionResult.data : null;
+  const composition =
+    compositionResult.data && (readOnly || draftsResult.data) ? compositionResult.data : null;
   const personalDrafts = draftsResult.data;
   const requestList = useQuery({
     ...contributionsQuery(userId, loadedProjectId ?? 0),
@@ -151,10 +168,12 @@ export function useStudio({
     () => contributionTrackIds(highlightedRequest?.items ?? [], composition?.tracks ?? []),
     [highlightedRequest, composition],
   );
-  const loadFailure = entry.error ?? compositionResult.error ?? draftsResult.error;
+  const loadFailure =
+    entry.error ?? compositionResult.error ?? (readOnly ? null : draftsResult.error);
   const preview = useMemo(() => {
-    if (!composition || !personalDrafts || composition.viewerPermission.userId !== userId)
-      return null;
+    if (!composition || composition.viewerPermission.userId !== userId) return null;
+    if (readOnly) return composition;
+    if (!personalDrafts) return null;
     const local = listLocalDrafts(
       browserDraftStorage(),
       apiOrigin(),
@@ -171,9 +190,14 @@ export function useStudio({
       ...local,
     ];
     return withPersonalDrafts(composition, merged);
-  }, [composition, personalDrafts, userId]);
+  }, [composition, personalDrafts, userId, readOnly]);
   const playback = useCompositionPlayback(preview, {
-    scopeKey: JSON.stringify([origin, userId, projectId ?? composition?.project.projectId ?? null]),
+    scopeKey: JSON.stringify([
+      origin,
+      userId,
+      projectId ?? composition?.project.projectId ?? null,
+      view,
+    ]),
   });
 
   useEffect(
@@ -184,7 +208,7 @@ export function useStudio({
   );
 
   // A different route/account/backend starts without the previous screen's dialogs and errors.
-  const loadKey = JSON.stringify([shortId, projectId, userId, origin]);
+  const loadKey = JSON.stringify([shortId, projectId, userId, origin, view]);
   const [loadedKey, setLoadedKey] = useState(loadKey);
   if (loadedKey !== loadKey) {
     setLoadedKey(loadKey);
@@ -234,6 +258,43 @@ export function useStudio({
         { queryKey: compositionKeys.project(userId, composition.project.projectId) },
         { throwOnError: true },
       );
+  }
+  function canAnalyze(clip: ClipDto) {
+    return clip.clipType === "AUDIO" && clip.clipId > 0 && clip.ownerId === userId &&
+      clip.approvalStatus !== "REJECTED" &&
+      Boolean(composition?.viewerPermission.canEdit || composition?.viewerPermission.canContribute) &&
+      ["FILE_UPLOAD", "RECORDING"].includes(clip.sourceType);
+  }
+  function openAnalysis(clip: ClipDto) {
+    if (!canAnalyze(clip) || activeAnalysis.current) return;
+    playback.pause();
+    setAnalysisError(null);
+    setAnalysisClip(clip);
+  }
+  async function analyze(kind: AudioSoundKind, force: boolean) {
+    if (!analysisClip || !composition || activeAnalysis.current) return;
+    activeAnalysis.current = true;
+    setAnalysisBusy(true);
+    setAnalysisError(null);
+    try {
+      const projectId = composition.project.projectId;
+      const reply = await analyzeAudioClip(projectId, analysisClip.clipId, kind, force);
+      // Every cached view of the project (studio, working, approved, request) shows the same clip.
+      queryClient.setQueriesData<CompositionDto>({ queryKey: compositionKeys.detail(userId, projectId) }, (old) =>
+        old ? {
+          ...old,
+          tracks: old.tracks.map((track) => ({ ...track, clips: track.clips.map((clip) =>
+            clip.clipId === analysisClip.clipId ? { ...clip, audioAnalysis: reply } : clip,
+          ) })),
+        } : old);
+      setAnalysisClip(null);
+      setStatus(reply.midiNotes.length ? "오디오 분석을 코드 추천에 반영했어요." : "분석할 음을 찾지 못했어요.");
+    } catch (cause) {
+      setAnalysisError(errorText(cause));
+    } finally {
+      activeAnalysis.current = false;
+      setAnalysisBusy(false);
+    }
   }
   async function addAudio(trackId: number, file: File, selection: AudioSelection) {
     if (!composition || busy) throw new Error("잠시 후 다시 시도해 주세요.");
@@ -497,14 +558,27 @@ export function useStudio({
     viewerPermission !== undefined && shouldOfferSongPublish(shortId, viewerPermission, tracks);
   const layerCreationAllowed =
     viewerPermission !== undefined && canCreateLayer(viewerPermission, tracks, shortId === null);
+  const trackEditorTarget = (track: TrackDto) =>
+    viewerPermission && project && (selectMidiLayer || track.clips.length === 0)
+      ? layerEditorTarget(viewerPermission, project.status, track)
+      : null;
+  const resumableLayer =
+    viewerPermission && project
+      ? tracks
+          .map((track) => emptyLayerEditor(viewerPermission, project.status, track))
+          .find(Boolean)
+      : null;
   const primary: StudioPrimary = canSubmit
     ? { kind: "submit", disabled: busy }
     : {
         kind: canPublish ? "publish" : "add",
         disabled:
-          busy || (!(shortId == null && viewerPermission?.canExport) && !layerCreationAllowed),
+          busy ||
+          (!(shortId == null && viewerPermission?.canExport) &&
+            !layerCreationAllowed &&
+            !resumableLayer),
         hint:
-          !layerCreationAllowed && viewerPermission?.canContribute
+          !layerCreationAllowed && !resumableLayer && viewerPermission?.canContribute
             ? "한 곡에는 하나의 레이어만 만들 수 있습니다."
             : null,
       };
@@ -512,6 +586,7 @@ export function useStudio({
   const onTiming =
     project &&
     viewerPermission &&
+    viewerPermission.canEdit &&
     project.ownerId === viewerPermission.userId &&
     ["DRAFT", "IN_PROGRESS"].includes(project.status)
       ? async ({ bpm, signature }: ProjectTiming) => {
@@ -548,6 +623,7 @@ export function useStudio({
           track: settingsTrack,
           volume: playback.trackVolumes[settingsTrack.trackId] ?? settingsTrack.volume,
           roleEditable:
+            viewerPermission.canEdit &&
             settingsTrack.ownerId === viewerPermission.userId &&
             ["DRAFT", "IN_PROGRESS"].includes(project.status) &&
             ["DRAFT", "APPROVED"].includes(settingsTrack.approvalStatus),
@@ -605,7 +681,7 @@ export function useStudio({
     busy,
     error,
     setError,
-    status,
+    status: status ?? (readOnly && contributionId == null ? "승인된 레이어만 표시합니다." : null),
     selectMidiLayer,
     highlightedTracks,
     contribution,
@@ -614,7 +690,7 @@ export function useStudio({
     canImportSource: layerCreationAllowed,
     onTiming,
     onExit,
-    onAddLayer,
+    onAddLayer: () => (resumableLayer ? onEditTrack(resumableLayer.trackId, null) : onAddLayer()),
     onEditTrack,
     showSources,
     setShowSources,
@@ -654,6 +730,13 @@ export function useStudio({
     pendingAudio,
     setPendingAudio,
     addAudio,
+    canAnalyze,
+    openAnalysis,
+    analyze,
+    analysisClip,
+    analysisBusy,
+    analysisError,
+    closeAnalysis: () => { if (!activeAnalysis.current) setAnalysisClip(null); },
     trackSettings,
     setTrackSettingsId,
     changeInstrument: (trackId: number) => {
@@ -663,12 +746,10 @@ export function useStudio({
     },
     instrumentChoice,
     closeInstrument: () => setInstrumentTrackId(null),
-    /** The avatar button: the piano roll while choosing a MIDI layer, otherwise the track settings. */
+    trackEditorTarget,
     openTrack: (track: TrackDto) => {
-      const midiClip = selectMidiLayer
-        ? track.clips.find((clip) => clip.clipType === "MIDI")
-        : undefined;
-      if (midiClip) onEditTrack(track.trackId, midiClip.clipId > 0 ? midiClip.clipId : null);
+      const target = trackEditorTarget(track);
+      if (target) onEditTrack(target.trackId, target.clipId);
       else setTrackSettingsId(track.trackId);
     },
     clipMovable: (clip: ClipDto) =>
@@ -683,7 +764,7 @@ export function useStudio({
 
 export type Studio = ReturnType<typeof useStudio>;
 
-export function StudioScreen({ studio }: { studio: Studio }) {
+export function StudioScreen({ studio, portrait = true }: { studio: Studio; portrait?: boolean }) {
   const {
     composition,
     playback,
@@ -707,7 +788,7 @@ export function StudioScreen({ studio }: { studio: Studio }) {
     const message = studio.loadMessage;
     return (
       <div
-        className={cn(studioStyles.studio, studioStyles.studioState)}
+        className={cn(studioStyles.studio, studioStyles.studioState, portrait && studioStyles.studioUpright)}
         role={message ? "alert" : "status"}
       >
         <p>{message ?? "작곡 데이터를 불러오는 중입니다."}</p>
@@ -719,7 +800,7 @@ export function StudioScreen({ studio }: { studio: Studio }) {
   const timelineWidth = (project.maxTick / Math.max(1, project.ppq / 2)) * 20;
   const { primary, trackSettings, pendingAudio } = studio;
   return (
-    <div className={studioStyles.studio}>
+    <div className={cn(studioStyles.studio, portrait && studioStyles.studioUpright)}>
       <StudioToolbar
         signature={playback.signature}
         onTiming={studio.onTiming}
@@ -899,7 +980,11 @@ export function StudioScreen({ studio }: { studio: Studio }) {
               취소
             </button>
             <button disabled={studio.busy} type="submit">
-              {studio.busy ? "저장 중..." : studio.metadataAction === "save" ? "비공개로 저장" : "다음"}
+              {studio.busy
+                ? "저장 중..."
+                : studio.metadataAction === "save"
+                  ? "비공개로 저장"
+                  : "다음"}
             </button>
           </div>
         </form>
@@ -926,6 +1011,9 @@ export function StudioScreen({ studio }: { studio: Studio }) {
           </div>
         </div>
       )}
+      {studio.analysisClip && (
+        <AudioAnalysisDialog key={studio.analysisClip.clipId} studio={studio} />
+      )}
       {trackSettings && (
         <VolumeDialog
           track={trackSettings.track}
@@ -948,11 +1036,14 @@ export function StudioScreen({ studio }: { studio: Studio }) {
           onResource={studio.importResource}
         />
       )}
-      <div
-        className={studioStyles.timeline}
-        style={{ "--timeline-lanes": tracks.length } as CSSProperties}
-      >
-        <div className={studioStyles.timelineContent} style={{ minWidth: 98 + timelineWidth }}>
+      <div className={studioStyles.timeline}>
+        <div
+          className={studioStyles.timelineContent}
+          style={{
+            minWidth: 98 + timelineWidth,
+            gridTemplateRows: `var(--timeline-ruler) ${tracks.length ? `repeat(${tracks.length}, var(--lane-height))` : ""} minmax(0, 1fr)`,
+          }}
+        >
           <div
             className={studioStyles.ruler}
             style={{ width: timelineWidth }}
@@ -1012,7 +1103,7 @@ export function StudioScreen({ studio }: { studio: Studio }) {
               backgroundImage: `repeating-linear-gradient(to bottom,transparent 0 42px,var(--black) 42px 46px),${musicalGridBackground(playback.signature)},repeating-linear-gradient(to bottom,var(--grid-cell) 0 1px,var(--grid-row) 1px 41px,var(--grid-cell) 41px 42px,var(--black) 42px 46px,var(--grid-cell) 46px 47px,var(--grid-row-alt) 47px 87px,var(--grid-cell) 87px 88px,var(--black) 88px 92px)`,
             }}
           />
-          {tracks.map((track) => (
+          {tracks.map((track, index) => (
             <div
               className={cn(
                 sharedStyles.track,
@@ -1021,6 +1112,7 @@ export function StudioScreen({ studio }: { studio: Studio }) {
                   "after:pointer-events-none after:absolute after:inset-0 after:z-[3] after:rounded-md after:border-2 after:border-solid after:border-app-primary-soft after:content-['']",
               )}
               key={track.trackId}
+              style={{ gridRow: index + 2 }}
               ref={track.trackId === [...highlightedTracks][0] ? firstHighlightedTrack : undefined}
               data-contribution-highlighted={highlightedTracks.has(track.trackId) || undefined}
               aria-label={
@@ -1038,13 +1130,13 @@ export function StudioScreen({ studio }: { studio: Studio }) {
                 <button
                   className={"track-settings-trigger"}
                   aria-label={
-                    selectMidiLayer && track.clips.some((clip) => clip.clipType === "MIDI")
+                    studio.trackEditorTarget(track)
                       ? `${track.name} 피아노롤 열기`
                       : `${track.name} 트랙 설정`
                   }
                   onClick={() => studio.openTrack(track)}
                 >
-                  <Avatar />
+                  <Avatar src={track.ownerProfileImageUrl} />
                 </button>
                 <button
                   aria-label={`${track.name} ${playback.mutedTrackIds.has(track.trackId) ? "소리 켜기" : "음소거"}`}
@@ -1062,6 +1154,15 @@ export function StudioScreen({ studio }: { studio: Studio }) {
                 className={studioStyles.studioTrackClips}
                 style={{ width: timelineWidth, flexBasis: timelineWidth }}
               >
+                {emptyLayerEditor(viewerPermission, project.status, track) && (
+                  <button
+                    type="button"
+                    className="absolute inset-y-1 left-1 rounded-md border border-dashed border-app-primary-soft px-4 text-caption text-app-primary-soft"
+                    onClick={() => onEditTrack(track.trackId, null)}
+                  >
+                    + 노트 · 이어서 편집
+                  </button>
+                )}
                 {track.clips.map((clip) => (
                   <TimelineClip
                     key={clip.clipId}
@@ -1073,8 +1174,8 @@ export function StudioScreen({ studio }: { studio: Studio }) {
                     cellPx={signatureGrid(playback.signature).cellPx}
                     movable={studio.clipMovable(clip)}
                     onError={setError}
-                    onSelect={() => studio.setTrackSettingsId(track.trackId)}
-                    openOnClick={selectMidiLayer}
+                    onSelect={() => studio.canAnalyze(clip)
+                      ? studio.openAnalysis(clip) : studio.setTrackSettingsId(track.trackId)}
                     onEdit={
                       // Other participants' MIDI opens read-only; the editor never creates their drafts.
                       clip.clipType === "MIDI"
@@ -1115,5 +1216,39 @@ export function StudioScreen({ studio }: { studio: Studio }) {
         </div>
       </div>
     </div>
+  );
+}
+
+function AudioAnalysisDialog({ studio }: { studio: Studio }) {
+  const cached = studio.analysisClip?.audioAnalysis;
+  const [kind, setKind] = useState<AudioSoundKind | null>(cached?.soundKind ?? null);
+  const busy = studio.analysisBusy;
+  return (
+    <CanvasDialog className={studioStyles.studioAudioDialogContent}
+      titleId="audio-analysis-title" onClose={studio.closeAnalysis}>
+      <h2 id="audio-analysis-title">코드 추천에 사용할 오디오 분석</h2>
+      <p>소리 종류를 선택하면 원본 오디오에서 추천에 사용할 음을 찾습니다.</p>
+      {cached && <p>저장된 분석 · {cached.midiNotes.length}음</p>}
+      <fieldset className="space-y-2" disabled={busy}>
+        <legend>입력 소리 종류</legend>
+        <label className="flex gap-2">
+          <input type="radio" name="sound-kind" checked={kind === "HUMMING"}
+            onChange={() => setKind("HUMMING")} /> 허밍 · 단선율 보컬
+        </label>
+        <label className="flex gap-2">
+          <input type="radio" name="sound-kind" checked={kind === "INSTRUMENT"}
+            onChange={() => setKind("INSTRUMENT")} /> 피아노 · 기타 등 악기
+        </label>
+      </fieldset>
+      {studio.analysisError && <p role="alert">{studio.analysisError}</p>}
+      <div className="flex flex-wrap gap-2">
+        <button type="button" className={buttonVariants({ tone: "primary" })} disabled={busy || !kind}
+          onClick={() => kind && void studio.analyze(kind, cached?.soundKind === kind)}>
+          {busy ? "분석 중…" : cached ? "다시 분석" : "음 분석 시작"}
+        </button>
+        <button type="button" className={buttonVariants({ tone: "secondary" })} disabled={busy}
+          onClick={studio.closeAnalysis}>닫기</button>
+      </div>
+    </CanvasDialog>
   );
 }

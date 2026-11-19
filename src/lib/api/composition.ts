@@ -3,6 +3,14 @@ import type { ApiEnvelope } from "./contracts.ts";
 
 export { uploadMedia } from "./media.ts";
 
+export type AudioTranscriptionMode = "AUTO" | "HUMMING" | "INSTRUMENT";
+export type AudioRouting = {
+  engine: "HTI" | "BASIC_PITCH";
+  kind: string;
+  reason: string;
+  version: string;
+};
+
 export type MidiNoteDto = {
   pitch: number;
   startTick: number;
@@ -10,6 +18,16 @@ export type MidiNoteDto = {
   velocity: number;
   effectType: string | null;
   effectParams: Record<string, unknown>;
+};
+
+export type AudioSoundKind = "HUMMING" | "INSTRUMENT";
+
+export type AudioAnalysisDto = {
+  soundKind: AudioSoundKind;
+  engineVersion: string;
+  bpm: number;
+  ppq: number;
+  midiNotes: MidiNoteDto[];
 };
 
 export type ClipDto = {
@@ -26,10 +44,12 @@ export type ClipDto = {
   clipOffsetMs: number;
   approvalStatus: string;
   midiNotes: MidiNoteDto[];
+  audioAnalysis?: AudioAnalysisDto | null;
 };
 
 export type TrackDto = {
   trackId: number;
+  ownerProfileImageUrl?: string | null;
   ownerId: number;
   name: string;
   instrument: string | null;
@@ -55,6 +75,7 @@ export type CompositionDto = {
     ownerId: number;
     albumImageFileId: number | null;
     bpm: number;
+    songKey?: string | null;
     timeSignatureNumerator: number;
     timeSignatureDenominator: number;
     ppq: number;
@@ -80,11 +101,20 @@ export async function enterComposition(
   return data(`/api/v1/shorts/${shortId}/composition`, { signal });
 }
 
+/** A public studio shows approved work; working mode additionally reads only the viewer's own work. */
+export type CompositionView = "studio" | "approved" | "working" | { contributionId: number };
+
 export async function getComposition(
   projectId: number,
   signal?: AbortSignal,
+  view: CompositionView = "working",
 ): Promise<CompositionDto> {
-  return data(`/api/v1/projects/${projectId}/tracks`, { signal });
+  const query = new URLSearchParams(
+    typeof view === "string"
+      ? { view: view.toUpperCase() }
+      : { contributionId: String(view.contributionId) },
+  );
+  return data(`/api/v1/projects/${projectId}/tracks?${query}`, { signal });
 }
 
 /** Creates a track. `instrument` must be a sampled instrument or a recorded role; the server rejects others. */
@@ -100,9 +130,11 @@ export async function createTrack(
   });
 }
 
-/** Removes the caller's own track (used only to cancel a just-created empty track). */
-export async function deleteTrack(trackId: number) {
-  return apiRequest(`/api/v1/tracks/${trackId}`, { method: "DELETE" });
+/** Removes the caller's track if the server still finds it empty. */
+export async function deleteEmptyTrack(projectId: number, trackId: number) {
+  return apiRequest<void>(`/api/v1/tracks/${trackId}/empty?projectId=${projectId}`, {
+    method: "DELETE",
+  });
 }
 
 /** Original owner only, DRAFT/IN_PROGRESS projects; all three fields are required. */
@@ -112,6 +144,7 @@ export async function updateProjectTiming(
 ) {
   return data<{
     bpm: number;
+    songKey?: string | null;
     timeSignatureNumerator: number;
     timeSignatureDenominator: number;
     maxTick: number;
@@ -160,10 +193,24 @@ export async function insertOpenSourceClip(
   });
 }
 
-export async function transformRecordingToMidi(projectId: number, file: File) {
+export async function analyzeAudioClip(
+  projectId: number, clipId: number, soundKind: AudioSoundKind, refresh = false,
+) {
+  return data<AudioAnalysisDto>(`/api/v1/projects/${projectId}/clips/${clipId}/audio-analysis`, {
+    method: "POST",
+    body: JSON.stringify({ soundKind, refresh }),
+  });
+}
+
+export async function transformRecordingToMidi(
+  projectId: number,
+  file: File,
+  soundKind: AudioTranscriptionMode = "AUTO",
+) {
   const form = new FormData();
   form.append("audio", file);
-  return data<{ durationTick: number; midiNotes: MidiNoteDto[] }>(
+  form.append("soundKind", soundKind);
+  return data<{ durationTick: number; midiNotes: MidiNoteDto[]; routing?: AudioRouting }>(
     `/api/v1/projects/${projectId}/hti-transform`,
     {
       method: "POST",

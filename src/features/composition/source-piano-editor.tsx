@@ -1,3 +1,4 @@
+import { useDevicePortrait } from "@/hooks/use-device-portrait";
 import { studioStyles } from "@/styles/studio.styles";
 import { cn } from "@/lib/utils";
 import { useId, useMemo, useState, type Dispatch, type SetStateAction } from "react";
@@ -213,6 +214,7 @@ export function useNativeSourcePiano(props: SourcePianoProps): {
 
 export function SourcePianoEditor(props: SourcePianoProps) {
   const { bpm, onBack } = props;
+  const portrait = useDevicePortrait();
   const piano = useSourcePiano(props);
   const { maxTick, signature, player, pending, error, positionTick, editor, dialogs, play } = piano;
   const {
@@ -229,7 +231,7 @@ export function SourcePianoEditor(props: SourcePianoProps) {
     onPause: player.pause,
   });
   return (
-    <div className={cn(studioStyles.studio, "note-editor")}>
+    <div className={cn(studioStyles.studio, portrait && studioStyles.studioUpright, "note-editor")}>
       <StudioToolbar
         signature={player.signature}
         onTiming={pending ? undefined : piano.applyTiming}
@@ -302,6 +304,8 @@ export function SourcePianoEditor(props: SourcePianoProps) {
         playing={player.playing}
         instrument="piano"
         onAudition={(pitch) => void player.audition(pitch, "piano")}
+        rowHeight={portrait ? 40 : undefined}
+        keyWidth={portrait ? 44 : undefined}
         initialPitch={60}
         onSettings={editor.editable ? setSettings : undefined}
       />

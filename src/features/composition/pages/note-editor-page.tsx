@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useDevicePortrait } from "@/hooks/use-device-portrait";
 import { DesignViewport } from "@/components/design-viewport";
 import { PageState } from "@/components/page-state";
 import { NoteEditorScreen } from "@/features/composition/note-editor-screen";
@@ -7,34 +7,9 @@ import { readId } from "@/features/navigation/paths";
 import { nativeApp } from "@/lib/native-app";
 import { NativeNoteEditorStateBridge } from "@/features/composition/native-note-editor-bridge";
 
-/**
- * Touch devices open the piano roll upright (390×844) and desktops in the landscape canvas, unless this browser
- * already chose a layout with the toggle.
- */
-const layoutKey = "narackrock.note-editor-layout";
-
-function initialPortrait() {
-  const touch = window.matchMedia("(pointer: coarse)").matches;
-  try {
-    const stored = window.localStorage.getItem(layoutKey);
-    return stored === null ? touch : stored === "portrait";
-  } catch {
-    return touch;
-  }
-}
-
 export default function NoteEditorPage() {
   const route = useRouteComposition();
-  const [portrait, setPortrait] = useState(initialPortrait);
-  function toggleLayout() {
-    const next = !portrait;
-    setPortrait(next);
-    try {
-      window.localStorage.setItem(layoutKey, next ? "portrait" : "landscape");
-    } catch {
-      // Storage may be unavailable (private mode); the choice still applies to this visit.
-    }
-  }
+  const portrait = useDevicePortrait();
   return (
     <DesignViewport landscape={!portrait}>
       {route.projectId === null || readId(route.params.trackId) === null ? (
@@ -49,10 +24,12 @@ export default function NoteEditorPage() {
         )
       ) : (
         <NoteEditorScreen
-          key={`${route.projectId}:${route.trackId}:${route.clipId}`}
+          key={`${route.projectId}:${route.trackId}:${route.clipId}:${JSON.stringify(route.view)}`}
+          conversionNotice={route.state.conversionNotice}
           projectId={route.projectId}
           trackId={route.trackId}
           clipId={route.clipId}
+          view={route.view}
           onBack={() => route.to(route.studioUrl, { replace: true, state: route.studioState })}
           onOpenLayers={() =>
             route.to(route.studioUrl, {
@@ -61,7 +38,6 @@ export default function NoteEditorPage() {
             })
           }
           portrait={portrait}
-          onToggleLayout={toggleLayout}
         />
       )}
     </DesignViewport>

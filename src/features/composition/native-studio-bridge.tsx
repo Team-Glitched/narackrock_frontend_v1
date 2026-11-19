@@ -166,6 +166,7 @@ export function NativeStudioBridge({ studio }: { studio: Studio }) {
           status: studio.status,
           tracks: tracks.map((track) => ({
             trackId: track.trackId,
+            profileImageUrl: track.ownerProfileImageUrl ?? null,
             name: track.name,
             highlighted: studio.highlightedTracks.has(track.trackId),
             add:
@@ -176,10 +177,9 @@ export function NativeStudioBridge({ studio }: { studio: Studio }) {
                   }
                 : null,
             muted: playback.mutedTrackIds.has(track.trackId),
-            settingsLabel:
-              studio.selectMidiLayer && track.clips.some((clip) => clip.clipType === "MIDI")
-                ? `${track.name} 피아노롤 열기`
-                : `${track.name} 트랙 설정`,
+            settingsLabel: studio.trackEditorTarget(track)
+              ? `${track.name} 피아노롤 열기`
+              : `${track.name} 트랙 설정`,
             clips: track.clips.map((clip): NativeStudioClip => {
               const { label, clipTypeLabel } = clipLabels(clip, track.name, track.instrument);
               return {
@@ -210,6 +210,12 @@ export function NativeStudioBridge({ studio }: { studio: Studio }) {
             pendingAudio && trim.model
               ? { fileName: pendingAudio.file.name, picker: trim.model }
               : null,
+          audioAnalysis: studio.analysisClip ? {
+            busy: studio.analysisBusy,
+            error: studio.analysisError,
+            cachedKind: studio.analysisClip.audioAnalysis?.soundKind ?? null,
+            noteCount: studio.analysisClip.audioAnalysis?.midiNotes.length ?? 0,
+          } : undefined,
           trackSettings: studio.trackSettings && {
             trackId: studio.trackSettings.track.trackId,
             name: studio.trackSettings.track.name,
@@ -242,6 +248,12 @@ export function NativeStudioBridge({ studio }: { studio: Studio }) {
     if (isNativeSourcePickerAction(action)) return sources.act(action);
     if (isNativeAudioTrimAction(action)) return trim.act(action);
     switch (action.type) {
+      case "studio-analysis-run":
+        if (action.kind === "HUMMING" || action.kind === "INSTRUMENT")
+          return void studio.analyze(action.kind, studio.analysisClip?.audioAnalysis?.soundKind === action.kind);
+        return;
+      case "studio-analysis-close":
+        return studio.closeAnalysis();
       case "studio-exit":
         return studio.onExit();
       case "studio-retry-contribution":
@@ -298,6 +310,7 @@ export function NativeStudioBridge({ studio }: { studio: Studio }) {
         if (!found) return;
         if (action.edit && found.clip.clipType === "MIDI")
           studio.onEditTrack(found.track.trackId, found.clip.clipId > 0 ? found.clip.clipId : null);
+        else if (studio.canAnalyze(found.clip)) studio.openAnalysis(found.clip);
         else studio.setTrackSettingsId(found.track.trackId);
         return;
       }

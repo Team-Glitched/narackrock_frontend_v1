@@ -1,3 +1,4 @@
+import type { AudioTranscriptionMode } from "@/lib/api/composition";
 import { sharedStyles } from "@/styles/shared.styles";
 import { cn } from "@/lib/utils";
 import { studioStyles } from "@/styles/studio.styles";
@@ -242,7 +243,7 @@ export function useCompositionRecorder({
   beforeSubmit,
 }: {
   onSave: (file: File) => Promise<void>;
-  onTransform?: (file: File) => Promise<void>;
+  onTransform?: (file: File, soundKind?: AudioTranscriptionMode) => Promise<void>;
   native?: boolean;
   beforeSubmit?: () => void;
 }) {
@@ -253,6 +254,7 @@ export function useCompositionRecorder({
   const [liveStream, setLiveStream] = useState<MediaStream | null>(null);
   const [recording, setRecording] = useState(false);
   const [pending, setPending] = useState(false);
+  const [soundKind, setSoundKind] = useState<AudioTranscriptionMode>("AUTO");
   const [pendingLabel, setPendingLabel] = useState("처리 중");
   const [file, setFile] = useState<File | null>(null);
   const [durationMs, setDurationMs] = useState<number | null>(null);
@@ -369,12 +371,12 @@ export function useCompositionRecorder({
   }
   async function transform() {
     if (!file || pending || !onTransform) return;
-    setPendingLabel("HTI 변환 중");
+    setPendingLabel("소리 분석 및 MIDI 변환 중");
     setPending(true);
     setError("");
     beforeSubmit?.();
     try {
-      await onTransform(file);
+      await onTransform(file, soundKind);
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "녹음을 MIDI로 변환하지 못했습니다.");
     } finally {
@@ -382,6 +384,8 @@ export function useCompositionRecorder({
     }
   }
   return {
+    soundKind,
+    setSoundKind,
     liveStream,
     recording,
     pending,
@@ -404,17 +408,29 @@ export function CompositionRecordScreen({
   saveLabel = "레이어에 녹음 저장",
 }: {
   onSave: (file: File) => Promise<void>;
-  onTransform?: (file: File) => Promise<void>;
+  onTransform?: (file: File, soundKind?: AudioTranscriptionMode) => Promise<void>;
   saveLabel?: string;
   onBack: () => void;
 }) {
   const playback = useRef<HTMLAudioElement>(null);
-  const { liveStream, recording, pending, file, url, error, status, toggle, save, transform } =
-    useCompositionRecorder({
-      onSave,
-      onTransform,
-      beforeSubmit: () => playback.current?.pause(),
-    });
+  const {
+    soundKind,
+    setSoundKind,
+    liveStream,
+    recording,
+    pending,
+    file,
+    url,
+    error,
+    status,
+    toggle,
+    save,
+    transform,
+  } = useCompositionRecorder({
+    onSave,
+    onTransform,
+    beforeSubmit: () => playback.current?.pause(),
+  });
   return (
     <div className={cn(studioStyles.recordView, sharedStyles.scrollContent)}>
       <Asset name="metronome-large.svg" className={studioStyles.recordSymbol} />
@@ -423,6 +439,21 @@ export function CompositionRecordScreen({
         {url && <audio ref={playback} controls src={url} />}
         {recording && liveStream && <RecordingMeter stream={liveStream} />}
         <p role="status">{status}</p>
+        {file && onTransform && (
+          <label>
+            변환 방식{" "}
+            <select
+              aria-label="변환 방식"
+              value={soundKind}
+              disabled={pending}
+              onChange={(e) => setSoundKind(e.target.value as AudioTranscriptionMode)}
+            >
+              <option value="AUTO">자동 판별</option>
+              <option value="HUMMING">허밍 · 한 음씩</option>
+              <option value="INSTRUMENT">악기 · 화음</option>
+            </select>
+          </label>
+        )}
         {file && (
           <div className={studioStyles.recordActions}>
             <button
@@ -446,7 +477,7 @@ export function CompositionRecordScreen({
                   void transform();
                 }}
               >
-                HTI로 MIDI 변환
+                MIDI로 변환
               </button>
             )}
           </div>
