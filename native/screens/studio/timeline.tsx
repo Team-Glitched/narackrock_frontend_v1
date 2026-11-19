@@ -167,6 +167,25 @@ function Studio({ model }: { model: NativeStudio }) {
       <InstrumentSheet picker={model.instrument} />
       <TimingSheet sheet={model.timing} />
       <SourceSheet picker={model.sources} />
+      {model.audioAnalysis && (
+        <Dialog label="코드 추천에 사용할 오디오 분석" onClose={() => act({ type: "studio-analysis-close" })}>
+          <Text style={styles.formText}>
+            {model.audioAnalysis.busy ? "분석 중…" : "원본 오디오의 소리 종류를 선택하세요."}
+          </Text>
+          {model.audioAnalysis.cachedKind && (
+            <Text style={styles.formText}>저장된 분석 · {model.audioAnalysis.noteCount}음</Text>
+          )}
+          {model.audioAnalysis.error && <Text accessibilityRole="alert" style={styles.formText}>
+            {model.audioAnalysis.error}
+          </Text>}
+          <DialogButton label="허밍 · 단선율 보컬" disabled={model.audioAnalysis.busy}
+            onPress={() => act({ type: "studio-analysis-run", kind: "HUMMING" })} />
+          <DialogButton label="피아노 · 기타 등 악기" disabled={model.audioAnalysis.busy}
+            onPress={() => act({ type: "studio-analysis-run", kind: "INSTRUMENT" })} />
+          <DialogButton label="닫기" tone="secondary" disabled={model.audioAnalysis.busy}
+            onPress={() => act({ type: "studio-analysis-close" })} />
+        </Dialog>
+      )}
       {model.audioTrim && (
         <ScreenModal
           transparent

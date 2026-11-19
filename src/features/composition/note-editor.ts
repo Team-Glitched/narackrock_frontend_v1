@@ -68,6 +68,7 @@ export type NoteEditorChange = {
   revision: number;
   type: "edit" | "undo" | "redo" | "reset";
   commandType: NoteEditCommand["type"] | null;
+  focusTick: number | null;
   /** Old array index to the surviving new index; undo/redo/reset deliberately invalidate every target. */
   indexMap: Array<number | null>;
 };
@@ -170,8 +171,8 @@ export class NoteEditorSession {
     return false;
   }
   private change(type: NoteEditorChange["type"], indexMap: Array<number | null>,
-    commandType: NoteEditCommand["type"] | null = null): NoteEditorChange {
-    return { revision: (this.state.lastChange?.revision ?? 0) + 1, type, indexMap, commandType };
+    commandType: NoteEditCommand["type"] | null = null, focusTick: number | null = null): NoteEditorChange {
+    return { revision: (this.state.lastChange?.revision ?? 0) + 1, type, indexMap, commandType, focusTick };
   }
   configure(options: NoteEditorOptions) {
     const contextChanged = options.contextKey !== this.options.contextKey;
@@ -224,9 +225,20 @@ export class NoteEditorSession {
     } catch (cause) {
       return this.fail(cause instanceof Error ? cause.message : "노트 변경을 저장할 수 없습니다.");
     }
+    const after = result.snapshot.notes;
+    const before = this.state.history.present.notes;
+    const mapped = new Set(result.indexMap);
+    const affected = after.filter((_, index) => !mapped.has(index)).map((note) => note.startTick);
+    const removed: number[] = [];
+    result.indexMap.forEach((index, oldIndex) => {
+      if (index === null) removed.push(before[oldIndex].startTick);
+      else if (!sameNotes([after[index]], [before[oldIndex]])) affected.push(after[index].startTick);
+    });
+    const ticks = affected.length ? affected : removed;
+    const focusTick = ticks.length ? ticks.reduce((latest, tick) => Math.max(latest, tick)) : null;
     this.publish({ ...this.state,
       history: noteHistoryTransition(this.state.history, { type: "apply", snapshot: result.snapshot }),
-      gesture: null, error: null, lastChange: this.change("edit", result.indexMap, command.type),
+      gesture: null, error: null, lastChange: this.change("edit", result.indexMap, command.type, focusTick),
     });
     return true;
   }
@@ -256,7 +268,7 @@ export class NoteEditorSession {
       return this.fail(cause instanceof Error ? cause.message : "노트 변경을 저장할 수 없습니다.");
     }
     this.publish({ ...this.state, history, gesture: null, error: null,
-      lastChange: this.change(type, this.state.history.present.notes.map(() => null)),
+      lastChange: this.change(type, this.state.history.present.notes.map(() => null), null, this.state.lastChange?.focusTick),
     });
     return true;
   }
