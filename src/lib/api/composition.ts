@@ -12,6 +12,16 @@ export type MidiNoteDto = {
   effectParams: Record<string, unknown>;
 };
 
+export type AudioSoundKind = "HUMMING" | "INSTRUMENT";
+
+export type AudioAnalysisDto = {
+  soundKind: AudioSoundKind;
+  engineVersion: string;
+  bpm: number;
+  ppq: number;
+  midiNotes: MidiNoteDto[];
+};
+
 export type ClipDto = {
   clipId: number;
   ownerId: number;
@@ -26,6 +36,7 @@ export type ClipDto = {
   clipOffsetMs: number;
   approvalStatus: string;
   midiNotes: MidiNoteDto[];
+  audioAnalysis?: AudioAnalysisDto | null;
 };
 
 export type TrackDto = {
@@ -56,6 +67,7 @@ export type CompositionDto = {
     ownerId: number;
     albumImageFileId: number | null;
     bpm: number;
+    songKey?: string | null;
     timeSignatureNumerator: number;
     timeSignatureDenominator: number;
     ppq: number;
@@ -124,6 +136,7 @@ export async function updateProjectTiming(
 ) {
   return data<{
     bpm: number;
+    songKey?: string | null;
     timeSignatureNumerator: number;
     timeSignatureDenominator: number;
     maxTick: number;
@@ -169,6 +182,15 @@ export async function insertOpenSourceClip(
   return data(`/api/v1/projects/${projectId}/tracks/${trackId}/clips/open-source`, {
     method: "POST",
     body: JSON.stringify({ openSourceId, startTick, durationTick }),
+  });
+}
+
+export async function analyzeAudioClip(
+  projectId: number, clipId: number, soundKind: AudioSoundKind, refresh = false,
+) {
+  return data<AudioAnalysisDto>(`/api/v1/projects/${projectId}/clips/${clipId}/audio-analysis`, {
+    method: "POST",
+    body: JSON.stringify({ soundKind, refresh }),
   });
 }
 

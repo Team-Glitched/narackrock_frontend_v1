@@ -13,6 +13,7 @@
  * - volume: app `VolumeSheet` (plain props; the page keeps the value and handles its own action).
  * App sheets live in native/screens/studio/parts.tsx.
  */
+import type { AudioSoundKind } from "../api/composition.ts";
 import type { NativeAudioTrim, NativeAudioTrimAction } from "./creation.ts";
 
 /** Transport readouts of the studio toolbar (the web's StudioToolbar). */
@@ -253,6 +254,8 @@ export type NativeStudio = {
     error: string | null;
     imageName: string | null;
   } | null;
+  /** Audio-analysis dialog for the viewer's own recorded/uploaded clip (chord recommendation input). */
+  audioAnalysis?: { busy: boolean; error: string | null; cachedKind: AudioSoundKind | null; noteCount: number };
   /** A chosen file appended to an existing track, trimmed before saving. */
   audioTrim: { fileName: string; picker: NativeAudioTrim } | null;
   /** Track settings (volume + "악기/보컬 변경"). */
@@ -274,6 +277,8 @@ export type NativeStudioAction =
   | NativeTimingAction
   | NativeSourcePickerAction
   | NativeAudioTrimAction
+  | { type: "studio-analysis-run"; kind: AudioSoundKind }
+  | { type: "studio-analysis-close" }
   | { type: "studio-exit" }
   | { type: "studio-retry-contribution" }
   | { type: "studio-primary" }

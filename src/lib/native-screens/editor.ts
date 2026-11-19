@@ -80,6 +80,8 @@ export type NativeNoteRoll = {
   /** Clip-local playhead: tick = (positionMs − clipStartMs) / tickMs, clamped to 0…maxTick. */
   tickMs: number;
   clipStartMs: number;
+  projectOriginTick?: number;
+  suggestion?: { name: string; notes: MidiNoteDto[]; reveal: { pitch: number } | null };
   /** Coarse clip-local playhead tick (paste and chords insert here). */
   positionTick: number;
   playing: boolean;
@@ -180,6 +182,10 @@ export type NativeNoteEditor =
       title: string;
       transport: NativeTransport;
       roll: NativeNoteRoll;
+      recommendation?: {
+        enabled: boolean;
+        panel: { names: string[]; index: number; playing: boolean } | null;
+      };
       /** The viewer may change bpm/time signature. */
       timingEditable: boolean;
       timing: NativeTimingSheet | null;
@@ -209,6 +215,12 @@ export type NativeNoteEditorAction =
   | NativeInstrumentAction
   | NativeTimingAction
   | NativeSourcePickerAction
+  | { type: "editor-chord-toggle" }
+  | { type: "editor-chord-select"; index: number }
+  | { type: "editor-chord-reveal" }
+  | { type: "editor-chord-listen" }
+  | { type: "editor-chord-apply" }
+  | { type: "editor-chord-dismiss" }
   | { type: "editor-rewind" }
   | { type: "editor-layers" }
   | { type: "editor-instrument-open" }
