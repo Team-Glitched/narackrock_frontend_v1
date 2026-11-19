@@ -1,3 +1,4 @@
+import { useDevicePortrait } from "@/hooks/use-device-portrait";
 import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router";
 import { SocialCreate, type SocialCreateProps } from "@/features/community/create-content";
@@ -39,6 +40,7 @@ export default function CreateSourcePage() {
   const signedIn = userId !== null;
   const stage = sourceStage(query.get("stage"));
   const pianoMode = stage === "note";
+  const portrait = useDevicePortrait();
   const galleryId = readId(params.galleryId) ?? readId(query.get("galleryId"));
   const scope = resolveSearchScope(query.get("scope"), "songs", Boolean(galleryId));
   const search = () => to(withQuery("/search", { scope, galleryId }));
@@ -88,7 +90,7 @@ export default function CreateSourcePage() {
       </>
     );
   return (
-    <DesignViewport landscape={pianoMode}>
+    <DesignViewport landscape={pianoMode && !portrait}>
       <div className={cn(sharedStyles.phoneFrame, pianoMode && sharedStyles.phoneFrameSourcePiano)}>
         {!pianoMode && <Header onBack={leave} onSearch={search} />}
         <div className={sharedStyles.screenBody}>

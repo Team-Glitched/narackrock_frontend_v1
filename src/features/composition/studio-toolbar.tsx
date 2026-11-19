@@ -230,11 +230,13 @@ export function StudioToolbar({
           onClose={() => setTiming(null)}
         />
       )}
-      {!piano && children}
+      {!piano && children && (
+        <div className="studio-toolbar-actions flex shrink-0 items-center gap-2">{children}</div>
+      )}
       {piano && onAdd && (
         <>
           <button
-            className={studioStyles.studioAdd}
+            className={cn(studioStyles.studioAdd, "studio-toolbar-actions")}
             aria-label={addLabel}
             disabled={!onAdd}
             onClick={onAdd}

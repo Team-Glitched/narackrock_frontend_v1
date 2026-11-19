@@ -711,7 +711,7 @@ export function useStudio({
 
 export type Studio = ReturnType<typeof useStudio>;
 
-export function StudioScreen({ studio }: { studio: Studio }) {
+export function StudioScreen({ studio, portrait = true }: { studio: Studio; portrait?: boolean }) {
   const {
     composition,
     playback,
@@ -735,7 +735,7 @@ export function StudioScreen({ studio }: { studio: Studio }) {
     const message = studio.loadMessage;
     return (
       <div
-        className={cn(studioStyles.studio, studioStyles.studioState)}
+        className={cn(studioStyles.studio, studioStyles.studioState, portrait && studioStyles.studioUpright)}
         role={message ? "alert" : "status"}
       >
         <p>{message ?? "작곡 데이터를 불러오는 중입니다."}</p>
@@ -747,7 +747,7 @@ export function StudioScreen({ studio }: { studio: Studio }) {
   const timelineWidth = (project.maxTick / Math.max(1, project.ppq / 2)) * 20;
   const { primary, trackSettings, pendingAudio } = studio;
   return (
-    <div className={studioStyles.studio}>
+    <div className={cn(studioStyles.studio, portrait && studioStyles.studioUpright)}>
       <StudioToolbar
         signature={playback.signature}
         onTiming={studio.onTiming}
