@@ -114,8 +114,19 @@ export function useNextChord({
     if (!candidate || editor.gestureActive || appliedRevision.current === revision) return;
     appliedRevision.current = revision;
     pause();
-    if (editor.execute({ type: "insert", notes: candidate.notes })) setDismissed(revision + 1);
-    else appliedRevision.current = null;
+    if (!editor.execute({ type: "insert", notes: candidate.notes })) {
+      appliedRevision.current = null;
+      return;
+    }
+    // Inserting advances the editor's focus/revision to this chord. Let that new
+    // draft produce the following measure's preview instead of dismissing it.
+    const nextTick = candidate.notes[0].startTick + candidate.notes[0].durationTick;
+    if (
+      clipStart + nextTick < composition.project.maxTick &&
+      Math.min(editor.bounds.maxTick, nextTick + bar) > editor.view.viewStartTick + editor.windowTicks
+    ) {
+      editor.setViewStartTick(Math.max(0, nextTick - (editor.windowTicks >= 2 * bar ? bar : 0)));
+    }
   }
   function revealCandidate(choice: ChordSuggestion | null) {
     if (!result || !choice) return;
