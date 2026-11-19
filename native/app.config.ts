@@ -49,7 +49,8 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
   slug: "narackrock",
   scheme: "narackrock",
   version,
-  orientation: "portrait",
+  // Start with upright layouts, and let the OS rotate when the user turns the device.
+  orientation: "default",
   icon: "./assets/icon.png",
   userInterfaceStyle: "dark",
   backgroundColor: designTokens.colors.bg,

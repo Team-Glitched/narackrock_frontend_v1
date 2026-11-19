@@ -1,10 +1,10 @@
 /**
- * Shared native studio UI: the landscape canvas, dialogs (instrument, timing, volume, samples),
+ * Shared native studio UI: the adaptive canvas, dialogs (instrument, timing, volume, samples),
  * slider and number field. Used by the studio timeline, the note editor and the creation pages.
- * Dialogs are in-tree overlays (not RN `Modal`) so they rotate with the landscape canvas: render
+ * Dialogs are in-tree overlays (not RN `Modal`) so they share the canvas bounds: render
  * them at the screen root, after the scrolling content.
  */
-import { createContext, useContext, useRef, useState, type ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import {
   ActivityIndicator,
   PanResponder,
@@ -14,7 +14,6 @@ import {
   Text,
   TextInput,
   View,
-  useWindowDimensions,
   type StyleProp,
   type ViewStyle,
 } from "react-native";
@@ -35,57 +34,9 @@ import { useScreenBack } from "../../ui/screen-back";
 import { useScreen } from "../../ui/screen-context";
 import { colors } from "../../ui/theme";
 
-type LandscapeValue = { rotated: boolean; width: number; height: number };
-const LandscapeContext = createContext<LandscapeValue>({ rotated: false, width: 0, height: 0 });
-
-/** The logical (landscape) size of the canvas and whether it is drawn rotated. */
-export function useLandscape(): LandscapeValue {
-  return useContext(LandscapeContext);
-}
-
-/**
- * Screen-space gesture deltas → canvas deltas. The canvas is rotated 90° clockwise in a portrait
- * window (the web's rotate(90deg)), so its x axis runs down the screen.
- */
-export function landscapeDelta(rotated: boolean, dx: number, dy: number) {
-  return rotated ? { dx: dy, dy: -dx } : { dx, dy };
-}
-
-/**
- * The web's landscape DesignViewport: in a portrait window (the app is portrait-locked) the
- * children are laid out landscape and rotated 90° clockwise to fill the screen.
- */
-export function Landscape({ children }: { children: ReactNode }) {
-  const window = useWindowDimensions();
-  const [size, setSize] = useState({ width: window.width, height: window.height });
-  const rotated = size.height > size.width;
-  const width = rotated ? size.height : size.width;
-  const height = rotated ? size.width : size.height;
-  return (
-    <View
-      style={styles.landscapeHost}
-      onLayout={(event) => {
-        const { width: w, height: h } = event.nativeEvent.layout;
-        if (w !== size.width || h !== size.height) setSize({ width: w, height: h });
-      }}
-    >
-      <LandscapeContext.Provider value={{ rotated, width, height }}>
-        <View
-          style={[
-            styles.landscape,
-            { width, height },
-            rotated && {
-              left: (size.width - width) / 2,
-              top: (size.height - height) / 2,
-              transform: [{ rotate: "90deg" }],
-            },
-          ]}
-        >
-          {children}
-        </View>
-      </LandscapeContext.Provider>
-    </View>
-  );
+/** Fill the current window; the OS rotates it, so content keeps the screen axes. */
+export function StudioCanvas({ children }: { children: ReactNode }) {
+  return <View style={styles.canvas}>{children}</View>;
 }
 
 /** Centered dialog over the screen (the web's CanvasDialog); a tap outside or Back closes it. */
@@ -136,11 +87,10 @@ export function Slider({
   onChange: (value: number) => void;
   style?: StyleProp<ViewStyle>;
 }) {
-  const { rotated } = useLandscape();
   const width = useRef(1);
   const start = useRef(0);
-  const latest = useRef({ min, max, onChange, disabled, rotated });
-  latest.current = { min, max, onChange, disabled, rotated };
+  const latest = useRef({ min, max, onChange, disabled });
+  latest.current = { min, max, onChange, disabled };
   const valueAt = (x: number) => {
     const { min: low, max: high } = latest.current;
     return Math.round(low + Math.max(0, Math.min(1, x / width.current)) * (high - low));
@@ -155,8 +105,7 @@ export function Slider({
         latest.current.onChange(valueAt(start.current));
       },
       onPanResponderMove: (_, gesture) => {
-        const { dx } = landscapeDelta(latest.current.rotated, gesture.dx, gesture.dy);
-        latest.current.onChange(valueAt(start.current + dx));
+        latest.current.onChange(valueAt(start.current + gesture.dx));
       },
     }),
   ).current;
@@ -650,8 +599,7 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   disabled: { opacity: 0.5 },
   row: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 8 },
-  landscapeHost: { flex: 1, overflow: "hidden", backgroundColor: colors.bg },
-  landscape: { position: "absolute", left: 0, top: 0, backgroundColor: colors.bg },
+  canvas: { flex: 1, overflow: "hidden", backgroundColor: colors.bg },
   overlay: {
     position: "absolute",
     left: 0,

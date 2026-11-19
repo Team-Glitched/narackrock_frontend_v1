@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { ScrollView, StyleSheet, Text, View } from "react-native";
 
 import type { NativeTransport } from "../../../src/lib/native-screens";
 import MetronomeIcon from "../../../public/figma/metronome.svg";
@@ -9,6 +9,7 @@ import SoundIcon from "../../../public/figma/sound.svg";
 import { useNativeAudioState } from "../../audio";
 import { Touchable } from "../../ui/kit";
 import { useScreen } from "../../ui/screen-context";
+import { useDevicePortrait } from "../../ui/use-device-portrait";
 import { colors } from "../../ui/theme";
 import { Slider, VolumeSheet } from "./parts";
 
@@ -49,77 +50,83 @@ export function StudioToolbar({
   children?: ReactNode;
 }) {
   const { act } = useScreen();
+  const portrait = useDevicePortrait();
   const { playing, positionMs } = useTransport(transport);
   const [volumeOpen, setVolumeOpen] = useState(false);
   const signature = `${transport.numerator}/${transport.denominator}`;
+  const readouts = (
+    <View style={[styles.readouts, portrait && { marginLeft: 0 }]}>
+      <Readout
+        small="bpm"
+        value={String(transport.bpm)}
+        label={timingEditable ? "bpm 설정" : undefined}
+        onPress={timingEditable ? () => act({ type: "timing-open", kind: "bpm" }) : undefined}
+      />
+      <Readout
+        small="beat"
+        value={signature}
+        label={timingEditable ? "박자 설정" : undefined}
+        onPress={timingEditable ? () => act({ type: "timing-open", kind: "beat" }) : undefined}
+      />
+      <Readout small="time" value={clock(Math.max(0, positionMs - clipStartMs))} />
+      {onSample && (
+        <Touchable
+          accessibilityRole="button"
+          accessibilityLabel="샘플 추가"
+          style={styles.sample}
+          onPress={onSample}
+        >
+          <Text style={styles.samplePlus}>+</Text>
+          <Text style={styles.sampleText}>샘플</Text>
+        </Touchable>
+      )}
+      {instrument && (
+        <Readout
+          small="악기"
+          value={instrument.label}
+          label="악기 선택"
+          onPress={instrument.onPress}
+        />
+      )}
+    </View>
+  );
   return (
-    <View style={styles.toolbar}>
+    <View style={[styles.toolbar, portrait && styles.uprightToolbar]}>
       <Text accessibilityRole="header" style={styles.srOnly}>
         {title}
       </Text>
-      <IconButton label="뒤로" onPress={onBack}>
-        <ReturnIcon width={22.5} height={22.5} />
-      </IconButton>
-      {onRewind && (
-        <IconButton label="처음으로" onPress={onRewind}>
-          <Text style={styles.rewind}>|&lt;</Text>
+      <View style={styles.transport}>
+        <IconButton label="뒤로" onPress={onBack}>
+          <ReturnIcon width={22.5} height={22.5} />
         </IconButton>
-      )}
-      <IconButton
-        label={playing ? "일시정지" : "재생"}
-        onPress={() => act({ type: playing ? "transport-pause" : "transport-play" })}
-      >
-        {playing ? (
-          <View style={styles.pause}>
-            <View style={styles.pauseBar} />
-            <View style={styles.pauseBar} />
-          </View>
-        ) : (
-          <PlayIcon width={16} height={20} />
+        {onRewind && (
+          <IconButton label="처음으로" onPress={onRewind}>
+            <Text style={styles.rewind}>|&lt;</Text>
+          </IconButton>
         )}
-      </IconButton>
-      <IconButton
-        label="메트로놈"
-        pressed={transport.metronome}
-        onPress={() => act({ type: "transport-metronome" })}
-      >
-        <MetronomeIcon width={15} height={22} />
-      </IconButton>
-      <View style={styles.readouts}>
-        <Readout
-          small="bpm"
-          value={String(transport.bpm)}
-          label={timingEditable ? "bpm 설정" : undefined}
-          onPress={timingEditable ? () => act({ type: "timing-open", kind: "bpm" }) : undefined}
-        />
-        <Readout
-          small="beat"
-          value={signature}
-          label={timingEditable ? "박자 설정" : undefined}
-          onPress={timingEditable ? () => act({ type: "timing-open", kind: "beat" }) : undefined}
-        />
-        <Readout small="time" value={clock(Math.max(0, positionMs - clipStartMs))} />
-        {onSample && (
-          <Touchable
-            accessibilityRole="button"
-            accessibilityLabel="샘플 추가"
-            style={styles.sample}
-            onPress={onSample}
-          >
-            <Text style={styles.samplePlus}>+</Text>
-            <Text style={styles.sampleText}>샘플</Text>
-          </Touchable>
-        )}
-        {instrument && (
-          <Readout
-            small="악기"
-            value={instrument.label}
-            label="악기 선택"
-            onPress={instrument.onPress}
-          />
-        )}
+        <IconButton
+          label={playing ? "일시정지" : "재생"}
+          onPress={() => act({ type: playing ? "transport-pause" : "transport-play" })}
+        >
+          {playing ? (
+            <View style={styles.pause}>
+              <View style={styles.pauseBar} />
+              <View style={styles.pauseBar} />
+            </View>
+          ) : (
+            <PlayIcon width={16} height={20} />
+          )}
+        </IconButton>
+        <IconButton
+          label="메트로놈"
+          pressed={transport.metronome}
+          onPress={() => act({ type: "transport-metronome" })}
+        >
+          <MetronomeIcon width={15} height={22} />
+        </IconButton>
       </View>
-      <View style={styles.volume}>
+      {!portrait && readouts}
+      <View style={[styles.volume, portrait && styles.uprightVolume]}>
         <Touchable
           accessibilityRole="button"
           accessibilityLabel="음량 설정"
@@ -139,6 +146,15 @@ export function StudioToolbar({
         />
       </View>
       {children}
+      {portrait && (
+        <ScrollView
+          horizontal
+          style={styles.uprightReadouts}
+          showsHorizontalScrollIndicator={false}
+        >
+          {readouts}
+        </ScrollView>
+      )}
       {volumeOpen && (
         <VolumeSheet
           value={transport.volume}
@@ -267,6 +283,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     backgroundColor: colors.bg,
   },
+  transport: { flexDirection: "row", alignItems: "center" },
+  uprightToolbar: { height: "auto", flexWrap: "wrap", gap: 8, paddingVertical: 8 },
+  uprightVolume: { marginRight: 0, paddingLeft: 0, minWidth: 44 },
+  uprightReadouts: { width: "100%", flexGrow: 0 },
   icon: { width: 30, height: 30, alignItems: "center", justifyContent: "center" },
   iconPressed: { backgroundColor: colors.surface, borderRadius: 8 },
   rewind: { color: colors.fg, fontSize: 16, fontWeight: "600" },

@@ -8,20 +8,20 @@ import ReturnIcon from "../../../public/figma/return.svg";
 import SoundIcon from "../../../public/figma/sound.svg";
 import { Touchable } from "../../ui/kit";
 import { useScreen } from "../../ui/screen-context";
+import { useDevicePortrait } from "../../ui/use-device-portrait";
 import { colors } from "../../ui/theme";
 import {
   CanvasState,
   Dialog,
   DialogButton,
   InstrumentSheet,
-  Landscape,
+  StudioCanvas,
   Slider,
   SourceSheet,
   TimingSheet,
 } from "../studio/parts";
 import { AddButton, StudioToolbar, useTransport } from "../studio/toolbar";
 import type { ScreenProps } from "../types";
-import { Icon } from "./icons";
 import { NoteControls, NoteRoll, NoteRollSheets, NoteTools } from "./roll";
 
 type Ready = Extract<NativeNoteEditor, { status: "ready" }>;
@@ -29,6 +29,7 @@ type Ready = Extract<NativeNoteEditor, { status: "ready" }>;
 /** /studio/:projectId/tracks/:trackId/notes: the web's NoteEditorScreen, landscape or portrait. */
 export function NoteEditorScreen({ model }: ScreenProps<"editor-notes">) {
   const { act } = useScreen();
+  const portrait = useDevicePortrait();
   if (model.status !== "ready")
     return (
       <View style={styles.page}>
@@ -40,13 +41,13 @@ export function NoteEditorScreen({ model }: ScreenProps<"editor-notes">) {
         />
       </View>
     );
-  return model.portrait ? (
+  return portrait ? (
     <View style={styles.page}>
       <Portrait model={model} />
       <Overlays model={model} />
     </View>
   ) : (
-    <Landscape>
+    <StudioCanvas>
       <View style={styles.page}>
         <StudioToolbar
           transport={model.transport}
@@ -70,7 +71,7 @@ export function NoteEditorScreen({ model }: ScreenProps<"editor-notes">) {
         <NoteRoll roll={model.roll} />
         <Overlays model={model} />
       </View>
-    </Landscape>
+    </StudioCanvas>
   );
 }
 
@@ -279,9 +280,8 @@ function Readout({
   );
 }
 
-/** Draft status ("변경 없음", "개인 초안 저장됨", …) and the layout toggle. */
+/** Draft status ("변경 없음", "개인 초안 저장됨", …). */
 function StatusRow({ model }: { model: Ready }) {
-  const { act } = useScreen();
   return (
     <View style={styles.status}>
       <Recommendation model={model} />
@@ -289,17 +289,6 @@ function StatusRow({ model }: { model: Ready }) {
         <Text accessibilityLiveRegion="polite" style={styles.statusText} numberOfLines={1}>
           {model.statusText}
         </Text>
-      )}
-      {model.layoutToggle && (
-        <Touchable
-          accessibilityRole="button"
-          style={styles.layout}
-          hitSlop={8}
-          onPress={() => act({ type: "editor-layout" })}
-        >
-          <Icon name={model.portrait ? "landscape" : "portrait"} size={13} color={colors.muted} />
-          <Text style={styles.layoutText}>{model.portrait ? "가로 모드" : "세로 모드"}</Text>
-        </Touchable>
       )}
     </View>
   );
@@ -475,8 +464,6 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
   },
   statusText: { flex: 1, minWidth: 0, color: colors.muted, fontSize: 14, lineHeight: 16 },
-  layout: { marginLeft: "auto", flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 6 },
-  layoutText: { color: colors.muted, fontSize: 14, lineHeight: 18 },
   notices: {
     flexDirection: "row",
     flexWrap: "wrap",

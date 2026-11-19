@@ -1,5 +1,5 @@
 import { queryOptions } from "@tanstack/react-query";
-import { enterComposition, getComposition } from "@/lib/api/composition";
+import { enterComposition, getComposition, type CompositionView } from "@/lib/api/composition";
 import { getEditorDrafts } from "@/lib/api/composition-drafts";
 import { queryScope } from "@/lib/query";
 
@@ -17,10 +17,14 @@ export const compositionKeys = {
     [...compositionKeys.all(userId), "short-entry", shortId] as const,
 };
 
-export const compositionQuery = (userId: number | null, projectId: number) =>
+export const compositionQuery = (
+  userId: number | null,
+  projectId: number,
+  view: CompositionView = "working",
+) =>
   queryOptions({
-    queryKey: compositionKeys.detail(userId, projectId),
-    queryFn: ({ signal }) => getComposition(projectId, signal),
+    queryKey: [...compositionKeys.detail(userId, projectId), view],
+    queryFn: ({ signal }) => getComposition(projectId, signal, view),
   });
 
 export const editorDraftsQuery = (userId: number | null, projectId: number) =>

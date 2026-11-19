@@ -1,9 +1,9 @@
+import { deleteEmptyTrack } from "@/lib/api/composition";
 import { CompositionRecordScreen } from "@/features/composition/creation-screens";
 import {
   recordingToMidi,
   saveAudioLayer,
   PartialLayerError,
-  cancelEmptyLayer,
 } from "@/features/composition/composition-actions";
 import { InstrumentPromptCancelled, useInstrumentPrompt } from "../use-instrument-prompt";
 import { useRef, useState } from "react";
@@ -28,7 +28,7 @@ export default function RecordPage() {
   async function cancel() {
     try {
       if (route.projectId && partial.current)
-        await cancelEmptyLayer(route.projectId, partial.current.error.trackId);
+        await deleteEmptyTrack(route.projectId, partial.current.error.trackId);
       back(route.layerUrl("layers/new"));
     } catch (cause) {
       setCancelError(cause instanceof Error ? cause.message : "신규 트랙을 취소하지 못했습니다.");

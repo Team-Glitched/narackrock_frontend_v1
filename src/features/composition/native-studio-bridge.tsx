@@ -166,6 +166,7 @@ export function NativeStudioBridge({ studio }: { studio: Studio }) {
           status: studio.status,
           tracks: tracks.map((track) => ({
             trackId: track.trackId,
+            profileImageUrl: track.ownerProfileImageUrl ?? null,
             name: track.name,
             highlighted: studio.highlightedTracks.has(track.trackId),
             add:
@@ -176,10 +177,9 @@ export function NativeStudioBridge({ studio }: { studio: Studio }) {
                   }
                 : null,
             muted: playback.mutedTrackIds.has(track.trackId),
-            settingsLabel:
-              studio.selectMidiLayer && track.clips.some((clip) => clip.clipType === "MIDI")
-                ? `${track.name} 피아노롤 열기`
-                : `${track.name} 트랙 설정`,
+            settingsLabel: studio.trackEditorTarget(track)
+              ? `${track.name} 피아노롤 열기`
+              : `${track.name} 트랙 설정`,
             clips: track.clips.map((clip): NativeStudioClip => {
               const { label, clipTypeLabel } = clipLabels(clip, track.name, track.instrument);
               return {

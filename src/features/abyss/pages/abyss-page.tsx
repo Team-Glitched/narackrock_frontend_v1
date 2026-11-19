@@ -58,7 +58,7 @@ export default function AbyssPage() {
           })
         }
         onOpenStudio={(id) =>
-          to(`/studio/${id}`, {
+          to(`/studio/${id}?view=approved`, {
             state: { studioFrom: currentPath, studioIndex: window.history.state?.idx },
           })
         }
@@ -100,7 +100,7 @@ export default function AbyssPage() {
                 })
               }
               onOpenStudio={(projectId) =>
-                to(`/studio/${projectId}`, {
+                to(`/studio/${projectId}?view=approved`, {
                   state: { studioFrom: currentPath, studioIndex: window.history.state?.idx },
                 })
               }

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import {
   PanResponder,
   Pressable,
@@ -31,12 +31,10 @@ import {
   Dialog,
   DialogButton,
   InstrumentSheet,
-  Landscape,
+  StudioCanvas,
   SourceSheet,
   TimingSheet,
   VolumeSheet,
-  landscapeDelta,
-  useLandscape,
 } from "./parts";
 import { AddButton, StudioToolbar, ToolbarTextButton, useTransport } from "./toolbar";
 
@@ -46,11 +44,11 @@ const rulerHeight = 25;
 const laneHeight = 46;
 const layerHeight = 40;
 
-/** The studio timeline (the web's StudioScreen), drawn landscape like the web's canvas. */
+/** The studio timeline (the web's StudioScreen), following the device orientation. */
 export function StudioTimelineScreen({ model }: ScreenProps<"studio-timeline">) {
   const { act } = useScreen();
   return (
-    <Landscape>
+    <StudioCanvas>
       {model.state ? (
         <CanvasState
           message={model.state.message}
@@ -61,7 +59,7 @@ export function StudioTimelineScreen({ model }: ScreenProps<"studio-timeline">) 
       ) : (
         <Studio model={model} />
       )}
-    </Landscape>
+    </StudioCanvas>
   );
 }
 
@@ -217,7 +215,6 @@ function Studio({ model }: { model: NativeStudio }) {
 function Timeline({ model }: { model: NativeStudio }) {
   const { act } = useScreen();
   const sidebarScroll = useRef<ScrollViewInstance>(null);
-  const actionsScroll = useRef<ScrollViewInstance>(null);
   const signature = {
     numerator: model.transport.numerator,
     denominator: model.transport.denominator,
@@ -246,7 +243,6 @@ function Timeline({ model }: { model: NativeStudio }) {
             onScroll={(event) => {
               const offset = { y: event.nativeEvent.contentOffset.y, animated: false };
               sidebarScroll.current?.scrollTo(offset);
-              actionsScroll.current?.scrollTo(offset);
             }}
           >
             <View style={{ width, height: lanes * laneHeight }}>
@@ -288,45 +284,6 @@ function Timeline({ model }: { model: NativeStudio }) {
           <Playhead model={model} />
         </View>
       </ScrollView>
-      {model.tracks.some((track) => track.add !== null) && (
-        <View style={styles.trackActions}>
-          <View style={styles.corner} />
-          <ScrollView
-            ref={actionsScroll}
-            scrollEnabled={false}
-            showsVerticalScrollIndicator={false}
-          >
-            {model.tracks.map((track) => (
-              <View key={track.trackId} style={styles.trackActionRow}>
-                {track.add?.notes && (
-                  <Touchable
-                    accessibilityRole="button"
-                    accessibilityLabel={`${track.name} 노트 추가`}
-                    onPress={() => act({ type: "studio-track-notes", trackId: track.trackId })}
-                  >
-                    <Text style={styles.trackActionText}>+ 노트</Text>
-                  </Touchable>
-                )}
-                {track.add && (
-                  <Touchable
-                    accessibilityRole="button"
-                    accessibilityLabel={`${track.name} 오디오 파일 추가`}
-                    accessibilityState={{ disabled: track.add.audioDisabled }}
-                    disabled={track.add.audioDisabled}
-                    onPress={() => act({ type: "studio-track-audio", trackId: track.trackId })}
-                  >
-                    <Text
-                      style={[styles.trackActionText, track.add.audioDisabled && styles.disabled]}
-                    >
-                      + 파일
-                    </Text>
-                  </Touchable>
-                )}
-              </View>
-            ))}
-          </ScrollView>
-        </View>
-      )}
     </View>
   );
 }
@@ -341,7 +298,7 @@ function TrackPerson({ track }: { track: NativeStudioTrack }) {
         style={styles.personButton}
         onPress={() => act({ type: "studio-track", trackId: track.trackId })}
       >
-        <Avatar uri={null} size={32} />
+        <Avatar uri={track.profileImageUrl} size={32} />
       </Touchable>
       <Touchable
         accessibilityRole="button"
@@ -474,8 +431,8 @@ function Playhead({ model }: { model: NativeStudio }) {
 }
 
 /**
- * A clip (the web's TimelineClip): a tap opens the track settings, a double tap (or a tap while
- * choosing a MIDI layer) the piano roll; movable clips drag along the grid and send the final start.
+ * A clip (the web's TimelineClip): one tap opens the MIDI piano roll or audio track settings.
+ * Movable clips drag along the grid without opening the editor.
  */
 function Clip({
   clip,
@@ -489,15 +446,7 @@ function Clip({
   onMove: (startTick: number) => void;
 }) {
   const { act } = useScreen();
-  const { rotated } = useLandscape();
   const [position, setPosition] = useState<number | null>(null);
-  const tapTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  useEffect(
-    () => () => {
-      clearTimeout(tapTimer.current ?? undefined);
-    },
-    [],
-  );
   // The model's start moved (saved or re-read): drop the local drag position.
   const [shownStart, setShownStart] = useState(clip.startTick);
   if (shownStart !== clip.startTick) {
@@ -511,27 +460,18 @@ function Clip({
     setSaving(null);
     setPosition(null);
   }
-  const latest = useRef({ clip, model, rotated, onMove });
-  latest.current = { clip, model, rotated, onMove };
+  const latest = useRef({ clip, model, onMove });
+  latest.current = { clip, model, onMove };
   const drag = useRef({ tick: clip.startTick, moved: false });
 
   const tap = () => {
-    const { clip: current, model: studio } = latest.current;
-    const select = () =>
-      act({ type: "studio-clip", trackId: track.trackId, clipId: current.clipId, edit: false });
-    const edit = () =>
-      act({ type: "studio-clip", trackId: track.trackId, clipId: current.clipId, edit: true });
-    if (!current.opensEditor) return select();
-    if (studio.selectMidiLayer) return edit();
-    if (tapTimer.current) {
-      clearTimeout(tapTimer.current);
-      tapTimer.current = null;
-      return edit();
-    }
-    tapTimer.current = setTimeout(() => {
-      tapTimer.current = null;
-      select();
-    }, 240);
+    const current = latest.current.clip;
+    act({
+      type: "studio-clip",
+      trackId: track.trackId,
+      clipId: current.clipId,
+      edit: current.opensEditor,
+    });
   };
 
   const responder = useRef(
@@ -540,10 +480,9 @@ function Clip({
       onPanResponderGrant: () => {
         drag.current = { tick: latest.current.clip.startTick, moved: false };
       },
-      onPanResponderMove: (_, gesture) => {
-        const { clip: current, model: studio, rotated: turned } = latest.current;
+      onPanResponderMove: (_, { dx }) => {
+        const { clip: current, model: studio } = latest.current;
         if (!current.movable) return;
-        const { dx } = landscapeDelta(turned, gesture.dx, gesture.dy);
         if (Math.abs(dx) > 3) drag.current.moved = true;
         if (!drag.current.moved) return;
         drag.current.tick = snappedClipStart(
@@ -590,12 +529,12 @@ function Clip({
       accessibilityActions={
         clip.opensEditor ? [{ name: "activate" }, { name: "longpress" }] : undefined
       }
-      onAccessibilityAction={(event) =>
+      onAccessibilityAction={() =>
         act({
           type: "studio-clip",
           trackId: track.trackId,
           clipId: clip.clipId,
-          edit: event.nativeEvent.actionName === "longpress" || model.selectMidiLayer,
+          edit: clip.opensEditor,
         })
       }
       style={[
@@ -798,9 +737,17 @@ function PublishForm({ form }: { form: NonNullable<NativeStudio["publishForm"]> 
           </Text>
         </View>
       </View>
-      {form.error && <Text style={styles.formText} accessibilityRole="alert">{form.error}</Text>}
+      {form.error && (
+        <Text style={styles.formText} accessibilityRole="alert">
+          {form.error}
+        </Text>
+      )}
       <View style={styles.formButtons}>
-        <FormButton label="취소" disabled={form.busy} onPress={() => act({ type: "studio-publish-form-close" })} />
+        <FormButton
+          label="취소"
+          disabled={form.busy}
+          onPress={() => act({ type: "studio-publish-form-close" })}
+        />
         <FormButton
           label={form.busy ? "저장 중..." : form.action === "save" ? "비공개로 저장" : "다음"}
           disabled={form.busy || !title.trim()}
@@ -878,14 +825,6 @@ const styles = StyleSheet.create({
   timeline: { flex: 1, flexDirection: "row", backgroundColor: colors.bg },
   sidebar: { width: sidebar, backgroundColor: colors.bg },
   corner: { height: rulerHeight, backgroundColor: colors.bg },
-  trackActions: { width: 112, backgroundColor: colors.bg },
-  trackActionRow: {
-    height: laneHeight,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-evenly",
-  },
-  trackActionText: { color: colors.fg, fontSize: 13, paddingVertical: 10 },
   trimBackdrop: {
     flex: 1,
     alignItems: "center",

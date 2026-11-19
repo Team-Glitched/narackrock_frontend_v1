@@ -178,10 +178,6 @@ export type NativeNoteEditor =
     }
   | {
       status: "ready";
-      /** Upright 390×844 layout instead of the landscape canvas. */
-      portrait: boolean;
-      /** "가로 모드"/"세로 모드" toggle is offered. */
-      layoutToggle: boolean;
       /** "<track> · 피아노롤". */
       title: string;
       transport: NativeTransport;
@@ -228,7 +224,6 @@ export type NativeNoteEditorAction =
   | { type: "editor-rewind" }
   | { type: "editor-layers" }
   | { type: "editor-instrument-open" }
-  | { type: "editor-layout" }
   | { type: "editor-retry-load" }
   | { type: "editor-use-server" }
   | { type: "editor-keep-local" }

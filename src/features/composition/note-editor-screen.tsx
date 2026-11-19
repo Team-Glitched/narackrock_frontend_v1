@@ -5,7 +5,7 @@ import { nativeApp } from "@/lib/native-app";
 import { NoteSettingsDialog } from "./note-settings-dialog";
 import { StudioSourceDialog } from "./studio-source-dialog";
 import { TeamPianoRoll } from "./team-piano-roll";
-import type { CompositionDto } from "@/lib/api/composition";
+import type { CompositionDto, CompositionView } from "@/lib/api/composition";
 import { StudioToolbar } from "./studio-toolbar";
 import { JsonNoteImportControl } from "./json-note-import-control";
 import { NoteEditorControls, NoteTools } from "./note-editor-controls";
@@ -14,27 +14,27 @@ import { useNoteEditorShortcuts } from "./use-note-editor-shortcuts";
 import { PortraitNoteEditor } from "./note-editor-portrait";
 import { useNoteEditorLoad, useNoteEditorScreen } from "./use-note-editor-screen";
 import { NativeNoteEditorBridge, NativeNoteEditorStateBridge } from "./native-note-editor-bridge";
-import { LocateFixed, MonitorSmartphone, Smartphone } from "lucide-react";
+import { LocateFixed } from "lucide-react";
 
 export function NoteEditorScreen({
   projectId,
   trackId,
   clipId,
+  view = "working",
   onBack,
   onOpenLayers,
-  portrait = false,
-  onToggleLayout,
+  portrait = true,
 }: {
   projectId: number | null;
   trackId: number | null;
   clipId: number | null;
+  view?: CompositionView;
   onBack: () => void;
   onOpenLayers: () => void;
   /** Upright 390×844 layout instead of the landscape canvas; the page owns the choice. */
   portrait?: boolean;
-  onToggleLayout?: () => void;
 }) {
-  const load = useNoteEditorLoad(projectId, trackId, clipId);
+  const load = useNoteEditorLoad(projectId, trackId, clipId, view);
   if (!load.composition) {
     if (nativeApp())
       return (
@@ -45,7 +45,7 @@ export function NoteEditorScreen({
         />
       );
     return (
-      <div className={cn(studioStyles.studio, studioStyles.studioState)}>
+      <div className={cn(studioStyles.studio, studioStyles.studioState, portrait && studioStyles.studioPortrait)}>
         <p role={load.state === "error" ? "alert" : "status"}>{load.message}</p>
         <button onClick={onBack}>돌아가기</button>
       </div>
@@ -60,7 +60,6 @@ export function NoteEditorScreen({
       onBack={onBack}
       onOpenLayers={onOpenLayers}
       portrait={portrait}
-      onToggleLayout={onToggleLayout}
     />
   );
 }
@@ -72,7 +71,6 @@ function LoadedNoteEditor({
   onBack,
   onOpenLayers,
   portrait,
-  onToggleLayout,
 }: {
   /** The live project; working notes and their base snapshot are kept apart from it. */
   composition: CompositionDto;
@@ -81,7 +79,6 @@ function LoadedNoteEditor({
   onBack: () => void;
   onOpenLayers: () => void;
   portrait: boolean;
-  onToggleLayout?: () => void;
 }) {
   const screen = useNoteEditorScreen({
     composition,
@@ -103,14 +100,12 @@ function LoadedNoteEditor({
     return (
       <NativeNoteEditorBridge
         screen={screen}
-        portrait={portrait}
-        onToggleLayout={onToggleLayout}
         onBack={onBack}
       />
     );
   if (screen.clipUnavailable)
     return (
-      <div className={cn(studioStyles.studio, studioStyles.studioState)}>
+      <div className={cn(studioStyles.studio, studioStyles.studioState, portrait && studioStyles.studioPortrait)}>
         <p role="alert">선택한 MIDI 클립을 찾을 수 없습니다.</p>
         <button onClick={onBack}>돌아가기</button>
       </div>
@@ -159,14 +154,6 @@ function LoadedNoteEditor({
           aria-pressed={recommendation.enabled}
           onClick={() => recommendation.setEnabled(!recommendation.enabled)}>
           코드 추천 {recommendation.enabled ? "켜짐" : "꺼짐"}
-        </button>
-      )}
-      {onToggleLayout && (
-        <button type="button"
-          className="ml-auto flex h-6 shrink-0 items-center gap-1 rounded-md px-1.5 text-app-muted hover:text-app-fg"
-          onClick={onToggleLayout}>
-          {portrait ? <MonitorSmartphone size={13} aria-hidden="true" /> : <Smartphone size={13} aria-hidden="true" />}
-          {portrait ? "가로 모드" : "세로 모드"}
         </button>
       )}
     </div>
