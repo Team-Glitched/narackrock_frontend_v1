@@ -14,7 +14,7 @@ import { nativeApp } from "@/lib/native-app";
 import { sharedStyles } from "@/styles/shared.styles";
 
 export default function AbyssPage() {
-  const { to, back, params, query, currentPath, state } = useUrlNavigation();
+  const { to, params, query, currentPath, state } = useUrlNavigation();
   const { muted, setMuted } = useAbyssPlaybackPreferences();
   const shortId = readId(params.shortId);
   const invalidId = params.shortId !== undefined && shortId === null;
@@ -79,7 +79,6 @@ export default function AbyssPage() {
           abyss
           muted={muted}
           onToggleMute={() => setMuted((value) => !value)}
-          onBack={() => back("/")}
           onSearch={search}
         />
         <div className={sharedStyles.screenBody}>

@@ -54,13 +54,17 @@ export function Header({
         </button>
       ) : abyss ? (
         <button
-          className={cn(headerControl, "p-3")}
+          className={cn(
+            headerControl,
+            // An open bottom sheet (comments, participants) dims the page; the sound toggle stays usable above it.
+            "p-3 [.phone-frame:has(>.figma-sheet-overlay)_&]:relative [.phone-frame:has(>.figma-sheet-overlay)_&]:z-[66]",
+          )}
           aria-label="무음"
           aria-pressed={muted}
           title={muted ? "소리 켜기" : "소리 끄기"}
           onClick={onToggleMute}
         >
-          <Asset name={muted ? "sound-muted.svg" : "sound.svg"} />
+          <Asset name={muted ? "sound-off.svg" : "sound.svg"} />
         </button>
       ) : (
         <button
