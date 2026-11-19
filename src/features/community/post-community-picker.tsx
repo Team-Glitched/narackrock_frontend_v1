@@ -57,7 +57,7 @@ export function PostCommunityPicker({
                 <Asset name="search-close.svg" />
               </button>
             </header>
-            <p>게시글을 올릴 커뮤니티를 선택하세요.</p>
+            <p>가입한 커뮤니티 중 게시글을 올릴 곳을 선택하세요.</p>
             <label className="flex h-11 items-center gap-[10px] rounded-xl bg-app-surface px-3 [&>img]:size-[18px] [&>img]:shrink-0 [&>input]:min-w-0 [&>input]:w-full [&>input]:flex-1 [&>input]:border-0 [&>input]:bg-transparent [&>input]:text-body [&>input]:leading-5 [&>input]:font-normal [&>input]:text-app-fg [&>button]:grid [&>button]:h-9 [&>button]:w-7 [&>button]:shrink-0 [&>button]:place-items-center [&>button>img]:size-3">
               <Asset name="search-input.svg" />
               <input
@@ -116,7 +116,9 @@ export function PostCommunityPicker({
                           "flex min-w-0 flex-1 flex-col gap-2 [&>strong]:text-label [&>strong]:leading-5 [&>strong]:font-semibold [&>strong]:text-app-fg [&>strong]:[overflow-wrap:anywhere] [&>small]:text-caption [&>small]:leading-4 [&>small]:font-normal [&>small]:text-app-muted"
                         }
                       >
-                        <strong>{item.name}</strong>
+                        <strong className="truncate" title={item.name}>
+                          {item.name}
+                        </strong>
                         <small>가입자 {item.subscriberCount.toLocaleString("ko-KR")}명</small>
                       </span>
                       {value === item.galleryId && (
@@ -135,7 +137,9 @@ export function PostCommunityPicker({
             )}
             {galleries.status === "ready" && matches.length === 0 && (
               <p role="status">
-                {keyword ? "검색 결과가 없습니다." : "게시할 수 있는 커뮤니티가 없습니다."}
+                {keyword
+                  ? "검색 결과가 없습니다."
+                  : "가입한 커뮤니티가 없습니다. 커뮤니티에 가입한 후 글을 작성해주세요."}
               </p>
             )}
           </div>

@@ -1,3 +1,4 @@
+import { CommunityImagesEditor } from "@/features/community/community-images-editor";
 import { Dropdown } from "@/components/dropdown";
 import { sharedStyles } from "@/styles/shared.styles";
 import { cn } from "@/lib/utils";
@@ -654,7 +655,7 @@ const day = (value: string) => new Date(value).toLocaleDateString("ko-KR");
 export const managerMeta = (manager: GalleryManager) => `${day(manager.assignedAt)} 지정`;
 
 const moderationActionLabels: Record<string, string> = {
-  UPDATE_GALLERY: "커뮤니티 설명 수정",
+  UPDATE_GALLERY: "커뮤니티 정보 수정",
   SUSPEND_USER: "이용정지",
   EXPEL_USER: "추방",
   LIFT_BAN: "제재 해제",
@@ -827,12 +828,15 @@ function CommunityMembers({ community, onBack }: { community: Community; onBack:
           <Asset name="search-back.svg" />
         </button>
         <h1 className={communityStyles.communityManageTitle}>
-          <strong>{community.name}</strong>
+          <strong className="block truncate" title={community.name}>{community.name}</strong>
           <small>커뮤니티 관리</small>
         </h1>
       </div>
       <div className={cn(communityStyles.communityMembersContent, sharedStyles.scrollContent)}>
         <CommunityManagers community={community} />
+        <ManageSection title="커뮤니티 이미지">
+          <CommunityImagesEditor key={community.galleryId} community={community} />
+        </ManageSection>
         <ManageSection title="커뮤니티 설명">
           <form
             className="flex flex-col gap-3"

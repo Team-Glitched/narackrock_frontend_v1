@@ -65,6 +65,7 @@ export function CommunityDetailScreen({
           canManage ? communityStyles.communityDetailBannerOwned : "",
         )}
       >
+        {community.bannerImageUrl && <img src={community.bannerImageUrl} alt={`${community.name} 배너`} className="absolute inset-0 size-full object-cover" />}
         {canManage && onManage && (
           <button
             className={communityStyles.communityManageTrigger}
@@ -80,7 +81,7 @@ export function CommunityDetailScreen({
         <div className={communityStyles.communityDetailHeading}>
           <Avatar src={community.imageUrl} />
           <div>
-            <h1>{community.name}</h1>
+            <h1 className="truncate" title={community.name}>{community.name}</h1>
             <p>{memberLabel(community.memberCount)}</p>
           </div>
           <CommunityJoinButton community={community} />

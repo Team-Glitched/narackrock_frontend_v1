@@ -46,6 +46,7 @@ export const communityStyles = {
   ].join(" "),
   communityOpen: [
     "community-open",
+    "block w-full min-w-0",
     "[text-align:inherit] [font:inherit]",
     "[&::after]:[content:''] [&::after]:absolute [&::after]:inset-0 [&::after]:rounded-[12px]",
     "[&:focus-visible::after]:[outline:2px_solid_#8a56ff] [&:focus-visible::after]:[outline-offset:2px]",
@@ -62,7 +63,7 @@ export const communityStyles = {
     "[.design-canvas_&]:h-10 [.design-canvas_&]:min-w-15 [.design-canvas_&]:p-[0_16px] [.design-canvas_&]:text-label",
     "[.design-canvas_&]:font-medium",
   ].join(" "),
-  communityDetailBanner: ["community-detail-banner", "h-[90px] bg-[#383838] bg-none"].join(" "),
+  communityDetailBanner: ["community-detail-banner", "relative h-[90px] shrink-0 overflow-hidden bg-[#383838] bg-none"].join(" "),
   communityDetailInfo: [
     "community-detail-info",
     "m-[0_20px_8px] p-[6px_0_22px] border-b [border-bottom-style:solid] border-b-app-border",

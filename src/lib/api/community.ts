@@ -292,6 +292,12 @@ export function revokeGalleryManager(galleryId: number, userId: number): Promise
   );
 }
 
+export function updateGalleryImages(galleryId: number, imageFileId: number | null, bannerImageFileId: number | null): Promise<void> {
+  return apiRequest(`/api/v1/galleries/${galleryId}/manage/images`, {
+    method: "PUT", body: JSON.stringify({ imageFileId, bannerImageFileId }),
+  }).then(() => undefined);
+}
+
 export function updateGalleryDescription(galleryId: number, description: string): Promise<void> {
   return apiRequest(`/api/v1/galleries/${galleryId}/manage`, {
     method: "PATCH",
