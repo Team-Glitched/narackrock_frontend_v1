@@ -14,7 +14,6 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { queryScope } from "@/lib/query";
 import { PublishConfirmation } from "@/features/composition/publish-confirmation";
 import { CanvasDialog } from "@/components/canvas-dialog";
-import { ProjectMetadataEditor } from "./project-metadata-editor";
 import { VolumeDialog } from "@/features/composition/volume-dialog";
 import { InstrumentDialog, type InstrumentChoice } from "@/features/composition/instrument-dialog";
 import { findInstrument, invalidPitchesFor } from "@/features/composition/instrument-catalog";
@@ -133,7 +132,6 @@ export function useStudio({
   const [showSubmitForm, setShowSubmitForm] = useState(false);
   const [showPublishConfirmation, setShowPublishConfirmation] = useState(false);
   const [metadataAction, setMetadataAction] = useState<"save" | "publish" | null>(null);
-  const [showMetadataEditor, setShowMetadataEditor] = useState(false);
   const [publishTitle, setPublishTitle] = useState("");
   const [publishImage, setPublishImage] = useState<File | null>(null);
   const [pendingAudio, setPendingAudio] = useState<PendingStudioAudio | null>(null);
@@ -713,19 +711,6 @@ export function useStudio({
       if (!busy) setMetadataAction(null);
     },
     canSavePrivate,
-    // Unpublished songs need room for both private save and publish. Metadata is
-    // collected by those flows; the separate editor is for already published songs.
-    canEditMetadata: project?.isPublic === true && project.ownerId === userId && typeof view === "string",
-    requestMetadataEdit: () => {
-      playback.pause();
-      setShowMetadataEditor(true);
-    },
-    showMetadataEditor,
-    closeMetadataEditor: () => {
-      if (!busy) setShowMetadataEditor(false);
-    },
-    finishMetadataEdit: () => setShowMetadataEditor(false),
-    setMetadataBusy: setBusy,
     savePrivateDisabled: busy || !tracks.some((track) => track.clips.length),
     requestPrivateSave: () => {
       if (!canSavePrivate || busy || !tracks.some((track) => track.clips.length)) return;
@@ -848,15 +833,6 @@ export function StudioScreen({ studio, portrait = true }: { studio: Studio; port
         }
         onBack={studio.onExit}
       >
-        {studio.canEditMetadata && (
-          <button
-            className={studioStyles.studioSubmit}
-            disabled={busy}
-            onClick={studio.requestMetadataEdit}
-          >
-            곡 정보 수정
-          </button>
-        )}
         {studio.canSavePrivate && (
           <button
             className={studioStyles.studioSubmit}
@@ -977,22 +953,6 @@ export function StudioScreen({ studio, portrait = true }: { studio: Studio; port
             void studio.publish();
           }}
         />
-      )}
-      {studio.showMetadataEditor && studio.canEditMetadata && (
-        <CanvasDialog
-          className="w-96 max-w-[90%] rounded-xl bg-app-surface"
-          titleId="project-metadata-title"
-          onClose={studio.closeMetadataEditor}
-        >
-          <ProjectMetadataEditor
-            key={`${studio.userId}:${project.projectId}`}
-            projectId={project.projectId}
-            title={project.title}
-            albumImageUrl={project.albumImageUrl}
-            onBusyChange={studio.setMetadataBusy}
-            onClose={studio.finishMetadataEdit}
-          />
-        </CanvasDialog>
       )}
       {studio.metadataAction && (
         <form
