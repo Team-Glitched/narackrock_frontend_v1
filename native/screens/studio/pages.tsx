@@ -99,9 +99,6 @@ export function StudioNewScreen({ model }: ScreenProps<"studio-new">) {
             </Touchable>
           )}
         </View>
-        <Touchable accessibilityRole="link" onPress={() => act({ type: "studio-new-migration" })}>
-          <Text style={styles.link}>이전 브라우저 작업 확인·복구</Text>
-        </Touchable>
       </View>
     </ScreenScroll>
   );
