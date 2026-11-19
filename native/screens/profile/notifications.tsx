@@ -88,6 +88,19 @@ export function NotificationsScreen({ model, header }: ScreenProps<"profile-noti
                     <Text style={type.muted}>모두 읽음</Text>
                   </Touchable>
                 </View>
+                <Touchable
+                  accessibilityRole="button"
+                  accessibilityState={{ disabled: model.deleteReadDisabled }}
+                  disabled={model.deleteReadDisabled}
+                  style={[
+                    styles.readAll,
+                    { alignSelf: "flex-end" },
+                    model.deleteReadDisabled && partStyles.disabled,
+                  ]}
+                  onPress={() => act({ type: "delete-read" })}
+                >
+                  <Text style={type.muted}>읽은 알림 모두 삭제</Text>
+                </Touchable>
                 {model.error && (
                   <Text accessibilityRole="alert" style={styles.error}>
                     {model.error}

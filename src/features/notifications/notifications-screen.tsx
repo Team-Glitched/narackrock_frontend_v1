@@ -1,7 +1,7 @@
 import { notificationError } from "./notification-error";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
-import { Bell, Check, Settings2, ArrowUpRight } from "lucide-react";
+import { Bell, Check, Settings2, ArrowUpRight, Trash2 } from "lucide-react";
 import {
   notificationCategories,
   type NotificationCategory,
@@ -69,11 +69,15 @@ export function useNotificationInbox(
   const [notice, setNotice] = useState<string | null>(null);
   const list = useInfiniteQuery(notificationsQuery(userId, category, unreadOnly));
   const count = useQuery(unreadNotificationsQuery(userId));
-  const { read, readAll, refresh } = useNotificationMutations();
+  const { read, readAll, deleteRead, refresh } = useNotificationMutations();
   const contributionReview = useReviewContributionMutation();
   const followReview = useReviewFollowRequestMutation();
   const busy =
-    read.isPending || readAll.isPending || contributionReview.isPending || followReview.isPending;
+    read.isPending ||
+    readAll.isPending ||
+    deleteRead.isPending ||
+    contributionReview.isPending ||
+    followReview.isPending;
   const items = useMemo(() => list.data?.pages.flatMap((page) => page.items) ?? [], [list.data]);
   const groups = useMemo(() => notificationGroups(items), [items]);
   const throughId = list.data?.pages[0]?.throughId;
@@ -150,6 +154,8 @@ export function useNotificationInbox(
     count,
     busy,
     groups,
+    deleteReadDisabled: busy || !list.isSuccess,
+    deleteReadNow: () => void act(() => deleteRead.mutateAsync(), "읽은 알림을 모두 삭제했습니다."),
     readAllDisabled: busy || !throughId || count.data?.count === 0,
     readAllNow: () => void act(() => readAll.mutateAsync(throughId!), "알림을 모두 읽었습니다."),
     open,
@@ -172,8 +178,27 @@ function NotificationInbox({
   onNavigate,
 }: NotificationProps & { userId: number | null }) {
   const {
-    category, chooseCategory, unreadOnly, setUnreadOnly, settings, setSettings, error, notice, list, count,
-    busy, groups, readAllDisabled, readAllNow, open, markRead, review, openProject, emptyMessage,
+    category,
+    chooseCategory,
+    unreadOnly,
+    setUnreadOnly,
+    settings,
+    setSettings,
+    error,
+    notice,
+    list,
+    count,
+    busy,
+    groups,
+    readAllDisabled,
+    readAllNow,
+    deleteReadDisabled,
+    deleteReadNow,
+    open,
+    markRead,
+    review,
+    openProject,
+    emptyMessage,
   } = useNotificationInbox(userId, { onOpenProject, onOpenProfile, onNavigate });
   const panel = useRef<HTMLElement>(null);
   useEffect(() => {
@@ -250,11 +275,7 @@ function NotificationInbox({
           ) : (
             <>
               {settings && <NotificationSettings userId={userId} />}
-              <div
-                className={`${filterChipRow} mb-3`}
-                role="group"
-                aria-label="알림 종류"
-              >
+              <div className={`${filterChipRow} mb-3`} role="group" aria-label="알림 종류">
                 {([[null, "전체"], ...notificationCategories] as const).map(([id, label]) => (
                   <button
                     key={id ?? "all"}
@@ -287,6 +308,17 @@ function NotificationInbox({
                 >
                   <Check size={14} />
                   모두 읽음
+                </button>
+              </div>
+              <div className="mb-4 flex justify-end">
+                <button
+                  type="button"
+                  className="flex min-h-9 items-center gap-1 text-body text-app-muted disabled:opacity-40"
+                  disabled={deleteReadDisabled}
+                  onClick={deleteReadNow}
+                >
+                  <Trash2 size={14} />
+                  읽은 알림 모두 삭제
                 </button>
               </div>
               {error && (
@@ -334,9 +366,7 @@ function NotificationInbox({
               {list.isSuccess && groups.length === 0 && (
                 <div className="flex flex-col items-center gap-3 py-16 text-center text-app-muted">
                   <Bell size={30} strokeWidth={1.5} />
-                  <p className="text-body">
-                    {emptyMessage}
-                  </p>
+                  <p className="text-body">{emptyMessage}</p>
                 </div>
               )}
               {list.hasNextPage && (
