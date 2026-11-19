@@ -18,6 +18,9 @@ export type Community = {
   memberCount: number;
   description: string;
   imageUrl: string | null;
+  imageFileId?: number | null;
+  bannerImageFileId?: number | null;
+  bannerImageUrl?: string | null;
 };
 
 /**
@@ -28,7 +31,7 @@ export type Community = {
  * 필드를 합치지 않은 것은 카드/상세/가입 버튼이 모두 이 타입을 쓰고 있어 변경면이 커지기
  * 때문이다 — 통합이 끝난 뒤 정리한다.
  *
- * `description`은 서버에서 null일 수 있고, 갤러리 이미지는 백엔드에 컬럼 자체가 없다.
+ * 설명과 이미지는 등록되어 있지 않으면 비어 있을 수 있다.
  */
 export function galleryToCommunity(gallery: GalleryListItem): Community {
   return {
@@ -38,6 +41,9 @@ export function galleryToCommunity(gallery: GalleryListItem): Community {
     memberCount: gallery.subscriberCount,
     description: gallery.description ?? "",
     imageUrl: gallery.imageUrl ?? null,
+    imageFileId: gallery.imageFileId,
+    bannerImageFileId: gallery.bannerImageFileId,
+    bannerImageUrl: gallery.bannerImageUrl,
     ownerId: gallery.ownerId,
   };
 }
@@ -126,17 +132,17 @@ export function CommunityCard({ community, onOpen, headingLevel = 3 }: CardProps
       <div className={communityStyles.communityCardHeader}>
         <Avatar src={community.imageUrl} />
         <div className={communityStyles.communityCardTitle}>
-          <Heading>
+          <Heading className="w-full min-w-0">
             {onOpen ? (
               <button
                 className={communityStyles.communityOpen}
                 aria-label={`${community.name} 커뮤니티 열기`}
                 onClick={() => onOpen(community)}
               >
-                {community.name}
+                <span className="block truncate" title={community.name}>{community.name}</span>
               </button>
             ) : (
-              community.name
+              <span className="block truncate" title={community.name}>{community.name}</span>
             )}
           </Heading>
           <p>{memberLabel(community.memberCount)}</p>
@@ -156,17 +162,17 @@ export function CommunityRailCard({ community, onOpen, headingLevel = 3 }: CardP
   return (
     <li className={communityStyles.communityRailCard}>
       <Avatar src={community.imageUrl} />
-      <Heading>
+      <Heading className="w-full min-w-0">
         {onOpen ? (
           <button
             className={communityStyles.communityOpen}
             aria-label={`${community.name} 커뮤니티 열기`}
             onClick={() => onOpen(community)}
           >
-            {community.name}
+            <span className="block truncate" title={community.name}>{community.name}</span>
           </button>
         ) : (
-          community.name
+          <span className="block truncate" title={community.name}>{community.name}</span>
         )}
       </Heading>
       <p>{memberLabel(community.memberCount)}</p>

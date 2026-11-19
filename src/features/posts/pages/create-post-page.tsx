@@ -6,6 +6,7 @@ import { readId, withQuery } from "@/features/navigation/paths";
 import { resolveSearchScope } from "@/features/search/search-scope";
 import { sharedStyles } from "@/styles/shared.styles";
 import { SocialCreateForm, useSocialCreate } from "@/features/community/create-content";
+import { useCommunityMembership } from "@/features/community/community-membership";
 import { useGalleries } from "@/features/community/use-galleries";
 import { resolvePostTarget } from "@/features/community/post-target";
 import { PostCommunityPicker } from "@/features/community/post-community-picker";
@@ -23,6 +24,28 @@ export default function CreatePostPage() {
   const galleryId = readId(params.galleryId) ?? readId(query.get("galleryId"));
   const scope = resolveSearchScope(query.get("scope"), "songs", Boolean(galleryId));
   const galleries = useGalleries();
+  const membership = useCommunityMembership();
+  const retryCommunities = () => {
+    galleries.refetch();
+    membership.retryLoad();
+  };
+  const joinedGalleries = {
+    ...(membership.loading
+      ? { status: "loading" as const }
+      : membership.loadFailed
+        ? { status: "error" as const }
+        : galleries.status === "ready"
+          ? {
+              status: "ready" as const,
+              galleries: galleries.galleries.filter(
+                (gallery) =>
+                  membership.isJoined(gallery.galleryId) &&
+                  !membership.isPending(gallery.galleryId),
+              ),
+            }
+          : galleries),
+    refetch: retryCommunities,
+  };
   const queryClient = useQueryClient();
   const userId = useCurrentUserId();
   const target = galleryId ?? DEFAULT_GALLERY_ID;
@@ -41,7 +64,7 @@ export default function CreatePostPage() {
   const form = useSocialCreate({
     kind: "post",
     galleryId: target,
-    postTargetStatus: resolvePostTarget(galleries, target),
+    postTargetStatus: resolvePostTarget(galleries, target, membership),
     onCancel: () => back("/social"),
     onCreated: () => {
       // 새 글이 들어간 목록과 내 프로필 활동을 돌아가자마자 다시 받게 한다.
@@ -57,7 +80,7 @@ export default function CreatePostPage() {
         <SocialCreateForm form={form} />
         <NativePostCreateBridge
           form={form}
-          galleries={galleries}
+          galleries={joinedGalleries}
           galleryId={target}
           onCommunity={choose}
           onBack={() => back("/social")}
@@ -73,7 +96,7 @@ export default function CreatePostPage() {
           onBack={() => back("/social")}
           onSearch={search}
           communitySelector={
-            <PostCommunityPicker galleries={galleries} value={target} onChange={choose} />
+            <PostCommunityPicker galleries={joinedGalleries} value={target} onChange={choose} />
           }
         />
         <div className={sharedStyles.screenBody}>

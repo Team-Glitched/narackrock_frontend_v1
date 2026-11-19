@@ -44,6 +44,9 @@ export type ShortsPageDto = {
 // description은 null일 수 있지만 키는 항상 온다 — 페이로드 DTO에 @JsonInclude(NON_NULL)이 없다.
 // 갤러리 이미지는 백엔드에 컬럼 자체가 없어 응답에 들어오지 않는다.
 export type GalleryListItem = {
+  imageFileId?: number | null;
+  bannerImageFileId?: number | null;
+  bannerImageUrl?: string | null;
   ownerId?: number;
   imageUrl?: string | null;
   galleryId: number;
