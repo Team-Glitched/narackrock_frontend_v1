@@ -15,7 +15,7 @@ const note = {
 test("creates a piano MIDI layer plan from HTI notes", () => {
   const plan = createHtiMidiLayerPlan({ durationTick: 960, midiNotes: [note] }, 4, 28_800);
 
-  assert.equal(plan.name, "HTI MIDI 5");
+  assert.equal(plan.name, "MIDI 5");
   assert.equal(plan.sortOrder, 4);
   assert.equal(plan.durationTick, 960);
   assert.deepEqual(plan.midiNotes, [note]);

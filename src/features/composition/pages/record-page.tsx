@@ -1,4 +1,4 @@
-import { deleteEmptyTrack } from "@/lib/api/composition";
+import { deleteEmptyTrack, type AudioTranscriptionMode } from "@/lib/api/composition";
 import { CompositionRecordScreen } from "@/features/composition/creation-screens";
 import {
   recordingToMidi,
@@ -68,7 +68,7 @@ export default function RecordPage() {
     }
     to(route.studioUrl, { replace: true, state: route.studioState });
   }
-  async function transform(file: File) {
+  async function transform(file: File, soundKind: AudioTranscriptionMode = "AUTO") {
     try {
       if (partial.current) {
         if (partial.current.mode !== "midi" || !partial.current.error.retry)
@@ -83,8 +83,12 @@ export default function RecordPage() {
           route.projectId!,
           file,
           await instrument.ask({ mode: "midi" }),
+          soundKind,
         );
-        to(route.notesUrl(editor), { replace: true, state: route.studioState });
+        to(route.notesUrl(editor), {
+          replace: true,
+          state: { ...route.studioState, conversionNotice: editor.conversionNotice },
+        });
       }
     } catch (cause) {
       if (cause instanceof InstrumentPromptCancelled) return;

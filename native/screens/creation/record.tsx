@@ -65,6 +65,16 @@ export function CreationRecordScreen({ model, header }: ScreenProps<"creation-re
           <Text accessibilityLiveRegion="polite" style={styles.status}>
             {model.status}
           </Text>
+          {model.recorded && model.transform && (
+            <View style={{flexDirection: "row", gap: 8}}>
+              {([['AUTO','자동 판별'],['HUMMING','허밍 · 한 음씩'],['INSTRUMENT','악기 · 화음']] as const).map(([kind,label]) => (
+                <Touchable key={kind} accessibilityRole="button" accessibilityState={{selected:model.soundKind===kind}}
+                  disabled={model.pending} onPress={()=>act({type:"creation-record-sound-kind",kind})}>
+                  <Text style={{color:model.soundKind===kind?colors.accent:colors.fg}}>{label}</Text>
+                </Touchable>
+              ))}
+            </View>
+          )}
           {model.recorded && (
             <View style={styles.actions}>
               <Button
@@ -75,7 +85,7 @@ export function CreationRecordScreen({ model, header }: ScreenProps<"creation-re
               {model.transform && (
                 <Button
                   tone="secondary"
-                  label="HTI로 MIDI 변환"
+                  label="MIDI로 변환"
                   disabled={model.pending}
                   onPress={() => act({ type: "creation-record-transform" })}
                 />

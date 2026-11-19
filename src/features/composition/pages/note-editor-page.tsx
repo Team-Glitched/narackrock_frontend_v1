@@ -25,6 +25,7 @@ export default function NoteEditorPage() {
       ) : (
         <NoteEditorScreen
           key={`${route.projectId}:${route.trackId}:${route.clipId}:${JSON.stringify(route.view)}`}
+          conversionNotice={route.state.conversionNotice}
           projectId={route.projectId}
           trackId={route.trackId}
           clipId={route.clipId}

@@ -1,3 +1,4 @@
+import type { AudioTranscriptionMode } from "@/lib/api/composition";
 import { useEffect, useId, useState, type ReactNode } from "react";
 import { useNativeScreen } from "@/features/navigation/use-native-screen";
 import { pickNativeAudio } from "@/lib/native-app";
@@ -92,7 +93,7 @@ export function useNativeRecord({
 }: {
   saveLabel: string;
   onSave: (file: File) => Promise<void>;
-  onTransform?: (file: File) => Promise<void>;
+  onTransform?: (file: File, soundKind?: AudioTranscriptionMode) => Promise<void>;
   instrument?: NativeInstrumentPrompt;
   notice?: string | null;
 }) {
@@ -145,6 +146,7 @@ export function useNativeRecord({
     previewing: preview !== null,
     saveLabel,
     transform: onTransform !== undefined,
+    soundKind: recorder.soundKind,
     notice,
     instrument: instrument?.model ?? null,
   };
@@ -158,6 +160,10 @@ export function useNativeRecord({
         return void recorder.toggle();
       case "creation-record-save":
         return void recorder.save();
+      case "creation-record-sound-kind":
+        if (!recorder.pending && ["AUTO", "HUMMING", "INSTRUMENT"].includes(action.kind))
+          recorder.setSoundKind(action.kind);
+        return;
       case "creation-record-transform":
         return void recorder.transform();
       case "creation-record-preview":
@@ -211,7 +217,7 @@ export function NativeRecordBridge({
   onSearch,
 }: {
   onSave: (file: File) => Promise<void>;
-  onTransform: (file: File) => Promise<void>;
+  onTransform: (file: File, soundKind?: AudioTranscriptionMode) => Promise<void>;
   instrument: NativeInstrumentPrompt;
   notice: string | null;
 } & Navigation): ReactNode {

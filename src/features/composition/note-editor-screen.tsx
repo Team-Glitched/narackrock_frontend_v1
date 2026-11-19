@@ -17,6 +17,7 @@ import { NativeNoteEditorBridge, NativeNoteEditorStateBridge } from "./native-no
 import { LocateFixed } from "lucide-react";
 
 export function NoteEditorScreen({
+  conversionNotice,
   projectId,
   trackId,
   clipId,
@@ -25,6 +26,7 @@ export function NoteEditorScreen({
   onOpenLayers,
   portrait = true,
 }: {
+  conversionNotice?: string;
   projectId: number | null;
   trackId: number | null;
   clipId: number | null;
@@ -54,6 +56,7 @@ export function NoteEditorScreen({
   return (
     <LoadedNoteEditor
       key={load.editorKey}
+      conversionNotice={conversionNotice}
       composition={load.composition}
       trackId={load.track.trackId}
       requestedClipId={clipId}
@@ -65,6 +68,7 @@ export function NoteEditorScreen({
 }
 
 function LoadedNoteEditor({
+  conversionNotice,
   composition,
   trackId,
   requestedClipId,
@@ -72,6 +76,7 @@ function LoadedNoteEditor({
   onOpenLayers,
   portrait,
 }: {
+  conversionNotice?: string;
   /** The live project; working notes and their base snapshot are kept apart from it. */
   composition: CompositionDto;
   trackId: number;
@@ -81,6 +86,7 @@ function LoadedNoteEditor({
   portrait: boolean;
 }) {
   const screen = useNoteEditorScreen({
+    conversionNotice,
     composition,
     trackId,
     requestedClipId,
