@@ -5,7 +5,7 @@ import { nativeApp } from "@/lib/native-app";
 import { NoteSettingsDialog } from "./note-settings-dialog";
 import { StudioSourceDialog } from "./studio-source-dialog";
 import { TeamPianoRoll } from "./team-piano-roll";
-import type { CompositionDto } from "@/lib/api/composition";
+import type { CompositionDto, CompositionView } from "@/lib/api/composition";
 import { StudioToolbar } from "./studio-toolbar";
 import { JsonNoteImportControl } from "./json-note-import-control";
 import { NoteEditorControls, NoteTools } from "./note-editor-controls";
@@ -14,29 +14,29 @@ import { useNoteEditorShortcuts } from "./use-note-editor-shortcuts";
 import { PortraitNoteEditor } from "./note-editor-portrait";
 import { useNoteEditorLoad, useNoteEditorScreen } from "./use-note-editor-screen";
 import { NativeNoteEditorBridge, NativeNoteEditorStateBridge } from "./native-note-editor-bridge";
-import { MonitorSmartphone, Smartphone } from "lucide-react";
+import { LocateFixed } from "lucide-react";
 
 export function NoteEditorScreen({
   conversionNotice,
   projectId,
   trackId,
   clipId,
+  view = "working",
   onBack,
   onOpenLayers,
-  portrait = false,
-  onToggleLayout,
+  portrait = true,
 }: {
   conversionNotice?: string;
   projectId: number | null;
   trackId: number | null;
   clipId: number | null;
+  view?: CompositionView;
   onBack: () => void;
   onOpenLayers: () => void;
   /** Upright 390×844 layout instead of the landscape canvas; the page owns the choice. */
   portrait?: boolean;
-  onToggleLayout?: () => void;
 }) {
-  const load = useNoteEditorLoad(projectId, trackId, clipId);
+  const load = useNoteEditorLoad(projectId, trackId, clipId, view);
   if (!load.composition) {
     if (nativeApp())
       return (
@@ -47,7 +47,7 @@ export function NoteEditorScreen({
         />
       );
     return (
-      <div className={cn(studioStyles.studio, studioStyles.studioState)}>
+      <div className={cn(studioStyles.studio, studioStyles.studioState, portrait && studioStyles.studioPortrait)}>
         <p role={load.state === "error" ? "alert" : "status"}>{load.message}</p>
         <button onClick={onBack}>돌아가기</button>
       </div>
@@ -63,7 +63,6 @@ export function NoteEditorScreen({
       onBack={onBack}
       onOpenLayers={onOpenLayers}
       portrait={portrait}
-      onToggleLayout={onToggleLayout}
     />
   );
 }
@@ -76,7 +75,6 @@ function LoadedNoteEditor({
   onBack,
   onOpenLayers,
   portrait,
-  onToggleLayout,
 }: {
   conversionNotice?: string;
   /** The live project; working notes and their base snapshot are kept apart from it. */
@@ -86,7 +84,6 @@ function LoadedNoteEditor({
   onBack: () => void;
   onOpenLayers: () => void;
   portrait: boolean;
-  onToggleLayout?: () => void;
 }) {
   const screen = useNoteEditorScreen({
     conversionNotice,
@@ -109,14 +106,12 @@ function LoadedNoteEditor({
     return (
       <NativeNoteEditorBridge
         screen={screen}
-        portrait={portrait}
-        onToggleLayout={onToggleLayout}
         onBack={onBack}
       />
     );
   if (screen.clipUnavailable)
     return (
-      <div className={cn(studioStyles.studio, studioStyles.studioState)}>
+      <div className={cn(studioStyles.studio, studioStyles.studioState, portrait && studioStyles.studioPortrait)}>
         <p role="alert">선택한 MIDI 클립을 찾을 수 없습니다.</p>
         <button onClick={onBack}>돌아가기</button>
       </div>
@@ -130,28 +125,42 @@ function LoadedNoteEditor({
       tools={!portrait}
     />
   );
+  const recommendation = screen.recommendation;
+  const suggestion = recommendation.candidate;
   const statusRow = (
-    <div className="note-editor-status flex shrink-0 items-center gap-2 px-3 py-0.5">
+    // Wraps instead of scrolling: on an upright phone the apply button would otherwise sit off-screen.
+    <div className="note-editor-status flex min-h-8 shrink-0 flex-wrap items-center gap-x-2 gap-y-1 px-3 py-1 text-caption">
       {screen.statusText !== null && (
-        <p
-          role="status"
-          className="m-0 min-w-0 flex-1 truncate text-caption leading-[16px] text-app-muted"
-        >
+        <p role="status" className={suggestion ? "sr-only" : "m-0 min-w-0 flex-1 truncate text-app-muted"}>
           {screen.statusText}
         </p>
       )}
-      {onToggleLayout && (
-        <button
-          type="button"
-          className="ml-auto flex shrink-0 items-center gap-1 rounded-[6px] px-1.5 text-caption leading-[18px] text-app-muted hover:text-app-fg"
-          onClick={onToggleLayout}
-        >
-          {portrait ? (
-            <MonitorSmartphone size={13} aria-hidden="true" />
-          ) : (
-            <Smartphone size={13} aria-hidden="true" />
-          )}
-          {portrait ? "가로 모드" : "세로 모드"}
+      {recommendation.result && suggestion && (
+        <section aria-label="다음 마디 코드 추천"
+          className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5 whitespace-nowrap [&>button]:h-6 [&>button]:shrink-0">
+          <button type="button" className="grid w-6 place-items-center rounded text-app-muted"
+            aria-label="추천 노트 위치로 이동" title="추천 노트 위치로 이동" onClick={recommendation.reveal}>
+            <LocateFixed size={14} aria-hidden="true" />
+          </button>
+          {recommendation.result.candidates.map((choice, index) => (
+            <button type="button" key={choice.name}
+              className="rounded border border-white/25 px-2 font-semibold aria-pressed:bg-app-primary"
+              aria-pressed={choice === suggestion}
+              onClick={() => recommendation.select(index)}>{choice.name}</button>
+          ))}
+          <button type="button" className="rounded px-2" onClick={recommendation.listen}>
+            {recommendation.playing ? "미리듣기 정지" : "미리듣기"}
+          </button>
+          <button type="button" className="rounded bg-app-primary px-2 font-semibold"
+            onClick={recommendation.apply} disabled={editor.gestureActive}>추천 코드 넣기</button>
+          <button type="button" className="rounded px-2" onClick={recommendation.dismiss}>건너뛰기</button>
+        </section>
+      )}
+      {recommendation.available && (
+        <button type="button" className="h-6 shrink-0 whitespace-nowrap rounded-md px-1.5 text-app-muted"
+          aria-pressed={recommendation.enabled}
+          onClick={() => recommendation.setEnabled(!recommendation.enabled)}>
+          코드 추천 {recommendation.enabled ? "켜짐" : "꺼짐"}
         </button>
       )}
     </div>
@@ -162,6 +171,9 @@ function LoadedNoteEditor({
       signature={playback.signature}
       ppq={composition.project.ppq}
       maxTick={screen.maxTick}
+      clipStartTick={screen.clipStartTick}
+      revealSuggestion={recommendation.revealState}
+      suggestion={suggestion ? { name: suggestion.name, notes: suggestion.notes, apply: recommendation.apply } : undefined}
       positionTick={positionTick}
       onSeekTick={screen.seekTick}
       playing={playback.playing}
@@ -234,6 +246,7 @@ function LoadedNoteEditor({
           {screen.shownError}
         </p>
       )}
+      {recommendation.error && <p className={studioStyles.studioError} role="status">{recommendation.error}</p>}
       {draft.loadError && !draft.session && (
         <button onClick={draft.retryLoad}>초안 다시 불러오기</button>
       )}

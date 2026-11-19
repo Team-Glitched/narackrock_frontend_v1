@@ -28,10 +28,8 @@ export function NativeNoteEditorStateBridge({ status, message, onBack }: {
 }
 
 /** The app's native note editor over the web screen's own state (`useNoteEditorScreen`). */
-export function NativeNoteEditorBridge({ screen, portrait, onToggleLayout, onBack }: {
+export function NativeNoteEditorBridge({ screen, onBack }: {
   screen: NoteEditorScreenState;
-  portrait: boolean;
-  onToggleLayout?: () => void;
   onBack: () => void;
 }) {
   const { composition, track, editor, playback, draft, dialogs, busy, editable } = screen;
@@ -74,15 +72,27 @@ export function NativeNoteEditorBridge({ screen, portrait, onToggleLayout, onBac
       screen.setShowSources(false);
     },
   });
+  const suggestion = screen.recommendation;
+  const choice = suggestion.candidate;
   const model: NativeNoteEditor = screen.clipUnavailable
     ? { status: "error", message: "선택한 MIDI 클립을 찾을 수 없습니다." }
     : {
         status: "ready",
-        portrait,
-        layoutToggle: Boolean(onToggleLayout),
         title: `${track.name} · 피아노롤`,
         transport: nativeTransport(playback, composition.project.bpm),
-        roll: roll.model,
+        roll: {
+          ...roll.model,
+          projectOriginTick: screen.clipStartTick,
+          suggestion: choice ? { name: choice.name, notes: choice.notes, reveal: suggestion.revealState } : undefined,
+        },
+        recommendation: suggestion.available ? {
+          enabled: suggestion.enabled,
+          panel: suggestion.result && choice ? {
+            names: suggestion.result.candidates.map((candidate) => candidate.name),
+            index: suggestion.index,
+            playing: suggestion.playing,
+          } : null,
+        } : undefined,
         timingEditable: Boolean(screen.onTiming),
         timing: timing.model,
         instrument: screen.instrumentChoice ? { label: partLabel(track.instrument) } : null,
@@ -110,6 +120,18 @@ export function NativeNoteEditorBridge({ screen, portrait, onToggleLayout, onBac
       // The editor's play first returns to the clip start (or the song start after its end).
       return action.type === "transport-play" ? screen.play() : transportAction(playback, action);
     switch (action.type) {
+      case "editor-chord-toggle":
+        return suggestion.setEnabled(!suggestion.enabled);
+      case "editor-chord-select":
+        return suggestion.select(action.index);
+      case "editor-chord-reveal":
+        return suggestion.reveal();
+      case "editor-chord-listen":
+        return suggestion.listen();
+      case "editor-chord-apply":
+        return suggestion.apply();
+      case "editor-chord-dismiss":
+        return suggestion.dismiss();
       case "editor-rewind":
         return screen.rewind();
       case "editor-layers":
@@ -117,8 +139,6 @@ export function NativeNoteEditorBridge({ screen, portrait, onToggleLayout, onBac
       case "editor-instrument-open":
         if (screen.instrumentChoice) setInstrumentOpen(true);
         return;
-      case "editor-layout":
-        return onToggleLayout?.();
       case "editor-retry-load":
         return draft.retryLoad();
       case "editor-use-server":

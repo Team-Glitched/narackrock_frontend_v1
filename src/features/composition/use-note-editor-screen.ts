@@ -7,6 +7,7 @@ import {
   updateProjectTiming,
   updateTrackInstrument,
   type CompositionDto,
+  type CompositionView,
   type MidiNoteDto,
   type TrackDto,
 } from "@/lib/api/composition";
@@ -28,6 +29,7 @@ import type { Resource } from "@/features/workspace/workspace-store";
 import type { ProjectTiming } from "./project-timing";
 import type { InstrumentChoice } from "./instrument-dialog";
 import { openSourceStartTick, insertThenRefresh } from "./open-source-insertion";
+import { useNextChord } from "./use-next-chord";
 import { useNoteEditorDialogs } from "./use-note-editor-native";
 
 /** The playback answer may omit the length; the audio metadata is read then. */
@@ -71,15 +73,16 @@ export function useNoteEditorLoad(
   projectId: number | null,
   trackId: number | null,
   clipId: number | null,
+  view: CompositionView = "working",
 ): NoteEditorLoad {
   const currentUserId = useCurrentUserId();
   // Layer pages write without touching this cache, so the editor only opens on a response read after mounting.
   const query = useQuery({
-    ...compositionQuery(currentUserId, projectId ?? 0),
+    ...compositionQuery(currentUserId, projectId ?? 0, view),
     enabled: projectId !== null,
     refetchOnMount: "always",
   });
-  const editorKey = `${apiOrigin()}:${projectId}:${trackId}:${clipId}:${currentUserId}`;
+  const editorKey = `${apiOrigin()}:${projectId}:${trackId}:${clipId}:${currentUserId}:${JSON.stringify(view)}`;
   const composition =
     query.data?.viewerPermission.userId === currentUserId ? query.data : undefined;
   const track = composition?.tracks.find((item) => item.trackId === trackId);
@@ -336,11 +339,16 @@ export function useNoteEditorScreen({
     editable: editable && Boolean(draft.session) && !busy && draft.state?.status !== "conflict",
     onCommit: commitNotes,
   });
+  const recommendation = useNextChord({
+    composition, trackId, clipId: targetClipId, clipStart: working.startTick,
+    editor, stopMainPlayback: playback.pause, volume: playback.volume,
+  });
   // Each orientation opens with its own bar count: one bar keeps portrait cells wide enough to tap.
   const { setVisibleBars } = editor;
   useEffect(() => setVisibleBars(portrait ? 1 : 2), [portrait, setVisibleBars]);
   const dialogs = useNoteEditorDialogs(editor, () => setShowSources(false));
   function play() {
+    recommendation.stop();
     if (
       playback.positionMs < timing.clipStartMs ||
       (preview && playback.positionMs >= compositionEndMs(preview, preview.tracks))
@@ -498,6 +506,8 @@ export function useNoteEditorScreen({
     playback,
     draft,
     editor,
+    recommendation,
+    clipStartTick: working.startTick,
     dialogs,
     showSources,
     setShowSources,

@@ -74,7 +74,7 @@ test("resuming validates the live identity, owner, permission, and active status
     globalThis.fetch = async () => Response.json({ success: true, data: dto });
     await assert.rejects(getResumableProject(42, scope), /소유한 편집 가능한/);
   }
-  assert.deepEqual(requests, [{ url: "/api/v1/projects/42/tracks", method: "GET" }]);
+  assert.deepEqual(requests, [{ url: "/api/v1/projects/42/tracks?view=WORKING", method: "GET" }]);
 });
 
 test("scope mismatches prevent requests and in-flight account/origin replacements are rejected", async () => {

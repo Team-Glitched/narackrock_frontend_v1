@@ -27,8 +27,17 @@ export function withQuery(
   return query.size ? `${path}?${query}` : path;
 }
 
-export function studioPath(projectId: number, shortId?: number | null): string {
-  return withQuery(`/studio/${projectId}`, { shortId });
+export type StudioViewParams = {
+  view?: "studio" | "approved" | "working";
+  contributionId?: number;
+};
+
+export function studioPath(
+  projectId: number,
+  shortId?: number | null,
+  scope: StudioViewParams = {},
+): string {
+  return withQuery(`/studio/${projectId}`, { shortId, ...scope });
 }
 
 export function notesPath(
@@ -36,7 +45,7 @@ export function notesPath(
   trackId: number,
   clipId?: number | null,
   shortId?: number | null,
+  scope: StudioViewParams = {},
 ): string {
-  return withQuery(`/studio/${projectId}/tracks/${trackId}/notes`, { clipId, shortId });
+  return withQuery(`/studio/${projectId}/tracks/${trackId}/notes`, { clipId, shortId, ...scope });
 }
-

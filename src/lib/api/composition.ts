@@ -20,6 +20,16 @@ export type MidiNoteDto = {
   effectParams: Record<string, unknown>;
 };
 
+export type AudioSoundKind = "HUMMING" | "INSTRUMENT";
+
+export type AudioAnalysisDto = {
+  soundKind: AudioSoundKind;
+  engineVersion: string;
+  bpm: number;
+  ppq: number;
+  midiNotes: MidiNoteDto[];
+};
+
 export type ClipDto = {
   clipId: number;
   ownerId: number;
@@ -34,6 +44,7 @@ export type ClipDto = {
   clipOffsetMs: number;
   approvalStatus: string;
   midiNotes: MidiNoteDto[];
+  audioAnalysis?: AudioAnalysisDto | null;
 };
 
 export type TrackDto = {
@@ -64,6 +75,7 @@ export type CompositionDto = {
     ownerId: number;
     albumImageFileId: number | null;
     bpm: number;
+    songKey?: string | null;
     timeSignatureNumerator: number;
     timeSignatureDenominator: number;
     ppq: number;
@@ -89,11 +101,20 @@ export async function enterComposition(
   return data(`/api/v1/shorts/${shortId}/composition`, { signal });
 }
 
+/** A public studio shows approved work; working mode additionally reads only the viewer's own work. */
+export type CompositionView = "studio" | "approved" | "working" | { contributionId: number };
+
 export async function getComposition(
   projectId: number,
   signal?: AbortSignal,
+  view: CompositionView = "working",
 ): Promise<CompositionDto> {
-  return data(`/api/v1/projects/${projectId}/tracks`, { signal });
+  const query = new URLSearchParams(
+    typeof view === "string"
+      ? { view: view.toUpperCase() }
+      : { contributionId: String(view.contributionId) },
+  );
+  return data(`/api/v1/projects/${projectId}/tracks?${query}`, { signal });
 }
 
 /** Creates a track. `instrument` must be a sampled instrument or a recorded role; the server rejects others. */
@@ -111,7 +132,9 @@ export async function createTrack(
 
 /** Removes the caller's track if the server still finds it empty. */
 export async function deleteEmptyTrack(projectId: number, trackId: number) {
-  return apiRequest<void>(`/api/v1/tracks/${trackId}/empty?projectId=${projectId}`, { method: "DELETE" });
+  return apiRequest<void>(`/api/v1/tracks/${trackId}/empty?projectId=${projectId}`, {
+    method: "DELETE",
+  });
 }
 
 /** Original owner only, DRAFT/IN_PROGRESS projects; all three fields are required. */
@@ -121,6 +144,7 @@ export async function updateProjectTiming(
 ) {
   return data<{
     bpm: number;
+    songKey?: string | null;
     timeSignatureNumerator: number;
     timeSignatureDenominator: number;
     maxTick: number;
@@ -166,6 +190,15 @@ export async function insertOpenSourceClip(
   return data(`/api/v1/projects/${projectId}/tracks/${trackId}/clips/open-source`, {
     method: "POST",
     body: JSON.stringify({ openSourceId, startTick, durationTick }),
+  });
+}
+
+export async function analyzeAudioClip(
+  projectId: number, clipId: number, soundKind: AudioSoundKind, refresh = false,
+) {
+  return data<AudioAnalysisDto>(`/api/v1/projects/${projectId}/clips/${clipId}/audio-analysis`, {
+    method: "POST",
+    body: JSON.stringify({ soundKind, refresh }),
   });
 }
 

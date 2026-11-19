@@ -57,7 +57,7 @@ function setup(t, { clips = [], drafts = [], ownerId = 1 } = {}) {
       deleted.push(String(url));
       data = {};
     } else if (String(url).endsWith("/editor-drafts")) data = drafts;
-    else if (String(url).endsWith("/projects/2/tracks")) {
+    else if (String(url).split("?")[0].endsWith("/projects/2/tracks")) {
       data = { viewerPermission: { userId: 1 }, tracks: [{ trackId: 3, ownerId, clips }] };
     } else throw new Error(`Unexpected request: ${url}`);
     return new Response(JSON.stringify({ success: true, data }), { status: 200 });

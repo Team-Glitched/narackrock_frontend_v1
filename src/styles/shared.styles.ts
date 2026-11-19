@@ -514,7 +514,6 @@ export const sharedStyles = {
     "absolute top-[50%] left-[50%] h-[var(--canvas-height)] w-[var(--canvas-width)] transform-[translate(-50%,_-50%)_scale(var(--canvas-scale))]",
     "origin-[center] bg-none [--readable-body:var(--text-body)] [--readable-body-line:21px] [--readable-meta:var(--text-caption)]",
     "[--readable-meta-line:18px] [--supporting-copy-gap:4px] [--supporting-note-gap:24px] bg-app-bg",
-    "[.design-viewport[data-rotated=true]_&]:transform-[translate(-50%,_-50%)_rotate(90deg)_scale(var(--canvas-scale))]",
     "[.design-viewport[data-keyboard-visible=true]_&]:top-0 [.design-viewport[data-keyboard-visible=true]_&]:h-[var(--visible-canvas-height)]",
     "[.design-viewport[data-keyboard-visible=true]_&]:transform-[translateX(-50%)_scale(var(--canvas-scale))]",
     "[.design-viewport[data-keyboard-visible=true]_&]:origin-[top_center]",
