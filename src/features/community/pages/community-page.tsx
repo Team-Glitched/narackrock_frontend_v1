@@ -7,6 +7,7 @@ import { readId, withQuery } from "@/features/navigation/paths";
 import { resolveSearchScope } from "@/features/search/search-scope";
 import { ContextualCreate, contextualCreateArea } from "@/features/navigation/contextual-create";
 import { sharedStyles } from "@/styles/shared.styles";
+import { useCommunityMembership } from "@/features/community/community-membership";
 import { CommunityDetailScreen } from "@/features/community/community-detail";
 import { useRouteCommunity } from "@/features/community/use-route-community";
 import { PageState } from "@/components/page-state";
@@ -29,6 +30,8 @@ function CommunityContent({
 }) {
   const { to, query } = useUrlNavigation();
   const result = useRouteCommunity(galleryId);
+  const membership = useCommunityMembership();
+  const canWrite = !membership.loading && !membership.loadFailed && !membership.isPending(galleryId) && membership.isJoined(galleryId);
   const create = () => to(creationTarget("posts", galleryId).path);
   if (result.status !== "ready") {
     const message =
@@ -38,11 +41,10 @@ function CommunityContent({
         state={{
           message,
           tone: result.status === "loading" ? "muted" : "error",
-          createLabel: "글쓰기",
+          createLabel: null,
         }}
         onBack={onBack}
         onSearch={onSearch}
-        onCreate={create}
       />
     ) : (
       <PageState error={result.status !== "loading"}>{message}</PageState>
@@ -63,7 +65,7 @@ function CommunityContent({
       onComments={onComments}
       onBack={onBack}
       onSearch={onSearch}
-      onCreate={create}
+      onCreate={canWrite ? create : undefined}
     />
   ) : (
     <CommunityDetailScreen
@@ -82,6 +84,9 @@ export default function CommunityPage() {
   const galleryId = readId(params.galleryId) ?? readId(query.get("galleryId"));
   const scope = resolveSearchScope(query.get("scope"), "posts", Boolean(galleryId));
   const validGalleryId = readId(params.galleryId);
+  const membership = useCommunityMembership();
+  const canWrite = validGalleryId !== null && !membership.loading && !membership.loadFailed &&
+    !membership.isPending(validGalleryId) && membership.isJoined(validGalleryId);
   const onBack = () => back("/communities");
   const onSearch = () => to(withQuery("/search", { scope, galleryId }));
   if (nativeApp())
@@ -114,7 +119,7 @@ export default function CommunityPage() {
           ) : (
             <CommunityContent galleryId={validGalleryId} onBack={onBack} onSearch={onSearch} />
           )}
-          {validGalleryId !== null && <ContextualCreate scope="posts" galleryId={validGalleryId} />}
+          {canWrite && <ContextualCreate scope="posts" galleryId={validGalleryId} />}
         </div>
         <Footer activeTab="social" />
         <NotificationsOverlay />

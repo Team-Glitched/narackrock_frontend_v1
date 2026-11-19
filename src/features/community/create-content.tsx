@@ -444,7 +444,9 @@ export function useSocialCreate({
                 ? "게시할 커뮤니티를 확인하는 중입니다."
                 : postTargetStatus === "error"
                   ? "커뮤니티를 불러오지 못했습니다. 상단의 커뮤니티 선택에서 다시 시도해주세요."
-                  : "상단에서 게시할 커뮤니티를 선택해주세요.",
+                  : postTargetStatus === "not_joined"
+                    ? "이 커뮤니티에 가입한 후 글을 작성할 수 있습니다. 상단에서 가입한 커뮤니티를 선택해주세요."
+                    : "상단에서 게시할 커뮤니티를 선택해주세요.",
           }
         : null,
     canSubmit: !(

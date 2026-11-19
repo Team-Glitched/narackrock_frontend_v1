@@ -434,7 +434,7 @@ export function OpensourceScreen({
       )}
     >
       <SourceDiscoveryRail
-        title="인기 오픈소스"
+        title="인기 샘플"
         items={popular.data?.items}
         error={popular.error ? sourceError(popular.error) : undefined}
         retry={() => void popular.refetch()}
@@ -442,7 +442,7 @@ export function OpensourceScreen({
         onProfile={onProfile}
       />
       <SourceDiscoveryRail
-        title="추천 오픈소스"
+        title="추천 샘플"
         items={recommended}
         error={state?.error}
         retry={list.retry}

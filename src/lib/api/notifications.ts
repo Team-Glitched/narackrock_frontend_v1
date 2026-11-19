@@ -1,4 +1,4 @@
-import { apiRequest } from "./client.ts";
+import { ApiError, apiRequest, getCurrentUserId } from "./client.ts";
 import type { ApiResponse } from "./contracts.ts";
 export const notificationCategories = [
   ["FOLLOW", "팔로우"],
@@ -59,8 +59,22 @@ export const readAllNotifications = (throughId: number) =>
     method: "PATCH",
     body: JSON.stringify({ throughId }),
   });
-export const deleteReadNotifications = () =>
-  data<void>("/api/v1/notifications/read", { method: "DELETE" });
+export async function deleteReadNotifications(): Promise<void> {
+  try {
+    await apiRequest<ApiResponse<void> | undefined>("/api/v1/notifications/read", { method: "DELETE" });
+  } catch (cause) {
+    if (!(cause instanceof ApiError)) throw cause;
+    if (cause.status === 401 && getCurrentUserId() !== null) {
+      // Older servers can secure the error dispatch for a missing DELETE route with a 401.
+      // Only replace that message when another protected endpoint confirms the session is valid.
+      await getUnreadNotifications();
+    } else if (cause.status !== 404 && cause.status !== 405) {
+      throw cause;
+    }
+    throw new ApiError(503, "현재 서버에서 읽은 알림 삭제 기능을 사용할 수 없습니다. 잠시 후 다시 시도해 주세요.",
+      "NOTIFICATION_DELETE_UNAVAILABLE");
+  }
+}
 export const getNotificationPreferences = () =>
   data<NotificationPreferences>("/api/v1/notifications/preferences");
 export const setNotificationPreferences = (values: NotificationPreferences) =>

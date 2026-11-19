@@ -3,6 +3,7 @@ import test from "node:test";
 import type { CompositionDto, MidiNoteDto } from "../../lib/api/composition.ts";
 import { recommendNextChord } from "./next-chord.ts";
 import { applyNoteEdit } from "./note-editing.ts";
+import { NoteEditorSession } from "./note-editor.ts";
 
 const note = (pitch: number, startTick = 0, durationTick = 480): MidiNoteDto => ({
   pitch,
@@ -152,6 +153,69 @@ test("target melody and bass move the recommendation; adding a candidate uses a 
     applyNoteEdit(resultEdit.snapshot, { type: "insert", notes }, bounds).changed,
     false,
   );
+});
+
+test("accepted chord edits keep recommending each following measure until the song ends", () => {
+  for (const [numerator, denominator, bar, clipStart] of [
+    [4, 4, 1920, 0],
+    [3, 4, 1440, 1800],
+    [6, 8, 1440, 1800],
+  ]) {
+    const composition = project({
+      timeSignatureNumerator: numerator,
+      timeSignatureDenominator: denominator,
+      maxTick: 6 * bar,
+    });
+    const initial = chord([60, 64, 67]);
+    const session = new NoteEditorSession({
+      contextKey: "continuous-chords",
+      notes: initial,
+      ppq: composition.project.ppq,
+      signature: { numerator, denominator },
+      instrument: "piano",
+      bounds: { minPitch: 0, maxPitch: 127, maxTick: composition.project.maxTick - clipStart },
+      editable: true,
+      onCommit: () => true,
+    });
+    const recommend = () => {
+      const state = session.getSnapshot();
+      return recommendNextChord({
+        composition, trackId: 1, clipId: null, clipStart,
+        editTick: state.lastChange?.focusTick ?? 0,
+        draft: state.history.present.notes,
+      });
+    };
+    for (let targetBar = Math.floor(clipStart / bar) + 2; targetBar <= 6; targetBar++) {
+      const before = session.getSnapshot();
+      const result = recommend()!;
+      assert.equal(result.targetBar, targetBar);
+      assert.equal(result.localTick, (targetBar - 1) * bar - clipStart);
+      // Candidate calculation/selection never inserts the preview.
+      const candidate = result.candidates[targetBar % result.candidates.length];
+      assert.strictEqual(session.getSnapshot(), before);
+      assert.equal(session.execute({ type: "insert", notes: candidate.notes }), true);
+      const after = session.getSnapshot();
+      assert.equal(after.lastChange?.focusTick, result.localTick);
+      assert.equal(after.history.present.notes.length, before.history.present.notes.length + candidate.notes.length);
+      assert.deepEqual(after.history.present.notes.slice(0, initial.length), initial);
+      assert.equal(session.execute({ type: "insert", notes: candidate.notes }), false);
+      assert.equal(session.getSnapshot().lastChange?.revision, after.lastChange?.revision);
+    }
+    assert.equal(recommend(), null);
+  }
+});
+
+test("continuing after an insertion stops at an occupied following measure", () => {
+  const composition = project();
+  composition.tracks[0].clips.push(clip(3, 3840, [note(60)]));
+  const draft = chord([60, 64, 67]);
+  const request = { composition, trackId: 1, clipId: null, clipStart: 0, editTick: 0, draft };
+  const secondBar = recommendNextChord(request)!;
+  assert.equal(secondBar.targetBar, 2);
+  assert.equal(recommendNextChord({
+    ...request, editTick: secondBar.localTick,
+    draft: [...draft, ...secondBar.candidates[0].notes],
+  }), null);
 });
 
 test("analyses of original audio inform recommendations without using playable audio as MIDI", () => {

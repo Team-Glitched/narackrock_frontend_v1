@@ -1,4 +1,4 @@
-import type { ClipDto, TrackDto } from "../../lib/api/composition.ts";
+import type { ClipDto, TrackDto, CompositionView } from "../../lib/api/composition.ts";
 import { supportsMidi } from "./instrument-parts.ts";
 
 type Permission = { userId: number; canEdit: boolean; canContribute: boolean };
@@ -33,4 +33,31 @@ export function canChangeTrackInstrument(userId: number, projectStatus: string, 
     ["DRAFT", "IN_PROGRESS"].includes(projectStatus) &&
     ["DRAFT", "APPROVED"].includes(track.approvalStatus)
   );
+}
+
+/** Approved playback stays isolated; open an owner's editable MIDI in their personal workspace. */
+export function midiEditorView(
+  userId: number,
+  projectStatus: string,
+  track:
+    | (Omit<Layer, "clips"> & {
+        clips: readonly Pick<ClipDto, "clipId" | "clipType" | "ownerId" | "approvalStatus">[];
+      })
+    | undefined,
+  clipId: number | null,
+  view: CompositionView,
+): CompositionView {
+  if (
+    typeof view !== "string" ||
+    !track ||
+    !canChangeTrackInstrument(userId, projectStatus, track) ||
+    !supportsMidi(track.instrument)
+  )
+    return view;
+  const clip = track.clips.find((item) => item.clipId === clipId);
+  return clip?.clipType === "MIDI" &&
+    clip.ownerId === userId &&
+    ["DRAFT", "APPROVED"].includes(clip.approvalStatus)
+    ? "working"
+    : view;
 }

@@ -184,11 +184,11 @@ function FeedBridge({ nav }: { nav: SourcesNavigation }) {
         : {
             state: "ready",
             popular: rail(
-              "인기 오픈소스",
+              "인기 샘플",
               "popular",
               popular.error ? sourceError(popular.error) : undefined,
             ),
-            recommended: rail("추천 오픈소스", "recommended", state?.error),
+            recommended: rail("추천 샘플", "recommended", state?.error),
             all: {
               loading: !state,
               error: state?.error ?? null,
