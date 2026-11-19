@@ -685,7 +685,7 @@ export function useStudio({
     busy,
     error,
     setError,
-    status: status ?? (readOnly && contributionId == null ? "승인된 레이어만 표시합니다." : null),
+    status,
     selectMidiLayer,
     highlightedTracks,
     contribution,
