@@ -28,10 +28,8 @@ export function NativeNoteEditorStateBridge({ status, message, onBack }: {
 }
 
 /** The app's native note editor over the web screen's own state (`useNoteEditorScreen`). */
-export function NativeNoteEditorBridge({ screen, portrait, onToggleLayout, onBack }: {
+export function NativeNoteEditorBridge({ screen, onBack }: {
   screen: NoteEditorScreenState;
-  portrait: boolean;
-  onToggleLayout?: () => void;
   onBack: () => void;
 }) {
   const { composition, track, editor, playback, draft, dialogs, busy, editable } = screen;
@@ -78,8 +76,6 @@ export function NativeNoteEditorBridge({ screen, portrait, onToggleLayout, onBac
     ? { status: "error", message: "선택한 MIDI 클립을 찾을 수 없습니다." }
     : {
         status: "ready",
-        portrait,
-        layoutToggle: Boolean(onToggleLayout),
         title: `${track.name} · 피아노롤`,
         transport: nativeTransport(playback, composition.project.bpm),
         roll: roll.model,
@@ -117,8 +113,6 @@ export function NativeNoteEditorBridge({ screen, portrait, onToggleLayout, onBac
       case "editor-instrument-open":
         if (screen.instrumentChoice) setInstrumentOpen(true);
         return;
-      case "editor-layout":
-        return onToggleLayout?.();
       case "editor-retry-load":
         return draft.retryLoad();
       case "editor-use-server":

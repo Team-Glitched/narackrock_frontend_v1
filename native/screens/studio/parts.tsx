@@ -1,7 +1,7 @@
 /**
- * Shared native studio UI: the landscape canvas, dialogs (instrument, timing, volume, samples),
+ * Shared native studio UI: the adaptive canvas, dialogs (instrument, timing, volume, samples),
  * slider and number field. Used by the studio timeline, the note editor and the creation pages.
- * Dialogs are in-tree overlays (not RN `Modal`) so they rotate with the landscape canvas: render
+ * Dialogs are in-tree overlays (not RN `Modal`) so they share the canvas bounds: render
  * them at the screen root, after the scrolling content.
  */
 import { createContext, useContext, useRef, useState, type ReactNode } from "react";
@@ -38,51 +38,33 @@ import { colors } from "../../ui/theme";
 type LandscapeValue = { rotated: boolean; width: number; height: number };
 const LandscapeContext = createContext<LandscapeValue>({ rotated: false, width: 0, height: 0 });
 
-/** The logical (landscape) size of the canvas and whether it is drawn rotated. */
+/** The available studio canvas bounds, also used by gesture controls. */
 export function useLandscape(): LandscapeValue {
   return useContext(LandscapeContext);
 }
 
 /**
- * Screen-space gesture deltas → canvas deltas. The canvas is rotated 90° clockwise in a portrait
- * window (the web's rotate(90deg)), so its x axis runs down the screen.
+ * Screen-space gesture deltas → canvas deltas. Adaptive canvases keep their screen axes;
+ * the rotated mapping remains available for older gesture callers.
  */
 export function landscapeDelta(rotated: boolean, dx: number, dy: number) {
   return rotated ? { dx: dy, dy: -dx } : { dx, dy };
 }
 
-/**
- * The web's landscape DesignViewport: in a portrait window (the app is portrait-locked) the
- * children are laid out landscape and rotated 90° clockwise to fill the screen.
- */
-export function Landscape({ children }: { children: ReactNode }) {
+/** Fill the current window without rotating content independently of the system keyboard. */
+export function StudioCanvas({ children }: { children: ReactNode }) {
   const window = useWindowDimensions();
   const [size, setSize] = useState({ width: window.width, height: window.height });
-  const rotated = size.height > size.width;
-  const width = rotated ? size.height : size.width;
-  const height = rotated ? size.width : size.height;
   return (
     <View
-      style={styles.landscapeHost}
+      style={styles.canvas}
       onLayout={(event) => {
-        const { width: w, height: h } = event.nativeEvent.layout;
-        if (w !== size.width || h !== size.height) setSize({ width: w, height: h });
+        const { width, height } = event.nativeEvent.layout;
+        if (width !== size.width || height !== size.height) setSize({ width, height });
       }}
     >
-      <LandscapeContext.Provider value={{ rotated, width, height }}>
-        <View
-          style={[
-            styles.landscape,
-            { width, height },
-            rotated && {
-              left: (size.width - width) / 2,
-              top: (size.height - height) / 2,
-              transform: [{ rotate: "90deg" }],
-            },
-          ]}
-        >
-          {children}
-        </View>
+      <LandscapeContext.Provider value={{ rotated: false, ...size }}>
+        {children}
       </LandscapeContext.Provider>
     </View>
   );
@@ -650,8 +632,7 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   disabled: { opacity: 0.5 },
   row: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 8 },
-  landscapeHost: { flex: 1, overflow: "hidden", backgroundColor: colors.bg },
-  landscape: { position: "absolute", left: 0, top: 0, backgroundColor: colors.bg },
+  canvas: { flex: 1, overflow: "hidden", backgroundColor: colors.bg },
   overlay: {
     position: "absolute",
     left: 0,
