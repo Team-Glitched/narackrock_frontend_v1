@@ -173,10 +173,13 @@ export function TeamPianoRoll({
   const setViewStartTick = editor.setViewStartTick;
   useEffect(() => {
     if (!playing || pixelsPerTick <= 0) return;
-    if (playheadTick < startTick || playheadTick >= startTick + windowTicks) {
-      setViewStartTick(Math.floor(playheadTick / windowTicks) * windowTicks);
+    // Follow continuously once the playhead reaches the middle of the viewport.
+    // Keep the current window when playback starts from a manually scrolled position.
+    if (playheadTick < startTick) setViewStartTick(playheadTick);
+    else if (playheadTick > startTick + windowTicks / 2) {
+      setViewStartTick(Math.min(Math.max(0, maxTick - windowTicks), playheadTick - windowTicks / 2));
     }
-  }, [playing, playheadTick, startTick, windowTicks, pixelsPerTick, setViewStartTick]);
+  }, [playing, playheadTick, startTick, windowTicks, maxTick, pixelsPerTick, setViewStartTick]);
 
   // Tool, snap, window, row set, size or permission changes invalidate an in-flight gesture.
   const gestureConfig = JSON.stringify([editor.editable, editor.view.tool, editor.view.snapDenominator,

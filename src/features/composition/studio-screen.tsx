@@ -5,7 +5,7 @@ import { studioStyles } from "@/styles/studio.styles";
 import { cn } from "@/lib/utils";
 import { sharedStyles } from "@/styles/shared.styles";
 import { buttonVariants } from "@/styles/variants";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type PointerEvent } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { queryScope } from "@/lib/query";
 import { PublishConfirmation } from "@/features/composition/publish-confirmation";
@@ -799,6 +799,11 @@ export function StudioScreen({ studio, portrait = true }: { studio: Studio; port
   const { project, viewerPermission } = composition;
   const timelineWidth = (project.maxTick / Math.max(1, project.ppq / 2)) * 20;
   const { primary, trackSettings, pendingAudio } = studio;
+  const seekTimeline = (event: PointerEvent<HTMLDivElement>) => {
+    const bounds = logicalBounds(event.currentTarget);
+    playback.seek(Math.max(0, Math.min(project.maxDurationMs,
+      (pointerAxes(event.currentTarget, event).x - bounds.left) / bounds.width * project.maxDurationMs)));
+  };
   return (
     <div className={cn(studioStyles.studio, portrait && studioStyles.studioUpright)}>
       <StudioToolbar
@@ -1045,7 +1050,7 @@ export function StudioScreen({ studio, portrait = true }: { studio: Studio; port
           }}
         >
           <div
-            className={studioStyles.ruler}
+            className={cn(studioStyles.ruler, "touch-none cursor-ew-resize")}
             style={{ width: timelineWidth }}
             role="slider"
             tabIndex={0}
@@ -1054,17 +1059,18 @@ export function StudioScreen({ studio, portrait = true }: { studio: Studio; port
             aria-valuemax={project.maxDurationMs}
             aria-valuenow={Math.round(playback.positionMs)}
             onPointerDown={(event) => {
-              const bounds = logicalBounds(event.currentTarget);
-              playback.seek(
-                Math.max(
-                  0,
-                  Math.min(
-                    project.maxDurationMs,
-                    ((pointerAxes(event.currentTarget, event).x - bounds.left) / bounds.width) *
-                      project.maxDurationMs,
-                  ),
-                ),
-              );
+              if (event.button !== 0) return;
+              event.preventDefault();
+              event.currentTarget.setPointerCapture(event.pointerId);
+              seekTimeline(event);
+            }}
+            onPointerMove={(event) => {
+              if (event.currentTarget.hasPointerCapture(event.pointerId)) seekTimeline(event);
+            }}
+            onPointerUp={(event) => {
+              if (!event.currentTarget.hasPointerCapture(event.pointerId)) return;
+              seekTimeline(event);
+              event.currentTarget.releasePointerCapture(event.pointerId);
             }}
             onKeyDown={(event) => {
               if (!["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
@@ -1086,6 +1092,8 @@ export function StudioScreen({ studio, portrait = true }: { studio: Studio; port
             }}
           >
             <MusicalRuler signature={playback.signature} width={timelineWidth} />
+            <span aria-hidden="true" className="pointer-events-none absolute top-0 h-full w-3 -translate-x-1/2 rounded-b bg-app-accent"
+              style={{ left: (playback.positionMs / project.maxDurationMs) * timelineWidth }} />
           </div>
           <div className={studioStyles.timelineSidebarFill} aria-hidden="true" />
           <div

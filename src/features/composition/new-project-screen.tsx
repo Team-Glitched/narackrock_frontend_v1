@@ -3,7 +3,6 @@ import { buttonVariants } from "@/styles/variants";
 import { useEffect, useId, useRef, useState, useSyncExternalStore } from "react";
 import { createDraftProject, updateProjectMetadata, uploadMedia } from "@/lib/api/composition";
 import { apiOrigin, getCurrentUserId } from "@/lib/api/client";
-import { Link } from "react-router";
 import {
   errorText,
   getResumableProject,
@@ -226,7 +225,6 @@ export function NewProject({ project }: { project: NewProjectState }) {
           </button>
         )}
       </div>
-      <Link to="/settings?migration=1">이전 브라우저 작업 확인·복구</Link>
     </form>
   );
 }
