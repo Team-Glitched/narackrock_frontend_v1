@@ -8,6 +8,7 @@ import { DialogNumberInput } from "@/features/composition/dialog-number-input";
 import { partLabel } from "@/features/composition/instrument-parts";
 import { buttonVariants } from "@/styles/variants";
 import { useId } from "react";
+import type { TrackDto } from "@/lib/api/composition";
 
 /** Figma V3 Dialog / Volume (13488:30828). */
 export function VolumeDialog({
@@ -20,7 +21,7 @@ export function VolumeDialog({
   value: number;
   onChange: (value: number) => void;
   onClose: () => void;
-  track?: { name: string; instrument: string | null };
+  track?: Pick<TrackDto, "instrument" | "ownerNickname" | "ownerProfileImageUrl">;
   /** Present only when the viewer may change this track's instrument/recording role. */
   onChangeInstrument?: () => void;
 }) {
@@ -33,11 +34,11 @@ export function VolumeDialog({
     >
       {track && (
         <div className={studioStyles.trackSettingsIdentity}>
-          <span>
-            <strong>{track.name}</strong>
+          <span className="min-w-0 flex-1 pr-4 [&>strong]:truncate">
+            <strong>{track.ownerNickname || "사용자"}</strong>
             <small>{track.instrument ? partLabel(track.instrument) : "오디오"}</small>
           </span>
-          <Avatar />
+          <Avatar src={track.ownerProfileImageUrl} />
         </div>
       )}
       <h2 id={titleId}>음량</h2>

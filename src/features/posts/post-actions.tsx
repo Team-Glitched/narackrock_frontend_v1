@@ -1,4 +1,4 @@
-import { LoaderCircle } from "lucide-react";
+import { LoaderCircle, Pencil } from "lucide-react";
 import { iconSlotVariants, reactionControlVariants } from "@/styles/variants";
 import { communityStyles } from "@/styles/community.styles";
 import { cn } from "@/lib/utils";
@@ -39,6 +39,7 @@ export function PostActions({
   onSave,
   onShare,
   onReport,
+  onEdit,
   busy = false,
   compact = false,
   readOnly = false,
@@ -55,6 +56,7 @@ export function PostActions({
   onSave?: () => void;
   onShare?: () => void;
   onReport?: () => void;
+  onEdit?: () => void;
   busy?: boolean;
   compact?: boolean;
   readOnly?: boolean;
@@ -158,6 +160,17 @@ export function PostActions({
               </span>
             )}
           </button>
+          {onEdit && (
+            <button
+              type="button"
+              className={reactionControlVariants({ kind: "icon" })}
+              aria-label="곡 정보 수정"
+              title="곡 정보 수정"
+              onClick={onEdit}
+            >
+              <Pencil className="size-4" aria-hidden="true" />
+            </button>
+          )}
           {onReport && (
             <button type="button" className={reactionControlVariants({ kind: "icon" })} aria-label="신고" onClick={onReport}>
               <IconSlot name="short-report.svg" kind="post" />

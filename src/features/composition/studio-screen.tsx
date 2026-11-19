@@ -1,4 +1,8 @@
-import { emptyLayerEditor, layerEditorTarget } from "./studio-layer-editor";
+import {
+  emptyLayerEditor,
+  layerEditorTarget,
+  canChangeTrackInstrument,
+} from "./studio-layer-editor";
 import { contributionsQuery } from "@/features/workspace/workspace-queries";
 import { contributionTrackIds } from "@/features/workspace/contribution-presentation";
 import { studioStyles } from "@/styles/studio.styles";
@@ -10,6 +14,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { queryScope } from "@/lib/query";
 import { PublishConfirmation } from "@/features/composition/publish-confirmation";
 import { CanvasDialog } from "@/components/canvas-dialog";
+import { ProjectMetadataEditor } from "./project-metadata-editor";
 import { VolumeDialog } from "@/features/composition/volume-dialog";
 import { InstrumentDialog, type InstrumentChoice } from "@/features/composition/instrument-dialog";
 import { findInstrument, invalidPitchesFor } from "@/features/composition/instrument-catalog";
@@ -128,6 +133,7 @@ export function useStudio({
   const [showSubmitForm, setShowSubmitForm] = useState(false);
   const [showPublishConfirmation, setShowPublishConfirmation] = useState(false);
   const [metadataAction, setMetadataAction] = useState<"save" | "publish" | null>(null);
+  const [showMetadataEditor, setShowMetadataEditor] = useState(false);
   const [publishTitle, setPublishTitle] = useState("");
   const [publishImage, setPublishImage] = useState<File | null>(null);
   const [pendingAudio, setPendingAudio] = useState<PendingStudioAudio | null>(null);
@@ -623,10 +629,8 @@ export function useStudio({
           track: settingsTrack,
           volume: playback.trackVolumes[settingsTrack.trackId] ?? settingsTrack.volume,
           roleEditable:
-            viewerPermission.canEdit &&
-            settingsTrack.ownerId === viewerPermission.userId &&
-            ["DRAFT", "IN_PROGRESS"].includes(project.status) &&
-            ["DRAFT", "APPROVED"].includes(settingsTrack.approvalStatus),
+            typeof view === "string" &&
+            canChangeTrackInstrument(viewerPermission.userId, project.status, settingsTrack),
         }
       : null;
 
@@ -681,7 +685,7 @@ export function useStudio({
     busy,
     error,
     setError,
-    status: status ?? (readOnly && contributionId == null ? "승인된 레이어만 표시합니다." : null),
+    status,
     selectMidiLayer,
     highlightedTracks,
     contribution,
@@ -709,6 +713,17 @@ export function useStudio({
       if (!busy) setMetadataAction(null);
     },
     canSavePrivate,
+    canEditMetadata: project?.ownerId === userId && typeof view === "string",
+    requestMetadataEdit: () => {
+      playback.pause();
+      setShowMetadataEditor(true);
+    },
+    showMetadataEditor,
+    closeMetadataEditor: () => {
+      if (!busy) setShowMetadataEditor(false);
+    },
+    finishMetadataEdit: () => setShowMetadataEditor(false),
+    setMetadataBusy: setBusy,
     savePrivateDisabled: busy || !tracks.some((track) => track.clips.length),
     requestPrivateSave: () => {
       if (!canSavePrivate || busy || !tracks.some((track) => track.clips.length)) return;
@@ -831,6 +846,15 @@ export function StudioScreen({ studio, portrait = true }: { studio: Studio; port
         }
         onBack={studio.onExit}
       >
+        {studio.canEditMetadata && (
+          <button
+            className={studioStyles.studioSubmit}
+            disabled={busy}
+            onClick={studio.requestMetadataEdit}
+          >
+            곡 정보 수정
+          </button>
+        )}
         {studio.canSavePrivate && (
           <button
             className={studioStyles.studioSubmit}
@@ -951,6 +975,22 @@ export function StudioScreen({ studio, portrait = true }: { studio: Studio; port
             void studio.publish();
           }}
         />
+      )}
+      {studio.showMetadataEditor && studio.canEditMetadata && (
+        <CanvasDialog
+          className="w-96 max-w-[90%] rounded-xl bg-app-surface"
+          titleId="project-metadata-title"
+          onClose={studio.closeMetadataEditor}
+        >
+          <ProjectMetadataEditor
+            key={`${studio.userId}:${project.projectId}`}
+            projectId={project.projectId}
+            title={project.title}
+            albumImageUrl={project.albumImageUrl}
+            onBusyChange={studio.setMetadataBusy}
+            onClose={studio.finishMetadataEdit}
+          />
+        </CanvasDialog>
       )}
       {studio.metadataAction && (
         <form

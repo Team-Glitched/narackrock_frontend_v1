@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { emptyLayerEditor, layerEditorTarget } from "./studio-layer-editor.ts";
+import {
+  emptyLayerEditor,
+  layerEditorTarget,
+  canChangeTrackInstrument,
+} from "./studio-layer-editor.ts";
 
 const permission = { userId: 2, canEdit: true, canContribute: true };
 const track = { trackId: 12, ownerId: 2, instrument: "piano", approvalStatus: "DRAFT", clips: [] };
@@ -50,5 +54,27 @@ test("personal preview clips reopen the new draft, and audio retains track setti
       clips: [{ clipId: 44, clipType: "AUDIO" as const }],
     }),
     null,
+  );
+});
+
+test("public studio allows owners to change their approved instrument without composition write permission", () => {
+  const viewer = { ...permission, canEdit: false, canContribute: false };
+  assert.equal(
+    canChangeTrackInstrument(viewer.userId, "IN_PROGRESS", {
+      ...track,
+      approvalStatus: "APPROVED",
+    }),
+    true,
+  );
+  assert.equal(canChangeTrackInstrument(viewer.userId, "DRAFT", track), true);
+  for (const status of ["PENDING", "REJECTED", "DELETED"])
+    assert.equal(
+      canChangeTrackInstrument(viewer.userId, "IN_PROGRESS", { ...track, approvalStatus: status }),
+      false,
+    );
+  assert.equal(canChangeTrackInstrument(viewer.userId, "COMPLETED", track), false);
+  assert.equal(
+    canChangeTrackInstrument(viewer.userId, "IN_PROGRESS", { ...track, ownerId: 1 }),
+    false,
   );
 });
