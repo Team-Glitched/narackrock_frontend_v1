@@ -230,7 +230,7 @@ export const studioStyles = {
     "[&_button:focus-visible]:[outline:2px_solid_#8a56ff] [&_button:focus-visible]:[outline-offset:2px]",
     "[&_input:focus-visible]:[outline:2px_solid_#8a56ff] [&_input:focus-visible]:[outline-offset:2px]",
     "[@media(max-width:767px)]:rounded-none",
-    "[.design-canvas_&]:[--studio-rotated:0] [.design-canvas_&]:relative [.design-canvas_&]:top-auto [.design-canvas_&]:left-auto",
+    "[.design-canvas_&]:relative [.design-canvas_&]:top-auto [.design-canvas_&]:left-auto",
     "[.design-canvas_&]:flex [.design-canvas_&]:h-full [.design-canvas_&]:max-h-none [.design-canvas_&]:w-full [.design-canvas_&]:max-w-none",
     "[.design-canvas_&]:min-w-0 [.design-canvas_&]:flex-col [.design-canvas_&]:transform-[none] [.design-canvas_&]:rounded-none",
     "[.design-canvas_&]:bg-app-bg [.design-canvas_&]:bg-none [.design-canvas_&]:overflow-hidden",

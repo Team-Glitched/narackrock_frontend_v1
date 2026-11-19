@@ -383,7 +383,8 @@ function WebShell() {
 export default function App() {
   return (
     <SafeAreaProvider>
-      <SafeAreaView style={styles.root} edges={["top", "bottom"]}>
+      {/* Left/right: in landscape the navigation bar or display cutout sits at a side edge. */}
+      <SafeAreaView style={styles.root} edges={["top", "bottom", "left", "right"]}>
         <StatusBar style="light" />
         <WebShell />
       </SafeAreaView>
