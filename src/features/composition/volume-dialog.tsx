@@ -9,6 +9,9 @@ import { partLabel } from "@/features/composition/instrument-parts";
 import { buttonVariants } from "@/styles/variants";
 import { useId } from "react";
 import type { TrackDto } from "@/lib/api/composition";
+import { useQuery } from "@tanstack/react-query";
+import { useCurrentUserId } from "@/features/auth/use-current-user";
+import { profileQuery } from "@/features/profile/profile-queries";
 
 /** Figma V3 Dialog / Volume (13488:30828). */
 export function VolumeDialog({
@@ -21,11 +24,20 @@ export function VolumeDialog({
   value: number;
   onChange: (value: number) => void;
   onClose: () => void;
-  track?: Pick<TrackDto, "instrument" | "ownerNickname" | "ownerProfileImageUrl">;
+  track?: Pick<TrackDto, "ownerId" | "instrument" | "ownerNickname" | "ownerProfileImageUrl">;
   /** Present only when the viewer may change this track's instrument/recording role. */
   onChangeInstrument?: () => void;
 }) {
   const titleId = useId();
+  const userId = useCurrentUserId();
+  const ownerNickname = track?.ownerNickname?.trim();
+  // Older API deployments omit ownerNickname. Resolve only the opened layer's owner,
+  // reusing the same account-scoped profile cache as the profile screen.
+  const ownerProfile = useQuery({
+    ...profileQuery(userId, track?.ownerId ?? 0),
+    enabled: Boolean(track && !ownerNickname && userId !== null),
+  });
+  const nickname = ownerNickname || ownerProfile.data?.nickname;
   return (
     <CanvasDialog
       className={cn(sharedStyles.volumeDialog, track ? studioStyles.trackVolumeDialog : "")}
@@ -35,11 +47,23 @@ export function VolumeDialog({
       {track && (
         <div className={studioStyles.trackSettingsIdentity}>
           <span className="min-w-0 flex-1 pr-4 [&>strong]:truncate">
-            <strong>{track.ownerNickname || "사용자"}</strong>
+            <strong aria-live="polite">
+              {nickname ||
+                (ownerProfile.isError ? "이름을 불러오지 못했습니다." : "사용자 이름 확인 중...")}
+            </strong>
             <small>{track.instrument ? partLabel(track.instrument) : "오디오"}</small>
           </span>
-          <Avatar src={track.ownerProfileImageUrl} />
+          <Avatar src={track.ownerProfileImageUrl ?? ownerProfile.data?.profileImageUrl} />
         </div>
+      )}
+      {track && !nickname && ownerProfile.isError && (
+        <button
+          type="button"
+          className="mb-3 text-caption text-app-primary-soft"
+          onClick={() => void ownerProfile.refetch()}
+        >
+          사용자 이름 다시 불러오기
+        </button>
       )}
       <h2 id={titleId}>음량</h2>
       <div className={sharedStyles.volumeDialogRow}>
