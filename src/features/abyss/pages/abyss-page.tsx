@@ -75,6 +75,7 @@ export default function AbyssPage() {
     <DesignViewport>
       <div className={sharedStyles.phoneFrame}>
         <Header
+          showChat
           abyss
           muted={muted}
           onToggleMute={() => setMuted((value) => !value)}

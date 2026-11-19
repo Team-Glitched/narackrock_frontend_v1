@@ -158,7 +158,14 @@ export class PlaybackGeneration {
       if (this.active) callback(time);
     }, 100);
     this.clock.start(this.epoch);
-    if (update) this.uiTimer = window.setInterval(() => { if (this.active) update(); }, 50);
+    if (update) {
+      const frame = () => {
+        if (!this.active) return;
+        update();
+        if (this.active) this.uiTimer = window.requestAnimationFrame(frame);
+      };
+      this.uiTimer = window.requestAnimationFrame(frame);
+    }
   }
 
   stop(): void {
@@ -170,7 +177,7 @@ export class PlaybackGeneration {
     this.output.disconnect();
     this.clock?.dispose();
     this.clock = null;
-    window.clearInterval(this.uiTimer);
+    if (this.uiTimer !== undefined) window.cancelAnimationFrame(this.uiTimer);
     this.uiTimer = undefined;
     for (const source of this.sources) {
       source.onended = null;

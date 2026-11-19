@@ -12,6 +12,7 @@ import {
   type RefObject,
 } from "react";
 import { useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { ProjectMetadataEditor } from "@/features/composition/project-metadata-editor";
 import { AlbumCarousel } from "@/features/abyss/album-carousel";
 import { ShortParticipants } from "@/features/abyss/short-participants";
 import { findNextFeedShort } from "./next-feed-short";
@@ -553,6 +554,8 @@ function NativeAbyssContent({
 /** Browser-only drawing of `useAbyss`; app controllers never mount this tree. */
 function AbyssView({ abyss }: { abyss: AbyssState }) {
   const { selectedShort: current, playback, sheet, shorts, mediaUrl, audioRef } = abyss;
+  const [metadataTarget, setMetadataTarget] = useState<number | null>(null);
+  const [metadataBusy, setMetadataBusy] = useState(false);
   const titleViewport = useRef<HTMLHeadingElement>(null);
   const titleText = useRef<HTMLSpanElement>(null);
   const [titleOverflows, setTitleOverflows] = useState(false);
@@ -631,6 +634,23 @@ function AbyssView({ abyss }: { abyss: AbyssState }) {
             <i /> <button onClick={abyss.openParticipants}>작곡 참여자 보기</button>
           </p>
         </div>
+        {metadataTarget === current.shortId &&
+          current.projectId != null &&
+          current.author.userId === abyss.currentUserId && (
+          <FigmaSheet
+            title="곡 정보 수정"
+            onClose={() => { if (!metadataBusy) setMetadataTarget(null); }}
+          >
+            <ProjectMetadataEditor
+              key={`${abyss.currentUserId}:${current.projectId}`}
+              projectId={current.projectId}
+              title={current.title}
+              albumImageUrl={current.albumImageUrl}
+              onBusyChange={setMetadataBusy}
+              onClose={() => setMetadataTarget(null)}
+            />
+          </FigmaSheet>
+        )}
         <PostActions
           likeCount={current.likeCount}
           dislikeCount={current.dislikeCount}
@@ -643,6 +663,14 @@ function AbyssView({ abyss }: { abyss: AbyssState }) {
           onShare={abyss.share}
           onSave={abyss.bookmark}
           onReport={abyss.openReport}
+          onEdit={
+            current.projectId != null && current.author.userId === abyss.currentUserId
+              ? () => {
+                  if (playback.playing) void playback.toggle();
+                  setMetadataTarget(current.shortId);
+                }
+              : undefined
+          }
         />
       </div>
       <div className={abyssStyles.abyssBottomStack}>
