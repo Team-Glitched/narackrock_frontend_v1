@@ -60,6 +60,7 @@ export type NativeNoteRoll = {
   tool: NativeNoteTool;
   snapDenominator: 4 | 8 | 16;
   visibleBars: 1 | 2 | 4;
+  zoom: number;
   expandedDrums: boolean;
   viewStartTick: number;
   /** Ticks shown across the grid width (visible bars). */
@@ -81,7 +82,7 @@ export type NativeNoteRoll = {
   tickMs: number;
   clipStartMs: number;
   projectOriginTick?: number;
-  suggestion?: { name: string; notes: MidiNoteDto[]; reveal: { pitch: number } | null };
+  suggestion?: { name: string; notes: MidiNoteDto[]; reveal: { pitch: number; sequence?: number } | null };
   /** Coarse clip-local playhead tick (paste and chords insert here). */
   positionTick: number;
   playing: boolean;
@@ -114,6 +115,7 @@ export type NativeNoteRollAction =
   | { type: "roll-bars"; value: 1 | 2 | 4 }
   | { type: "roll-drums"; expanded: boolean }
   | { type: "roll-view"; tick: number }
+  | { type: "roll-zoom"; zoom: number; tick: number }
   | { type: "roll-audition"; pitch: number }
   /** Clip-local tick. */
   | { type: "roll-seek"; tick: number }
@@ -146,6 +148,7 @@ const rollActions: Record<NativeNoteRollAction["type"], true> = {
   "roll-bars": true,
   "roll-drums": true,
   "roll-view": true,
+  "roll-zoom": true,
   "roll-audition": true,
   "roll-seek": true,
   "roll-settings-open": true,

@@ -4,7 +4,7 @@
  * rules (note-editing.ts); on release one `roll-edit` goes to the page, which validates and commits it
  * through its note editor (history, draft). Reused by the creation pages' sample piano.
  */
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useEffectEvent, useMemo, useRef, useState, type ComponentRef, type ReactNode } from "react";
 import {
   PanResponder,
   ScrollView,
@@ -28,6 +28,7 @@ import {
 } from "../../../src/features/composition/chord-input";
 import { drumPadFor } from "../../../src/features/composition/drum-kit";
 import { applyNoteEdit } from "../../../src/features/composition/note-editing";
+import { MIN_ROLL_ZOOM, MAX_ROLL_ZOOM, rollTouchPair, zoomRollViewport, type RollViewport } from "../../../src/features/composition/note-roll-zoom";
 import {
   noteLengthLimits,
   notePercent,
@@ -94,6 +95,7 @@ type Gesture = {
   notes: MidiNoteDto[];
   revision: number;
   indices: number[];
+  selection: number[];
   erased: Set<number>;
   hits: number[];
   pitch: number;
@@ -129,9 +131,9 @@ const landscapeKeyWidth = 87;
  * notes audition through the page; the ruler seeks; the edit tool decides what a drag on the grid does.
  */
 export function NoteRoll({
-  roll,
-  rowHeight = 30,
-  keyWidth = landscapeKeyWidth,
+  roll: model,
+  rowHeight: baseRowHeight = 30,
+  keyWidth: baseKeyWidth = landscapeKeyWidth,
 }: {
   roll: NativeNoteRoll;
   /** Pitch row height and key column width; the portrait layout enlarges the touch targets. */
@@ -139,6 +141,15 @@ export function NoteRoll({
   keyWidth?: number;
 }) {
   const { act } = useScreen();
+  const [zoomPreview, setZoomPreview] = useState<{ zoom: number; tick: number; pending: boolean } | null>(null);
+  const roll = zoomPreview ? { ...model, zoom: zoomPreview.zoom, viewStartTick: zoomPreview.tick,
+    windowTicks: model.windowTicks * model.zoom / zoomPreview.zoom } : model;
+  const rowHeight = baseRowHeight * roll.zoom;
+  const keyWidth = baseKeyWidth * roll.zoom;
+  useEffect(() => {
+    if (zoomPreview?.pending && model.zoom === zoomPreview.zoom && Math.abs(model.viewStartTick - zoomPreview.tick) < 0.01)
+      setZoomPreview(null);
+  }, [model.zoom, model.viewStartTick, zoomPreview]);
   // Like the web's upright layout: a narrower key column leaves no room beside a black key for its name.
   const blackKeyLabels = keyWidth >= landscapeKeyWidth;
   const [size, setSize] = useState({ width: 0, height: 0 });
@@ -165,7 +176,7 @@ export function NoteRoll({
   const rowIndex = useMemo(() => new Map(roll.rows.map((pitch, row) => [pitch, row])), [roll.rows]);
 
   // Center the requested pitch when the roll opens and whenever the shown row set changes (the web's rule).
-  const centerKey = `${roll.rows.join(",")}|${roll.initialPitch}|${roll.drum}|${rowHeight}`;
+  const centerKey = `${roll.rows.join(",")}|${roll.initialPitch}|${roll.drum}`;
   if (size.height > 0 && centered !== centerKey) {
     setCentered(centerKey);
     const pitch = roll.rows.includes(roll.initialPitch) ? roll.initialPitch : roll.drum ? 36 : roll.initialPitch;
@@ -174,13 +185,16 @@ export function NoteRoll({
   }
 
   const revealPitch = roll.suggestion?.reveal?.pitch;
-  const reveal = roll.suggestion?.reveal;
-  useEffect(() => {
+  const revealSequence = roll.suggestion?.reveal?.sequence;
+  const revealRows = roll.rows.join(",");
+  const scrollToReveal = useEffectEvent(() => {
     if (revealPitch === undefined) return;
     const row = roll.rows.indexOf(Math.ceil(revealPitch));
     if (row >= 0) setScrollY(Math.max(0,
       (row + Math.ceil(revealPitch) - revealPitch) * rowHeight - (viewportHeight - rowHeight) / 2));
-  }, [reveal, revealPitch, roll.rows, rowHeight, viewportHeight]);
+  });
+  // Only a new reveal request recentres the pitch; zoom/model acknowledgements must keep the pinch anchor.
+  useEffect(() => scrollToReveal(), [revealSequence, revealPitch, revealRows]);
 
   // A pan keeps its local offset until the page moved the window (or clamped it to the same place).
   const viewStart = roll.viewStartTick;
@@ -217,6 +231,77 @@ export function NoteRoll({
   layout.current = { roll, rowHeight, ppt, width, height, scroll, maxScroll, rowIndex };
   const actRef = useRef(act);
   actRef.current = act;
+  const root = useRef<ComponentRef<typeof View>>(null);
+  const origin = useRef({ x: 0, y: 0 });
+  const zoomLayout = useRef<RollViewport>(null as unknown as RollViewport);
+  zoomLayout.current = { width: size.width, height: viewportHeight, baseKeyWidth, baseRowHeight,
+    baseWindowTicks: roll.windowTicks * roll.zoom, maxTick: roll.maxTick, rows: roll.rows.length,
+    zoom: roll.zoom, viewStartTick: ppt > 0 ? scroll.x / ppt : roll.viewStartTick, scrollTop: scroll.y };
+  const zoomGesture = useRef<{ view: RollViewport; centre: Point; distance: number } | null>(null);
+  const priorSelection = useRef<number[] | null>(null);
+  const zoomResult = useRef<{ zoom: number; viewStartTick: number } | null>(null);
+  const zoomCallbacks = useRef({
+    apply(value: number, from?: Point, to = from, view = zoomLayout.current) {
+      const centre = from ?? { x: (view.width + view.baseKeyWidth * view.zoom) / 2, y: view.height / 2 };
+      const next = zoomRollViewport(view, value, centre, to ?? centre);
+      zoomResult.current = next;
+      zoomLayout.current = { ...view, ...next };
+      setZoomPreview({ zoom: next.zoom, tick: next.viewStartTick, pending: false });
+      setPanX(null);
+      setScrollY(next.scrollTop);
+    },
+    finish() {
+      const next = zoomResult.current;
+      zoomGesture.current = null;
+      if (!next) return;
+      zoomResult.current = null;
+      setZoomPreview({ zoom: next.zoom, tick: next.viewStartTick, pending: true });
+      actRef.current({ type: "roll-zoom", zoom: next.zoom, tick: next.viewStartTick });
+    },
+  });
+  const zoomResponder = useMemo(() => {
+    const points = (event: GestureResponderEvent) => event.nativeEvent.touches.map(touch => ({
+      x: touch.pageX - origin.current.x, y: touch.pageY - origin.current.y - rulerHeight,
+    }));
+    const capture = (event: GestureResponderEvent) => {
+      const fingers = points(event);
+      if (fingers.length < 2 || fingers.some(point => point.y < 0)) return false;
+      if (zoomGesture.current) return true;
+      priorSelection.current ??= gesture.current?.selection ?? layout.current.roll.selection;
+      zoomGesture.current = { view: { ...zoomLayout.current }, ...rollTouchPair(fingers) };
+      return true;
+    };
+    const start = (event: GestureResponderEvent) => {
+      const fingers = points(event);
+      if (!fingers.length) return;
+      zoomGesture.current = { view: { ...zoomLayout.current },
+        ...(fingers.length >= 2 ? rollTouchPair(fingers) : { centre: fingers[0], distance: 0 }) };
+    };
+    return PanResponder.create({
+      onStartShouldSetPanResponderCapture: capture,
+      onMoveShouldSetPanResponderCapture: capture,
+      onPanResponderTerminationRequest: () => false,
+      onPanResponderGrant: event => {
+        gesture.current = null;
+        setPreview(null); setMarquee(null);
+        if (priorSelection.current) actRef.current({ type: "roll-select", indices: priorSelection.current });
+        priorSelection.current = null;
+        if (!zoomGesture.current) start(event);
+      },
+      onPanResponderStart: start,
+      onPanResponderEnd: event => { if (points(event).length) start(event); },
+      onPanResponderMove: event => {
+        const fingers = points(event), active = zoomGesture.current;
+        if (!active || !fingers.length) return;
+        const pair = fingers.length >= 2 ? rollTouchPair(fingers) : { centre: fingers[0], distance: 0 };
+        if (Boolean(pair.distance) !== Boolean(active.distance)) { start(event); return; }
+        zoomCallbacks.current.apply(active.view.zoom * (active.distance ? pair.distance / active.distance : 1),
+          active.centre, pair.centre, active.view);
+      },
+      onPanResponderRelease: () => zoomCallbacks.current.finish(),
+      onPanResponderTerminate: () => zoomCallbacks.current.finish(),
+    });
+  }, []);
 
   const grid = useMemo(() => {
     function noteAt(notes: MidiNoteDto[], point: Point): number | null {
@@ -365,6 +450,7 @@ export function NoteRoll({
         notes,
         revision: model.revision,
         indices,
+        selection: [...selection],
         erased: new Set(),
         hits: [],
         pitch: model.rows[row],
@@ -448,7 +534,7 @@ export function NoteRoll({
     return PanResponder.create({
       onStartShouldSetPanResponder: () => true,
       onMoveShouldSetPanResponder: () => true,
-      onPanResponderTerminationRequest: () => false,
+      onPanResponderTerminationRequest: (_, state) => state.numberActiveTouches >= 2,
       onPanResponderGrant: grant,
       onPanResponderMove: move,
       onPanResponderRelease: release,
@@ -523,11 +609,26 @@ export function NoteRoll({
   const lines = gridLines(roll, startTick, endTick);
 
   return (
+    <View style={{ flex: 1, minHeight: 0 }}>
+      <View style={{ height: 32, flexDirection: "row", justifyContent: "flex-end", alignItems: "center", gap: 4, paddingHorizontal: 8, backgroundColor: colors.panel }}>
+        <Touchable accessibilityRole="button" accessibilityLabel="피아노롤 축소" disabled={roll.zoom <= MIN_ROLL_ZOOM}
+          onPress={() => { zoomCallbacks.current.apply(roll.zoom / 1.25); zoomCallbacks.current.finish(); }}>
+          <Text style={{ color: colors.fg, width: 36, textAlign: "center", fontSize: 20 }}>−</Text>
+        </Touchable>
+        <Text accessibilityLabel="피아노롤 배율" style={{ color: colors.muted, width: 48, textAlign: "center" }}>{Math.round(roll.zoom * 100)}%</Text>
+        <Touchable accessibilityRole="button" accessibilityLabel="피아노롤 확대" disabled={roll.zoom >= MAX_ROLL_ZOOM}
+          onPress={() => { zoomCallbacks.current.apply(roll.zoom * 1.25); zoomCallbacks.current.finish(); }}>
+          <Text style={{ color: colors.fg, width: 36, textAlign: "center", fontSize: 20 }}>+</Text>
+        </Touchable>
+      </View>
     <View
+      ref={root}
       style={styles.roll}
+      {...zoomResponder.panHandlers}
       onLayout={(event) => {
         const { width: w, height: h } = event.nativeEvent.layout;
         if (w !== size.width || h !== size.height) setSize({ width: w, height: h });
+        root.current?.measureInWindow((x, y) => { origin.current = { x, y }; });
       }}
       accessibilityLabel={
         roll.drum ? `드럼 피아노롤${roll.hidden ? `, 숨은 노트 ${roll.hidden}개` : ""}` : "피아노롤"
@@ -593,7 +694,8 @@ export function NoteRoll({
               ) : (
                 <>
                   {sharp(pitch) && <View style={styles.blackKey} />}
-                  {(blackKeyLabels || !sharp(pitch)) && <Text style={styles.keyLabel}>{label}</Text>}
+                  {(blackKeyLabels || !sharp(pitch)) && <Text style={[styles.keyLabel,
+                    { fontSize: 12 * roll.zoom, lineHeight: 14 * roll.zoom, top: 10 * roll.zoom }]}>{label}</Text>}
                 </>
               )}
             </View>
@@ -660,7 +762,7 @@ export function NoteRoll({
                     size={Math.min(20, rowHeight - 8)}
                   />
                 ) : (
-                  <Text style={styles.noteLabel} numberOfLines={1}>
+                  <Text style={[styles.noteLabel, { fontSize: 12 * roll.zoom, lineHeight: 14 * roll.zoom }]} numberOfLines={1}>
                     {pitchNames[note.pitch % 12]}
                   </Text>
                 )}
@@ -707,6 +809,7 @@ export function NoteRoll({
           height={Math.min(viewportHeight, height - scroll.y)}
         />
       )}
+    </View>
     </View>
   );
 }

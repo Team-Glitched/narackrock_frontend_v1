@@ -2,6 +2,7 @@ import type { MidiNoteDto } from "../../lib/api/composition.ts";
 import { findInstrument } from "./instrument-catalog.ts";
 import { drumPitches } from "./drum-kit.ts";
 import { defaultSignature, validSignature, type TimeSignature } from "./time-signature.ts";
+import { clampRollZoom } from "./note-roll-zoom.ts";
 import {
   applyNoteEdit, clamp, copyNotes, sameNotes, validSelection, validateNotes,
   type NoteEditBounds, type NoteEditCommand, type NoteEditResult, type NoteEditorSnapshot,
@@ -51,6 +52,7 @@ export type NoteEditorView = {
   tool: "draw" | "select" | "erase" | "pan";
   snapDenominator: 4 | 8 | 16;
   visibleBars: 1 | 2 | 4;
+  zoom: number;
   expandedDrums: boolean;
   viewStartTick: number;
 };
@@ -104,6 +106,7 @@ export type NoteEditorController = {
   setVisibleBars: (value: NoteEditorView["visibleBars"]) => void;
   setExpandedDrums: (value: boolean) => void;
   setViewStartTick: (value: number) => void;
+  setZoom: (value: number, viewStartTick?: number) => void;
 };
 
 type Gesture = { base: NoteEditorSnapshot; result: NoteEditResult | null; command: NoteEditCommand | null };
@@ -119,7 +122,7 @@ export type NoteEditorState = {
   lastChange: NoteEditorChange | null;
 };
 const initialView = (): NoteEditorView => ({
-  tool: "draw", snapDenominator: 8, visibleBars: 2, expandedDrums: false, viewStartTick: 0,
+  tool: "draw", snapDenominator: 8, visibleBars: 2, zoom: 1, expandedDrums: false, viewStartTick: 0,
 });
 
 export function noteEditorGeometry(options: Omit<NoteEditorOptions, "onCommit">, view: NoteEditorView) {
@@ -128,7 +131,7 @@ export function noteEditorGeometry(options: Omit<NoteEditorOptions, "onCommit">,
   const maxPitch = Math.min(127, options.bounds.maxPitch, instrument?.kind === "drum" ? instrument.maxPitch ?? 81 : 127);
   const ppq = Number.isFinite(options.ppq) && options.ppq > 0 ? options.ppq : 480;
   const signature = validSignature(options.signature) ? options.signature : defaultSignature;
-  const windowTicks = ppq * 4 * signature.numerator / signature.denominator * view.visibleBars;
+  const windowTicks = ppq * 4 * signature.numerator / signature.denominator * view.visibleBars / view.zoom;
   const rows = (instrument?.kind === "drum" ? drumPitches(view.expandedDrums)
     : Array.from({ length: 128 }, (_, row) => 127 - row))
     .filter((pitch) => pitch >= minPitch && pitch <= maxPitch);
@@ -309,5 +312,10 @@ export class NoteEditorSession {
   setExpandedDrums = (expandedDrums: boolean) => this.setView({ expandedDrums });
   setViewStartTick = (viewStartTick: number) => {
     if (Number.isFinite(viewStartTick)) this.setView({ viewStartTick });
+  };
+  setZoom = (value: number, viewStartTick = this.state.view.viewStartTick) => {
+    if (Number.isFinite(value) && Number.isFinite(viewStartTick)) {
+      this.setView({ zoom: clampRollZoom(value), viewStartTick });
+    }
   };
 }
