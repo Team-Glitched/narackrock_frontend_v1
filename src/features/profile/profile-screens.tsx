@@ -20,6 +20,7 @@ import { Link, useNavigate } from "react-router";
 import { useMySongs } from "@/features/home/use-my-songs";
 import { songsForTab } from "@/features/home/my-songs";
 import { profileKeys, profileQuery } from "./profile-queries";
+import { useImageCrop } from "@/features/images/use-image-crop";
 
 export function profileErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : "프로필을 불러오지 못했습니다.";
@@ -476,11 +477,29 @@ export function ProfileForm({
   const [instrument, setInstrument] = useState(initial.instrument);
   const [explanation, setExplanation] = useState(initial.explanation);
   const { image, saving, error, pick, save } = useProfileForm(onSubmit);
+  const crop = useImageCrop({
+    file: image?.file ?? null,
+    onApply: pick,
+    label: "프로필 사진",
+    shape: "circle",
+    maxMB: 25,
+  });
 
   return (
     <div className={cn(profileStyles.editView, sharedStyles.scrollContent)}>
       {topSlot}
-      <label className={profileStyles.editAvatar}>
+      <label
+        className={profileStyles.editAvatar}
+        role="button"
+        aria-label="프로필 사진 변경"
+        tabIndex={saving ? -1 : 0}
+        onKeyDown={(event) => {
+          if (!saving && (event.key === "Enter" || event.key === " ")) {
+            event.preventDefault();
+            event.currentTarget.querySelector("input")?.click();
+          }
+        }}
+      >
         <span className={profileStyles.editAvatarVisual}>
           <Avatar large src={image?.previewUrl ?? initial.imageUrl} />
 
@@ -493,6 +512,7 @@ export function ProfileForm({
         <input
           type="file"
           accept="image/jpeg,image/png,image/webp,image/gif"
+          aria-label="프로필 사진 선택"
           disabled={saving}
           onChange={(event) => {
             const file = event.currentTarget.files?.[0];
@@ -500,10 +520,23 @@ export function ProfileForm({
 
             if (!file) return;
 
-            pick(file);
+            crop.select(file);
           }}
         />
       </label>
+
+      {crop.canEdit && (
+        <button
+          type="button"
+          disabled={saving}
+          className="self-center text-body text-app-muted underline"
+          onClick={crop.edit}
+        >
+          크기·위치 조절
+        </button>
+      )}
+      {crop.error && <p role="alert" className={profileStyles.profileFormError}>{crop.error}</p>}
+      {crop.dialog}
 
       <label>
         <strong>이름</strong>

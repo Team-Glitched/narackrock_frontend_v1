@@ -60,7 +60,7 @@ export function NativeStudioNewBridge({
             return;
           case "studio-new-image":
             setPickError(null);
-            void pickNativeImage()
+            void pickNativeImage({ crop: true })
               .then(async (file) => {
                 if (!file) return;
                 project.chooseImage(file);
