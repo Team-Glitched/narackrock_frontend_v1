@@ -88,6 +88,17 @@ export type OpenSourceCommentPage = {
   comments: OpenSourceComment[];
 };
 
+export function updateOpenSourceComment(commentId: number, content: string): Promise<{ commentId: number }> {
+  return data(`/api/v1/sources/comments/${commentId}`, {
+    method: "PUT",
+    body: JSON.stringify({ content }),
+  });
+}
+
+export async function deleteOpenSourceComment(commentId: number): Promise<void> {
+  await apiRequest<ApiResponse<void>>(`/api/v1/sources/comments/${commentId}`, { method: "DELETE" });
+}
+
 const query = (values: Record<string, string | number | null | undefined>) => {
   const params = new URLSearchParams();
   for (const [key, value] of Object.entries(values))

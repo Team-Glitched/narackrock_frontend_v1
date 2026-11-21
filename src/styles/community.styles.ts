@@ -433,16 +433,17 @@ export const communityStyles = {
   ].join(" "),
   nrCommentAuthor: [
     "nr-comment-author",
-    "[.design-canvas_&]:flex [.design-canvas_&]:h-8 [.design-canvas_&]:items-center [.design-canvas_&]:gap-2",
+    "[.design-canvas_&]:flex [.design-canvas_&]:min-h-7 [.design-canvas_&]:items-center [.design-canvas_&]:gap-2",
     "[.design-canvas_&]:text-app-muted",
     "[.design-canvas_&_strong]:min-w-0 [.design-canvas_&_strong]:overflow-hidden [.design-canvas_&_strong]:text-body [.design-canvas_&_strong]:leading-[20px]",
-    "[.design-canvas_&_strong]:font-medium [.design-canvas_&_strong]:text-ellipsis [.design-canvas_&_strong]:whitespace-nowrap",
-    "[.design-canvas_&>span]:text-navigation [.design-canvas_&>span]:leading-[14px] [.design-canvas_&>span]:whitespace-nowrap",
-    "[.design-canvas_.nr-comments_&_strong]:font-medium [.design-canvas_.nr-comments_&_strong]:text-app-fg",
+    "[.design-canvas_&_strong]:font-semibold [.design-canvas_&_strong]:text-ellipsis [.design-canvas_&_strong]:whitespace-nowrap",
+    "[.design-canvas_&>span]:shrink-0 [.design-canvas_&>span]:text-navigation [.design-canvas_&>span]:leading-[14px] [.design-canvas_&>span]:whitespace-nowrap",
+    "[.design-canvas_.nr-comments_&_strong]:font-semibold [.design-canvas_.nr-comments_&_strong]:text-app-fg",
     "[.design-canvas_.nr-comments_&>span]:leading-[14px]",
   ].join(" "),
   nrCommentAvatar: [
     "nr-comment-avatar",
+    "block shrink-0",
     "[.design-canvas_&]:h-4 [.design-canvas_&]:w-4 [.design-canvas_&]:flex-[0_0_16px] [.design-canvas_&]:p-0",
     "[.design-canvas_.nr-replies-body_&]:h-4 [.design-canvas_.nr-replies-body_&]:w-4 [.design-canvas_.nr-replies-body_&]:flex-[0_0_16px]",
     "[.design-canvas_.nr-replies-body_&_.avatar]:h-4 [.design-canvas_.nr-replies-body_&_.avatar]:w-4",
@@ -451,15 +452,15 @@ export const communityStyles = {
   nrCommentMore: [
     "nr-comment-more",
     "[.design-canvas_&]:ml-auto [.design-canvas_&]:grid [.design-canvas_&]:h-8 [.design-canvas_&]:w-8 [.design-canvas_&]:flex-[0_0_32px]",
-    "[.design-canvas_&]:place-items-center [.design-canvas_&]:p-0",
+    "[.design-canvas_&]:place-items-center [.design-canvas_&]:rounded-full [.design-canvas_&]:p-0 [.design-canvas_&]:transition-colors [.design-canvas_&:hover]:bg-white/10",
     "[.design-canvas_&_img]:h-auto [.design-canvas_&_img]:w-auto [.design-canvas_&_img]:max-w-none",
   ].join(" "),
   nrCommentActions: [
     "nr-comment-actions",
     "[.design-canvas_&_img]:h-auto [.design-canvas_&_img]:w-auto [.design-canvas_&_img]:max-h-3.5! [.design-canvas_&_img]:max-w-3.5! [.design-canvas_&_img]:object-contain",
-    "[.design-canvas_&]:mt-2 [.design-canvas_&]:flex [.design-canvas_&]:min-h-6 [.design-canvas_&]:items-center",
-    "[.design-canvas_&]:justify-end [.design-canvas_&]:gap-4",
-    "[.design-canvas_&_button]:relative [.design-canvas_&_button]:flex [.design-canvas_&_button]:items-center [.design-canvas_&_button]:gap-1",
+    "[.design-canvas_&]:mt-2.5 [.design-canvas_&]:flex [.design-canvas_&]:min-h-6 [.design-canvas_&]:items-center",
+    "[.design-canvas_&]:justify-end [.design-canvas_&]:gap-3.5 [.design-canvas_&]:pl-6",
+    "[.design-canvas_&_button]:relative [.design-canvas_&_button]:flex [.design-canvas_&_button]:items-center [.design-canvas_&_button]:gap-0.5",
     "[.design-canvas_&_button]:p-0 [.design-canvas_&_button]:text-body [.design-canvas_&_button]:font-medium",
     "[.design-canvas_&_button]:text-app-fg [.design-canvas_&_button]:leading-[19px]",
     "[.design-canvas_&_button::after]:[content:''] [.design-canvas_&_button::after]:absolute [.design-canvas_&_button::after]:inset-[-7px_-6px]",
@@ -468,12 +469,12 @@ export const communityStyles = {
   nrCommentInput: [
     "nr-comment-input",
     "[.design-canvas_&_button_img]:h-auto [.design-canvas_&_button_img]:w-auto [.design-canvas_&_button_img]:max-w-none",
-    "[.design-canvas_&]:relative [.design-canvas_&]:flex [.design-canvas_&]:min-h-11 [.design-canvas_&]:items-center [.design-canvas_&]:gap-1",
+    "[.design-canvas_&]:relative [.design-canvas_&]:flex [.design-canvas_&]:min-h-11 [.design-canvas_&]:items-center [.design-canvas_&]:gap-2.5",
     "[.design-canvas_&_textarea]:box-border [.design-canvas_&_textarea]:min-h-9 [.design-canvas_&_textarea]:max-h-[116px] [.design-canvas_&_textarea]:min-w-0 [.design-canvas_&_textarea]:flex-1 [.design-canvas_&_textarea]:resize-none",
-    "[.design-canvas_&_textarea]:p-[8px_10px_8px_12px] [.design-canvas_&_textarea]:rounded-[20px] [.design-canvas_&_textarea]:bg-app-surface",
+    "[.design-canvas_&_textarea]:p-[8px_12px] [.design-canvas_&_textarea]:rounded-[20px] [.design-canvas_&_textarea]:bg-app-surface",
     "[.design-canvas_&_textarea]:bg-none [.design-canvas_&_textarea]:text-body [.design-canvas_&_textarea]:font-normal",
     "[.design-canvas_&_textarea]:text-app-fg [.design-canvas_&_textarea]:border-0 [.design-canvas_&_textarea]:border-none",
-    "[.design-canvas_&_textarea]:border-current [.design-canvas_&_textarea]:leading-[20px] [.design-canvas_&_textarea]:overflow-y-auto",
+    "[.design-canvas_&_textarea]:border-current [.design-canvas_&_textarea]:leading-[20px] [.design-canvas_&_textarea]:overflow-y-auto [.design-canvas_&_textarea]:focus-visible:[outline-offset:0px]!",
     // Only the send button is the round 32px control; other children (the guest login prompt) keep their own size.
     "[.design-canvas_&>button[type=submit]]:relative [.design-canvas_&>button[type=submit]]:h-8 [.design-canvas_&>button[type=submit]]:min-h-8 [.design-canvas_&>button[type=submit]]:w-8",
     "[.design-canvas_&>button[type=submit]]:min-w-8 [.design-canvas_&>button[type=submit]]:flex-[0_0_32px] [.design-canvas_&>button[type=submit]]:rounded-[16px]",
@@ -487,21 +488,21 @@ export const communityStyles = {
   ].join(" "),
   nrCommentText: [
     "nr-comment-text",
-    "[.design-canvas_&]:m-0 [.design-canvas_&]:mt-1 [.design-canvas_&]:block [.design-canvas_&]:w-full [.design-canvas_&]:p-[0_0_0_28px] [.design-canvas_&]:text-left",
-    "[.design-canvas_.nr-replies-body_&]:pl-7",
-    "[.design-canvas_&]:text-body [.design-canvas_&]:font-normal [.design-canvas_&]:whitespace-pre-wrap [.design-canvas_&]:text-[#e5e8ec]",
+    "[.design-canvas_&]:m-0 [.design-canvas_&]:mt-1.5 [.design-canvas_&]:block [.design-canvas_&]:w-full [.design-canvas_&]:p-[0_0_0_24px] [.design-canvas_&]:text-left",
+    "[.design-canvas_.nr-replies-body_&]:pl-6",
+    "[.design-canvas_&]:text-body [.design-canvas_&]:font-normal [.design-canvas_&]:whitespace-pre-wrap [.design-canvas_&]:text-[#d7dce2]",
     "[.design-canvas_&]:[overflow-wrap:anywhere] [.design-canvas_&]:leading-[20px]",
     "[.design-canvas_.nr-comments_&]:text-[length:var(--readable-body)] [.design-canvas_.nr-comments_&]:font-normal",
     "[.design-canvas_.nr-comments_&]:leading-[20px]",
   ].join(" "),
   nrRepliesToggle: [
     "nr-replies-toggle",
-    "[.design-canvas_&]:block [.design-canvas_&]:p-[8px_0_0_28px] [.design-canvas_&]:text-caption [.design-canvas_&]:font-medium [.design-canvas_&]:text-app-muted",
+    "[.design-canvas_&]:block [.design-canvas_&]:p-[8px_0_0_24px] [.design-canvas_&]:text-caption [.design-canvas_&]:font-medium [.design-canvas_&]:text-app-muted",
     "[.design-canvas_.nr-comments_&]:text-[length:var(--readable-meta)] [.design-canvas_.nr-comments_&]:leading-[18px]",
   ].join(" "),
   nrCommentReplies: [
     "nr-comment-replies",
-    "[.design-canvas_&]:ml-4 [.design-canvas_&]:mt-2 [.design-canvas_&]:flex [.design-canvas_&]:gap-3",
+    "[.design-canvas_&]:ml-[7px] [.design-canvas_&]:mt-3 [.design-canvas_&]:flex [.design-canvas_&]:gap-[15px]",
   ].join(" "),
   nrRepliesRail: [
     "nr-replies-rail",
@@ -523,7 +524,7 @@ export const communityStyles = {
   nrCommentComposer: [
     "nr-comment-composer",
     // Bottom padding keeps a grown multi-line input (and its focus border) clear of the clipped bottom edge.
-    "[.design-canvas_&]:mt-[10px] [.design-canvas_&]:flex-[0_0_auto] [.design-canvas_&]:p-[8px_10px_12px] [.design-canvas_&]:border-t",
+    "[.design-canvas_&]:mt-[10px] [.design-canvas_&]:flex-[0_0_auto] [.design-canvas_&]:p-[10px_14px_12px] [.design-canvas_&]:border-t",
     "[.design-canvas_&]:[border-top-style:solid] [.design-canvas_&]:border-t-app-surface [.design-canvas_&]:bg-app-bg [.design-canvas_&]:bg-none",
   ].join(" "),
   nrCommentReplying: [
@@ -536,6 +537,7 @@ export const communityStyles = {
   ].join(" "),
   nrCommentEdit: [
     "nr-comment-edit",
+    "[.design-canvas_&]:mt-2 [.design-canvas_&]:pl-6",
     "[.design-canvas_&_textarea]:w-full [.design-canvas_&_textarea]:bg-app-surface [.design-canvas_&_textarea]:bg-none",
     "[.design-canvas_&_textarea]:text-app-fg [.design-canvas_&_textarea]:rounded-[8px] [.design-canvas_&_textarea]:p-2",
     "[.design-canvas_&_textarea]:text-caption [.design-canvas_&_textarea]:border [.design-canvas_&_textarea]:border-solid",
@@ -544,6 +546,7 @@ export const communityStyles = {
   ].join(" "),
   nrCommentDelete: [
     "nr-comment-delete",
+    "[.design-canvas_&]:mt-2 [.design-canvas_&]:pl-6",
     "[.design-canvas_&_button]:mr-3 [.design-canvas_&_button]:text-caption",
   ].join(" "),
   commentsScreen: ["comments-screen", "flex h-full flex-col"].join(" "),
@@ -767,10 +770,10 @@ export const communityStyles = {
   ].join(" "),
   postReadonlyStats: [
     "post-readonly-stats",
-    "[.design-canvas_&]:flex [.design-canvas_&]:items-center [.design-canvas_&]:gap-[10px] [.design-canvas_&]:text-app-fg",
+    "[.design-canvas_&]:flex [.design-canvas_&]:items-center [.design-canvas_&]:gap-2.5 [.design-canvas_&]:text-app-fg",
     "[.design-canvas_&]:font-normal [.design-canvas_&]:font-sans [.design-canvas_&]:cursor-default",
     "[.design-canvas_&]:text-[length:var(--readable-meta)] [.design-canvas_&]:leading-[var(--readable-meta-line)]",
-    "[.design-canvas_&>span]:flex [.design-canvas_&>span]:items-center [.design-canvas_&>span]:gap-1",
+    "[.design-canvas_&>span]:flex [.design-canvas_&>span]:items-center [.design-canvas_&>span]:gap-0.5",
   ].join(" "),
   communitySearchContext: [
     "community-search-context",

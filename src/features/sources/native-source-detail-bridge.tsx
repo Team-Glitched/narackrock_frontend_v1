@@ -61,6 +61,7 @@ export function NativeSourceDetailBridge({
                 saved: save.saved,
                 canPreview: source.canPreview,
               },
+              canReport: detail.userId !== null && detail.userId !== source.writer.userId,
               saveBusy: save.busy,
               saveError: save.error || null,
               busy: detail.busy,

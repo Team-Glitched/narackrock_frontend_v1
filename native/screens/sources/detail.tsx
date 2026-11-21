@@ -78,6 +78,11 @@ function Article({ model }: { model: Extract<NativeSourceDetail, { state: "ready
           onComments={() => act({ type: "source-comments" })}
           onSave={() => act({ type: "source-save" })}
           onShare={() => act({ type: "source-share" })}
+          onReport={
+            model.canReport
+              ? () => act({ type: "report", kind: "source", id: source.openSourceId, title: source.title })
+              : undefined
+          }
         />
         {model.notice && (
           <Text accessibilityLiveRegion="polite" style={type.body}>
