@@ -7,6 +7,7 @@ import { workspaceStyles } from "@/styles/workspace.styles";
 import { badgeVariants, buttonVariants } from "@/styles/variants";
 import { socialStyles } from "@/styles/social.styles";
 import { useRef, useState, type ReactNode } from "react";
+import { Link } from "react-router";
 import {
   useInfiniteQuery,
   useMutation,
@@ -45,6 +46,7 @@ import {
   type AdminReport,
   type GalleryProposal,
   type ReportAction,
+  type ReportTargetType,
 } from "@/lib/api/admin";
 import { galleryKeys } from "@/features/community/community-queries";
 import {
@@ -239,8 +241,17 @@ export const reportActionLabels: Record<ReportAction, string> = {
   NONE: "조치 없음",
 };
 
+export const reportTargetLabels: Record<ReportTargetType, string> = {
+  POST: "게시글",
+  POST_COMMENT: "게시글 댓글",
+  SHORT: "음악",
+  SHORT_COMMENT: "음악 댓글",
+  OPEN_SOURCE: "샘플",
+  OPEN_SOURCE_COMMENT: "샘플 댓글",
+};
+
 export const reportTarget = (report: AdminReport) =>
-  `${report.targetType} #${report.targetId}${report.targetDeleted ? " · 삭제됨" : ""}`;
+  `${reportTargetLabels[report.targetType]} #${report.targetId}${report.targetDeleted ? " · 삭제됨" : ""}`;
 
 export const reportMeta = (report: AdminReport) =>
   `신고자 ${report.reporter?.nickname ?? "알 수 없음"} → 대상 ${report.reportedUser?.nickname ?? "알 수 없음"} · ${date(report.reportedAt)}`;
@@ -270,6 +281,14 @@ function ReportCard({
       {report.description && <p>{report.description}</p>}
       {report.contentSummary && <p>“{report.contentSummary}”</p>}
       <small>{reportMeta(report)}</small>
+      {!report.targetDeleted &&
+        report.targetUrl &&
+        report.targetUrl.startsWith("/") &&
+        !report.targetUrl.startsWith("//") && (
+          <Link to={report.targetUrl} className="inline-block text-caption text-app-muted underline hover:text-app-fg">
+            대상 보기
+          </Link>
+        )}
       <div className="flex items-center gap-2 py-2 text-caption">
         <span>처리</span>
         <Dropdown
@@ -825,7 +844,7 @@ function CommunityMembers({ community, onBack }: { community: Community; onBack:
     <section className={communityStyles.communityMembersView} aria-label={`${community.name} 운영`}>
       <div className={socialStyles.searchLine}>
         <button onClick={onBack} aria-label="돌아가기">
-          <Asset name="search-back.svg" />
+          <Asset name="return.svg" />
         </button>
         <h1 className={communityStyles.communityManageTitle}>
           <strong className="block truncate" title={community.name}>{community.name}</strong>

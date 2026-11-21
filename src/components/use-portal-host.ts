@@ -6,9 +6,9 @@ export function usePortalHost(
 ): HTMLElement | null {
   const [host, setHost] = useState<HTMLElement | null>(null);
   useLayoutEffect(() => {
-    // Portals must resolve the committed page frame before paint, not cache a previous route's host.
+    // Keep popups inside their modal's accessible subtree and resolve the committed frame before paint.
     setHost(
-      anchorRef?.current?.closest<HTMLElement>(".figma-sheet-overlay") ??
+      anchorRef?.current?.closest<HTMLElement>(".figma-sheet-overlay, .notifications-screen") ??
         document.querySelector<HTMLElement>(selector),
     );
   }, [selector, anchorRef]);

@@ -189,7 +189,7 @@ export async function insertOpenSourceClip(
   startTick: number,
   durationTick: number,
 ) {
-  return data(`/api/v1/projects/${projectId}/tracks/${trackId}/clips/open-source`, {
+  return data(`/api/v1/projects/${projectId}/tracks/${trackId}/clips/source`, {
     method: "POST",
     body: JSON.stringify({ openSourceId, startTick, durationTick }),
   });

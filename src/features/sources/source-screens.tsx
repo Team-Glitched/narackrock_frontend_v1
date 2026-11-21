@@ -23,9 +23,11 @@ import {
 import { SectionTitle } from "@/components/section-title";
 import { AlbumArtwork } from "@/components/music-card";
 import { Avatar } from "@/components/avatar";
+import { FigmaSheet } from "@/components/figma-sheet";
 import { PageState } from "@/components/page-state";
 import { PostActions } from "@/features/posts/post-actions";
 import { CommentsView } from "@/features/comments/common-comments";
+import { ReportReasons } from "@/features/comments/report-reasons";
 import { useComments, type CommentsState } from "@/features/comments/use-comments";
 import type { CommentAdapter } from "@/features/comments/comment-model";
 import { SignInRequired } from "@/features/auth/sign-in-required";
@@ -40,14 +42,17 @@ import { useShareLink } from "@/hooks/use-share-link";
 import { relativeTime } from "@/features/posts/post-utils";
 import {
   createOpenSourceComment,
+  deleteOpenSourceComment,
   getOpenSourceComments,
   hideOpenSourceComment,
   getOpenSourceShare,
   reactToOpenSource,
   reactToOpenSourceComment,
+  updateOpenSourceComment,
   type OpenSourceDetail,
   type OpenSourceSummary,
 } from "@/lib/api/open-sources";
+import { reportOpenSource, reportOpenSourceComment } from "@/lib/api/reports";
 import {
   openSourceListQuery,
   openSourceQuery,
@@ -155,11 +160,13 @@ function OpenSourceCard({
       />
       <div className={sourceStyles.osFoot}>
         <button
+          type="button"
           className={cn(sourceStyles.osFootAuthor, "min-w-0")}
+          aria-label={`${source.writer.nickname} 프로필`}
           onClick={() => onProfile(source.writer.userId)}
         >
           <Avatar size="xs" src={source.writer.profileImageUrl} />
-          <span className="truncate">{source.writer.nickname}</span>
+          <span className="truncate font-medium">{source.writer.nickname}</span>
         </button>
         <PostActions
           compact
@@ -540,7 +547,10 @@ export function useSourceDetail(sourceId: number, focusComments: boolean) {
         };
       },
       create: (text, parentId) => createOpenSourceComment(sourceId, text, parentId),
+      update: updateOpenSourceComment,
+      remove: deleteOpenSourceComment,
       react: reactToOpenSourceComment,
+      report: reportOpenSourceComment,
       hide: hideOpenSourceComment,
     }),
     [sourceId],
@@ -637,9 +647,21 @@ function SourceDetail({
   onProfile: (id: number) => void;
 }) {
   const { save, notice } = detail;
+  const [reporting, setReporting] = useState(false);
+  const canReport = detail.userId !== null && detail.userId !== source.writer.userId;
   return (
     <div className={sourceStyles.opensourceDetail}>
       {detail.shareDialog}
+      {reporting && canReport && (
+        <FigmaSheet title="신고" onClose={() => setReporting(false)}>
+          <ReportReasons
+            onSubmit={(reason, description) =>
+              reportOpenSource(source.openSourceId, reason, description)
+            }
+            onDone={() => setReporting(false)}
+          />
+        </FigmaSheet>
+      )}
       <section className={sourceStyles.osDetailArticle}>
         <div className={sourceStyles.osDetailTitleRow}>
           <div className={sourceStyles.osDetailTitle}>
@@ -661,11 +683,13 @@ function SourceDetail({
           </p>
         )}
         <button
+          type="button"
           className={sourceStyles.osDetailByline}
+          aria-label={`${source.writer.nickname} 프로필`}
           onClick={() => onProfile(source.writer.userId)}
         >
           <Avatar size="xs" src={source.writer.profileImageUrl} />
-          <span>{source.writer.nickname}</span>
+          <span className="truncate font-medium">{source.writer.nickname}</span>
         </button>
         <p className={sourceStyles.osDetailCopy}>{source.description ?? ""}</p>
         <SourcePlayback
@@ -687,6 +711,7 @@ function SourceDetail({
           saved={save.saved}
           onSave={save.toggle}
           onShare={detail.share}
+          onReport={canReport ? () => setReporting(true) : undefined}
         />
         {notice && <p role="status">{notice}</p>}
       </section>

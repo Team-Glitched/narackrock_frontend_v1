@@ -18,8 +18,8 @@ import { useShortCommentAdapter } from "./abyss-comments";
 import { participantRole, useShortParticipants } from "./short-participants";
 import { participationLabel } from "./short-participation";
 
-/** The abyss page's Header: its back button replaces the mute button; notifications, search, account. */
-const header: NativeHeader = { left: "back", actions: ["notifications", "search", "account"] };
+/** The abyss page's Header: back button, notifications, chat, search, account. */
+const header: NativeHeader = { left: "back", actions: ["notifications", "chat", "search", "account"] };
 
 /** Swiping rewrites /abyss/:shortId with `replace`; one app entry keeps the screen (and its carousel) mounted. */
 const path = "/abyss";

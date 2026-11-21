@@ -170,6 +170,11 @@ function Inbox({
           if (target && !inbox.busy) inbox.markRead(target);
           return;
         }
+        case "delete": {
+          const target = group(action.id);
+          if (target && !inbox.busy) inbox.deleteItem(target);
+          return;
+        }
         case "project": {
           const target = group(action.id);
           if (target && !inbox.busy) inbox.openProject(target);

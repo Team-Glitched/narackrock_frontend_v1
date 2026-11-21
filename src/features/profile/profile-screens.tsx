@@ -1,4 +1,5 @@
 import { useLoginPrompt } from "@/features/auth/login-prompt";
+import { useUrlNavigation } from "@/features/navigation/use-url-navigation";
 import { profileStyles } from "@/styles/profile.styles";
 import { sharedStyles } from "@/styles/shared.styles";
 import { buttonVariants } from "@/styles/variants";
@@ -16,10 +17,11 @@ import { FigmaSheet } from "@/components/figma-sheet";
 import { useCurrentUserId } from "@/features/auth/use-current-user";
 import { updateProfile, updateProfileImage } from "@/lib/api/profile";
 import type { UserProfile } from "@/lib/api/contracts";
-import { Link, useNavigate } from "react-router";
+import { Link } from "react-router";
 import { useMySongs } from "@/features/home/use-my-songs";
 import { songsForTab } from "@/features/home/my-songs";
 import { profileKeys, profileQuery } from "./profile-queries";
+import { useImageCrop } from "@/features/images/use-image-crop";
 
 export function profileErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : "프로필을 불러오지 못했습니다.";
@@ -73,13 +75,13 @@ function ProfileWorks({
   allHref?: string;
 }) {
   const [showAll, setShowAll] = useState(false);
-  const navigate = useNavigate();
+  const { to } = useUrlNavigation();
   return (
     <section className={profileStyles.profileSection}>
       <SectionTitle
         className="mb-0! px-0!"
         allLabel="모두보기"
-        onAll={() => allHref ? navigate(allHref) : setShowAll(true)}
+        onAll={() => allHref ? to(allHref) : setShowAll(true)}
       >
         {title}
       </SectionTitle>
@@ -95,7 +97,7 @@ function ProfileWorks({
           ))}
         </div>
       ) : (
-        <p className={profileStyles.profileDescription}>아직 등록한 곡이 없습니다.</p>
+        <p className={profileStyles.profileEmpty}>아직 등록한 곡이 없습니다.</p>
       )}
       {showAll && (
         <FigmaSheet title={`${title} 전체 목록`} onClose={() => setShowAll(false)}>
@@ -148,7 +150,7 @@ export function useOwnWorks() {
 }
 
 function OwnWorks({ onOpen }: { onOpen: (id: number) => void }) {
-  const navigate = useNavigate();
+  const { to } = useUrlNavigation();
   const { songs, sections } = useOwnWorks();
   return (
     <>
@@ -157,7 +159,7 @@ function OwnWorks({ onOpen }: { onOpen: (id: number) => void }) {
           <section className={profileStyles.profileSection} key={tab}>
             <SectionTitle
               className="mb-0! px-0!"
-              onAll={() => navigate(allPath)}
+              onAll={() => to(allPath)}
             >
               {title}
             </SectionTitle>
@@ -169,7 +171,7 @@ function OwnWorks({ onOpen }: { onOpen: (id: number) => void }) {
                 <p className="m-0">{songs.error}</p>
                 <button
                   type="button"
-                  className={buttonVariants({ tone: "secondary" })}
+                  className={buttonVariants({ tone: "secondary", size: "compact" })}
                   onClick={songs.retry}
                 >
                   다시 시도
@@ -189,7 +191,7 @@ function OwnWorks({ onOpen }: { onOpen: (id: number) => void }) {
               </div>
             )}
             {songs.status === "ready" && items.length === 0 && (
-              <p className={profileStyles.profileDescription}>
+              <p className={profileStyles.profileEmpty}>
                 {emptyMessage}
               </p>
             )}
@@ -283,7 +285,9 @@ export function ProfileScreen({
       <div className={profileStyles.profileSections}>
         <section className={profileStyles.profileSection}>
           <h2 className={profileStyles.profileSectionHeading}>소개</h2>
-          <p className={profileStyles.profileDescription}>{profile.explanation || "아직 소개가 없습니다."}</p>
+          <p className={profile.explanation ? profileStyles.profileDescription : profileStyles.profileEmpty}>
+            {profile.explanation || "아직 소개가 없습니다."}
+          </p>
         </section>
 
         <ProfileWorks
@@ -476,11 +480,29 @@ export function ProfileForm({
   const [instrument, setInstrument] = useState(initial.instrument);
   const [explanation, setExplanation] = useState(initial.explanation);
   const { image, saving, error, pick, save } = useProfileForm(onSubmit);
+  const crop = useImageCrop({
+    file: image?.file ?? null,
+    onApply: pick,
+    label: "프로필 사진",
+    shape: "circle",
+    maxMB: 25,
+  });
 
   return (
     <div className={cn(profileStyles.editView, sharedStyles.scrollContent)}>
       {topSlot}
-      <label className={profileStyles.editAvatar}>
+      <label
+        className={profileStyles.editAvatar}
+        role="button"
+        aria-label="프로필 사진 변경"
+        tabIndex={saving ? -1 : 0}
+        onKeyDown={(event) => {
+          if (!saving && (event.key === "Enter" || event.key === " ")) {
+            event.preventDefault();
+            event.currentTarget.querySelector("input")?.click();
+          }
+        }}
+      >
         <span className={profileStyles.editAvatarVisual}>
           <Avatar large src={image?.previewUrl ?? initial.imageUrl} />
 
@@ -493,6 +515,7 @@ export function ProfileForm({
         <input
           type="file"
           accept="image/jpeg,image/png,image/webp,image/gif"
+          aria-label="프로필 사진 선택"
           disabled={saving}
           onChange={(event) => {
             const file = event.currentTarget.files?.[0];
@@ -500,10 +523,23 @@ export function ProfileForm({
 
             if (!file) return;
 
-            pick(file);
+            crop.select(file);
           }}
         />
       </label>
+
+      {crop.canEdit && (
+        <button
+          type="button"
+          disabled={saving}
+          className="self-center text-body text-app-muted underline"
+          onClick={crop.edit}
+        >
+          크기·위치 조절
+        </button>
+      )}
+      {crop.error && <p role="alert" className={profileStyles.profileFormError}>{crop.error}</p>}
+      {crop.dialog}
 
       <label>
         <strong>이름</strong>

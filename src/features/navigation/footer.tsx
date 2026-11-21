@@ -17,21 +17,16 @@ const nav: { id: FooterTab; label: string; path: string }[] = [
 ];
 export function Footer({
   activeTab,
-  onCreate,
-  createLabel = "곡 만들기",
 }: {
   activeTab: Exclude<FooterTab, "studio"> | null;
-  onCreate?: () => void;
-  createLabel?: string;
 }) {
   const { to, currentPath } = useUrlNavigation();
-  const create =
-    onCreate ??
-    (() => {
-      to("/studio/new", {
-        state: { studioFrom: currentPath, studioIndex: window.history.state?.idx },
-      });
+  const createLabel = "곡 만들기";
+  const create = () => {
+    to("/studio/new", {
+      state: { studioFrom: currentPath, studioIndex: window.history.state?.idx },
     });
+  };
 
   // Only the controller mounts in the app; native presses retain each page's create action.
   const inApp = nativeApp() !== null;

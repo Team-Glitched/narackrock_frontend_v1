@@ -12,9 +12,13 @@ export function useUrlNavigation<S extends NavigationState = NavigationState>() 
   const currentPath = location.pathname + location.search + location.hash;
   const to = useCallback(
     (path: string, options: { replace?: boolean; state?: NavigationState & Record<string, unknown> } = {}) => {
-      navigate(path, { replace: options.replace, state: { from: currentPath, ...options.state } });
+      const nextFrom = options.replace ? state.from : currentPath;
+      navigate(path, {
+        replace: options.replace,
+        state: { ...(nextFrom !== undefined ? { from: nextFrom } : {}), ...options.state },
+      });
     },
-    [navigate, currentPath],
+    [navigate, currentPath, state.from],
   );
   const back = useCallback(
     (fallback = "/") => {

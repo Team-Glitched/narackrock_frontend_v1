@@ -1,6 +1,8 @@
+import { useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import CommentIcon from "../../../public/figma/post-comment.svg";
 import ShareIcon from "../../../public/figma/post-share.svg";
+import ReportIcon from "../../../public/figma/short-report.svg";
 import DislikeOffIcon from "../../../public/figma/v3-post-dislike-off.svg";
 import DislikeOnIcon from "../../../public/figma/v3-post-dislike-on.svg";
 import LikeOffIcon from "../../../public/figma/v3-post-like-off.svg";
@@ -8,7 +10,8 @@ import LikeOnIcon from "../../../public/figma/v3-post-like-on.svg";
 import SaveOffIcon from "../../../public/figma/v3-post-save-off.svg";
 import SaveOnIcon from "../../../public/figma/v3-post-save-on.svg";
 import type { NativePlayback, NativeSourceWriter } from "../../../src/lib/native-screens";
-import { Avatar, Button, Touchable } from "../../ui/kit";
+import { MenuSheet } from "../../ui/comments";
+import { Avatar, Button, MoreButton, Touchable } from "../../ui/kit";
 import { useScreen } from "../../ui/screen-context";
 import { colors, gutter, type } from "../../ui/theme";
 import { PlaybackBar } from "../workspace/playback-bar";
@@ -35,11 +38,13 @@ export function SourceAuthor({
     <Touchable
       accessibilityRole="button"
       accessibilityLabel={`${writer.nickname} 프로필`}
-      style={styles.row}
+      style={[styles.row, styles.authorRow]}
       onPress={onPress}
     >
       <Avatar uri={uri(writer.profileImageUrl)} size={16} />
-      <Text style={type.caption}>{writer.nickname}</Text>
+      <Text style={styles.authorName} numberOfLines={1}>
+        {writer.nickname}
+      </Text>
     </Touchable>
   );
 }
@@ -84,6 +89,7 @@ export function SourceActions({
   onComments,
   onSave,
   onShare,
+  onReport,
 }: {
   source: {
     likeCount: number;
@@ -97,7 +103,9 @@ export function SourceActions({
   onComments: () => void;
   onSave?: () => void;
   onShare?: () => void;
+  onReport?: () => void;
 }) {
+  const [menu, setMenu] = useState(false);
   const Like = source.vote === "like" ? LikeOnIcon : LikeOffIcon;
   const Dislike = source.vote === "dislike" ? DislikeOnIcon : DislikeOffIcon;
   const Save = source.saved ? SaveOnIcon : SaveOffIcon;
@@ -156,6 +164,17 @@ export function SourceActions({
           <ShareIcon width={20} height={20} />
         </Touchable>
       )}
+      {onReport && (
+        <>
+          <MoreButton label="샘플 더보기" onPress={() => setMenu(true)} />
+          <MenuSheet
+            label="샘플 옵션"
+            visible={menu}
+            items={[{ label: "신고", icon: ReportIcon, onPress: onReport }]}
+            onClose={() => setMenu(false)}
+          />
+        </>
+      )}
     </View>
   );
 }
@@ -163,10 +182,12 @@ export function SourceActions({
 export const styles = StyleSheet.create({
   column: { padding: gutter, gap: 20 },
   row: { flexDirection: "row", alignItems: "center", gap: 6 },
+  authorRow: { gap: 8 },
+  authorName: { flexShrink: 1, color: colors.fg, fontSize: 14, lineHeight: 20, fontWeight: "500" },
   title: { flex: 1, minWidth: 0, gap: 3 },
   player: { gap: 8, marginVertical: 8 },
   actions: { flexDirection: "row", alignItems: "center", gap: 10, flexWrap: "wrap" },
-  stat: { flexDirection: "row", alignItems: "center", gap: 4, minHeight: 36, paddingHorizontal: 2 },
+  stat: { flexDirection: "row", alignItems: "center", gap: 2, minHeight: 36, paddingHorizontal: 2 },
   error: { ...type.caption, color: colors.error },
   heading: { ...type.title, marginBottom: 12 },
   input: {

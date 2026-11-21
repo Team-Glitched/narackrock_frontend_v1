@@ -20,3 +20,12 @@ export const reportShortComment = (
   reason: string,
   description: string | null,
 ) => report(`/api/v1/shorts/${shortId}/comments/${commentId}/reports`, reason, description);
+
+export const reportOpenSource = (openSourceId: number, reason: string, description: string | null) =>
+  report(`/api/v1/sources/${openSourceId}/reports`, reason, description);
+
+export const reportOpenSourceComment = (
+  commentId: number,
+  reason: string,
+  description: string | null,
+) => report(`/api/v1/sources/comments/${commentId}/reports`, reason, description);

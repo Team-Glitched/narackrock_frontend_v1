@@ -20,6 +20,7 @@ import { InstrumentDialog, type InstrumentChoice } from "@/features/composition/
 import { findInstrument, invalidPitchesFor } from "@/features/composition/instrument-catalog";
 import { Asset } from "@/components/asset";
 import { Avatar } from "@/components/avatar";
+import { ImageCropInput } from "@/features/images/image-crop-input";
 import { rememberWork } from "@/features/workspace/workspace-store";
 import { useCompositionPlayback } from "@/features/composition/use-composition-playback";
 import { prepareAudioFile } from "@/features/composition/prepare-audio-file";
@@ -900,7 +901,13 @@ export function StudioScreen({ studio, portrait = true }: { studio: Studio; port
           {studio.contribution.retry ? (
             <>
               <span>{studio.contribution.text}</span>
-              <button onClick={studio.retryContribution}>다시 시도</button>
+              <button
+                type="button"
+                className={buttonVariants({ tone: "secondary", size: "compact" })}
+                onClick={studio.retryContribution}
+              >
+                다시 시도
+              </button>
             </>
           ) : (
             studio.contribution.text
@@ -982,19 +989,13 @@ export function StudioScreen({ studio, portrait = true }: { studio: Studio; port
             곡 제목
             <input
               value={studio.publishTitle}
+              placeholder="예: 새벽 공기를 닮은 피아노"
               onChange={(event) => studio.setPublishTitle(event.target.value)}
               required
               maxLength={100}
             />
           </label>
-          <label>
-            앨범 이미지 (선택)
-            <input
-              type="file"
-              accept="image/png,image/jpeg,image/webp,image/gif"
-              onChange={(event) => studio.setPublishImage(event.target.files?.[0] ?? null)}
-            />
-          </label>
+          <ImageCropInput file={studio.publishImage} onChange={studio.setPublishImage} disabled={busy} />
           {error && <p role="alert">{error}</p>}
           <div>
             <button type="button" disabled={studio.busy} onClick={studio.closeMetadata}>

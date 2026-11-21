@@ -1,6 +1,7 @@
 import { infiniteQueryOptions, queryOptions, skipToken } from "@tanstack/react-query";
 import { shortKeys } from "@/features/abyss/abyss-queries";
 import { postKeys } from "@/features/posts/post-queries";
+import { sourceKeys } from "@/features/sources/source-queries";
 import { getOperatorAdminStatus, listGalleryProposals, listReports, type ReportTargetType } from "@/lib/api/admin";
 import { getGalleryBans, getGalleryManagers, getGalleryModerationLogs } from "@/lib/api/community";
 import { queryScope } from "@/lib/query";
@@ -81,5 +82,6 @@ export const moderationLogsQuery = (userId: number | null, galleryId: number) =>
 export function reportedContentKey(userId: number | null, targetType: ReportTargetType) {
   if (targetType === "POST") return postKeys.all(userId);
   if (targetType === "SHORT") return shortKeys.all(userId);
+  if (targetType === "OPEN_SOURCE") return sourceKeys.all(userId);
   return [...queryScope(userId), "comments"] as const;
 }

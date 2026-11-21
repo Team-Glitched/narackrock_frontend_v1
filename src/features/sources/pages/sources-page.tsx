@@ -54,7 +54,7 @@ export default function SourcesPage() {
   return (
     <DesignViewport>
       <div className={sharedStyles.phoneFrame}>
-        <Header onSearch={() => to(withQuery("/search", { scope, galleryId }))} />
+        <Header showChat onSearch={() => to(withQuery("/search", { scope, galleryId }))} />
         <div className={contextualCreateArea}>
           <div className="flex h-full min-h-0 flex-col">
             <nav

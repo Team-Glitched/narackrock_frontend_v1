@@ -49,3 +49,19 @@ export function notesPath(
 ): string {
   return withQuery(`/studio/${projectId}/tracks/${trackId}/notes`, { clipId, shortId, ...scope });
 }
+
+export function searchFallbackPath(scope: string, galleryId?: number | null): string {
+  if (galleryId) return `/communities/${galleryId}`;
+  switch (scope) {
+    case "posts":
+      return "/social";
+    case "communities":
+      return "/communities";
+    case "people":
+      return "/friends";
+    case "sources":
+      return "/sources";
+    default:
+      return "/";
+  }
+}

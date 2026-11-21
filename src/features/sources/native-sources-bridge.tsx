@@ -29,8 +29,8 @@ import { useSourcePlayback } from "./source-playback";
 import { useSourcePublications } from "./source-publications";
 import { sourceError, sourceUsage, useOpensourceFeed, useSourceSave } from "./source-screens";
 
-/** The web /sources Header: logo, notifications, search, account. */
-const header: NativeHeader = { left: "logo", actions: ["notifications", "search", "account"] };
+/** The web /sources Header: logo, notifications, chat, search, account. */
+const header: NativeHeader = { left: "logo", actions: ["notifications", "chat", "search", "account"] };
 
 type Tab = NativeSources["tab"];
 

@@ -136,11 +136,9 @@ export function useScopedSearch(
     }),
     enabled: !paged && !sourcesSignInRequired && debounced,
   });
-  const current: Loaded | null = paged || !keyword
+  const current: Loaded | null = paged || sourcesSignInRequired || !keyword
     ? null
-    : sourcesSignInRequired
-      ? { results: empty(), error: "샘플 검색은 로그인 후 사용할 수 있습니다." }
-      : search.error
+    : search.error
         ? {
             results: empty(),
             error: scope === "sources"
@@ -155,6 +153,7 @@ export function useScopedSearch(
     scope,
     keyword,
     peopleSignInRequired,
+    sourcesSignInRequired,
     paged,
     pagination,
     current,
@@ -213,6 +212,7 @@ export function ScopedSearch({
     scope,
     keyword,
     peopleSignInRequired,
+    sourcesSignInRequired,
     paged,
     pagination,
     current,
@@ -220,6 +220,7 @@ export function ScopedSearch({
     empty: noResults,
     retry,
   } = useScopedSearch(requestedScope, query, community);
+  const signInRequired = peopleSignInRequired || sourcesSignInRequired;
   return (
     <div className={cn(socialStyles.searchView, sharedStyles.scopedSearch)}>
       <div className={socialStyles.searchLine}>
@@ -260,7 +261,7 @@ export function ScopedSearch({
         <p className={communityStyles.communitySearchContext}>{community.name} 내 게시글</p>
       )}
       {!community && (
-        <div className={cn(communityStyles.communityTabs, "-mx-[15px]")} role="tablist" aria-label="검색 종류">
+        <div className={communityStyles.communityTabs} role="tablist" aria-label="검색 종류">
           {scopes.map((item) => (
             <button
               role="tab"
@@ -286,10 +287,13 @@ export function ScopedSearch({
         {peopleSignInRequired && (
           <SignInRequired>사용자 검색은 로그인 후 사용할 수 있습니다.</SignInRequired>
         )}
-        {!peopleSignInRequired && !community && !keyword && (
+        {sourcesSignInRequired && (
+          <SignInRequired>샘플 검색은 로그인 후 사용할 수 있습니다.</SignInRequired>
+        )}
+        {!signInRequired && !community && !keyword && (
           <p className={socialStyles.searchResult}>{scopes.find((item) => item.id === scope)?.hint}</p>
         )}
-        {!peopleSignInRequired && query.trim() && (!results || current?.pending) && <p role="status" className="py-6 text-center text-body leading-[20px] text-app-muted">검색 중...</p>}
+        {!signInRequired && query.trim() && (!results || current?.pending) && <p role="status" className="py-6 text-center text-body leading-[20px] text-app-muted">검색 중...</p>}
         {current?.error && (
           <div role="alert" className="my-auto flex flex-1 flex-col items-center justify-center gap-4 px-5 py-12 text-center text-body leading-[20px] text-[#ff8d8d]">
             <p className="m-0">{current.error}</p>

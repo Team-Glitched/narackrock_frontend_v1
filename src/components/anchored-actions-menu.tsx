@@ -91,7 +91,11 @@ export function AnchoredActionsMenu({
           close.current();
           if (anchorRef.current?.isConnected) anchorRef.current.focus({ preventScroll: true });
         }
-        if (event.key === "Tab") close.current();
+        if (event.key === "Tab") {
+          // Tab must continue from the trigger, rather than a menu item that is about to unmount.
+          if (anchorRef.current?.isConnected) anchorRef.current.focus({ preventScroll: true });
+          close.current();
+        }
         if (event.key === "ArrowDown" || event.key === "ArrowUp") {
           event.preventDefault();
           const buttons = Array.from(

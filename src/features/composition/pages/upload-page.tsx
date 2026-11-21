@@ -13,7 +13,6 @@ import { DesignViewport } from "@/components/design-viewport";
 import { Header } from "@/features/navigation/header";
 import { Footer } from "@/features/navigation/footer";
 import { NotificationsOverlay } from "@/features/notifications/notifications-overlay";
-import { creationTarget } from "@/features/navigation/creation-target";
 import { resolveSearchScope } from "@/features/search/search-scope";
 import { sharedStyles } from "@/styles/shared.styles";
 import { nativeApp } from "@/lib/native-app";
@@ -34,17 +33,9 @@ export default function UploadPage() {
       setCancelError(cause instanceof Error ? cause.message : "신규 트랙을 취소하지 못했습니다.");
     }
   }
-  const { to, back, params, query, currentPath } = route;
+  const { to, back, params, query } = route;
   const galleryId = readId(params.galleryId) ?? readId(query.get("galleryId"));
   const scope = resolveSearchScope(query.get("scope"), "songs", Boolean(galleryId));
-  const target = creationTarget(scope, galleryId);
-  const onCreate = () =>
-    to(
-      target.path,
-      target.path === "/studio/new"
-        ? { state: { studioFrom: currentPath, studioIndex: window.history.state?.idx } }
-        : undefined,
-    );
   const search = () => to(withQuery("/search", { scope, galleryId }));
   async function save(file: File, selection: AudioSelection) {
     try {
@@ -88,7 +79,7 @@ export default function UploadPage() {
             onSearch={search}
           />
         )}
-        <Footer activeTab={null} onCreate={onCreate} createLabel={target.label} />
+        <Footer activeTab={null} />
         <NotificationsOverlay />
       </>
     );
@@ -104,7 +95,7 @@ export default function UploadPage() {
             <CompositionUploadScreen onBack={() => void cancel()} onSave={save} />
           )}
         </div>
-        <Footer activeTab={null} onCreate={onCreate} createLabel={target.label} />
+        <Footer activeTab={null} />
         <NotificationsOverlay />
         {instrument.dialog}
       </div>
