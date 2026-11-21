@@ -148,7 +148,6 @@ export function CommentsView({
             {row(item, { count: replyCount, open: expanded })}
             {expanded && replyCount > 0 && (
               <Replies
-                key={item.id}
                 comments={comments}
                 parentId={item.id}
                 render={(child) => row(child, undefined, item.id)}
