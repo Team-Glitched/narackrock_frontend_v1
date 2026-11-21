@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { afterEach, test } from "node:test";
 import { ApiError, clearAuthSession, getCurrentUserId, setAuthSession } from "./client.ts";
-import { deleteNotification, deleteReadNotifications } from "./notifications.ts";
+import { deleteNotification, deleteNotifications, deleteReadNotifications } from "./notifications.ts";
 
 const originalFetch = globalThis.fetch;
 afterEach(() => { globalThis.fetch = originalFetch; clearAuthSession(); });
@@ -104,4 +104,40 @@ test("deletes a single notification by id with bearer auth and maps missing rout
   globalThis.fetch = async () => new Response(null, { status: 404 });
   await assert.rejects(deleteNotification(42), (error: unknown) => error instanceof ApiError && error.status === 503);
   assert.equal(getCurrentUserId(), 7);
+});
+
+test("a grouped deletion waits for its successful requests even when another fails first", async () => {
+  session();
+  let completeSlowDelete!: () => void;
+  const slowDelete = new Promise<void>((resolve) => { completeSlowDelete = resolve; });
+  const deleted: number[] = [];
+  globalThis.fetch = async (input) => {
+    if (String(input).endsWith("/42"))
+      return Response.json({ message: "잠시 후 다시 시도해 주세요." }, { status: 500 });
+    await slowDelete;
+    deleted.push(43);
+    return new Response(null, { status: 204 });
+  };
+
+  const operation = deleteNotifications([42, 43]);
+  let settled = false;
+  void operation.then(() => { settled = true; }, () => { settled = true; });
+  await new Promise<void>((resolve) => setImmediate(resolve));
+  assert.equal(settled, false, "the caller must not refresh while a delete is still pending");
+
+  completeSlowDelete();
+  await assert.rejects(operation, (error: unknown) => error instanceof ApiError && error.status === 500);
+  assert.deepEqual(deleted, [43]);
+});
+
+test("a grouped deletion resolves after every notification is deleted", async () => {
+  session();
+  const deleted: string[] = [];
+  globalThis.fetch = async (input, init) => {
+    assert.equal(init?.method, "DELETE");
+    deleted.push(String(input));
+    return new Response(null, { status: 204 });
+  };
+  await deleteNotifications([42, 43]);
+  assert.deepEqual(deleted.sort(), ["/api/v1/notifications/42", "/api/v1/notifications/43"]);
 });

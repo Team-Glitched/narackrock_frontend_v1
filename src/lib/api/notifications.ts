@@ -86,6 +86,13 @@ export function deleteNotification(id: number): Promise<void> {
     "현재 서버에서 알림 삭제 기능을 사용할 수 없습니다. 잠시 후 다시 시도해 주세요.",
   );
 }
+
+/** A grouped row must finish every deletion before its list is refreshed, including partial failures. */
+export async function deleteNotifications(ids: number[]): Promise<void> {
+  const results = await Promise.allSettled(ids.map(deleteNotification));
+  const failed = results.find((result) => result.status === "rejected");
+  if (failed) throw failed.reason;
+}
 export const getNotificationPreferences = () =>
   data<NotificationPreferences>("/api/v1/notifications/preferences");
 export const setNotificationPreferences = (values: NotificationPreferences) =>

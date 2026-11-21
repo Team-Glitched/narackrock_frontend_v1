@@ -11,7 +11,7 @@ import {
   getUnreadNotifications,
   readNotification,
   readAllNotifications,
-  deleteNotification,
+  deleteNotifications,
   deleteReadNotifications,
   getNotificationPreferences,
   setNotificationPreferences,
@@ -61,7 +61,7 @@ export function useNotificationMutations() {
     }),
     readAll: useMutation({ mutationFn: readAllNotifications, onSuccess: refresh }),
     deleteOne: useMutation({
-      mutationFn: (ids: number[]) => Promise.all(ids.map(deleteNotification)),
+      mutationFn: deleteNotifications,
       onSuccess: refresh,
     }),
     deleteRead: useMutation({ mutationFn: deleteReadNotifications, onSuccess: refresh }),
