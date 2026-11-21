@@ -55,7 +55,7 @@ export function SocialScreen({ model, header }: ScreenProps<"social">) {
           <CommunityDirectory directory={model.communities} />
         </ScreenScroll>
       ) : model.friends ? (
-        <FriendsTab friends={model.friends} />
+        <FriendsTab friends={model.friends} fab={model.create !== null} />
       ) : null}
       {model.create && <Fab label={model.create.label} onPress={() => act({ type: "create" })} />}
     </>
@@ -79,9 +79,9 @@ function PostsTab({ feed }: { feed: NativeFeed }) {
   );
 }
 
-function FriendsTab({ friends }: { friends: NativeFriends }) {
+function FriendsTab({ friends, fab }: { friends: NativeFriends; fab: boolean }) {
   return (
-    <ScreenScroll>
+    <ScreenScroll fab={fab}>
       {friends.signedIn ? (
         <View style={styles.friends}>
           <MutualFriends mutual={friends.mutual} full={false} />

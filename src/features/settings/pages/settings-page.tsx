@@ -11,14 +11,12 @@ import { NotificationsOverlay } from "@/features/notifications/notifications-ove
 import { sharedStyles } from "@/styles/shared.styles";
 import { readId, withQuery } from "@/features/navigation/paths";
 import { resolveSearchScope } from "@/features/search/search-scope";
-import { creationTarget } from "@/features/navigation/creation-target";
 import { MigrationScreen } from "@/features/migration/migration-screen";
 export default function SettingsPage() {
-  const { to, back, params, query, currentPath } = useUrlNavigation();
+  const { to, back, params, query } = useUrlNavigation();
   const navigate = useNavigate();
   const galleryId = readId(params.galleryId) ?? readId(query.get("galleryId"));
   const scope = resolveSearchScope(query.get("scope"), "songs", Boolean(galleryId));
-  const target = creationTarget(scope, galleryId);
   const search = () => to(withQuery("/search", { scope, galleryId }));
   const signOut = () => {
     // Leave the protected page in the same render before the session clears; a transition here would
@@ -36,20 +34,7 @@ export default function SettingsPage() {
           onBack={() => back("/profile")}
         />
         {query.get("migration") === "1" && <MigrationScreen />}
-        <Footer
-          activeTab={null}
-          createLabel={target.label}
-          onCreate={() =>
-            to(
-              target.path,
-              target.path === "/studio/new"
-                ? {
-                    state: { studioFrom: currentPath, studioIndex: window.history.state?.idx },
-                  }
-                : undefined,
-            )
-          }
-        />
+        <Footer activeTab={null} />
         <NotificationsOverlay />
       </>
     );
@@ -69,18 +54,7 @@ export default function SettingsPage() {
             </>
           )}
         </div>
-        <Footer
-          activeTab={null}
-          createLabel={target.label}
-          onCreate={() =>
-            to(
-              target.path,
-              target.path === "/studio/new"
-                ? { state: { studioFrom: currentPath, studioIndex: window.history.state?.idx } }
-                : undefined,
-            )
-          }
-        />
+        <Footer activeTab={null} />
         <NotificationsOverlay />
       </div>
     </DesignViewport>

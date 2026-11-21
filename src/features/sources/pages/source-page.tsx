@@ -6,7 +6,6 @@ import { Header } from "@/features/navigation/header";
 import { Footer } from "@/features/navigation/footer";
 import { NotificationsOverlay } from "@/features/notifications/notifications-overlay";
 import { useUrlNavigation } from "@/features/navigation/use-url-navigation";
-import { creationTarget } from "@/features/navigation/creation-target";
 import { resolveSearchScope } from "@/features/search/search-scope";
 import { readId, withQuery } from "@/features/navigation/paths";
 import { nativeApp } from "@/lib/native-app";
@@ -18,7 +17,6 @@ export default function SourcePage() {
   const sourceId = readId(params.sourceId);
   const galleryId = readId(params.galleryId) ?? readId(query.get("galleryId"));
   const scope = resolveSearchScope(query.get("scope"), "sources", Boolean(galleryId));
-  const target = creationTarget(scope, galleryId);
   const leave = () => back("/sources");
   const search = () => to(withQuery("/search", { scope, galleryId }));
   if (nativeApp())
@@ -35,20 +33,7 @@ export default function SourcePage() {
             onSearch={search}
           />
         )}
-        <Footer
-          activeTab="opensource"
-          createLabel={target.label}
-          onCreate={() =>
-            to(
-              target.path,
-              target.path === "/studio/new"
-                ? {
-                    state: { studioFrom: currentPath, studioIndex: window.history.state?.idx },
-                  }
-                : undefined,
-            )
-          }
-        />
+        <Footer activeTab="opensource" />
         <NotificationsOverlay />
       </>
     );
@@ -69,20 +54,7 @@ export default function SourcePage() {
             />
           )}
         </div>
-        <Footer
-          activeTab="opensource"
-          createLabel={target.label}
-          onCreate={() =>
-            to(
-              target.path,
-              target.path === "/studio/new"
-                ? {
-                    state: { studioFrom: currentPath, studioIndex: window.history.state?.idx },
-                  }
-                : undefined,
-            )
-          }
-        />
+        <Footer activeTab="opensource" />
         <NotificationsOverlay />
       </div>
     </DesignViewport>

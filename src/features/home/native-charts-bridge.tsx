@@ -10,18 +10,18 @@ const songStatus = { loading: "곡을 불러오는 중...", error: "곡을 불�
 /** "내 음악" (the web's MySongsChart) as a native chart model. */
 function useMyMusicChart(tab: MusicListTab, featuredUserId: number | undefined) {
   const music = useMyMusic(tab, featuredUserId);
-  const { profile, songs, canManageFeatured, pinnedIds } = music;
+  const { profile, songs, canManageFeatured, otherFeatured, activeTab, pinnedIds } = music;
   const managing = canManageFeatured && profile.data !== undefined;
 
   let chart: NativeCharts;
   const base = {
-    title: uiLabels.myMusic,
-    tab,
+    title: otherFeatured ? uiLabels.featuredMusic : uiLabels.myMusic,
+    tab: otherFeatured ? null : activeTab,
     hint: managing ? "내 작업물의 완성곡 중 한 곡을 대표 음악으로 설정할 수 있어요." : null,
     menu: false,
     starBusy: music.savingId !== null,
   };
-  if (tab === "featured") {
+  if (activeTab === "featured") {
     const pinned = [...(profile.data?.activities.pinnedShorts ?? [])].sort((a, b) => a.displayOrder - b.displayOrder);
     chart = {
       ...base,
@@ -51,12 +51,12 @@ function useMyMusicChart(tab: MusicListTab, featuredUserId: number | undefined) 
       error: songs.status === "error" ? (songs.error ?? songStatus.error) : null,
       items: music.items.map((song): NativeChartSong => {
         const isPinned = pinnedIds.has(song.shortId);
-        const eligible = isPinned || (tab === "authored" && song.completionStatus === "COMPLETED");
+        const eligible = isPinned || (activeTab === "authored" && song.completionStatus === "COMPLETED");
         return { ...nativeSong(song), star: managing && eligible ? (isPinned ? "pinned" : "unpinned") : null };
       }),
       emptyMessage: songs.hasMore
         ? "아직 이 종류의 곡을 찾지 못했습니다. 다음 목록도 확인해 주세요."
-        : tab === "authored"
+        : activeTab === "authored"
           ? "아직 작성한 곡이 없습니다."
           : "아직 참가한 곡이 없습니다.",
       paging:
@@ -76,7 +76,7 @@ function useMyMusicChart(tab: MusicListTab, featuredUserId: number | undefined) 
       profile.data?.activities.pinnedShorts.find((item) => item.shortId === shortId);
     if (song) void music.toggleFeatured(song);
   }
-  return { chart, toggleStar, more: songs.loadMore, retry: tab === "featured" ? () => void profile.refetch() : songs.retry, clearNotice: music.clearNotice };
+  return { chart, toggleStar, more: songs.loadMore, retry: activeTab === "featured" ? () => void profile.refetch() : songs.retry, clearNotice: music.clearNotice };
 }
 
 /** Popular / recommended (the web's RankedSongsChart) as a native chart model. */

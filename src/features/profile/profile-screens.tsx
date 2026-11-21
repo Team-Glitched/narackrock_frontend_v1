@@ -1,4 +1,5 @@
 import { useLoginPrompt } from "@/features/auth/login-prompt";
+import { useUrlNavigation } from "@/features/navigation/use-url-navigation";
 import { profileStyles } from "@/styles/profile.styles";
 import { sharedStyles } from "@/styles/shared.styles";
 import { buttonVariants } from "@/styles/variants";
@@ -16,7 +17,7 @@ import { FigmaSheet } from "@/components/figma-sheet";
 import { useCurrentUserId } from "@/features/auth/use-current-user";
 import { updateProfile, updateProfileImage } from "@/lib/api/profile";
 import type { UserProfile } from "@/lib/api/contracts";
-import { Link, useNavigate } from "react-router";
+import { Link } from "react-router";
 import { useMySongs } from "@/features/home/use-my-songs";
 import { songsForTab } from "@/features/home/my-songs";
 import { profileKeys, profileQuery } from "./profile-queries";
@@ -73,13 +74,13 @@ function ProfileWorks({
   allHref?: string;
 }) {
   const [showAll, setShowAll] = useState(false);
-  const navigate = useNavigate();
+  const { to } = useUrlNavigation();
   return (
     <section className={profileStyles.profileSection}>
       <SectionTitle
         className="mb-0! px-0!"
         allLabel="모두보기"
-        onAll={() => allHref ? navigate(allHref) : setShowAll(true)}
+        onAll={() => allHref ? to(allHref) : setShowAll(true)}
       >
         {title}
       </SectionTitle>
@@ -148,7 +149,7 @@ export function useOwnWorks() {
 }
 
 function OwnWorks({ onOpen }: { onOpen: (id: number) => void }) {
-  const navigate = useNavigate();
+  const { to } = useUrlNavigation();
   const { songs, sections } = useOwnWorks();
   return (
     <>
@@ -157,7 +158,7 @@ function OwnWorks({ onOpen }: { onOpen: (id: number) => void }) {
           <section className={profileStyles.profileSection} key={tab}>
             <SectionTitle
               className="mb-0! px-0!"
-              onAll={() => navigate(allPath)}
+              onAll={() => to(allPath)}
             >
               {title}
             </SectionTitle>
