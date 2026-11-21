@@ -25,7 +25,7 @@ export function useNextChord({
   const appliedRevision = useRef<number | null>(null);
   const [enabled, setEnabled] = useState(true);
   const [dismissed, setDismissed] = useState<number | null>(null);
-  const [revealState, setRevealState] = useState<{ pitch: number } | null>(null);
+  const [revealState, setRevealState] = useState<{ pitch: number; sequence: number } | null>(null);
   const [picked, setPicked] = useState<{ revision: number; index: number } | null>(null);
   const revision = editor.lastChange?.revision ?? 0;
   const editTick = editor.lastChange?.focusTick ?? null;
@@ -134,7 +134,10 @@ export function useNextChord({
       editor.windowTicks >= 2 * bar ? Math.max(0, result.localTick - bar) : result.localTick,
     );
     const pitches = choice.notes.map((note) => note.pitch);
-    setRevealState({ pitch: (Math.min(...pitches) + Math.max(...pitches)) / 2 });
+    setRevealState(previous => ({
+      pitch: (Math.min(...pitches) + Math.max(...pitches)) / 2,
+      sequence: (previous?.sequence ?? 0) + 1,
+    }));
   }
   function reveal() {
     revealCandidate(candidate);

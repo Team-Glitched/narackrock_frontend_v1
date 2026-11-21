@@ -92,6 +92,7 @@ export function useNativeNoteRoll({
     tool: view.tool,
     snapDenominator: view.snapDenominator,
     visibleBars: view.visibleBars,
+    zoom: view.zoom,
     expandedDrums: view.expandedDrums,
     viewStartTick: view.viewStartTick,
     windowTicks: editor.windowTicks,
@@ -158,6 +159,8 @@ export function useNativeNoteRoll({
         return editor.setExpandedDrums(action.expanded);
       case "roll-view":
         return editor.setViewStartTick(action.tick);
+      case "roll-zoom":
+        return editor.setZoom(action.zoom, action.tick);
       case "roll-audition":
         return onAudition(action.pitch);
       case "roll-seek":

@@ -53,5 +53,6 @@ export function useNoteEditor(options: NoteEditorOptions): NoteEditorController 
     setVisibleBars: session.setVisibleBars,
     setExpandedDrums: session.setExpandedDrums,
     setViewStartTick: session.setViewStartTick,
+    setZoom: session.setZoom,
   };
 }
