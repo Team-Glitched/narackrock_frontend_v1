@@ -5,6 +5,7 @@ import { studioStyles } from "@/styles/studio.styles";
 import { buttonVariants } from "@/styles/variants";
 import { useEffect, useRef, useState } from "react";
 import { Asset } from "@/components/asset";
+import { Dropdown } from "@/components/dropdown";
 import { AudioTrimPicker } from "@/features/composition/audio-trim-picker";
 import type { AudioSelection } from "@/features/composition/prepare-audio-file";
 import { recordNativeAudio } from "@/lib/native-app";
@@ -440,19 +441,21 @@ export function CompositionRecordScreen({
         {recording && liveStream && <RecordingMeter stream={liveStream} />}
         <p role="status">{status}</p>
         {file && onTransform && (
-          <label>
-            변환 방식{" "}
-            <select
-              aria-label="변환 방식"
+          <div className="flex items-center gap-2">
+            <span>변환 방식</span>
+            <Dropdown<AudioTranscriptionMode>
+              label="변환 방식"
+              className="min-w-[156px]"
               value={soundKind}
               disabled={pending}
-              onChange={(e) => setSoundKind(e.target.value as AudioTranscriptionMode)}
-            >
-              <option value="AUTO">자동 판별</option>
-              <option value="HUMMING">허밍 · 한 음씩</option>
-              <option value="INSTRUMENT">악기 · 화음</option>
-            </select>
-          </label>
+              onChange={setSoundKind}
+              options={[
+                { value: "AUTO", label: "자동 판별" },
+                { value: "HUMMING", label: "허밍 · 한 음씩" },
+                { value: "INSTRUMENT", label: "악기 · 화음" },
+              ]}
+            />
+          </div>
         )}
         {file && (
           <div className={studioStyles.recordActions}>
