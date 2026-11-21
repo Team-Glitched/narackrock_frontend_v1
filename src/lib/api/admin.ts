@@ -48,7 +48,7 @@ export function rejectGalleryProposal(proposalId: number, reason: string) {
   });
 }
 
-export type ReportTargetType = "POST" | "POST_COMMENT" | "SHORT" | "SHORT_COMMENT";
+export type ReportTargetType = "POST" | "POST_COMMENT" | "SHORT" | "SHORT_COMMENT" | "OPEN_SOURCE" | "OPEN_SOURCE_COMMENT";
 export type ReportUser = { userId: number; nickname: string | null };
 export type AdminReport = {
   reportId: number;
