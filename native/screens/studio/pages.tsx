@@ -58,6 +58,8 @@ export function StudioNewScreen({ model }: ScreenProps<"studio-new">) {
           <Touchable
             accessibilityRole="button"
             accessibilityLabel="앨범 추가"
+            accessibilityState={{ disabled: model.busy }}
+            disabled={model.busy}
             style={styles.artwork}
             onPress={() => act({ type: "studio-new-image" })}
           >
@@ -152,7 +154,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   artwork: {
-    height: 280,
+    aspectRatio: 1,
     alignItems: "center",
     justifyContent: "center",
     gap: 8,

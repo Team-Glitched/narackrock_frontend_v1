@@ -80,8 +80,8 @@ export function requestNative<M extends BridgeMethod>(
 }
 
 /** Lets the user pick an image in the platform picker; null when cancelled. App only. */
-export async function pickNativeImage(): Promise<File | null> {
-  const { image } = await requestNative("pick-image", {});
+export async function pickNativeImage(options: { crop?: boolean } = {}): Promise<File | null> {
+  const { image } = await requestNative("pick-image", options);
   if (!image) return null;
   const bytes = Uint8Array.from(atob(image.base64), (char) => char.charCodeAt(0));
   return new File([bytes], image.name, { type: image.type });

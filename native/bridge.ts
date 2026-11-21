@@ -269,7 +269,10 @@ export function parseRequest(data: string): BridgeRequest | null {
       };
     }
     case "pick-image":
-      return { id, token: bridgeToken, type: parsed.type };
+      return {
+        id, token: bridgeToken, type: parsed.type,
+        crop: "crop" in parsed && parsed.crop === true,
+      };
     // Audio payloads are typed by the shared protocol past their discriminants, like view models:
     // they only come from the token-holding main frame (the web hook builds them).
     case "audio-engine": {
@@ -355,7 +358,7 @@ async function run(
       return { shared: action === Share.sharedAction };
     }
     case "pick-image":
-      return { image: await pickImage() };
+      return { image: await pickImage(request.crop) };
     case "pick-audio":
       return { audio: await pickAudio() };
     case "pick-json":

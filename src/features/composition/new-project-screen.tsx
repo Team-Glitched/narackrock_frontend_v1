@@ -3,6 +3,7 @@ import { buttonVariants } from "@/styles/variants";
 import { useEffect, useId, useRef, useState, useSyncExternalStore } from "react";
 import { createDraftProject, updateProjectMetadata, uploadMedia } from "@/lib/api/composition";
 import { apiOrigin, getCurrentUserId } from "@/lib/api/client";
+import { useImageCrop } from "@/features/images/use-image-crop";
 import {
   errorText,
   getResumableProject,
@@ -127,6 +128,7 @@ export function NewProject({ project }: { project: NewProjectState }) {
   const selectOnFocus = useRef(true);
   const selectOnClick = useRef(false);
   const { busy, error, imageUrl, title } = project;
+  const crop = useImageCrop({ file: project.image, onApply: project.chooseImage });
   return (
     <form
       className={sharedStyles.projectCreate}
@@ -180,9 +182,9 @@ export function NewProject({ project }: { project: NewProjectState }) {
       </div>
       <label className={"project-artwork-field"}>
         앨범
-        <span className={sharedStyles.projectArtworkPicker}>
+        <span className={`${sharedStyles.projectArtworkPicker} aspect-square !h-auto`}>
           {imageUrl ? (
-            <img src={imageUrl} alt="선택한 앨범" width={350} height={280} />
+            <img src={imageUrl} alt="선택한 앨범" width={350} height={350} />
           ) : (
             <>
               <strong>앨범 추가</strong>
@@ -193,13 +195,27 @@ export function NewProject({ project }: { project: NewProjectState }) {
             type="file"
             accept="image/jpeg,image/png,image/webp"
             aria-label="앨범 추가"
+            disabled={busy}
             onChange={(event) => {
               const file = event.target.files?.[0];
-              if (file) project.chooseImage(file);
+              event.currentTarget.value = "";
+              if (file) crop.select(file);
             }}
           />
         </span>
       </label>
+      {crop.canEdit && (
+        <button
+          type="button"
+          disabled={busy}
+          className="self-center text-body text-app-muted underline"
+          onClick={crop.edit}
+        >
+          크기·위치 조절
+        </button>
+      )}
+      {crop.error && <p className={sharedStyles.projectError} role="alert">{crop.error}</p>}
+      {crop.dialog}
       {error && (
         <p className={sharedStyles.projectError} role="alert">
           {error}

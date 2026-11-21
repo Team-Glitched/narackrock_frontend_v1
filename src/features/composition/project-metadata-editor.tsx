@@ -1,10 +1,11 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { updateProjectMetadata, uploadMedia } from "@/lib/api/composition";
 import { queryScope } from "@/lib/query";
 import { useCurrentUserId } from "@/features/auth/use-current-user";
 import { buttonVariants } from "@/styles/variants";
 import { errorText } from "./studio-helpers";
+import { ImageCropInput } from "@/features/images/image-crop-input";
 
 /** Edits only the song's title/cover; saving never publishes audio or commits personal notes. */
 export function ProjectMetadataEditor({
@@ -23,15 +24,9 @@ export function ProjectMetadataEditor({
   const userId = useCurrentUserId();
   const queryClient = useQueryClient();
   const [title, setTitle] = useState(originalTitle);
-  const [image, setImage] = useState<{ file: File; url: string } | null>(null);
+  const [image, setImage] = useState<File | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  useEffect(
-    () => () => {
-      if (image) URL.revokeObjectURL(image.url);
-    },
-    [image],
-  );
 
   return (
     <form
@@ -43,7 +38,7 @@ export function ProjectMetadataEditor({
         onBusyChange?.(true);
         setError(null);
         try {
-          const imageId = image ? await uploadMedia(image.file, "IMAGE") : null;
+          const imageId = image ? await uploadMedia(image, "IMAGE") : null;
           await updateProjectMetadata(projectId, title.trim(), imageId);
           // Detail, feed, profile and song lists all carry copies of the title and cover.
           void queryClient.invalidateQueries({
@@ -76,25 +71,14 @@ export function ProjectMetadataEditor({
           onChange={(event) => setTitle(event.target.value)}
         />
       </label>
-      {(image || albumImageUrl) && (
+      {!image && albumImageUrl && (
         <img
           className="h-28 w-28 self-center rounded-lg object-cover"
-          src={image?.url ?? albumImageUrl ?? undefined}
+          src={albumImageUrl}
           alt="앨범 이미지 미리보기"
         />
       )}
-      <label className="flex flex-col gap-2">
-        앨범 이미지
-        <input
-          type="file"
-          accept="image/png,image/jpeg,image/webp,image/gif"
-          disabled={busy}
-          onChange={(event) => {
-            const file = event.target.files?.[0];
-            setImage(file ? { file, url: URL.createObjectURL(file) } : null);
-          }}
-        />
-      </label>
+      <ImageCropInput file={image} disabled={busy} onChange={setImage} />
       <p className="m-0 text-caption text-app-muted">
         새 이미지를 선택하지 않으면 현재 표지를 유지합니다.
       </p>

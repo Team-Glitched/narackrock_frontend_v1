@@ -134,7 +134,7 @@ export type BridgeMethods = {
    * The platform photo picker, for native screens (they cannot use a web file input). Null when
    * cancelled. The web turns the result into a File (`pickNativeImage`) and uploads it as usual.
    */
-  "pick-image": { payload: Record<never, never>; result: { image: NativePickedImage | null } };
+  "pick-image": { payload: { crop?: boolean }; result: { image: NativePickedImage | null } };
   /**
    * The platform document picker limited to audio, for native screens (a web file input cannot be
    * opened from a native tap). Null when cancelled; the web builds a File (`pickNativeAudio`).

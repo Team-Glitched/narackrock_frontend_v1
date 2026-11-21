@@ -8,12 +8,14 @@ import type { NativePickedImage } from "../src/lib/native-bridge-protocol";
 /** Formats the web's image inputs accept. */
 const accepted = ["image/jpeg", "image/png", "image/webp", "image/gif"];
 
-/** The system photo picker; null when cancelled. The original file, as the web's file input sends. */
-export async function pickImage(): Promise<NativePickedImage | null> {
+/** Profile/album images use the system square crop editor; other attachments keep their original format. */
+export async function pickImage(crop = false): Promise<NativePickedImage | null> {
   const result = await launchImageLibraryAsync({
     mediaTypes: ["images"],
     base64: true,
     quality: 1,
+    allowsEditing: crop,
+    aspect: [1, 1],
     // iOS: HEIC photos come back as JPEG.
     preferredAssetRepresentationMode: UIImagePickerPreferredAssetRepresentationMode.Compatible,
   });
