@@ -44,7 +44,7 @@ export default function ChatPage() {
   return (
     <DesignViewport>
       <div className={sharedStyles.phoneFrame}>
-        <div className={sharedStyles.screenBody}>
+        <div className="min-h-0 flex-1 overflow-hidden">
           <ChatScreen {...chat} onNotifications={openNotifications} />
         </div>
         <NotificationsOverlay />

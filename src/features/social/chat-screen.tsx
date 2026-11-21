@@ -4,9 +4,10 @@ import { sharedStyles } from "@/styles/shared.styles";
 import { communityStyles } from "@/styles/community.styles";
 import { buttonVariants } from "@/styles/variants";
 import { cn } from "@/lib/utils";
-import { ChevronLeft, Search, SquarePen, X } from "lucide-react";
+import { Search, SquarePen, X } from "lucide-react";
 import { relativeTime } from "@/features/posts/post-utils";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { shouldSubmitOnEnter, usesTouchKeyboard } from "@/features/comments/submit-on-enter";
 import { Asset } from "@/components/asset";
 import { Avatar } from "@/components/avatar";
 import { useCurrentUserId } from "@/features/auth/use-current-user";
@@ -47,7 +48,7 @@ function Inbox({
   const rows = filterChatInbox(inbox.rows, searchText);
   return (
     <>
-      <div className="mx-5 mb-3 flex h-11 shrink-0 items-center gap-2.5 rounded-xl bg-app-surface px-3.5 text-app-muted focus-within:ring-2 focus-within:ring-violet-500/60">
+      <div className="mx-5 mt-2 mb-3 flex h-11 shrink-0 items-center gap-2.5 rounded-xl bg-app-surface px-3.5 text-app-muted focus-within:ring-2 focus-within:ring-violet-500/60">
         <Search aria-hidden="true" className="size-[17px] shrink-0" />
         <input
           ref={input}
@@ -186,16 +187,41 @@ function Inbox({
 function Conversation({ me, friend }: { me: number; friend: UserProfile }) {
   const chat = useConversation(me, friend.userId);
   const [draft, setDraft] = useState("");
-  const end = useRef<HTMLDivElement>(null);
+  const messagesRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const canSend = canSendChatTo(friend);
   const { busy, error: sendError, submit } = useChatSend(chat.send, canSend);
   const lastId = chat.messages.at(-1)?.id;
   useEffect(() => {
-    end.current?.scrollIntoView({ block: "end" });
+    const messages = messagesRef.current;
+    if (messages) messages.scrollTop = messages.scrollHeight;
   }, [lastId]);
+  useLayoutEffect(() => {
+    const input = textareaRef.current;
+    if (!input) return;
+    const messages = messagesRef.current;
+    const atBottom =
+      messages !== null &&
+      messages.scrollHeight - messages.scrollTop - messages.clientHeight <= 1;
+    input.style.height = "0px";
+    input.style.height = `${Math.min(input.scrollHeight, 116)}px`;
+    // Keep the latest message visible as the composer grows, without moving a reader of older messages.
+    if (messages && atBottom) messages.scrollTop = messages.scrollHeight;
+  }, [draft]);
+  const sendDraft = async () => {
+    if (await submit(draft)) {
+      // A slow response must not discard edits made since this send started.
+      setDraft((current) => (current === draft ? "" : current));
+    }
+  };
   return (
     <>
-      <div className={socialStyles.chatMessages} aria-label="대화 내용" aria-live="polite">
+      <div
+        ref={messagesRef}
+        className={socialStyles.chatMessages}
+        aria-label="대화 내용"
+        aria-live="polite"
+      >
         {!chat.connected && chat.loaded && (
           <p role="status">실시간 연결이 끊겨 3초마다 새 메시지를 확인합니다.</p>
         )}
@@ -246,13 +272,12 @@ function Conversation({ me, friend }: { me: number; friend: UserProfile }) {
             </div>
           ),
         )}
-        <div ref={end} />
       </div>
       <form
-        className={communityStyles.commentComposer}
+        className={socialStyles.chatComposer}
         onSubmit={async (event) => {
           event.preventDefault();
-          if (await submit(draft)) setDraft("");
+          await sendDraft();
         }}
       >
         {(sendError || !canSend) && (
@@ -260,12 +285,9 @@ function Conversation({ me, friend }: { me: number; friend: UserProfile }) {
             {sendError || "비공개 계정에는 맞팔로우한 뒤 메시지를 보낼 수 있습니다."}
           </p>
         )}
-        <div className={communityStyles.commentInputRow}>
-          <span className={communityStyles.commentAttachment} aria-hidden="true">
-            <i />
-            <i />
-          </span>
+        <div className={socialStyles.chatInputRow}>
           <textarea
+            ref={textareaRef}
             rows={1}
             aria-label="메시지"
             placeholder="입력"
@@ -273,8 +295,14 @@ function Conversation({ me, friend }: { me: number; friend: UserProfile }) {
             maxLength={CHAT_MESSAGE_MAX_LENGTH}
             disabled={!canSend}
             onChange={(event) => setDraft(event.target.value)}
+            onKeyDown={async (event) => {
+              if (!shouldSubmitOnEnter(event.nativeEvent, usesTouchKeyboard())) return;
+              event.preventDefault();
+              await sendDraft();
+            }}
           />
           <button
+            type="submit"
             aria-label="메시지 보내기"
             disabled={!chatMessageContent(draft) || busy || !canSend}
           >
@@ -310,56 +338,39 @@ export function ChatScreen({
   const me = useCurrentUserId();
   const { key, partner: current } = useChatPartner(me, friendId);
   const isInbox = friendId === null;
-  const inboxControl = "grid size-11 shrink-0 place-items-center rounded-full hover:bg-white/5";
   return (
     <div className={socialStyles.chatScreen}>
-      <header
-        className={isInbox ? "flex h-16 shrink-0 items-center gap-2 px-3" : socialStyles.chatHeader}
-      >
-        <button
-          type="button"
-          aria-label="뒤로"
-          className={isInbox ? inboxControl : undefined}
-          onClick={onBack}
-        >
-          {isInbox ? (
-            <ChevronLeft aria-hidden="true" className="size-6" />
-          ) : (
-            <Asset name="return.svg" />
-          )}
+      <header className={socialStyles.chatHeader}>
+        <button type="button" aria-label="뒤로" onClick={onBack}>
+          <Asset name="return.svg" />
         </button>
         {current?.profile ? (
           <button
+            type="button"
             className={socialStyles.chatRecipient}
             onClick={() => onProfile(current.profile!.userId)}
           >
-            <Avatar src={current.profile.profileImageUrl} />
+            <Avatar size="md" src={current.profile.profileImageUrl} />
             <span>
               <strong>{current.profile.nickname}</strong>
-              <small>{current.profile.primaryInstrument ?? ""}</small>
+              {current.profile.primaryInstrument ? (
+                <small>{current.profile.primaryInstrument}</small>
+              ) : null}
             </span>
           </button>
         ) : (
-          <h1 className={isInbox ? "min-w-0 flex-1 truncate text-title font-bold" : undefined}>
+          <h1 className="m-0 min-w-0 flex-1 truncate pl-1 text-title leading-[26px] font-bold">
             채팅
           </h1>
         )}
-        <NotificationBell
-          className={isInbox ? inboxControl : undefined}
-          onClick={onNotifications}
-        />
+        <NotificationBell onClick={onNotifications} />
         {isInbox ? (
-          <button
-            type="button"
-            aria-label="새 메시지"
-            className={inboxControl}
-            onClick={onNewMessage}
-          >
+          <button type="button" aria-label="새 메시지" onClick={onNewMessage}>
             <SquarePen aria-hidden="true" className="size-5" />
           </button>
         ) : (
           <button type="button" aria-label="검색" onClick={onSearch}>
-            <Asset name="search.svg" />
+            <Asset name="v3-search.svg" />
           </button>
         )}
       </header>
