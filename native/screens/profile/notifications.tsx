@@ -1,28 +1,43 @@
+import { useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
-import Svg, { Circle, Line, Path } from "react-native-svg";
 
 import BellIcon from "../../../public/figma/bell.svg";
 import type {
   NativeNotificationItem,
   NativeNotificationPreferences,
 } from "../../../src/lib/native-screens";
+import { MenuSheet, type MenuItem } from "../../ui/comments";
 import { AppHeader } from "../../ui/header";
-import { Button, Touchable } from "../../ui/kit";
+import { Button, MoreButton, Touchable } from "../../ui/kit";
 import { ScreenList } from "../../ui/screen";
 import { useScreen } from "../../ui/screen-context";
 import { colors, gutter, type } from "../../ui/theme";
 import type { ScreenProps } from "../types";
-import { FilterChip, PreferenceRow, styles as partStyles } from "./parts";
+import { FilterChip, PreferenceRow } from "./parts";
 
 const RED = "#fca5a5";
 
 /** The web notification inbox (src/features/notifications/notifications-screen.tsx). */
 export function NotificationsScreen({ model, header }: ScreenProps<"profile-notifications">) {
   const { act } = useScreen();
+  const [headerMenu, setHeaderMenu] = useState(false);
   const ready = model.signedIn && model.status === "ready";
+  const headerItems: MenuItem[] = [
+    ...(!model.readAllDisabled ? [{ label: "모두 읽음", onPress: () => act({ type: "read-all" }) }] : []),
+    ...(!model.deleteReadDisabled
+      ? [{ label: "읽은 알림 모두 삭제", onPress: () => act({ type: "delete-read" }) }]
+      : []),
+    { label: "알림 수신 설정", onPress: () => act({ type: "toggle-preferences" }) },
+  ];
   return (
     <>
       {header && <AppHeader header={header} />}
+      <MenuSheet
+        label="알림 옵션"
+        items={headerItems}
+        visible={headerMenu}
+        onClose={() => setHeaderMenu(false)}
+      />
       <ScreenList
         data={model.signedIn ? model.items : []}
         keyExtractor={(item) => String(item.id)}
@@ -39,15 +54,11 @@ export function NotificationsScreen({ model, header }: ScreenProps<"profile-noti
                 {model.unreadCount > 0 && <Text style={styles.count}>{model.unreadCount}</Text>}
               </View>
               {model.signedIn && (
-                <Touchable
-                  accessibilityRole="button"
-                  accessibilityLabel="알림 수신 설정"
-                  accessibilityState={{ expanded: model.preferences !== null }}
-                  style={styles.settings}
-                  onPress={() => act({ type: "toggle-preferences" })}
-                >
-                  <SettingsIcon />
-                </Touchable>
+                <MoreButton
+                  label="알림 옵션"
+                  style={styles.moreButton}
+                  onPress={() => setHeaderMenu(true)}
+                />
               )}
             </View>
             {!model.signedIn ? (
@@ -77,30 +88,7 @@ export function NotificationsScreen({ model, header }: ScreenProps<"profile-noti
                     pressed={model.unreadOnly}
                     onPress={() => act({ type: "unread-only" })}
                   />
-                  <Touchable
-                    accessibilityRole="button"
-                    accessibilityState={{ disabled: model.readAllDisabled }}
-                    disabled={model.readAllDisabled}
-                    style={[styles.readAll, model.readAllDisabled && partStyles.disabled]}
-                    onPress={() => act({ type: "read-all" })}
-                  >
-                    <CheckIcon />
-                    <Text style={type.muted}>모두 읽음</Text>
-                  </Touchable>
                 </View>
-                <Touchable
-                  accessibilityRole="button"
-                  accessibilityState={{ disabled: model.deleteReadDisabled }}
-                  disabled={model.deleteReadDisabled}
-                  style={[
-                    styles.readAll,
-                    { alignSelf: "flex-end" },
-                    model.deleteReadDisabled && partStyles.disabled,
-                  ]}
-                  onPress={() => act({ type: "delete-read" })}
-                >
-                  <Text style={type.muted}>읽은 알림 모두 삭제</Text>
-                </Touchable>
                 {model.error && (
                   <Text accessibilityRole="alert" style={styles.error}>
                     {model.error}
@@ -190,6 +178,19 @@ function Preferences({ preferences }: { preferences: NativeNotificationPreferenc
 
 function Row({ item, busy }: { item: NativeNotificationItem; busy: boolean }) {
   const { act } = useScreen();
+  const [menu, setMenu] = useState(false);
+  const menuItems: MenuItem[] = [
+    ...(item.link
+      ? [
+          {
+            label: item.link === "project" ? "전체 트랙 보기" : "자세히 보기",
+            onPress: () => act({ type: item.link === "project" ? "project" : "open", id: item.id }),
+          },
+        ]
+      : []),
+    ...(item.unread ? [{ label: "읽음 표시", onPress: () => act({ type: "read", id: item.id }) }] : []),
+    { label: "삭제", onPress: () => act({ type: "delete", id: item.id }) },
+  ];
   return (
     <View style={[styles.row, item.unread ? styles.rowUnread : styles.rowRead]}>
       <View style={styles.rowTop}>
@@ -200,8 +201,23 @@ function Row({ item, busy }: { item: NativeNotificationItem; busy: boolean }) {
             {item.countLabel && ` ${item.countLabel}`}
           </Text>
         </View>
-        <Text style={type.caption}>{item.time}</Text>
+        <View style={styles.rowMeta}>
+          <Text style={type.caption}>{item.time}</Text>
+          {menuItems.length > 0 && !busy && (
+            <MoreButton
+              label="알림 더보기"
+              style={styles.moreButton}
+              onPress={() => setMenu(true)}
+            />
+          )}
+        </View>
       </View>
+      <MenuSheet
+        label="알림 항목 옵션"
+        items={menuItems}
+        visible={menu}
+        onClose={() => setMenu(false)}
+      />
       <Touchable
         accessibilityRole="button"
         accessibilityState={{ disabled: busy }}
@@ -210,35 +226,6 @@ function Row({ item, busy }: { item: NativeNotificationItem; busy: boolean }) {
       >
         <Text style={styles.body}>{item.body}</Text>
       </Touchable>
-      <View style={styles.rowActions}>
-        {item.link ? (
-          <Touchable
-            accessibilityRole="button"
-            accessibilityState={{ disabled: busy }}
-            disabled={busy}
-            style={styles.link}
-            onPress={() => act({ type: item.link === "project" ? "project" : "open", id: item.id })}
-          >
-            <Text style={styles.linkText}>
-              {item.link === "project" ? "전체 트랙 보기" : "자세히 보기"}
-            </Text>
-            <ArrowIcon />
-          </Touchable>
-        ) : (
-          <View />
-        )}
-        {item.unread && (
-          <Touchable
-            accessibilityRole="button"
-            accessibilityState={{ disabled: busy }}
-            disabled={busy}
-            style={styles.readButton}
-            onPress={() => act({ type: "read", id: item.id })}
-          >
-            <Text style={type.muted}>읽음 표시</Text>
-          </Touchable>
-        )}
-      </View>
       {item.pending ? (
         <View style={styles.review} accessibilityLabel="요청 처리">
           <Button
@@ -259,63 +246,6 @@ function Row({ item, busy }: { item: NativeNotificationItem; busy: boolean }) {
         item.statusLabel && <Text style={[type.muted, styles.status]}>{item.statusLabel}</Text>
       )}
     </View>
-  );
-}
-
-/** lucide Settings2, as on the web. */
-function SettingsIcon() {
-  return (
-    <Svg
-      width={18}
-      height={18}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke={colors.fg}
-      strokeWidth={2}
-      strokeLinecap="round"
-    >
-      <Path d="M20 7h-9" />
-      <Path d="M14 17H5" />
-      <Circle cx={17} cy={17} r={3} />
-      <Circle cx={7} cy={7} r={3} />
-    </Svg>
-  );
-}
-
-/** lucide Check. */
-function CheckIcon() {
-  return (
-    <Svg
-      width={14}
-      height={14}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke={colors.muted}
-      strokeWidth={2}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <Path d="M20 6 9 17l-5-5" />
-    </Svg>
-  );
-}
-
-/** lucide ArrowUpRight. */
-function ArrowIcon() {
-  return (
-    <Svg
-      width={14}
-      height={14}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke={colors["primary-soft"]}
-      strokeWidth={2}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <Line x1={7} y1={17} x2={17} y2={7} />
-      <Path d="M7 7h10v10" />
-    </Svg>
   );
 }
 
@@ -341,23 +271,14 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     backgroundColor: "rgba(239, 68, 68, 0.15)",
   },
-  settings: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "rgba(255, 255, 255, 0.05)",
-  },
+  moreButton: { width: 32, height: 32 },
   categories: { gap: 8, paddingHorizontal: gutter },
   filters: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
     gap: 8,
     marginBottom: 8,
   },
-  readAll: { minHeight: 36, flexDirection: "row", alignItems: "center", gap: 4 },
   error: {
     padding: 12,
     borderRadius: 12,
@@ -388,30 +309,21 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(167, 139, 250, 0.06)",
   },
   rowRead: {
-    borderColor: "rgba(255, 255, 255, 0.06)",
-    backgroundColor: "rgba(255, 255, 255, 0.015)",
+    borderColor: "transparent",
+    backgroundColor: colors.surface,
   },
   rowTop: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     gap: 8,
-    marginBottom: 8,
+    marginBottom: 6,
   },
+  rowMeta: { flexDirection: "row", alignItems: "center", gap: 4 },
   rowTitle: { flex: 1, flexDirection: "row", alignItems: "center", gap: 8 },
   dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: "#f87171" },
   body: { color: colors.fg, fontSize: 14, lineHeight: 24 },
-  rowActions: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: 8,
-    marginTop: 12,
-  },
-  link: { minHeight: 36, flexDirection: "row", alignItems: "center", gap: 4 },
-  linkText: { color: colors["primary-soft"], fontSize: 14 },
-  readButton: { minHeight: 36, justifyContent: "center" },
-  review: { flexDirection: "row", gap: 8, marginTop: 8 },
+  review: { flexDirection: "row", gap: 8, marginTop: 12 },
   compact: { minHeight: 36, paddingHorizontal: 14 },
   status: { marginTop: 8 },
 });

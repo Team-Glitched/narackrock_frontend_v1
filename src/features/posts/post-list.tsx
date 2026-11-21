@@ -1,5 +1,6 @@
 import { sharedStyles } from "@/styles/shared.styles";
 import { communityStyles } from "@/styles/community.styles";
+import { buttonVariants } from "@/styles/variants";
 import { cn } from "@/lib/utils";
 import { uiLabels } from "@/lib/ui-labels";
 import { useHiddenPosts } from "@/features/community/hidden-posts";
@@ -61,16 +62,16 @@ export function MiniPost({
         <div className={communityStyles.miniMeta} aria-label="게시글 통계">
           <span className="mini-meta-time">{relativeTime(post.createdAt)}</span>
           <span>
-            <IconSlot name="like.svg" kind="mini" />
-            {post.likeCount}
+            <IconSlot name="v3-post-like-off.svg" kind="mini" />
+            <span className="tabular-nums">{post.likeCount}</span>
           </span>
           <span>
-            <IconSlot name="mini-dislike.svg" kind="mini" />
-            {post.dislikeCount ?? 0}
+            <IconSlot name="v3-post-dislike-off.svg" kind="mini" />
+            <span className="tabular-nums">{post.dislikeCount ?? 0}</span>
           </span>
           <span>
-            <IconSlot name="mini-comment.svg" kind="mini" />
-            {post.commentCount}
+            <IconSlot name="post-comment.svg" kind="mini" />
+            <span className="tabular-nums">{post.commentCount}</span>
           </span>
         </div>
       </div>
@@ -109,7 +110,15 @@ export function PostsScreen({
       {posts.hasMore && (
         <div ref={sentinel} className={communityStyles.postFeedSentinel} aria-hidden="true" />
       )}
-      {posts.appendFailed && <button onClick={posts.loadMore}>다시 시도</button>}
+      {posts.appendFailed && (
+        <button
+          type="button"
+          className={buttonVariants({ tone: "secondary", size: "compact" })}
+          onClick={posts.loadMore}
+        >
+          다시 시도
+        </button>
+      )}
     </div>
   );
 }

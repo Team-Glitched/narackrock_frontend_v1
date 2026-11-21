@@ -155,6 +155,7 @@ export function NewProject({ project }: { project: NewProjectState }) {
           id={titleId}
           className="w-full"
           value={title}
+          placeholder="예: 새벽 공기를 닮은 피아노"
           onPointerDown={() => {
             selectOnClick.current = selectOnFocus.current;
           }}

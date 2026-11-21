@@ -17,9 +17,10 @@ export const profileStyles = {
     "[&>h1]:m-0 [&>h1]:max-w-full [&>h1]:text-center [&>h1]:text-[length:25px]",
     "[&>h1]:leading-8 [&>h1]:font-bold [&>h1]:[overflow-wrap:anywhere]",
   ].join(" "),
-  profileSections: "mt-10 grid gap-11",
-  profileSection: "grid min-w-0 gap-4",
-  profileDescription: "m-0 py-2 text-label leading-6 text-app-muted [overflow-wrap:anywhere]",
+  profileSections: "mt-8 grid gap-8",
+  profileSection: "grid min-w-0 gap-3",
+  profileDescription: "m-0 py-1 text-body leading-6 text-app-muted [overflow-wrap:anywhere]",
+  profileEmpty: "m-0 py-4 text-body leading-[20px] text-app-muted",
   profileSectionHeading: "m-0 text-title leading-[26px] font-bold tracking-[-0.4px]",
   profileSongRail: "-mx-5! h-auto! gap-5! px-5! pb-1",
   profileWorkStatus:
@@ -146,6 +147,6 @@ export const profileStyles = {
   ].join(" "),
   profileListEmpty: [
     "profile-list-empty",
-    "m-0 py-8 text-center text-label leading-6 text-app-muted",
+    "m-0 py-8 text-center text-body leading-[20px] text-app-muted",
   ].join(" "),
 } as const;
