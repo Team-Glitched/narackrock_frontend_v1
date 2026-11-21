@@ -100,9 +100,7 @@ export function CommentsView({
       replyCount={thread?.count}
       repliesExpanded={thread?.open}
       onToggleReplies={
-        thread?.count
-          ? () => comments.toggleReplies(item, thread.open, draft.trim() !== "")
-          : undefined
+        thread?.count ? () => comments.toggleReplies(item, thread.open) : undefined
       }
       onReply={
         thread
@@ -339,15 +337,19 @@ function CommentCard({
     >
       <div className={communityStyles.nrCommentAuthor}>
         <button
-          className={communityStyles.nrCommentAvatar}
+          type="button"
+          className="flex min-w-0 items-center gap-2 p-0 text-left transition-opacity hover:opacity-85"
           aria-label={`${item.author} 프로필`}
           onClick={onProfile}
         >
-          <Avatar size="xs" src={item.avatarUrl} />
+          <span className={communityStyles.nrCommentAvatar}>
+            <Avatar size="xs" src={item.avatarUrl} />
+          </span>
+          <strong>{item.author}</strong>
         </button>
-        <strong>{item.author}</strong>
         <span>• {item.time}</span>
         <button
+          type="button"
           ref={optionButton}
           className={communityStyles.nrCommentMore}
           aria-label="댓글 더보기"
@@ -429,7 +431,7 @@ function CommentCard({
           {longText && (
             <button
               type="button"
-              className="mt-1 block pl-7 text-caption text-app-muted"
+              className="mt-1 block pl-6 text-caption text-app-muted"
               aria-expanded={fullText}
               onClick={() => setFullText(!fullText)}
             >
@@ -470,16 +472,28 @@ function CommentCard({
       )}
       {error && <p role="alert">{error}</p>}
       <div className={communityStyles.nrCommentActions}>
+        {onToggleReplies && onReply && canReply && (
+          <button
+            type="button"
+            className="mr-auto text-caption! font-medium! text-app-muted! hover:text-app-fg!"
+            aria-label={`${item.author}에게 답글 달기`}
+            onClick={onReply}
+          >
+            답글 달기
+          </button>
+        )}
         <button
+          type="button"
           aria-label="댓글 좋아요"
           aria-pressed={item.isLiked}
           disabled={!can.react || reacting}
           onClick={() => void writes.vote(item, "like")}
         >
           <Asset name={item.isLiked ? "v3-comment-like-on.svg" : "v3-comment-like-off.svg"} />
-          {item.likes}
+          <span className="tabular-nums">{item.likes}</span>
         </button>
         <button
+          type="button"
           aria-label={`댓글 싫어요 ${item.dislikes}개`}
           aria-pressed={item.isDisliked}
           disabled={!can.react || reacting}

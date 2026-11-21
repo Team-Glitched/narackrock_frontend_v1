@@ -110,8 +110,8 @@ export const sourceStyles = {
   osFoot: ["os-foot", "flex items-center gap-[10px]", "[.design-canvas_.os-card_&]:mt-1"].join(" "),
   osFootAuthor: [
     "os-foot-author",
-    "mr-auto flex items-center gap-1.5 text-body text-app-fg leading-[20px]",
-    "[.design-canvas_&]:text-body [.design-canvas_&]:text-app-fg [.design-canvas_&]:leading-[20px]",
+    "mr-auto flex items-center gap-2 text-body font-medium text-app-fg leading-[20px] transition-opacity hover:opacity-85",
+    "[.design-canvas_&]:text-body [.design-canvas_&]:font-medium [.design-canvas_&]:text-app-fg [.design-canvas_&]:leading-[20px]",
   ].join(" "),
   opensourceDetailShell: ["opensource-detail-shell", "flex h-full flex-col overflow-hidden"].join(
     " ",
@@ -133,8 +133,8 @@ export const sourceStyles = {
   ].join(" "),
   osDetailByline: [
     "os-detail-byline",
-    "mt-3 flex items-center gap-2 text-body text-app-fg leading-[20px]",
-    "[.design-canvas_&]:text-body [.design-canvas_&]:text-app-fg [.design-canvas_&]:leading-[20px]",
+    "mt-3 flex items-center gap-2 text-body font-medium text-app-fg leading-[20px] transition-opacity hover:opacity-85",
+    "[.design-canvas_&]:text-body [.design-canvas_&]:font-medium [.design-canvas_&]:text-app-fg [.design-canvas_&]:leading-[20px]",
   ].join(" "),
   osDetailCopy: [
     "os-detail-copy",

@@ -155,11 +155,13 @@ function OpenSourceCard({
       />
       <div className={sourceStyles.osFoot}>
         <button
+          type="button"
           className={cn(sourceStyles.osFootAuthor, "min-w-0")}
+          aria-label={`${source.writer.nickname} 프로필`}
           onClick={() => onProfile(source.writer.userId)}
         >
           <Avatar size="xs" src={source.writer.profileImageUrl} />
-          <span className="truncate">{source.writer.nickname}</span>
+          <span className="truncate font-medium">{source.writer.nickname}</span>
         </button>
         <PostActions
           compact
@@ -661,11 +663,13 @@ function SourceDetail({
           </p>
         )}
         <button
+          type="button"
           className={sourceStyles.osDetailByline}
+          aria-label={`${source.writer.nickname} 프로필`}
           onClick={() => onProfile(source.writer.userId)}
         >
           <Avatar size="xs" src={source.writer.profileImageUrl} />
-          <span>{source.writer.nickname}</span>
+          <span className="truncate font-medium">{source.writer.nickname}</span>
         </button>
         <p className={sourceStyles.osDetailCopy}>{source.description ?? ""}</p>
         <SourcePlayback

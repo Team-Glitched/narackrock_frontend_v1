@@ -35,11 +35,13 @@ export function SourceAuthor({
     <Touchable
       accessibilityRole="button"
       accessibilityLabel={`${writer.nickname} 프로필`}
-      style={styles.row}
+      style={[styles.row, styles.authorRow]}
       onPress={onPress}
     >
       <Avatar uri={uri(writer.profileImageUrl)} size={16} />
-      <Text style={type.caption}>{writer.nickname}</Text>
+      <Text style={styles.authorName} numberOfLines={1}>
+        {writer.nickname}
+      </Text>
     </Touchable>
   );
 }
@@ -163,10 +165,12 @@ export function SourceActions({
 export const styles = StyleSheet.create({
   column: { padding: gutter, gap: 20 },
   row: { flexDirection: "row", alignItems: "center", gap: 6 },
+  authorRow: { gap: 8 },
+  authorName: { flexShrink: 1, color: colors.fg, fontSize: 14, lineHeight: 20, fontWeight: "500" },
   title: { flex: 1, minWidth: 0, gap: 3 },
   player: { gap: 8, marginVertical: 8 },
   actions: { flexDirection: "row", alignItems: "center", gap: 10, flexWrap: "wrap" },
-  stat: { flexDirection: "row", alignItems: "center", gap: 4, minHeight: 36, paddingHorizontal: 2 },
+  stat: { flexDirection: "row", alignItems: "center", gap: 2, minHeight: 36, paddingHorizontal: 2 },
   error: { ...type.caption, color: colors.error },
   heading: { ...type.title, marginBottom: 12 },
   input: {

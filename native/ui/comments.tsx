@@ -203,6 +203,8 @@ function Thread({
                 ? { type: "comment-toggle-replies", id: comment.id, hasDraft }
                 : { type: "comment-reply", id: comment.id },
             ),
+          onWriteReply:
+            toggles && canReply ? () => act({ type: "comment-reply", id: comment.id }) : undefined,
         }}
       />
       {replies && <Replies parentId={comment.id} replies={replies} />}
@@ -259,6 +261,7 @@ function CommentCard({
     expanded: boolean | undefined;
     disabled: boolean;
     onPress: () => void;
+    onWriteReply?: () => void;
   };
 }) {
   const { act, uri } = useScreen();
@@ -316,13 +319,14 @@ function CommentCard({
           accessibilityRole="button"
           accessibilityLabel={`${comment.author} 프로필`}
           hitSlop={8}
+          style={styles.authorLink}
           onPress={() => act({ type: "comment-profile", userId: comment.userId })}
         >
           <Avatar uri={uri(comment.avatarUrl)} size={16} />
+          <Text style={styles.authorName} numberOfLines={1}>
+            {comment.author}
+          </Text>
         </Touchable>
-        <Text style={styles.authorName} numberOfLines={1}>
-          {comment.author}
-        </Text>
         <Text style={styles.time} numberOfLines={1}>
           • {comment.time}
         </Text>
@@ -414,6 +418,17 @@ function CommentCard({
         </Text>
       )}
       <View style={styles.actions}>
+        {reply?.onWriteReply && (
+          <Touchable
+            accessibilityRole="button"
+            accessibilityLabel={`${comment.author}에게 답글 달기`}
+            hitSlop={7}
+            style={styles.writeReply}
+            onPress={reply.onWriteReply}
+          >
+            <Text style={styles.writeReplyText}>답글 달기</Text>
+          </Touchable>
+        )}
         <Touchable
           accessibilityRole="button"
           accessibilityLabel="댓글 좋아요"
@@ -577,7 +592,7 @@ const styles = StyleSheet.create({
   },
   compact: { minHeight: 32, paddingHorizontal: 12, borderRadius: 10 },
   empty: { ...type.muted, paddingVertical: 24, textAlign: "center" },
-  replies: { flexDirection: "row", gap: 12, marginLeft: 16, marginTop: 8 },
+  replies: { flexDirection: "row", gap: 15, marginLeft: 7, marginTop: 12 },
   rail: { width: 2, borderRadius: 1, backgroundColor: colors.line },
   replyError: { gap: 8, paddingVertical: 8, alignItems: "flex-start" },
   replyLoading: { paddingVertical: 4 },
@@ -588,26 +603,30 @@ const styles = StyleSheet.create({
     borderColor: "rgba(167, 139, 250, 0.4)",
     backgroundColor: "rgba(167, 139, 250, 0.1)",
   },
-  author: { height: 32, flexDirection: "row", alignItems: "center", gap: 8 },
-  authorName: { flexShrink: 1, color: colors.fg, fontSize: 14, lineHeight: 20, fontWeight: "500" },
+  author: { minHeight: 28, flexDirection: "row", alignItems: "center", gap: 8 },
+  authorLink: { flexDirection: "row", alignItems: "center", gap: 8, flexShrink: 1 },
+  authorName: { flexShrink: 1, color: colors.fg, fontSize: 14, lineHeight: 20, fontWeight: "600" },
   time: { flexShrink: 0, color: colors.muted, fontSize: 10, lineHeight: 14 },
   more: { marginLeft: "auto", width: 32, height: 32 },
-  text: { marginTop: 4, paddingLeft: 28, color: "#e5e8ec", fontSize: 14, lineHeight: 20 },
+  text: { marginTop: 6, paddingLeft: 24, color: "#d7dce2", fontSize: 14, lineHeight: 20 },
   measure: { position: "absolute", left: 0, right: 0, opacity: 0 },
-  readMore: { marginTop: 4, paddingLeft: 28, alignSelf: "flex-start" },
-  inlineForm: { gap: 8, marginTop: 8 },
+  readMore: { marginTop: 4, paddingLeft: 24, alignSelf: "flex-start" },
+  inlineForm: { gap: 8, marginTop: 8, paddingLeft: 24 },
   editInput: { minHeight: 64, fontSize: 14, borderWidth: 1, borderColor: colors.muted },
   inlineButtons: { flexDirection: "row", gap: 12 },
   cardError: { marginTop: 4 },
   actions: {
-    marginTop: 8,
+    marginTop: 10,
+    paddingLeft: 24,
     minHeight: 24,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "flex-end",
-    gap: 16,
+    gap: 14,
   },
-  action: { flexDirection: "row", alignItems: "center", gap: 4 },
+  writeReply: { marginRight: "auto" },
+  writeReplyText: { color: colors.muted, fontSize: 12, lineHeight: 18, fontWeight: "500" },
+  action: { flexDirection: "row", alignItems: "center", gap: 2 },
   actionText: { color: colors.fg, fontSize: 14, lineHeight: 18, fontWeight: "500" },
   textButton: { paddingVertical: 12, alignSelf: "flex-start" },
   textButtonText: { color: colors.muted, fontSize: 14, lineHeight: 20, fontWeight: "500" },

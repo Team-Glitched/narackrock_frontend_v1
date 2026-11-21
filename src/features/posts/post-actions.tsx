@@ -66,16 +66,22 @@ export function PostActions({
     return (
       <div className={communityStyles.postReadonlyStats} aria-label="게시글 통계">
         <span>
-          <IconSlot name="like.svg" kind="mini" />
-          {likeCount}
+          <IconSlot
+            name={`v3-post-like-${vote === "like" ? "on" : "off"}.svg`}
+            kind="mini"
+          />
+          <span className="tabular-nums">{likeCount}</span>
         </span>
         <span>
-          <IconSlot name="mini-dislike.svg" kind="mini" />
-          {dislikeCount ?? 0}
+          <IconSlot
+            name={`v3-post-dislike-${vote === "dislike" ? "on" : "off"}.svg`}
+            kind="mini"
+          />
+          <span className="tabular-nums">{dislikeCount ?? 0}</span>
         </span>
         <span>
-          <IconSlot name="mini-comment.svg" kind="mini" />
-          {commentCount}
+          <IconSlot name="post-comment.svg" kind="mini" />
+          <span className="tabular-nums">{commentCount}</span>
         </span>
       </div>
     );
