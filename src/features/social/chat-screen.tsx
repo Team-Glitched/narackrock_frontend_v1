@@ -187,23 +187,41 @@ function Inbox({
 function Conversation({ me, friend }: { me: number; friend: UserProfile }) {
   const chat = useConversation(me, friend.userId);
   const [draft, setDraft] = useState("");
-  const end = useRef<HTMLDivElement>(null);
+  const messagesRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const canSend = canSendChatTo(friend);
   const { busy, error: sendError, submit } = useChatSend(chat.send, canSend);
   const lastId = chat.messages.at(-1)?.id;
   useEffect(() => {
-    end.current?.scrollIntoView({ block: "end" });
+    const messages = messagesRef.current;
+    if (messages) messages.scrollTop = messages.scrollHeight;
   }, [lastId]);
   useLayoutEffect(() => {
     const input = textareaRef.current;
     if (!input) return;
+    const messages = messagesRef.current;
+    const atBottom =
+      messages !== null &&
+      messages.scrollHeight - messages.scrollTop - messages.clientHeight <= 1;
     input.style.height = "0px";
     input.style.height = `${Math.min(input.scrollHeight, 116)}px`;
+    // Keep the latest message visible as the composer grows, without moving a reader of older messages.
+    if (messages && atBottom) messages.scrollTop = messages.scrollHeight;
   }, [draft]);
+  const sendDraft = async () => {
+    if (await submit(draft)) {
+      // A slow response must not discard edits made since this send started.
+      setDraft((current) => (current === draft ? "" : current));
+    }
+  };
   return (
     <>
-      <div className={socialStyles.chatMessages} aria-label="대화 내용" aria-live="polite">
+      <div
+        ref={messagesRef}
+        className={socialStyles.chatMessages}
+        aria-label="대화 내용"
+        aria-live="polite"
+      >
         {!chat.connected && chat.loaded && (
           <p role="status">실시간 연결이 끊겨 3초마다 새 메시지를 확인합니다.</p>
         )}
@@ -254,13 +272,12 @@ function Conversation({ me, friend }: { me: number; friend: UserProfile }) {
             </div>
           ),
         )}
-        <div ref={end} />
       </div>
       <form
         className={socialStyles.chatComposer}
         onSubmit={async (event) => {
           event.preventDefault();
-          if (await submit(draft)) setDraft("");
+          await sendDraft();
         }}
       >
         {(sendError || !canSend) && (
@@ -281,7 +298,7 @@ function Conversation({ me, friend }: { me: number; friend: UserProfile }) {
             onKeyDown={async (event) => {
               if (!shouldSubmitOnEnter(event.nativeEvent, usesTouchKeyboard())) return;
               event.preventDefault();
-              if (await submit(draft)) setDraft("");
+              await sendDraft();
             }}
           />
           <button
