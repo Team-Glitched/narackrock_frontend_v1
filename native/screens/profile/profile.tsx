@@ -65,7 +65,15 @@ export function ProfileScreen({ model, header }: ScreenProps<"profile-view">) {
               <Text style={styles.heading} accessibilityRole="header">
                 소개
               </Text>
-              <Text style={styles.description}>{user.explanation}</Text>
+              <Text
+                style={
+                  user.explanation && user.explanation !== "아직 소개가 없습니다."
+                    ? styles.description
+                    : styles.emptyText
+                }
+              >
+                {user.explanation}
+              </Text>
             </View>
             {model.sections.map((section) => (
               <Works key={section.key} works={section} />
@@ -227,7 +235,7 @@ function Works({ works }: { works: NativeProfileWorks }) {
         />
       )}
       {works.status === "ready" && works.songs.length === 0 && works.emptyMessage !== "" && (
-        <Text style={styles.description}>{works.emptyMessage}</Text>
+        <Text style={styles.emptyText}>{works.emptyMessage}</Text>
       )}
     </View>
   );
@@ -384,8 +392,8 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     backgroundColor: colors.primary,
   },
-  sections: { marginTop: 40, gap: 44, paddingHorizontal: gutter },
-  section: { gap: 16 },
+  sections: { marginTop: 32, gap: 32, paddingHorizontal: gutter },
+  section: { gap: 12 },
   sectionTitleRow: { flexDirection: "row", alignItems: "center", gap: 12 },
   heading: {
     color: colors.fg,
@@ -395,7 +403,8 @@ const styles = StyleSheet.create({
     letterSpacing: -0.4,
   },
   all: { color: colors.muted, fontSize: 16, lineHeight: 20, fontWeight: "500" },
-  description: { color: colors.muted, fontSize: 16, lineHeight: 24, paddingVertical: 8 },
+  description: { color: colors.muted, fontSize: 14, lineHeight: 22, paddingVertical: 4 },
+  emptyText: { color: colors.muted, fontSize: 14, lineHeight: 20, paddingVertical: 16 },
   workError: { alignItems: "center", gap: 16, paddingHorizontal: 16, paddingVertical: 32 },
   rail: { marginHorizontal: -gutter },
   railContent: { paddingHorizontal: gutter, gap: 20, paddingBottom: 4 },

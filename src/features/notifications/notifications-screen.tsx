@@ -1,14 +1,18 @@
 import { notificationError } from "./notification-error";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
-import { Bell, Check, Settings2, ArrowUpRight, Trash2 } from "lucide-react";
+import { Bell } from "lucide-react";
 import {
   notificationCategories,
   type NotificationCategory,
   type ServiceNotification,
 } from "@/lib/api/notifications";
+import { cn } from "@/lib/utils";
 import { socialStyles } from "@/styles/social.styles";
+import { communityStyles } from "@/styles/community.styles";
 import { buttonVariants, filterChip, filterChipRow } from "@/styles/variants";
+import { AnchoredActionsMenu } from "@/components/anchored-actions-menu";
+import { Asset } from "@/components/asset";
 import { useCurrentUserId } from "@/features/auth/use-current-user";
 import { RequestTime } from "@/features/workspace/contribution-request-card";
 import { useReviewContributionMutation } from "@/features/workspace/workspace-queries";
@@ -201,6 +205,8 @@ function NotificationInbox({
     emptyMessage,
   } = useNotificationInbox(userId, { onOpenProject, onOpenProfile, onNavigate });
   const panel = useRef<HTMLElement>(null);
+  const headerMenuRef = useRef<HTMLButtonElement>(null);
+  const [headerMenu, setHeaderMenu] = useState(false);
   useEffect(() => {
     const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     panel.current?.focus();
@@ -260,16 +266,63 @@ function NotificationInbox({
             </div>
             {userId !== null && (
               <button
+                ref={headerMenuRef}
                 type="button"
-                aria-label="알림 수신 설정"
-                aria-expanded={settings}
-                onClick={() => setSettings(!settings)}
-                className="grid size-10 place-items-center rounded-full bg-white/5"
+                aria-label="알림 옵션"
+                aria-haspopup="menu"
+                aria-expanded={headerMenu}
+                onClick={() => setHeaderMenu((open) => !open)}
+                className="grid size-8 shrink-0 place-items-center rounded-full text-app-muted transition-colors hover:bg-white/10 hover:text-app-fg [&>img]:h-auto [&>img]:w-auto [&>img]:max-w-none"
               >
-                <Settings2 size={18} />
+                <Asset name="post-more.svg" />
               </button>
             )}
           </div>
+          {headerMenu && userId !== null && (
+            <AnchoredActionsMenu
+              anchorRef={headerMenuRef}
+              label="알림 옵션"
+              className={cn(communityStyles.postUserActionsMenu, "z-[70]!")}
+              width={210}
+              height={120}
+              onClose={() => setHeaderMenu(false)}
+            >
+              <button
+                type="button"
+                role="menuitem"
+                disabled={readAllDisabled}
+                className="disabled:opacity-40"
+                onClick={() => {
+                  setHeaderMenu(false);
+                  readAllNow();
+                }}
+              >
+                모두 읽음
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                disabled={deleteReadDisabled}
+                className="disabled:opacity-40"
+                onClick={() => {
+                  setHeaderMenu(false);
+                  deleteReadNow();
+                }}
+              >
+                읽은 알림 모두 삭제
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                onClick={() => {
+                  setHeaderMenu(false);
+                  setSettings(!settings);
+                }}
+              >
+                알림 수신 설정
+              </button>
+            </AnchoredActionsMenu>
+          )}
           {userId === null ? (
             <p>로그인 후 알림을 확인할 수 있습니다.</p>
           ) : (
@@ -291,7 +344,7 @@ function NotificationInbox({
                   </button>
                 ))}
               </div>
-              <div className="mb-5 flex items-center justify-between gap-2 text-body text-app-muted">
+              <div className="mb-4 flex items-center gap-2 text-body text-app-muted">
                 <button
                   type="button"
                   className={filterChip}
@@ -299,26 +352,6 @@ function NotificationInbox({
                   onClick={() => setUnreadOnly(!unreadOnly)}
                 >
                   미확인만 보기
-                </button>
-                <button
-                  type="button"
-                  className="flex min-h-9 items-center gap-1"
-                  disabled={readAllDisabled}
-                  onClick={readAllNow}
-                >
-                  <Check size={14} />
-                  모두 읽음
-                </button>
-              </div>
-              <div className="mb-4 flex justify-end">
-                <button
-                  type="button"
-                  className="flex min-h-9 items-center gap-1 text-body text-app-muted disabled:opacity-40"
-                  disabled={deleteReadDisabled}
-                  onClick={deleteReadNow}
-                >
-                  <Trash2 size={14} />
-                  읽은 알림 모두 삭제
                 </button>
               </div>
               {error && (
@@ -403,20 +436,83 @@ function NotificationRow({
 }) {
   const item: ServiceNotification = group.first;
   const { unread, pending } = notificationRowState(group);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuButtonRef = useRef<HTMLButtonElement>(null);
+  const navAction =
+    pending && item.type === "CONTRIBUTION_CREATED"
+      ? { label: "전체 트랙 보기", run: onProject }
+      : item.path && item.available
+        ? { label: "자세히 보기", run: onOpen }
+        : null;
+  const menuCount = (navAction ? 1 : 0) + (unread ? 1 : 0);
+  const hasMenu = menuCount > 0;
   return (
     <li
-      className={`mb-3 rounded-2xl border p-4 ${unread ? "border-violet-400/20 bg-violet-400/[0.06]" : "border-white/[0.06] bg-white/[0.015]"}`}
+      className={`mb-3 rounded-2xl px-4 py-3.5 ${unread ? "bg-violet-400/[0.08] ring-1 ring-inset ring-violet-400/20" : "bg-app-surface/50"}`}
     >
-      <div className="mb-2 flex items-center justify-between gap-2">
+      <div className="mb-1.5 flex items-center justify-between gap-2">
         <span className="flex min-w-0 items-center gap-2 text-label font-semibold text-app-fg">
           {unread && (
             <span aria-label="미확인" className="size-1.5 shrink-0 rounded-full bg-red-400" />
           )}
-          {item.title}
-          {group.items.length > 1 && <span>{group.items.length}명</span>}
+          <span className="truncate">{item.title}</span>
+          {group.items.length > 1 && <span className="shrink-0">{group.items.length}명</span>}
         </span>
-        <RequestTime createdAt={item.createdAt} />
+        <div className="flex shrink-0 items-center gap-1">
+          <RequestTime createdAt={item.createdAt} />
+          {hasMenu && (
+            <button
+              ref={menuButtonRef}
+              type="button"
+              aria-label="알림 더보기"
+              aria-haspopup="menu"
+              aria-expanded={menuOpen}
+              disabled={busy}
+              onClick={() => setMenuOpen((open) => !open)}
+              className="relative -mr-1.5 grid size-8 shrink-0 place-items-center rounded-full text-app-muted transition-colors hover:bg-white/10 hover:text-app-fg after:absolute after:-inset-1 after:content-[''] [&>img]:h-auto [&>img]:w-auto [&>img]:max-w-none"
+            >
+              <Asset name="post-more.svg" />
+            </button>
+          )}
+        </div>
       </div>
+      {menuOpen && hasMenu && (
+        <AnchoredActionsMenu
+          anchorRef={menuButtonRef}
+          label="알림 항목 옵션"
+          className={cn(communityStyles.postUserActionsMenu, "z-[70]!")}
+          width={196}
+          height={menuCount * 36 + 12}
+          onClose={() => setMenuOpen(false)}
+        >
+          {navAction && (
+            <button
+              type="button"
+              role="menuitem"
+              disabled={busy}
+              onClick={() => {
+                setMenuOpen(false);
+                navAction.run();
+              }}
+            >
+              {navAction.label}
+            </button>
+          )}
+          {unread && (
+            <button
+              type="button"
+              role="menuitem"
+              disabled={busy}
+              onClick={() => {
+                setMenuOpen(false);
+                onRead();
+              }}
+            >
+              읽음 표시
+            </button>
+          )}
+        </AnchoredActionsMenu>
+      )}
       <button
         type="button"
         className="block w-full whitespace-pre-wrap break-words text-left text-body leading-6"
@@ -425,38 +521,8 @@ function NotificationRow({
       >
         {notificationBody(group)}
       </button>
-      <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-body">
-        {pending && item.type === "CONTRIBUTION_CREATED" ? (
-          <button
-            type="button"
-            className="inline-flex min-h-9 items-center gap-1 text-app-primary-soft"
-            disabled={busy}
-            onClick={onProject}
-          >
-            전체 트랙 보기
-            <ArrowUpRight size={14} />
-          </button>
-        ) : item.path && item.available ? (
-          <button
-            type="button"
-            className="inline-flex min-h-9 items-center gap-1 text-app-primary-soft"
-            disabled={busy}
-            onClick={onOpen}
-          >
-            자세히 보기
-            <ArrowUpRight size={14} />
-          </button>
-        ) : (
-          <span />
-        )}
-        {unread && (
-          <button type="button" className="min-h-9 text-app-muted" disabled={busy} onClick={onRead}>
-            읽음 표시
-          </button>
-        )}
-      </div>
       {pending ? (
-        <div className="mt-2 flex gap-2" role="group" aria-label="요청 처리">
+        <div className="mt-3 flex gap-2" role="group" aria-label="요청 처리">
           <button
             type="button"
             disabled={busy}

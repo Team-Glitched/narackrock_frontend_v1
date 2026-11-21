@@ -95,7 +95,7 @@ function ProfileWorks({
           ))}
         </div>
       ) : (
-        <p className={profileStyles.profileDescription}>아직 등록한 곡이 없습니다.</p>
+        <p className={profileStyles.profileEmpty}>아직 등록한 곡이 없습니다.</p>
       )}
       {showAll && (
         <FigmaSheet title={`${title} 전체 목록`} onClose={() => setShowAll(false)}>
@@ -169,7 +169,7 @@ function OwnWorks({ onOpen }: { onOpen: (id: number) => void }) {
                 <p className="m-0">{songs.error}</p>
                 <button
                   type="button"
-                  className={buttonVariants({ tone: "secondary" })}
+                  className={buttonVariants({ tone: "secondary", size: "compact" })}
                   onClick={songs.retry}
                 >
                   다시 시도
@@ -189,7 +189,7 @@ function OwnWorks({ onOpen }: { onOpen: (id: number) => void }) {
               </div>
             )}
             {songs.status === "ready" && items.length === 0 && (
-              <p className={profileStyles.profileDescription}>
+              <p className={profileStyles.profileEmpty}>
                 {emptyMessage}
               </p>
             )}
@@ -283,7 +283,9 @@ export function ProfileScreen({
       <div className={profileStyles.profileSections}>
         <section className={profileStyles.profileSection}>
           <h2 className={profileStyles.profileSectionHeading}>소개</h2>
-          <p className={profileStyles.profileDescription}>{profile.explanation || "아직 소개가 없습니다."}</p>
+          <p className={profile.explanation ? profileStyles.profileDescription : profileStyles.profileEmpty}>
+            {profile.explanation || "아직 소개가 없습니다."}
+          </p>
         </section>
 
         <ProfileWorks

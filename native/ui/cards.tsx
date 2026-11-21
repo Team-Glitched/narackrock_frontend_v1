@@ -1,9 +1,9 @@
 import type { ReactNode } from "react";
 import { FlatList, Image, StyleSheet, Text, View } from "react-native";
 
-import LikeIcon from "../../public/figma/like.svg";
-import CommentIcon from "../../public/figma/mini-comment.svg";
-import DislikeIcon from "../../public/figma/mini-dislike.svg";
+import CommentIcon from "../../public/figma/post-comment.svg";
+import DislikeIcon from "../../public/figma/v3-post-dislike-off.svg";
+import LikeIcon from "../../public/figma/v3-post-like-off.svg";
 import defaultCover from "../../src/features/abyss/assets/shortform-default-cover.png";
 import type { NativeList, NativePost, NativeSong } from "../../src/lib/native-screens";
 import { Avatar, MoreButton, Status, Touchable } from "./kit";

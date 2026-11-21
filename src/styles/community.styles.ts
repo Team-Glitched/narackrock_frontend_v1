@@ -637,8 +637,8 @@ export const communityStyles = {
   ].join(" "),
   miniPost: [
     "mini-post",
-    "flex min-h-[104px] w-full items-center gap-3.5 text-left",
-    "[&>button]:min-w-0 [&>button]:flex-1 [&>button]:gap-4",
+    "flex min-h-[104px] w-full items-center gap-2 text-left",
+    "[&>button:first-child]:min-w-0 [&>button:first-child]:flex-1 [&>button:first-child]:gap-3.5",
     "[.design-canvas_.home-content_&]:h-auto [.design-canvas_.home-content_&]:min-h-[104px]",
     "[.design-canvas_&]:shrink-0 [.design-canvas_&]:h-auto [.design-canvas_&]:min-h-[104px]",
     "[.design-canvas_.posts-list_&]:h-auto [.design-canvas_.posts-list_&]:min-h-[104px]",
@@ -663,10 +663,10 @@ export const communityStyles = {
   miniMeta: [
     "mini-meta",
     "mt-0 flex min-h-[18px] min-w-0 items-center gap-2.5 overflow-hidden whitespace-nowrap text-caption leading-[18px] text-app-fg",
-    "[&_span:not(.mini-meta-time)]:flex [&_span:not(.mini-meta-time)]:shrink-0 [&_span:not(.mini-meta-time)]:items-center [&_span:not(.mini-meta-time)]:gap-1 [&_span:not(.mini-meta-time)]:text-caption [&_span:not(.mini-meta-time)]:leading-[18px] [&_span:not(.mini-meta-time)]:text-app-fg",
+    "[&_span:not(.mini-meta-time)]:flex [&_span:not(.mini-meta-time)]:shrink-0 [&_span:not(.mini-meta-time)]:items-center [&_span:not(.mini-meta-time)]:gap-0.5 [&_span:not(.mini-meta-time)]:text-caption [&_span:not(.mini-meta-time)]:leading-[18px] [&_span:not(.mini-meta-time)]:text-app-fg",
     "[&>.mini-meta-time]:shrink-0 [&>.mini-meta-time]:text-caption [&>.mini-meta-time]:leading-[18px] [&>.mini-meta-time]:text-app-fg",
     "[&_img]:h-3.5 [&_img]:w-3.5",
-    "[&_button]:flex [&_button]:shrink-0 [&_button]:items-center [&_button]:gap-1 [&_button]:text-caption [&_button]:leading-[18px] [&_button]:text-app-fg",
+    "[&_button]:flex [&_button]:shrink-0 [&_button]:items-center [&_button]:gap-0.5 [&_button]:text-caption [&_button]:leading-[18px] [&_button]:text-app-fg",
     "[.design-canvas_&]:mt-0 [.design-canvas_&]:cursor-default [.design-canvas_&]:gap-2.5 [.design-canvas_&]:min-h-[18px]",
     "[.design-canvas_&]:text-caption [.design-canvas_&]:leading-[18px] [.design-canvas_&]:text-app-fg",
     "[.design-canvas_&>span:not(.mini-meta-time)]:text-caption [.design-canvas_&>span:not(.mini-meta-time)]:leading-[18px]",

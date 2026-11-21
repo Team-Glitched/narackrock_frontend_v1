@@ -900,7 +900,13 @@ export function StudioScreen({ studio, portrait = true }: { studio: Studio; port
           {studio.contribution.retry ? (
             <>
               <span>{studio.contribution.text}</span>
-              <button onClick={studio.retryContribution}>다시 시도</button>
+              <button
+                type="button"
+                className={buttonVariants({ tone: "secondary", size: "compact" })}
+                onClick={studio.retryContribution}
+              >
+                다시 시도
+              </button>
             </>
           ) : (
             studio.contribution.text
@@ -982,6 +988,7 @@ export function StudioScreen({ studio, portrait = true }: { studio: Studio; port
             곡 제목
             <input
               value={studio.publishTitle}
+              placeholder="예: 새벽 공기를 닮은 피아노"
               onChange={(event) => studio.setPublishTitle(event.target.value)}
               required
               maxLength={100}

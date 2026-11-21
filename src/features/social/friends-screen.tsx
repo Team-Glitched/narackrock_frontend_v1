@@ -85,9 +85,14 @@ function MutualFriends({
         </p>
       )}
       {query.isError && (
-        <div role="alert">
-          <p>{relationError(query.error, "맞팔로우를 불러오지 못했습니다.")}</p>
-          <button disabled={query.isFetching} onClick={() => void query.refetch()}>
+        <div role="alert" className="grid justify-items-start gap-2">
+          <p className="m-0">{relationError(query.error, "맞팔로우를 불러오지 못했습니다.")}</p>
+          <button
+            type="button"
+            className={buttonVariants({ tone: "secondary", size: "compact" })}
+            disabled={query.isFetching}
+            onClick={() => void query.refetch()}
+          >
             다시 시도
           </button>
         </div>
@@ -183,9 +188,14 @@ function FollowRequests({
         </p>
       )}
       {query.isError && (
-        <div role="alert">
-          <p>{relationError(query.error, "팔로우 요청을 확인하지 못했습니다.")}</p>
-          <button disabled={query.isFetching} onClick={() => void query.refetch()}>
+        <div role="alert" className="grid justify-items-start gap-2">
+          <p className="m-0">{relationError(query.error, "팔로우 요청을 확인하지 못했습니다.")}</p>
+          <button
+            type="button"
+            className={buttonVariants({ tone: "secondary", size: "compact" })}
+            disabled={query.isFetching}
+            onClick={() => void query.refetch()}
+          >
             다시 시도
           </button>
         </div>
@@ -208,7 +218,7 @@ function FollowRequests({
               수락
             </button>
             <button
-              className={buttonVariants({ tone: "secondary" })}
+              className={buttonVariants({ tone: "secondary", size: "compact" })}
               disabled={busy}
               onClick={() => decide(request.requestId, "reject")}
             >
