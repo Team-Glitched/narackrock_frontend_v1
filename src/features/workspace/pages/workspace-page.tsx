@@ -7,21 +7,12 @@ import { DesignViewport } from "@/components/design-viewport";
 import { Header } from "@/features/navigation/header";
 import { Footer } from "@/features/navigation/footer";
 import { NotificationsOverlay } from "@/features/notifications/notifications-overlay";
-import { creationTarget } from "@/features/navigation/creation-target";
 import { resolveSearchScope } from "@/features/search/search-scope";
 import { sharedStyles } from "@/styles/shared.styles";
 export default function WorkspacePage() {
   const { to, back, params, query, currentPath } = useUrlNavigation();
   const galleryId = readId(params.galleryId) ?? readId(query.get("galleryId"));
   const scope = resolveSearchScope(query.get("scope"), "songs", Boolean(galleryId));
-  const target = creationTarget(scope, galleryId);
-  const onCreate = () =>
-    to(
-      target.path,
-      target.path === "/studio/new"
-        ? { state: { studioFrom: currentPath, studioIndex: window.history.state?.idx } }
-        : undefined,
-    );
   const search = () => to(withQuery("/search", { scope, galleryId }));
   const onStartSong = () =>
     to("/studio/new", {
@@ -40,7 +31,7 @@ export default function WorkspacePage() {
           onSearch={search}
           onBack={() => back("/settings")}
         />
-        <Footer activeTab={null} onCreate={onCreate} createLabel={target.label} />
+        <Footer activeTab={null} />
         <NotificationsOverlay />
       </>
     );
@@ -51,7 +42,7 @@ export default function WorkspacePage() {
         <div className={sharedStyles.screenBody}>
           <WorkspaceScreen onStartSong={onStartSong} onResume={onResume} />
         </div>
-        <Footer activeTab={null} onCreate={onCreate} createLabel={target.label} />
+        <Footer activeTab={null} />
         <NotificationsOverlay />
       </div>
     </DesignViewport>

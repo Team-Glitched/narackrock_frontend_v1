@@ -22,7 +22,8 @@ import { nativeApp } from "@/lib/native-app";
 export default function CreatePostPage() {
   const { to, back, params, query } = useUrlNavigation();
   const galleryId = readId(params.galleryId) ?? readId(query.get("galleryId"));
-  const scope = resolveSearchScope(query.get("scope"), "songs", Boolean(galleryId));
+  const scope = resolveSearchScope(query.get("scope"), "posts", Boolean(galleryId));
+  const backFallback = galleryId ? `/communities/${galleryId}` : "/social";
   const galleries = useGalleries();
   const membership = useCommunityMembership();
   const retryCommunities = () => {
@@ -65,13 +66,13 @@ export default function CreatePostPage() {
     kind: "post",
     galleryId: target,
     postTargetStatus: resolvePostTarget(galleries, target, membership),
-    onCancel: () => back("/social"),
+    onCancel: () => back(backFallback),
     onCreated: () => {
       // 새 글이 들어간 목록과 내 프로필 활동을 돌아가자마자 다시 받게 한다.
       void queryClient.invalidateQueries({ queryKey: postKeys.lists(userId) });
       if (userId !== null)
         void queryClient.invalidateQueries({ queryKey: profileKeys.detail(userId, userId) });
-      back("/social");
+      back(backFallback);
     },
   });
   if (nativeApp())
@@ -83,7 +84,7 @@ export default function CreatePostPage() {
           galleries={joinedGalleries}
           galleryId={target}
           onCommunity={choose}
-          onBack={() => back("/social")}
+          onBack={() => back(backFallback)}
           onSearch={search}
         />
         <NotificationsOverlay />
@@ -93,7 +94,7 @@ export default function CreatePostPage() {
     <DesignViewport>
       <div className={sharedStyles.phoneFrame}>
         <Header
-          onBack={() => back("/social")}
+          onBack={() => back(backFallback)}
           onSearch={search}
           communitySelector={
             <PostCommunityPicker galleries={joinedGalleries} value={target} onChange={choose} />

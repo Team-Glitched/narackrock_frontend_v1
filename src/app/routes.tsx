@@ -1,4 +1,4 @@
-import { createBrowserRouter, Navigate, useNavigate, useParams, type RouteObject } from "react-router";
+import { createBrowserRouter, Navigate, useLocation, useNavigate, useParams, type RouteObject } from "react-router";
 import { AppProviders } from "./providers";
 import { AppRuntime } from "./runtime";
 import NotFoundPage from "@/features/navigation/pages/not-found-page";
@@ -29,6 +29,13 @@ function NativeRouteErrorBody() {
 function LegacyCommunityManageRedirect() {
   const { galleryId } = useParams();
   return <Navigate to={galleryId ? `/communities/${galleryId}` : "/communities"} replace />;
+}
+
+function LegacySourceRedirect({ suffix = "" }: { suffix?: string }) {
+  const { sourceId } = useParams();
+  const { search, hash } = useLocation();
+  const base = sourceId ? `/sources/${sourceId}${suffix}` : `/sources${suffix}`;
+  return <Navigate to={`${base}${search}${hash}`} replace />;
 }
 
 export const appRoutes: RouteObject[] = [
@@ -155,24 +162,32 @@ export const appRoutes: RouteObject[] = [
           Component: (await import("@/features/sources/pages/sources-page")).default,
         }),
       },
+      { path: "samples", element: <LegacySourceRedirect /> },
+      { path: "opensource", element: <LegacySourceRedirect /> },
       {
         path: "sources/:sourceId",
         lazy: async () => ({
           Component: (await import("@/features/sources/pages/source-page")).default,
         }),
       },
+      { path: "samples/:sourceId", element: <LegacySourceRedirect /> },
+      { path: "opensource/:sourceId", element: <LegacySourceRedirect /> },
       {
         path: "sources/:sourceId/comments",
         lazy: async () => ({
           Component: (await import("@/features/sources/pages/source-page")).default,
         }),
       },
+      { path: "samples/:sourceId/comments", element: <LegacySourceRedirect suffix="/comments" /> },
+      { path: "opensource/:sourceId/comments", element: <LegacySourceRedirect suffix="/comments" /> },
       {
         path: "sources/new",
         lazy: async () => ({
           Component: (await import("@/features/sources/pages/create-source-page")).default,
         }),
       },
+      { path: "samples/new", element: <LegacySourceRedirect suffix="/new" /> },
+      { path: "opensource/new", element: <LegacySourceRedirect suffix="/new" /> },
       {
         path: "search",
         lazy: async () => ({

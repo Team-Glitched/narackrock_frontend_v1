@@ -355,10 +355,11 @@ function SignedOutFriendsBridge({ onSearch }: { onSearch: () => void }) {
     posts: null,
     communities: null,
     friends,
-    create: null,
+    create: { label: "친구 찾기", accessibilityLabel: "친구 찾기" },
   };
   return useSocialScreen(model, nav, (action) => {
-    if (action.type === "sign-in") requestLogin();
+    if (action.type === "create") nav.onSearch();
+    else if (action.type === "sign-in") requestLogin();
   });
 }
 
@@ -380,9 +381,10 @@ function SignedInFriendsBridge({ userId, onSearch }: { userId: number; onSearch:
     posts: null,
     communities: null,
     friends,
-    create: null,
+    create: { label: "친구 찾기", accessibilityLabel: "친구 찾기" },
   };
   return useSocialScreen(model, nav, (action) => {
+    if (action.type === "create") return nav.onSearch();
     if (isFriendsAction(action))
       handleFriends(action, {
         mutual,

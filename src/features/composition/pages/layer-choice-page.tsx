@@ -13,24 +13,15 @@ import { DesignViewport } from "@/components/design-viewport";
 import { Header } from "@/features/navigation/header";
 import { Footer } from "@/features/navigation/footer";
 import { NotificationsOverlay } from "@/features/notifications/notifications-overlay";
-import { creationTarget } from "@/features/navigation/creation-target";
 import { resolveSearchScope } from "@/features/search/search-scope";
 import { sharedStyles } from "@/styles/shared.styles";
 import { nativeApp } from "@/lib/native-app";
 export default function LayerChoicePage() {
   const route = useRouteComposition();
   const instrument = useInstrumentPrompt(route.projectId);
-  const { to, back, params, query, currentPath } = route;
+  const { to, back, params, query } = route;
   const galleryId = readId(params.galleryId) ?? readId(query.get("galleryId"));
   const scope = resolveSearchScope(query.get("scope"), "songs", Boolean(galleryId));
-  const target = creationTarget(scope, galleryId);
-  const onCreate = () =>
-    to(
-      target.path,
-      target.path === "/studio/new"
-        ? { state: { studioFrom: currentPath, studioIndex: window.history.state?.idx } }
-        : undefined,
-    );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   async function choose(method: CreationMethod) {
@@ -66,7 +57,7 @@ export default function LayerChoicePage() {
           onBack={() => back(route.studioUrl)}
           onSearch={search}
         />
-        <Footer activeTab={null} onCreate={onCreate} createLabel={target.label} />
+        <Footer activeTab={null} />
         <NotificationsOverlay />
       </>
     );
@@ -88,7 +79,7 @@ export default function LayerChoicePage() {
             />
           )}
         </div>
-        <Footer activeTab={null} onCreate={onCreate} createLabel={target.label} />
+        <Footer activeTab={null} />
         <NotificationsOverlay />
         {instrument.dialog}
       </div>

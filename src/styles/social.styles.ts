@@ -2,12 +2,13 @@
 export const socialStyles = {
   searchLine: [
     "search-line",
-    "[.community-members-view_&]:shrink-0 [.community-members-view_&]:gap-[10px] [.community-members-view_&]:p-[20px_10px_0_6px]",
+    "[.community-members-view_&]:shrink-0 [.community-members-view_&]:gap-1 [.community-members-view_&]:p-[0_16px_0_6px]",
     "[.community-members-view_&_:is(label,.search-field)]:min-w-0 [.community-members-view_&_:is(label,.search-field)]:flex-1",
-    "flex items-center gap-4",
-    "[&>button]:h-6 [&>button]:w-6 [&>button]:flex-[0_0_auto]",
-    "[&_:is(label,.search-field)]:h-9 [&_:is(label,.search-field)]:flex-1 [&_:is(label,.search-field)]:rounded-[20px] [&_:is(label,.search-field)]:bg-app-surface [&_:is(label,.search-field)]:bg-none [&_:is(label,.search-field)]:flex [&_:is(label,.search-field)]:items-center",
-    "[&_:is(label,.search-field)]:gap-[10px] [&_:is(label,.search-field)]:p-[0_10px]",
+    "flex h-12 flex-[0_0_48px] items-center gap-1 p-[0_16px_0_6px]",
+    "[&>button]:grid [&>button]:size-11 [&>button]:flex-[0_0_44px] [&>button]:place-items-center [&>button]:p-0",
+    "[&>button_img]:h-auto [&>button_img]:w-auto [&>button_img]:max-w-none",
+    "[&_:is(label,.search-field)]:h-9 [&_:is(label,.search-field)]:flex-1 [&_:is(label,.search-field)]:rounded-[18px] [&_:is(label,.search-field)]:bg-app-surface [&_:is(label,.search-field)]:bg-none [&_:is(label,.search-field)]:flex [&_:is(label,.search-field)]:items-center",
+    "[&_:is(label,.search-field)]:gap-2 [&_:is(label,.search-field)]:p-[0_4px_0_12px]",
     "[&_:is(label,.search-field)>img]:h-6 [&_:is(label,.search-field)>img]:w-6",
     "[&_input]:min-w-0 [&_input]:flex-1 [&_input]:bg-transparent [&_input]:bg-none [&_input]:[outline:0] [&_input]:text-label [&_input]:border-0",
     "[&_input]:border-none [&_input]:border-current",
@@ -49,7 +50,7 @@ export const socialStyles = {
     "[.design-canvas_.friends-view_&_small]:text-body [.design-canvas_.friends-view_&_small]:leading-[20px]",
     "[.design-canvas_.friends-view_&>span]:gap-[var(--supporting-copy-gap)]",
   ].join(" "),
-  searchView: ["search-view", "h-full p-[4px_15px]"].join(" "),
+  searchView: ["search-view", "flex h-full min-h-0 flex-col p-0"].join(" "),
   searchResult: ["search-result", "mt-20 text-center text-body text-app-muted"].join(" "),
   personLink: [
     "person-link",

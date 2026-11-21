@@ -825,7 +825,7 @@ function CommunityMembers({ community, onBack }: { community: Community; onBack:
     <section className={communityStyles.communityMembersView} aria-label={`${community.name} 운영`}>
       <div className={socialStyles.searchLine}>
         <button onClick={onBack} aria-label="돌아가기">
-          <Asset name="search-back.svg" />
+          <Asset name="return.svg" />
         </button>
         <h1 className={communityStyles.communityManageTitle}>
           <strong className="block truncate" title={community.name}>{community.name}</strong>
