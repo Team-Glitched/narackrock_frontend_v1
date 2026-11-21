@@ -189,6 +189,7 @@ function Row({ item, busy }: { item: NativeNotificationItem; busy: boolean }) {
         ]
       : []),
     ...(item.unread ? [{ label: "읽음 표시", onPress: () => act({ type: "read", id: item.id }) }] : []),
+    { label: "삭제", onPress: () => act({ type: "delete", id: item.id }) },
   ];
   return (
     <View style={[styles.row, item.unread ? styles.rowUnread : styles.rowRead]}>

@@ -73,12 +73,13 @@ export function useNotificationInbox(
   const [notice, setNotice] = useState<string | null>(null);
   const list = useInfiniteQuery(notificationsQuery(userId, category, unreadOnly));
   const count = useQuery(unreadNotificationsQuery(userId));
-  const { read, readAll, deleteRead, refresh } = useNotificationMutations();
+  const { read, readAll, deleteOne, deleteRead, refresh } = useNotificationMutations();
   const contributionReview = useReviewContributionMutation();
   const followReview = useReviewFollowRequestMutation();
   const busy =
     read.isPending ||
     readAll.isPending ||
+    deleteOne.isPending ||
     deleteRead.isPending ||
     contributionReview.isPending ||
     followReview.isPending;
@@ -160,6 +161,8 @@ export function useNotificationInbox(
     groups,
     deleteReadDisabled: busy || !list.isSuccess,
     deleteReadNow: () => void act(() => deleteRead.mutateAsync(), "읽은 알림을 모두 삭제했습니다."),
+    deleteItem: (group: NotificationGroup) =>
+      void act(() => deleteOne.mutateAsync(group.items.map((n) => n.id)), "알림을 삭제했습니다."),
     readAllDisabled: busy || !throughId || count.data?.count === 0,
     readAllNow: () => void act(() => readAll.mutateAsync(throughId!), "알림을 모두 읽었습니다."),
     open,
@@ -198,6 +201,7 @@ function NotificationInbox({
     readAllNow,
     deleteReadDisabled,
     deleteReadNow,
+    deleteItem,
     open,
     markRead,
     review,
@@ -391,6 +395,7 @@ function NotificationInbox({
                     busy={busy}
                     onOpen={() => open(group)}
                     onRead={() => markRead(group)}
+                    onDelete={() => deleteItem(group)}
                     onReview={(accept) => review(group, accept)}
                     onProject={() => openProject(group)}
                   />
@@ -424,6 +429,7 @@ function NotificationRow({
   busy,
   onOpen,
   onRead,
+  onDelete,
   onReview,
   onProject,
 }: {
@@ -431,6 +437,7 @@ function NotificationRow({
   busy: boolean;
   onOpen: () => void;
   onRead: () => void;
+  onDelete: () => void;
   onReview: (accept: boolean) => void;
   onProject: () => void;
 }) {
@@ -444,7 +451,7 @@ function NotificationRow({
       : item.path && item.available
         ? { label: "자세히 보기", run: onOpen }
         : null;
-  const menuCount = (navAction ? 1 : 0) + (unread ? 1 : 0);
+  const menuCount = (navAction ? 1 : 0) + (unread ? 1 : 0) + 1;
   const hasMenu = menuCount > 0;
   return (
     <li
@@ -511,6 +518,17 @@ function NotificationRow({
               읽음 표시
             </button>
           )}
+          <button
+            type="button"
+            role="menuitem"
+            disabled={busy}
+            onClick={() => {
+              setMenuOpen(false);
+              onDelete();
+            }}
+          >
+            삭제
+          </button>
         </AnchoredActionsMenu>
       )}
       <button

@@ -242,7 +242,7 @@ export type NativeNotificationsAction =
         | "retry";
     }
   | { type: "preference"; key: string; value: boolean }
-  | { type: "open" | "read" | "project"; id: number }
+  | { type: "open" | "read" | "project" | "delete"; id: number }
   | { type: "review"; id: number; accept: boolean };
 
 export type ProfileScreens = {

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { afterEach, test } from "node:test";
 import { ApiError, clearAuthSession, getCurrentUserId, setAuthSession } from "./client.ts";
-import { deleteReadNotifications } from "./notifications.ts";
+import { deleteNotification, deleteReadNotifications } from "./notifications.ts";
 
 const originalFetch = globalThis.fetch;
 afterEach(() => { globalThis.fetch = originalFetch; clearAuthSession(); });
@@ -88,4 +88,20 @@ test("a protected endpoint also rejecting the renewed token is not called an uns
     ? Response.json({ data: { accessToken: "renewed-access", refreshToken: "renewed-refresh" } })
     : new Response(null, { status: 401 });
   await assert.rejects(deleteReadNotifications(), (error: unknown) => error instanceof ApiError && error.status === 401);
+});
+
+test("deletes a single notification by id with bearer auth and maps missing route to 503", async () => {
+  session();
+  globalThis.fetch = async (input, init) => {
+    assert.equal(String(input), "/api/v1/notifications/42");
+    assert.equal(init?.method, "DELETE");
+    assert.equal(new Headers(init?.headers).get("Authorization"), "Bearer valid-access");
+    return new Response(null, { status: 204 });
+  };
+  await deleteNotification(42);
+  assert.equal(getCurrentUserId(), 7);
+
+  globalThis.fetch = async () => new Response(null, { status: 404 });
+  await assert.rejects(deleteNotification(42), (error: unknown) => error instanceof ApiError && error.status === 503);
+  assert.equal(getCurrentUserId(), 7);
 });
