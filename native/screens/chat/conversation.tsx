@@ -251,10 +251,6 @@ function Composer({ composer }: { composer: NativeChatThread["composer"] }) {
         </Text>
       )}
       <View style={styles.inputRow}>
-        <View style={styles.attachment} importantForAccessibility="no-hide-descendants">
-          <View style={styles.attachmentBar} />
-          <View style={[styles.attachmentBar, styles.attachmentBarCross]} />
-        </View>
         {/* Enter adds a line, as in the web's textarea; the button sends. */}
         <TextInput
           multiline
@@ -323,25 +319,15 @@ const styles = StyleSheet.create({
   },
   incomingText: { color: colors.bg },
   composer: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingHorizontal: 14,
+    paddingTop: 10,
+    paddingBottom: 12,
     borderTopWidth: 1,
     borderTopColor: colors.surface,
     backgroundColor: colors.bg,
   },
   notice: { marginBottom: 6, color: colors.error, fontSize: 12, lineHeight: 16 },
-  inputRow: { minHeight: 44, flexDirection: "row", alignItems: "center", gap: 4 },
-  attachment: { width: 18, height: 18, marginHorizontal: 4 },
-  attachmentBar: {
-    position: "absolute",
-    top: 8,
-    left: 0,
-    width: 18,
-    height: 2,
-    borderRadius: 2,
-    backgroundColor: colors.fg,
-  },
-  attachmentBarCross: { transform: [{ rotate: "90deg" }] },
+  inputRow: { minHeight: 40, flexDirection: "row", alignItems: "flex-end", gap: 10 },
   // One line high, growing to five lines before it scrolls.
   input: {
     flex: 1,
