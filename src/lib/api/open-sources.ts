@@ -100,23 +100,23 @@ export function listOpenSources(
   options: { keyword?: string; page?: number; size?: number },
   signal?: AbortSignal,
 ): Promise<OpenSourcePage<OpenSourceSummary>> {
-  return data(`/api/v1/open-sources${query({ keyword: options.keyword?.trim(), page: options.page ?? 0, size: options.size ?? 20 })}`, { signal });
+  return data(`/api/v1/sources${query({ keyword: options.keyword?.trim(), page: options.page ?? 0, size: options.size ?? 20 })}`, { signal });
 }
 
 export function getOpenSource(id: number, signal?: AbortSignal): Promise<OpenSourceDetail> {
-  return data(`/api/v1/open-sources/${id}`, { signal });
+  return data(`/api/v1/sources/${id}`, { signal });
 }
 
 export function listPopularOpenSources(size: number, signal?: AbortSignal): Promise<OpenSourcePage<OpenSourceSummary>> {
-  return data(`/api/v1/open-sources/popular${query({ size })}`, { signal });
+  return data(`/api/v1/sources/popular${query({ size })}`, { signal });
 }
 
 export function recordOpenSourceView(id: number): Promise<ContentViewResponse> {
-  return data(`/api/v1/open-sources/${id}/views`, { method: "POST" });
+  return data(`/api/v1/sources/${id}/views`, { method: "POST" });
 }
 
 export function listSavedOpenSources(page: number, signal?: AbortSignal): Promise<OpenSourcePage<SavedOpenSource>> {
-  return data(`/api/v1/users/me/open-sources${query({ page, size: 50 })}`, { signal });
+  return data(`/api/v1/users/me/sources${query({ page, size: 50 })}`, { signal });
 }
 
 /** Follows the saved-source pagination to the end. */
@@ -130,19 +130,19 @@ export async function listAllSavedOpenSources(signal?: AbortSignal): Promise<Sav
 }
 
 export function setOpenSourceSaved(id: number, saved: boolean): Promise<{ openSourceId: number; isSaved: boolean }> {
-  return data(`/api/v1/open-sources/${id}/save`, { method: saved ? "PUT" : "DELETE" });
+  return data(`/api/v1/sources/${id}/save`, { method: saved ? "PUT" : "DELETE" });
 }
 
 export function getOpenSourcePlayback(id: number): Promise<OpenSourcePlayback> {
-  return data(`/api/v1/open-sources/${id}/playback`);
+  return data(`/api/v1/sources/${id}/playback`);
 }
 
 export function getOpenSourceShare(id: number): Promise<{ openSourceId: number; shareUrl: string }> {
-  return data(`/api/v1/open-sources/${id}/share`);
+  return data(`/api/v1/sources/${id}/share`);
 }
 
 export function reactToOpenSource(id: number, kind: "like" | "dislike"): Promise<OpenSourceReaction> {
-  return data(`/api/v1/open-sources/${id}/${kind === "like" ? "likes" : "dislikes"}`, { method: "POST" });
+  return data(`/api/v1/sources/${id}/${kind === "like" ? "likes" : "dislikes"}`, { method: "POST" });
 }
 
 export function getOpenSourceComments(
@@ -151,7 +151,7 @@ export function getOpenSourceComments(
   page: number,
   signal?: AbortSignal,
 ): Promise<OpenSourceCommentPage> {
-  return data(`/api/v1/open-sources/${id}/comments${query({ parentCommentId, page })}`, { signal });
+  return data(`/api/v1/sources/${id}/comments${query({ parentCommentId, page })}`, { signal });
 }
 
 export function createOpenSourceComment(
@@ -159,14 +159,14 @@ export function createOpenSourceComment(
   content: string,
   parentCommentId: number | null,
 ): Promise<{ openSourceId: number; commentCount: number; comment: OpenSourceComment }> {
-  return data(`/api/v1/open-sources/${id}/comments`, {
+  return data(`/api/v1/sources/${id}/comments`, {
     method: "POST",
     body: JSON.stringify({ content, parentCommentId }),
   });
 }
 
 export function reactToOpenSourceComment(commentId: number, kind: "like" | "dislike"): Promise<OpenSourceReaction> {
-  return data(`/api/v1/open-sources/comments/${commentId}/${kind === "like" ? "likes" : "dislikes"}`, {
+  return data(`/api/v1/sources/comments/${commentId}/${kind === "like" ? "likes" : "dislikes"}`, {
     method: "POST",
   });
 }
@@ -178,7 +178,7 @@ export function createOpenSource(body: {
   mediaFileId: number;
   thumbnailMediaFileId: number | null;
 }): Promise<OpenSourcePublication> {
-  return data("/api/v1/open-sources", { method: "POST", body: JSON.stringify(body) });
+  return data("/api/v1/sources", { method: "POST", body: JSON.stringify(body) });
 }
 
 /** Omitted fields are kept; null description/thumbnail removes them. */
@@ -186,28 +186,28 @@ export function updateOpenSource(
   id: number,
   patch: { title?: string; description?: string | null; thumbnailMediaFileId?: number | null },
 ): Promise<OpenSourcePublication> {
-  return data(`/api/v1/open-sources/${id}`, { method: "PATCH", body: JSON.stringify(patch) });
+  return data(`/api/v1/sources/${id}`, { method: "PATCH", body: JSON.stringify(patch) });
 }
 
 export function setOpenSourceVisibility(
   id: number,
   visibility: "PRIVATE" | "PUBLIC",
 ): Promise<{ openSourceId: number; visibility: "PRIVATE" | "PUBLIC" }> {
-  return data(`/api/v1/open-sources/${id}/visibility`, { method: "PUT", body: JSON.stringify({ visibility }) });
+  return data(`/api/v1/sources/${id}/visibility`, { method: "PUT", body: JSON.stringify({ visibility }) });
 }
 
 export function getMyOpenSourcePublication(id: number): Promise<OpenSourcePublication> {
-  return data(`/api/v1/users/me/open-source-publications/${id}`);
+  return data(`/api/v1/users/me/source-publications/${id}`);
 }
 
 export function listMyOpenSourcePublications(page: number, signal?: AbortSignal): Promise<OpenSourcePage<OpenSourcePublication>> {
-  return data(`/api/v1/users/me/open-source-publications${query({ page, size: 50 })}`, { signal });
+  return data(`/api/v1/users/me/source-publications${query({ page, size: 50 })}`, { signal });
 }
 
 export function deleteOpenSource(id: number): Promise<{ openSourceId: number; isDeleted: boolean }> {
-  return data(`/api/v1/open-sources/${id}`, { method: "DELETE" });
+  return data(`/api/v1/sources/${id}`, { method: "DELETE" });
 }
 
 export async function hideOpenSourceComment(commentId: number, signal?: AbortSignal): Promise<void> {
-  await apiRequest<void>(`/api/v1/open-sources/comments/${commentId}/hidden`, { method: "PUT", signal });
+  await apiRequest<void>(`/api/v1/sources/comments/${commentId}/hidden`, { method: "PUT", signal });
 }
