@@ -5,6 +5,7 @@ import { sharedStyles } from "@/styles/shared.styles";
 import { studioStyles } from "@/styles/studio.styles";
 import { Asset } from "@/components/asset";
 import { InstrumentDialog, type InstrumentChoice } from "./instrument-dialog";
+import { MetronomeIcon } from "./metronome-icon";
 import { RewindIcon } from "./rewind-icon";
 import { TimingDialog } from "./timing-dialog";
 import type { ProjectTiming } from "./project-timing";
@@ -144,12 +145,12 @@ export function PortraitNoteEditor({
             {playing ? <span className={sharedStyles.pauseSymbol} /> : <Asset name="play.svg" />}
           </button>
           <button
-            className="grid size-12 place-items-center rounded-full border border-[#32323d] bg-[#23232a] transition-colors aria-pressed:border-[#8b5cf6] aria-pressed:bg-app-primary"
+            className="grid size-12 place-items-center rounded-full border border-[#32323d] bg-[#23232a] text-[#F2F4F6] transition-colors aria-pressed:border-[#8b5cf6] aria-pressed:bg-[#5b00ff]/20 aria-pressed:text-[#a78bfa]"
             aria-label="메트로놈"
             aria-pressed={metronome}
             onClick={onMetronome}
           >
-            <Asset name="metronome.svg" />
+            <MetronomeIcon size={22} />
           </button>
         </div>
       </div>

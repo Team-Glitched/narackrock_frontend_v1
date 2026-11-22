@@ -556,8 +556,8 @@ export const studioStyles = {
   ].join(" "),
   studioMetronome: [
     "studio-metronome",
-    "grid h-11 w-11 place-items-center rounded-[10px] transition-colors",
-    "[&[aria-pressed=true]]:bg-app-primary! [&[aria-pressed=true]]:ring-1 [&[aria-pressed=true]]:ring-[#8b5cf6]",
+    "grid h-11 w-11 place-items-center rounded-[10px] text-[#F2F4F6] transition-colors",
+    "[&[aria-pressed=true]]:bg-[#5b00ff]/20! [&[aria-pressed=true]]:text-[#a78bfa]! [&[aria-pressed=true]]:ring-1 [&[aria-pressed=true]]:ring-[#8b5cf6]",
   ].join(" "),
   studioVolumeTrigger: [
     "studio-volume-trigger",

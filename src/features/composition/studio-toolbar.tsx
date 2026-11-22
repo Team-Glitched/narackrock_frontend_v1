@@ -3,6 +3,7 @@ import { cn } from "@/lib/utils";
 import { sharedStyles } from "@/styles/shared.styles";
 import { useState } from "react";
 import { InstrumentDialog, type InstrumentChoice } from "@/features/composition/instrument-dialog";
+import { MetronomeIcon } from "@/features/composition/metronome-icon";
 import { RewindIcon } from "@/features/composition/rewind-icon";
 import { TimingDialog } from "@/features/composition/timing-dialog";
 import type { ProjectTiming } from "@/features/composition/project-timing";
@@ -125,7 +126,7 @@ export function StudioToolbar({
           aria-pressed={metronome ?? false}
           onClick={onMetronome}
         >
-          <Asset name="metronome.svg" />
+          <MetronomeIcon size={22} />
         </button>
       </div>
       <strong className={"sr-only"}>{title}</strong>
