@@ -129,37 +129,68 @@ function LoadedNoteEditor({
   const suggestion = recommendation.candidate;
   const statusRow = (
     // Wraps instead of scrolling: on an upright phone the apply button would otherwise sit off-screen.
-    <div className="note-editor-status flex min-h-8 shrink-0 flex-wrap items-center gap-x-2 gap-y-1 px-3 py-1 text-caption">
+    <div className="note-editor-status flex min-h-9 shrink-0 flex-wrap items-center justify-between gap-2 border-b border-[#2b2b34] bg-[#19191f] px-3 py-1.5 text-caption">
       {screen.statusText !== null && (
         <p role="status" className={suggestion ? "sr-only" : "m-0 min-w-0 flex-1 truncate text-app-muted"}>
           {screen.statusText}
         </p>
       )}
       {recommendation.result && suggestion && (
-        <section aria-label="다음 마디 코드 추천"
-          className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5 whitespace-nowrap [&>button]:h-6 [&>button]:shrink-0">
-          <button type="button" className="grid w-6 place-items-center rounded text-app-muted"
-            aria-label="추천 노트 위치로 이동" title="추천 노트 위치로 이동" onClick={recommendation.reveal}>
+        <section
+          aria-label="다음 마디 코드 추천"
+          className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5 whitespace-nowrap [&>button]:h-7 [&>button]:shrink-0"
+        >
+          <button
+            type="button"
+            className="grid w-7 place-items-center rounded-[8px] border border-[#32323d] bg-[#23232a] text-app-muted hover:text-app-fg"
+            aria-label="추천 노트 위치로 이동"
+            title="추천 노트 위치로 이동"
+            onClick={recommendation.reveal}
+          >
             <LocateFixed size={14} aria-hidden="true" />
           </button>
           {recommendation.result.candidates.map((choice, index) => (
-            <button type="button" key={choice.name}
-              className="rounded border border-white/25 px-2 font-semibold aria-pressed:bg-app-primary"
+            <button
+              type="button"
+              key={choice.name}
+              className="rounded-[8px] border border-[#32323d] bg-[#23232a] px-2.5 font-semibold text-app-fg transition-colors aria-pressed:border-[#5b00ff] aria-pressed:bg-app-primary aria-pressed:text-white"
               aria-pressed={choice === suggestion}
-              onClick={() => recommendation.select(index)}>{choice.name}</button>
+              onClick={() => recommendation.select(index)}
+            >
+              {choice.name}
+            </button>
           ))}
-          <button type="button" className="rounded px-2" onClick={recommendation.listen}>
+          <button
+            type="button"
+            className="rounded-[8px] border border-[#32323d] bg-[#23232a] px-2.5 text-app-fg transition-colors hover:border-[#686675]"
+            onClick={recommendation.listen}
+          >
             {recommendation.playing ? "미리듣기 정지" : "미리듣기"}
           </button>
-          <button type="button" className="rounded bg-app-primary px-2 font-semibold"
-            onClick={recommendation.apply} disabled={editor.gestureActive}>추천 코드 넣기</button>
-          <button type="button" className="rounded px-2" onClick={recommendation.dismiss}>건너뛰기</button>
+          <button
+            type="button"
+            className="rounded-[8px] border border-[#5b00ff] bg-app-primary px-3 font-semibold text-white transition-opacity disabled:opacity-45"
+            onClick={recommendation.apply}
+            disabled={editor.gestureActive}
+          >
+            추천 코드 넣기
+          </button>
+          <button
+            type="button"
+            className="rounded-[8px] border border-[#32323d] bg-[#1c1c23] px-2.5 text-app-muted transition-colors hover:text-app-fg"
+            onClick={recommendation.dismiss}
+          >
+            건너뛰기
+          </button>
         </section>
       )}
       {recommendation.available && (
-        <button type="button" className="h-6 shrink-0 whitespace-nowrap rounded-md px-1.5 text-app-muted"
+        <button
+          type="button"
+          className="h-7 shrink-0 whitespace-nowrap rounded-[8px] border border-[#32323d] bg-[#23232a] px-2.5 text-app-muted transition-colors aria-pressed:border-[#5b00ff]/60 aria-pressed:bg-[#5b00ff]/20 aria-pressed:text-[#d8c7ff]"
           aria-pressed={recommendation.enabled}
-          onClick={() => recommendation.setEnabled(!recommendation.enabled)}>
+          onClick={() => recommendation.setEnabled(!recommendation.enabled)}
+        >
           코드 추천 {recommendation.enabled ? "켜짐" : "꺼짐"}
         </button>
       )}
@@ -204,11 +235,14 @@ function LoadedNoteEditor({
           onRewind={screen.rewind}
           metronome={playback.metronome}
           onMetronome={screen.toggleMetronome}
-          volume={playback.volume}
-          onVolume={playback.setVolume}
           onBack={screen.requestBack}
           action={{ label: "레이어 목록", onClick: screen.openLayerList }}
           onImportSource={screen.openSources}
+          onChord={
+            editor.editable && !(editor.bounds.minPitch === 35 && editor.bounds.maxPitch === 81)
+              ? screen.openChords
+              : undefined
+          }
           controls={controls}
           status={statusRow}
           tools={editable && <NoteTools editor={editor} large />}
@@ -278,34 +312,64 @@ function LoadedNoteEditor({
       )}
       {screen.exitTarget && (
         <CanvasDialog
-          className={studioStyles.studioAudioDialogContent}
+          className="scrollbar-dark max-h-full w-[min(360px,_100%)] overflow-y-auto rounded-[20px] border border-[#2e2e38] bg-[#1c1c23] p-5 text-app-fg shadow-2xl"
           titleId="draft-exit-title"
           onClose={screen.closeExit}
         >
-          <h2 id="draft-exit-title">개인 초안을 어떻게 할까요?</h2>
-          <p>
-            저장 후 나가기는 공유 클립에 반영합니다. 초안 유지는 다른 참여자의 공유본을 바꾸지
-            않습니다.
-          </p>
-          <button
-            disabled={busy || !draft.session || draft.state?.status === "conflict"}
-            onClick={screen.saveAndExit}
-          >
-            저장 후 나가기
-          </button>
-          <button
-            disabled={busy || (draft.state?.hasUnsavedChanges && !draft.state.localProtected)}
-            onClick={screen.keepAndExit}
-          >
-            개인 초안 유지
-          </button>
-          <button disabled={busy} onClick={screen.discardAndExit}>
-            버리기
-          </button>
-          <button onClick={screen.exportRecovery}>복구본 내보내기</button>
-          <button disabled={busy} onClick={() => screen.setExitTarget(null)}>
-            계속 편집
-          </button>
+          <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-1.5">
+              <h2 id="draft-exit-title" className="m-0 text-title leading-6 font-bold text-app-fg">
+                개인 초안을 어떻게 할까요?
+              </h2>
+              <p className="m-0 text-body leading-5 text-app-muted">
+                저장 후 나가기는 공유 클립에 반영합니다. 초안 유지는 다른 참여자의 공유본을 바꾸지
+                않습니다.
+              </p>
+            </div>
+            <div className="flex flex-col gap-2">
+              <button
+                type="button"
+                className="flex h-11 w-full items-center justify-center rounded-full bg-app-primary px-4 text-label font-semibold text-white transition-opacity disabled:opacity-45"
+                disabled={busy || !draft.session || draft.state?.status === "conflict"}
+                onClick={screen.saveAndExit}
+              >
+                저장 후 나가기
+              </button>
+              <button
+                type="button"
+                className="flex h-11 w-full items-center justify-center rounded-full border border-[#32323d] bg-[#23232a] px-4 text-label font-medium text-app-fg transition-colors hover:border-[#686675] disabled:opacity-45"
+                disabled={busy || (draft.state?.hasUnsavedChanges && !draft.state.localProtected)}
+                onClick={screen.keepAndExit}
+              >
+                개인 초안 유지
+              </button>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  className="flex h-10 items-center justify-center rounded-full border border-[#2e2e38] bg-[#16161b] px-3 text-body font-medium text-app-muted transition-colors hover:text-app-fg"
+                  onClick={screen.exportRecovery}
+                >
+                  복구본 내보내기
+                </button>
+                <button
+                  type="button"
+                  className="flex h-10 items-center justify-center rounded-full border border-[#2e2e38] bg-[#16161b] px-3 text-body font-medium text-app-muted transition-colors hover:text-app-fg disabled:opacity-45"
+                  disabled={busy}
+                  onClick={() => screen.setExitTarget(null)}
+                >
+                  계속 편집
+                </button>
+              </div>
+              <button
+                type="button"
+                className="mt-1 flex h-10 w-full items-center justify-center rounded-full border border-[#e11d48]/40 bg-[#e11d48]/15 px-4 text-body font-semibold text-[#fda4af] transition-colors hover:bg-[#e11d48]/25 disabled:opacity-45"
+                disabled={busy}
+                onClick={screen.discardAndExit}
+              >
+                버리기
+              </button>
+            </div>
+          </div>
         </CanvasDialog>
       )}
       {dialogs.showChords && editor.editable && (

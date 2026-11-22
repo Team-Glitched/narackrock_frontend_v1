@@ -155,9 +155,9 @@ export type BridgeMethods = {
    * with the web's Korean message when loading or playing fails (missing instrument, bad file, …).
    */
   "audio-engine": { payload: { engine: string; command: NativeAudioCommand }; result: null };
-  /** Renders authored notes to a WAV with the piano samples (the web's `renderPianoAudio`). */
+  /** Renders authored notes to a WAV with the sampled MIDI instrument (the web's `renderPianoAudio`). */
   "audio-render-notes": {
-    payload: { notes: MidiNoteDto[]; bpm: number };
+    payload: { notes: MidiNoteDto[]; bpm: number; instrumentId?: string };
     result: { audio: NativeAudioFile };
   };
   /**

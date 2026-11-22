@@ -467,12 +467,32 @@ export function TeamPianoRoll({
 
   return (
     <div className="note-roll-view flex min-h-0 w-full flex-1 flex-col overflow-hidden">
-      <div className="flex h-8 shrink-0 items-center justify-end gap-1 border-b border-app-line bg-app-panel px-2 text-caption text-app-muted" role="group" aria-label="피아노롤 확대·축소">
-        <button type="button" aria-label="피아노롤 축소" className="h-7 w-9 rounded bg-app-surface text-label disabled:opacity-35"
-          disabled={zoom <= MIN_ROLL_ZOOM} onClick={() => { cancel(); changeZoom(zoom / 1.25); }}>−</button>
-        <output className="w-12 text-center tabular-nums" aria-label="피아노롤 배율">{Math.round(zoom * 100)}%</output>
-        <button type="button" aria-label="피아노롤 확대" className="h-7 w-9 rounded bg-app-surface text-label disabled:opacity-35"
-          disabled={zoom >= MAX_ROLL_ZOOM} onClick={() => { cancel(); changeZoom(zoom * 1.25); }}>+</button>
+      <div
+        className="flex h-9 shrink-0 items-center justify-end gap-1.5 border-b border-[#2b2b34] bg-[#19191f] px-2.5 text-caption text-app-muted"
+        role="group"
+        aria-label="피아노롤 확대·축소"
+      >
+        <button
+          type="button"
+          aria-label="피아노롤 축소"
+          className="grid h-7 w-8 place-items-center rounded-[8px] border border-[#32323d] bg-[#23232a] text-label text-app-fg disabled:opacity-35"
+          disabled={zoom <= MIN_ROLL_ZOOM}
+          onClick={() => { cancel(); changeZoom(zoom / 1.25); }}
+        >
+          −
+        </button>
+        <output className="w-12 text-center font-medium tabular-nums text-app-fg" aria-label="피아노롤 배율">
+          {Math.round(zoom * 100)}%
+        </output>
+        <button
+          type="button"
+          aria-label="피아노롤 확대"
+          className="grid h-7 w-8 place-items-center rounded-[8px] border border-[#32323d] bg-[#23232a] text-label text-app-fg disabled:opacity-35"
+          disabled={zoom >= MAX_ROLL_ZOOM}
+          onClick={() => { cancel(); changeZoom(zoom * 1.25); }}
+        >
+          +
+        </button>
       </div>
     <div
       className={cn(studioStyles.noteWorkspace, studioStyles.teamNoteWorkspace)}

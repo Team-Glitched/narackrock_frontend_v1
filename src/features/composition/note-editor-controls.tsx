@@ -10,8 +10,10 @@ import type { NoteEditorController } from "./use-note-editor";
 const tools: ReadonlyArray<[NoteEditorController["view"]["tool"], string, LucideIcon]> = [
   ["draw", "그리기", Pencil], ["select", "선택", SquareDashedMousePointer], ["erase", "지우개", Eraser], ["pan", "이동", Hand],
 ];
-const iconButton = "grid h-7 w-[26px] shrink-0 place-items-center rounded-[6px] text-app-fg hover:bg-app-surface disabled:pointer-events-none disabled:opacity-35";
-const pill = "flex h-7 shrink-0 items-center gap-1 rounded-[8px] bg-app-surface px-1.5 text-caption text-app-muted";
+const iconButton =
+  "grid h-7 w-[28px] shrink-0 place-items-center rounded-[8px] text-app-fg transition-colors hover:bg-[#2a2a33] disabled:pointer-events-none disabled:opacity-35";
+const pill =
+  "flex h-7 shrink-0 items-center gap-1 rounded-[8px] border border-[#32323d] bg-[#23232a] px-2 text-caption text-app-fg transition-colors";
 const snapOptions = ([4, 8, 16] as const).map((value) => ({ value, label: `1/${value}` }));
 const barsOptions = ([1, 2, 4] as const).map((value) => ({ value, label: `${value}마디` }));
 
@@ -27,13 +29,16 @@ function IconButton({ label, icon: Icon, className, ...props }: {
 function Group({ label, children }: { label: string; children: ReactNode }) {
   return <div className="flex shrink-0 items-center gap-0.5" role="group" aria-label={label}>{children}</div>;
 }
-const Divider = () => <span className="mx-0.5 h-5 w-px shrink-0 bg-app-line" aria-hidden="true" />;
+const Divider = () => <span className="mx-1 h-5 w-px shrink-0 bg-[#2e2e38]" aria-hidden="true" />;
 
 /** The four edit tools with icon + name; the active one is filled so the current mode is obvious at a glance. */
 export function NoteTools({ editor, large = false }: { editor: NoteEditorController; large?: boolean }) {
   return (
     <div
-      className={cn("flex shrink-0 items-center gap-0.5 rounded-[8px] bg-app-surface p-0.5", large && "w-full gap-1 rounded-[12px] p-1")}
+      className={cn(
+        "flex shrink-0 items-center gap-0.5 rounded-[10px] border border-[#32323d] bg-[#23232a] p-0.5",
+        large && "w-full gap-1 rounded-[12px] p-1",
+      )}
       role="group"
       aria-label="편집 도구"
     >
@@ -76,7 +81,7 @@ export function NoteEditorControls({ editor, positionTick = 0, onChord, onSettin
   const lastStart = Math.max(0, bounds.maxTick - editor.windowTicks);
   return (
     <div
-      className="note-editor-controls flex w-full shrink-0 items-center gap-0.5 overflow-x-auto border-b border-app-line bg-app-panel px-1.5 py-1.5 text-caption text-app-fg [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      className="note-editor-controls flex w-full shrink-0 items-center gap-1 overflow-x-auto border-b border-[#2b2b34] bg-[#19191f] px-2 py-1.5 text-caption text-app-fg [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       role="toolbar"
       aria-label="노트 편집 도구"
     >

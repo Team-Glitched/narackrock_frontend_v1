@@ -1,20 +1,35 @@
-import { useState, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
+import Svg, { Path, Rect } from "react-native-svg";
 
 import type { NativeTransport } from "../../../src/lib/native-screens";
 import MetronomeIcon from "../../../public/figma/metronome.svg";
 import PlayIcon from "../../../public/figma/play.svg";
 import ReturnIcon from "../../../public/figma/return.svg";
-import SoundIcon from "../../../public/figma/sound.svg";
 import { useNativeAudioState } from "../../audio";
 import { Touchable } from "../../ui/kit";
 import { useScreen } from "../../ui/screen-context";
 import { useDevicePortrait } from "../../ui/use-device-portrait";
 import { colors } from "../../ui/theme";
-import { Slider, VolumeSheet } from "./parts";
 
 const clock = (ms: number) =>
   `00:${String(Math.floor(ms / 60000)).padStart(2, "0")}:${String(Math.floor(ms / 1000) % 60).padStart(2, "0")}`;
+
+/** Bold rewind-to-start SVG matching play.svg's visual weight. */
+export function RewindIcon({ size = 20 }: { size?: number }) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Rect x={4.5} y={4.5} width={3} height={15} rx={1.5} fill="#F2F4F6" />
+      <Path
+        d="M18.5 5.75L9.75 12L18.5 18.25V5.75Z"
+        fill="#F2F4F6"
+        stroke="#F2F4F6"
+        strokeWidth={2.5}
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+}
 
 /** Live transport of the page's native engine; the model's coarse values until the engine reports. */
 export function useTransport(transport: NativeTransport) {
@@ -24,7 +39,7 @@ export function useTransport(transport: NativeTransport) {
 
 /**
  * The web's StudioToolbar: back, (rewind), play/pause, metronome, bpm/beat/time readouts, "+ 샘플",
- * (instrument), master volume and the page's right-side buttons (`children`). Transport buttons
+ * (instrument) and the page's right-side buttons (`children`). Transport buttons
  * send `transport-*` actions; the readouts send `timing-open` when `timingEditable`.
  */
 export function StudioToolbar({
@@ -52,7 +67,6 @@ export function StudioToolbar({
   const { act } = useScreen();
   const portrait = useDevicePortrait();
   const { playing, positionMs } = useTransport(transport);
-  const [volumeOpen, setVolumeOpen] = useState(false);
   const signature = `${transport.numerator}/${transport.denominator}`;
   const readouts = (
     <View style={[styles.readouts, portrait && { marginLeft: 0 }]}>
@@ -101,7 +115,7 @@ export function StudioToolbar({
         </IconButton>
         {onRewind && (
           <IconButton label="처음으로" onPress={onRewind}>
-            <Text style={styles.rewind}>|&lt;</Text>
+            <RewindIcon size={20} />
           </IconButton>
         )}
         <IconButton
@@ -126,26 +140,7 @@ export function StudioToolbar({
         </IconButton>
       </View>
       {!portrait && readouts}
-      <View style={[styles.volume, portrait && styles.uprightVolume]}>
-        <Touchable
-          accessibilityRole="button"
-          accessibilityLabel="음량 설정"
-          hitSlop={11}
-          onPress={() => setVolumeOpen(true)}
-        >
-          <SoundIcon width={20} height={17} />
-        </Touchable>
-        <Slider
-          value={transport.volume}
-          min={0}
-          max={100}
-          label="마스터 볼륨"
-          valueText={`${transport.volume}%`}
-          onChange={(value) => act({ type: "transport-volume", value })}
-          style={styles.flex}
-        />
-      </View>
-      {children}
+      <View style={styles.rightActions}>{children}</View>
       {portrait && (
         <ScrollView
           horizontal
@@ -154,13 +149,6 @@ export function StudioToolbar({
         >
           {readouts}
         </ScrollView>
-      )}
-      {volumeOpen && (
-        <VolumeSheet
-          value={transport.volume}
-          onChange={(value) => act({ type: "transport-volume", value })}
-          onClose={() => setVolumeOpen(false)}
-        />
       )}
     </View>
   );
@@ -285,36 +273,42 @@ const styles = StyleSheet.create({
   },
   transport: { flexDirection: "row", alignItems: "center" },
   uprightToolbar: { height: "auto", flexWrap: "wrap", gap: 8, paddingVertical: 8 },
-  uprightVolume: { marginRight: 0, paddingLeft: 0, minWidth: 44 },
+  rightActions: { marginLeft: "auto", flexDirection: "row", alignItems: "center", gap: 8 },
   uprightReadouts: { width: "100%", flexGrow: 0 },
-  icon: { width: 30, height: 30, alignItems: "center", justifyContent: "center" },
-  iconPressed: { backgroundColor: colors.surface, borderRadius: 8 },
-  rewind: { color: colors.fg, fontSize: 16, fontWeight: "600" },
+  icon: { width: 30, height: 30, alignItems: "center", justifyContent: "center", borderRadius: 8 },
+  iconPressed: {
+    backgroundColor: colors.primary,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#8b5cf6",
+  },
   pause: { flexDirection: "row", gap: 5 },
   pauseBar: { width: 5, height: 18, borderRadius: 1.5, backgroundColor: colors.fg },
-  readouts: { flexDirection: "row", alignItems: "center", gap: 10, marginLeft: 16 },
+  readouts: { flexDirection: "row", alignItems: "center", gap: 8, marginLeft: 12 },
   readout: {
     height: 30,
     flexDirection: "row",
     alignItems: "center",
-    gap: 3,
+    gap: 5,
     paddingVertical: 2,
-    paddingHorizontal: 4,
+    paddingHorizontal: 8,
     borderRadius: 8,
-    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: "#32323d",
+    backgroundColor: "#23232a",
   },
   readoutSmall: {
     color: colors.muted,
-    fontSize: 14,
-    lineHeight: 26,
-    paddingRight: 3,
+    fontSize: 13,
+    lineHeight: 20,
+    paddingRight: 5,
     borderRightWidth: 1,
     borderRightColor: colors.line,
   },
   readoutValue: {
     color: colors.fg,
-    fontSize: 16,
-    lineHeight: 22,
+    fontSize: 14,
+    lineHeight: 20,
     fontVariant: ["tabular-nums"],
   },
   sample: {
@@ -326,22 +320,12 @@ const styles = StyleSheet.create({
     gap: 5,
     paddingHorizontal: 9,
     borderRadius: 8,
-    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: "#32323d",
+    backgroundColor: "#23232a",
   },
-  samplePlus: { color: colors.fg, fontSize: 20, lineHeight: 20 },
-  sampleText: { color: colors.fg, fontSize: 14, lineHeight: 16, fontWeight: "500" },
-  volume: {
-    flex: 1,
-    maxWidth: 210,
-    // Shrinks to the icon and a short slider so two toolbar buttons fit (web .studio-volume).
-    minWidth: 44,
-    marginLeft: "auto",
-    marginRight: 30,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    paddingLeft: 12,
-  },
+  samplePlus: { color: colors.fg, fontSize: 18, lineHeight: 20 },
+  sampleText: { color: colors.fg, fontSize: 13, lineHeight: 16, fontWeight: "500" },
   add: {
     width: 60,
     height: 30,

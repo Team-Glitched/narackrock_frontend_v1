@@ -1,13 +1,19 @@
 import { useState } from "react";
-import { Image, StyleSheet, Text, TextInput, View } from "react-native";
+import { Image, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 
 import AddIcon from "../../../public/figma/profile-photo-add.svg";
+import {
+  instrumentGroups,
+  partIdForValue,
+  partLabel,
+} from "../../../src/features/composition/instrument-parts";
 import type { NativeEditProfile } from "../../../src/lib/native-screens";
 import { AppHeader } from "../../ui/header";
 import { Avatar, Touchable } from "../../ui/kit";
 import { ScreenScroll } from "../../ui/screen";
 import { useScreen } from "../../ui/screen-context";
 import { colors, gutter, type } from "../../ui/theme";
+import { Dialog, DialogButton } from "../studio/parts";
 import type { ScreenProps } from "../types";
 import { CenterMessage, PreferenceRow } from "./parts";
 
@@ -38,8 +44,14 @@ function Form({
   const { act, uri } = useScreen();
   const [nickname, setNickname] = useState(initial.nickname);
   const [instrument, setInstrument] = useState(initial.instrument);
+  const [instrumentOpen, setInstrumentOpen] = useState(false);
   const [explanation, setExplanation] = useState(initial.explanation);
   const { saving, privacy } = model;
+  const selectedInstrumentId = partIdForValue(instrument);
+  const [draftInstrument, setDraftInstrument] = useState<string | null>(selectedInstrumentId);
+  const instrumentDisplay = selectedInstrumentId
+    ? partLabel(selectedInstrumentId)
+    : instrument.trim();
   return (
     <ScreenScroll>
       <View style={styles.form}>
@@ -91,17 +103,80 @@ function Form({
           />
         </Field>
         <Field label="악기">
-          <TextInput
-            value={instrument}
-            onChangeText={setInstrument}
-            editable={!saving}
-            placeholder="예: Guitar, Piano"
-            placeholderTextColor="#9692a6"
-            accessibilityLabel="악기"
-            selectionColor={colors.accent}
-            style={styles.input}
-          />
+          <Touchable
+            accessibilityRole="button"
+            accessibilityLabel="악기 선택"
+            accessibilityState={{ disabled: saving, expanded: instrumentOpen }}
+            disabled={saving}
+            style={styles.selector}
+            onPress={() => {
+              setDraftInstrument(selectedInstrumentId);
+              setInstrumentOpen(true);
+            }}
+          >
+            <Text style={instrumentDisplay ? styles.selectorText : styles.selectorPlaceholder}>
+              {instrumentDisplay || "악기를 선택하세요"}
+            </Text>
+          </Touchable>
         </Field>
+        {instrumentOpen && (
+          <Dialog
+            label="악기 선택"
+            onClose={() => setInstrumentOpen(false)}
+            style={styles.instrumentDialog}
+          >
+            <Text style={styles.dialogHeading} accessibilityRole="header">
+              악기 선택
+            </Text>
+            <Text style={type.muted}>프로필에 표시할 주 악기나 보컬 파트를 선택하세요.</Text>
+            <ScrollView
+              style={styles.instrumentList}
+              contentContainerStyle={styles.instrumentGroups}
+              accessibilityRole="radiogroup"
+              accessibilityLabel="악기"
+            >
+              {instrumentGroups.map((group) => (
+                <View key={group.id}>
+                  <Text style={styles.legend}>{group.label}</Text>
+                  <View style={styles.parts}>
+                    {group.instruments.map((id) => {
+                      const checked = draftInstrument === id;
+                      return (
+                        <Touchable
+                          key={id}
+                          accessibilityRole="radio"
+                          accessibilityState={{ checked }}
+                          style={[styles.part, checked && styles.partChecked]}
+                          onPress={() => setDraftInstrument(id)}
+                        >
+                          <Text style={styles.partText}>{partLabel(id)}</Text>
+                        </Touchable>
+                      );
+                    })}
+                  </View>
+                </View>
+              ))}
+            </ScrollView>
+            <View style={styles.dialogActions}>
+              <DialogButton
+                label="선택 해제"
+                tone="secondary"
+                onPress={() => {
+                  setInstrument("");
+                  setInstrumentOpen(false);
+                }}
+              />
+              <DialogButton
+                label="선택 완료"
+                disabled={draftInstrument === null}
+                onPress={() => {
+                  if (draftInstrument) setInstrument(partLabel(draftInstrument));
+                  setInstrumentOpen(false);
+                }}
+              />
+            </View>
+          </Dialog>
+        )}
         <Field label="설명">
           <TextInput
             value={explanation}
@@ -156,7 +231,7 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.border,
   },
   avatar: { alignSelf: "center", width: 140, height: 140, marginBottom: 8 },
-  avatarRing: { borderRadius: 70, borderWidth: 2, borderColor: colors.fg, overflow: "hidden" },
+  avatarRing: { borderRadius: 70, overflow: "hidden" },
   preview: { width: 136, height: 136, borderRadius: 68 },
   overlay: {
     ...StyleSheet.absoluteFill,
@@ -167,6 +242,34 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0, 0, 0, 0.44)",
   },
   field: { gap: 10 },
+  selector: {
+    height: 44,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+    justifyContent: "center",
+  },
+  selectorText: { color: colors.fg, fontSize: 16, lineHeight: 20 },
+  selectorPlaceholder: { color: "#9692a6", fontSize: 16, lineHeight: 20 },
+  instrumentDialog: { gap: 16 },
+  dialogHeading: { color: colors.fg, fontSize: 16, lineHeight: 22, fontWeight: "700" },
+  instrumentList: { maxHeight: 320 },
+  instrumentGroups: { gap: 16 },
+  legend: { color: colors.muted, fontSize: 14, lineHeight: 20, fontWeight: "700", marginBottom: 8 },
+  parts: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  part: {
+    minHeight: 36,
+    borderRadius: 18,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    backgroundColor: colors.surface,
+    justifyContent: "center",
+  },
+  partChecked: { backgroundColor: colors.primary },
+  partText: { color: colors.fg, fontSize: 14, lineHeight: 20, fontWeight: "500" },
+  dialogActions: { flexDirection: "row", justifyContent: "flex-end", gap: 8 },
   input: {
     height: 44,
     paddingHorizontal: 10,

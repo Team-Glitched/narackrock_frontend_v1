@@ -1,4 +1,7 @@
+import { useQuery } from "@tanstack/react-query";
 import { deleteEmptyTrack, type AudioTranscriptionMode } from "@/lib/api/composition";
+import { useCurrentUserId } from "@/features/auth/use-current-user";
+import { compositionQuery } from "@/features/composition/composition-queries";
 import { CompositionRecordScreen } from "@/features/composition/creation-screens";
 import {
   recordingToMidi,
@@ -21,6 +24,16 @@ import { NativeRecordBridge } from "@/features/composition/native-creation-bridg
 import { NativePageStateBridge } from "@/features/community/native-community-bridge";
 export default function RecordPage() {
   const route = useRouteComposition();
+  const currentUserId = useCurrentUserId();
+  const projectQuery = useQuery({
+    ...compositionQuery(currentUserId, route.projectId ?? 0, route.view),
+    enabled: currentUserId !== null && route.projectId !== null,
+  });
+  const project = projectQuery.data?.project;
+  const bpm = project?.bpm ?? 120;
+  const timeSignature = project
+    ? `${project.timeSignatureNumerator}/${project.timeSignatureDenominator}`
+    : "4/4";
   const instrument = useInstrumentPrompt(route.projectId);
   const partial = useRef<{ error: PartialLayerError; mode: "audio" | "midi" } | null>(null);
   const [cancelError, setCancelError] = useState("");
@@ -105,6 +118,8 @@ export default function RecordPage() {
             onSave={save}
             onTransform={transform}
             instrument={instrument.native}
+            bpm={bpm}
+            timeSignature={timeSignature}
             notice={cancelError || null}
             onBack={() => void cancel()}
             onSearch={search}
@@ -127,6 +142,8 @@ export default function RecordPage() {
               onBack={() => void cancel()}
               onSave={save}
               onTransform={transform}
+              bpm={bpm}
+              timeSignature={timeSignature}
             />
           )}
         </div>

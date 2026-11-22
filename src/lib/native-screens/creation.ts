@@ -103,6 +103,8 @@ export type NativeCreationRecord = {
   /** A failed "신규 트랙" cancel (studio pages). */
   notice: string | null;
   instrument: NativeInstrumentPicker | null;
+  bpm?: number;
+  timeSignature?: string;
 };
 
 export type NativeCreationRecordAction =
@@ -124,15 +126,19 @@ export type NativeCreationPiano = {
   transport: NativeTransport;
   timing: NativeTimingSheet | null;
   roll: NativeNoteRoll;
+  instrumentLabel?: string;
+  instrumentPicker?: NativeInstrumentPicker | null;
 };
 
 export type NativeCreationPianoAction =
   | { type: "creation-piano-back" }
   | { type: "creation-piano-rewind" }
   | { type: "creation-piano-save" }
+  | { type: "creation-piano-instrument-open" }
   | NativeTransportAction
   | NativeTimingAction
-  | NativeNoteRollAction;
+  | NativeNoteRollAction
+  | NativeInstrumentAction;
 
 export type CreationScreens = {
   "creation-choose": { model: NativeCreationChoose; action: NativeCreationChooseAction };

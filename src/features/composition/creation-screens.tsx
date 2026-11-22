@@ -8,6 +8,7 @@ import { Asset } from "@/components/asset";
 import { Dropdown } from "@/components/dropdown";
 import { AudioTrimPicker } from "@/features/composition/audio-trim-picker";
 import type { AudioSelection } from "@/features/composition/prepare-audio-file";
+import { beatsPerBarFromSignature, useMetronome } from "@/features/composition/use-metronome";
 import { recordNativeAudio } from "@/lib/native-app";
 
 export type CreationMethod = "upload" | "record" | "note";
@@ -407,13 +408,25 @@ export function CompositionRecordScreen({
   onSave,
   onTransform,
   saveLabel = "레이어에 녹음 저장",
+  bpm = 120,
+  timeSignature = "4/4",
 }: {
   onSave: (file: File) => Promise<void>;
   onTransform?: (file: File, soundKind?: AudioTranscriptionMode) => Promise<void>;
   saveLabel?: string;
   onBack: () => void;
+  bpm?: number;
+  timeSignature?: string;
 }) {
   const playback = useRef<HTMLAudioElement>(null);
+  const [metronomeOn, setMetronomeOn] = useState(false);
+  const [previewPlaying, setPreviewPlaying] = useState(false);
+  const beatsPerBar = beatsPerBarFromSignature(timeSignature);
+  const { activeBeat, isAccent } = useMetronome({
+    enabled: metronomeOn && !previewPlaying,
+    bpm,
+    timeSignature,
+  });
   const {
     soundKind,
     setSoundKind,
@@ -430,14 +443,70 @@ export function CompositionRecordScreen({
   } = useCompositionRecorder({
     onSave,
     onTransform,
-    beforeSubmit: () => playback.current?.pause(),
+    beforeSubmit: () => {
+      playback.current?.pause();
+      setPreviewPlaying(false);
+    },
   });
   return (
     <div className={cn(studioStyles.recordView, sharedStyles.scrollContent)}>
-      <Asset name="metronome-large.svg" className={studioStyles.recordSymbol} />
+      <div className="[.design-canvas_&]:top-24 flex flex-col items-center gap-3 [.design-canvas_&]:absolute">
+        <button
+          type="button"
+          aria-label={metronomeOn ? "메트로놈 끄기" : "메트로놈 켜기"}
+          aria-pressed={metronomeOn}
+          onClick={() => setMetronomeOn((current) => !current)}
+          className={cn(
+            "relative flex flex-col items-center rounded-[24px] p-3 transition-transform duration-100",
+            metronomeOn
+              ? "bg-app-primary/15 ring-2 ring-app-primary/70"
+              : "opacity-65 hover:opacity-90",
+            metronomeOn && activeBeat !== null && (isAccent ? "scale-105" : "scale-[1.02]"),
+          )}
+        >
+          <Asset
+            name="metronome-large.svg"
+            className="h-[144px] w-28 object-contain [filter:invert(22%)_sepia(95%)_saturate(7000%)_hue-rotate(256deg)]"
+          />
+        </button>
+        <div className="flex items-center gap-2 rounded-full border border-[#32323d] bg-[#1e1e26] px-3 py-1 text-caption">
+          <span className="font-semibold tabular-nums text-app-fg">
+            {bpm} BPM · {timeSignature}
+          </span>
+          <span className={metronomeOn ? "font-semibold text-[#c4b5fd]" : "text-app-muted"}>
+            {metronomeOn ? "메트로놈 켜짐" : "탭하여 켜기"}
+          </span>
+          {metronomeOn && (
+            <span className="flex items-center gap-1" aria-hidden="true">
+              {Array.from({ length: beatsPerBar }, (_, index) => (
+                <span
+                  key={index}
+                  className={cn(
+                    "size-1.5 rounded-full transition-colors",
+                    activeBeat === index
+                      ? index === 0
+                        ? "bg-white"
+                        : "bg-[#a78bfa]"
+                      : "bg-[#3f3e4a]",
+                  )}
+                />
+              ))}
+            </span>
+          )}
+        </div>
+      </div>
       <div className={studioStyles.recordOutput}>
         {error && <p role="alert">{error}</p>}
-        {url && <audio ref={playback} controls src={url} />}
+        {url && (
+          <audio
+            ref={playback}
+            controls
+            src={url}
+            onPlay={() => setPreviewPlaying(true)}
+            onPause={() => setPreviewPlaying(false)}
+            onEnded={() => setPreviewPlaying(false)}
+          />
+        )}
         {recording && liveStream && <RecordingMeter stream={liveStream} />}
         <p role="status">{status}</p>
         {file && onTransform && (

@@ -3,7 +3,7 @@ import { StyleSheet, Text, View } from "react-native";
 import { useDevicePortrait } from "../../ui/use-device-portrait";
 import { useScreen } from "../../ui/screen-context";
 import { NoteControls, NoteRoll, NoteRollSheets } from "../editor/roll";
-import { StudioCanvas, TimingSheet } from "../studio/parts";
+import { StudioCanvas, TimingSheet, InstrumentSheet } from "../studio/parts";
 import { AddButton, StudioToolbar } from "../studio/toolbar";
 import type { ScreenProps } from "../types";
 
@@ -18,6 +18,14 @@ export function CreationPianoScreen({ model }: ScreenProps<"creation-piano">) {
           transport={model.transport}
           title={model.title}
           timingEditable={!model.pending}
+          instrument={
+            model.instrumentLabel
+              ? {
+                  label: model.instrumentLabel,
+                  onPress: () => act({ type: "creation-piano-instrument-open" }),
+                }
+              : undefined
+          }
           onBack={() => act({ type: "creation-piano-back" })}
           onRewind={() => act({ type: "creation-piano-rewind" })}
         >
@@ -45,6 +53,7 @@ export function CreationPianoScreen({ model }: ScreenProps<"creation-piano">) {
       </View>
       <NoteRollSheets roll={model.roll} />
       <TimingSheet sheet={model.timing} />
+      <InstrumentSheet picker={model.instrumentPicker ?? null} />
     </StudioCanvas>
   );
 }
