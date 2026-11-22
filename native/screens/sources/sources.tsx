@@ -1,5 +1,11 @@
 import { useRef, useState, type ComponentRef } from "react";
 import { ScrollView, Text, TextInput, View, useWindowDimensions } from "react-native";
+import {
+  SOURCE_DESCRIPTION_MAX_LENGTH,
+  SOURCE_TITLE_MAX_LENGTH,
+  clampCodePoints,
+  codePointLength,
+} from "../../../src/lib/content-limits";
 import type {
   NativeSourceCard,
   NativeSourcePublications,
@@ -285,12 +291,16 @@ function PublicationEditor({
             editable={!model.locked}
             style={styles.input}
             value={title}
+            maxLength={SOURCE_TITLE_MAX_LENGTH}
             onChangeText={(value) => {
-              setTitle(value);
-              act({ type: "sources-editor-title", value });
+              const clamped = clampCodePoints(value, SOURCE_TITLE_MAX_LENGTH);
+              setTitle(clamped);
+              act({ type: "sources-editor-title", value: clamped });
             }}
           />
-          <Text style={type.caption}>{Array.from(title.trim()).length}/100자 · 필수</Text>
+          <Text style={type.caption}>
+            {codePointLength(title.trim())}/{SOURCE_TITLE_MAX_LENGTH}자 · 필수
+          </Text>
         </View>
         <View style={styles.field}>
           <Text style={type.body}>설명 (선택)</Text>
@@ -300,12 +310,16 @@ function PublicationEditor({
             multiline
             style={[styles.input, { minHeight: 100, textAlignVertical: "top" }]}
             value={description}
+            maxLength={SOURCE_DESCRIPTION_MAX_LENGTH}
             onChangeText={(value) => {
-              setDescription(value);
-              act({ type: "sources-editor-description", value });
+              const clamped = clampCodePoints(value, SOURCE_DESCRIPTION_MAX_LENGTH);
+              setDescription(clamped);
+              act({ type: "sources-editor-description", value: clamped });
             }}
           />
-          <Text style={type.caption}>{Array.from(description).length}/2000자</Text>
+          <Text style={type.caption}>
+            {codePointLength(description)}/{SOURCE_DESCRIPTION_MAX_LENGTH}자
+          </Text>
         </View>
         <Text style={type.body}>썸네일</Text>
         {(

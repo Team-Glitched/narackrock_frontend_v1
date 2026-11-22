@@ -11,6 +11,11 @@ import {
 } from "react-native";
 import Svg, { Path, Rect } from "react-native-svg";
 
+import {
+  SONG_TITLE_MAX_LENGTH,
+  clampCodePoints,
+  codePointLength,
+} from "../../../src/lib/content-limits";
 import { rulerLabels, signatureGrid } from "../../../src/features/composition/time-signature";
 import { snappedClipStart } from "../../../src/features/composition/timeline-move";
 import type {
@@ -718,13 +723,16 @@ function PublishForm({ form }: { form: NonNullable<NativeStudio["publishForm"]> 
           value={title}
           placeholder="예: 새벽 공기를 닮은 피아노"
           placeholderTextColor={colors.muted}
-          onChangeText={setTitle}
-          maxLength={100}
+          onChangeText={(value) => setTitle(clampCodePoints(value, SONG_TITLE_MAX_LENGTH))}
+          maxLength={SONG_TITLE_MAX_LENGTH}
           selectionColor={colors.accent}
           returnKeyType="done"
           onSubmitEditing={save}
           style={styles.formInput}
         />
+        <Text style={styles.formCounter}>
+          {codePointLength(title)}/{SONG_TITLE_MAX_LENGTH}자
+        </Text>
       </View>
       <View style={styles.formField}>
         <Text style={styles.formLabel}>앨범 이미지 (선택)</Text>
@@ -978,4 +986,5 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
   },
   formButtonText: { color: "#ffffff", fontSize: 14, lineHeight: 20 },
+  formCounter: { color: colors.muted, fontSize: 12, textAlign: "right" },
 });

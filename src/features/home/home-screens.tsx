@@ -270,7 +270,7 @@ function MySongsChart({ tab, onTabChange, onOpenShort, featuredUserId }: {
       )}
       {canManageFeatured && profile.data && (
         <p className="mb-4 px-5 text-caption leading-[18px] text-app-muted">
-          내 작업물의 완성곡 중 한 곡을 대표 음악으로 설정할 수 있어요.
+          내 작업물이나 내 참가작에서 별표를 눌러 대표 음악으로 설정할 수 있어요.
         </p>
       )}
       {featureNotice && (
@@ -301,7 +301,7 @@ function MySongsChart({ tab, onTabChange, onOpenShort, featuredUserId }: {
                     <small className="truncate">{song.author.nickname}</small>
                   </span>
                 </button>
-                {canManageFeatured && profile.data && (pinnedIds.has(song.shortId) || (activeTab === "authored" && song.completionStatus === "COMPLETED")) && (
+                {canManageFeatured && profile.data && (
                   <FeaturedStarButton
                     songTitle={song.title}
                     pinned={pinnedIds.has(song.shortId)}
@@ -404,7 +404,7 @@ function FeaturedSongsChart({
           {canManageFeatured && (
             <>
               <br />
-              내 작업물에서 완성곡의 별표를 눌러 설정해 보세요.
+              내 작업물이나 내 참가작에서 별표를 눌러 설정해 보세요.
             </>
           )}
         </p>
