@@ -426,7 +426,7 @@ function ScopedCommunityPost({
       <div className="mt-3.5 mb-2.5 flex items-center justify-between gap-3 [&>span]:max-w-[45%] [&>span]:shrink-0">
         <h2 className="m-0! min-w-0 flex-1">
           <button
-            className={communityStyles.postRead}
+            className={`${communityStyles.postRead} block min-w-0 truncate`}
             disabled={submitting}
             onClick={() => onComments(post.postId)}
           >

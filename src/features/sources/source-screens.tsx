@@ -697,7 +697,7 @@ function SourceDetail({
           canPreview={source.canPreview}
           durationMs={source.durationMs}
         />
-        <p className={sourceStyles.osDiscoveryEmpty}>
+        <p className={cn(sourceStyles.osDiscoveryEmpty, "my-3!")}>
           보관한 뒤 피아노롤의 ‘+ 샘플’에서 내 레이어에 오디오로 넣을 수 있습니다.
         </p>
         <PostActions

@@ -163,22 +163,31 @@ export function WorkspaceScreen({
             </Empty>
           )
         : works.map((work) => (
-            <article className={workspaceStyles.workspaceCard} key={work.id}>
-              <span className={workspaceStyles.workspaceStatus}>
-                {work.shortId === null ? uiLabels.myMusic : "참여한 작업"}
-              </span>
-              <h2>{work.title}</h2>
-              <p>
-                {work.composition.tracks.length}개 레이어 · {work.composition.project.bpm} BPM
-              </p>
-              <div className={workspaceStyles.workspaceActions}>
-                <button
-                  className={workspaceStyles.workspacePrimary}
-                  onClick={() => onResume(work.id, work.shortId)}
-                >
-                  이어하기
-                </button>
+            <article
+              className={cn(
+                workspaceStyles.workspaceCard,
+                "[.design-canvas_&]:flex items-center justify-between gap-3",
+              )}
+              key={work.id}
+            >
+              <div className="min-w-0 flex-1 flex flex-col gap-1">
+                <span className={workspaceStyles.workspaceStatus}>
+                  {work.shortId === null ? uiLabels.myMusic : "참여한 작업"}
+                </span>
+                <h2 className="m-0!">{work.title}</h2>
+                <p>
+                  {work.composition.tracks.length}개 레이어 · {work.composition.project.bpm} BPM
+                </p>
               </div>
+              <button
+                className={cn(
+                  workspaceStyles.workspacePrimary,
+                  "min-h-10 shrink-0 rounded-[20px] px-4 py-2 text-label font-medium leading-5 text-app-fg",
+                )}
+                onClick={() => onResume(work.id, work.shortId)}
+              >
+                이어하기
+              </button>
             </article>
           ))}
       {hasMore && (

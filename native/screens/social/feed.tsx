@@ -71,7 +71,9 @@ export function FeedPostCard({ post }: { post: NativeFeedPost }) {
           style={styles.flex}
           onPress={open}
         >
-          <Text style={styles.title}>{post.title}</Text>
+          <Text style={styles.title} numberOfLines={1} ellipsizeMode="tail">
+            {post.title}
+          </Text>
         </Touchable>
         {post.community && (
           <View style={styles.community}>
@@ -469,7 +471,7 @@ export function useFeedViewability(feed: NativeFeed) {
 }
 
 const styles = StyleSheet.create({
-  flex: { flex: 1 },
+  flex: { flex: 1, minWidth: 0 },
   post: {
     paddingHorizontal: gutter,
     paddingVertical: 20,

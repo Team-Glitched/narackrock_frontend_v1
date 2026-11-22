@@ -130,12 +130,12 @@ export function Card({ children, style }: { children: ReactNode; style?: StylePr
 
 const badgeColors = {
   request: {
-    borderColor: "#57358a",
-    backgroundColor: colors["primary-deep"],
-    color: colors["primary-soft"],
+    borderColor: "#5b00ff",
+    backgroundColor: "#5b00ff",
+    color: "#ffffff",
   },
-  approved: { borderColor: "#3c5a4d", backgroundColor: "#24342e", color: "#c1e4d3" },
-  rejected: { borderColor: "#61414a", backgroundColor: "#38292e", color: "#f1c1cb" },
+  approved: { borderColor: "#16a34a", backgroundColor: "#16a34a", color: "#ffffff" },
+  rejected: { borderColor: "#e11d48", backgroundColor: "#e11d48", color: "#ffffff" },
 };
 
 /** Request status badge (badgeVariants). */
@@ -229,12 +229,11 @@ export const styles = StyleSheet.create({
     alignSelf: "flex-start",
     minHeight: 24,
     justifyContent: "center",
-    borderRadius: 12,
+    borderRadius: 999,
     borderWidth: 1,
-    paddingHorizontal: 9,
+    paddingHorizontal: 12,
     paddingVertical: 3,
-    marginBottom: 10,
   },
-  badgeText: { fontSize: 14, lineHeight: 16, fontWeight: "500" },
+  badgeText: { fontSize: 13, lineHeight: 16, fontWeight: "600" },
   preview: { borderRadius: 6, overflow: "hidden" },
 });
