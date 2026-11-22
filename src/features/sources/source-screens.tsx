@@ -12,7 +12,6 @@ import {
   type PointerEvent,
   type ReactNode,
 } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
 import {
   useInfiniteQuery,
   useMutation,
@@ -247,9 +246,7 @@ function SourceDiscoveryRail({
     active: boolean;
   } | null>(null);
   const suppressClick = useRef(false);
-  const [page, setPage] = useState(0);
   const count = items?.length ?? 0;
-  const index = Math.max(0, Math.min(page, count - 1));
 
   function moveTo(next: number) {
     const track = rail.current;
@@ -308,34 +305,6 @@ function SourceDiscoveryRail({
     <section aria-label={title}>
       <div className="flex min-h-9 items-center justify-between gap-2">
         <h2 className="m-0 text-title leading-6 font-bold tracking-[-0.4px]">{title}</h2>
-        {count > 1 && (
-          <div className="flex shrink-0 items-center gap-1.5">
-            <span role="status" className="mr-1 text-caption text-app-muted tabular-nums">
-              <span className="sr-only">{title} </span>
-              {index + 1} / {count}
-            </span>
-            <button
-              type="button"
-              className={sourceStyles.osDiscoveryArrow}
-              aria-label={`${title} 이전 카드`}
-              aria-controls={railId}
-              disabled={index === 0}
-              onClick={() => moveTo(index - 1)}
-            >
-              <ChevronLeft size={18} aria-hidden="true" />
-            </button>
-            <button
-              type="button"
-              className={sourceStyles.osDiscoveryArrow}
-              aria-label={`${title} 다음 카드`}
-              aria-controls={railId}
-              disabled={index === count - 1}
-              onClick={() => moveTo(index + 1)}
-            >
-              <ChevronRight size={18} aria-hidden="true" />
-            </button>
-          </div>
-        )}
       </div>
       {!items &&
         (error ? (
@@ -360,10 +329,6 @@ function SourceDiscoveryRail({
           ref={rail}
           className={sourceStyles.osDiscoveryRail}
           data-paged={count > 1}
-          onScroll={({ currentTarget: track }) => {
-            const step = discoveryCardStep(track);
-            if (step) setPage(Math.round(track.scrollLeft / step));
-          }}
           onPointerDown={startDrag}
           onPointerMove={updateDrag}
           onPointerUp={finishDrag}

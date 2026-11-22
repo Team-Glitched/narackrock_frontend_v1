@@ -49,7 +49,7 @@ export const workspaceStyles = {
   ].join(" "),
   workspaceTabs: [
     "workspace-tabs",
-    "[.design-canvas_&]:flex [.design-canvas_&]:gap-2 [.design-canvas_&]:overflow-auto [.design-canvas_&]:[scrollbar-width:none]",
+    "[.design-canvas_&]:flex [.design-canvas_&]:shrink-0 [.design-canvas_&]:gap-2 [.design-canvas_&]:overflow-auto [.design-canvas_&]:[scrollbar-width:none]",
     "[.design-canvas_&]:m-0 [.design-canvas_&]:py-1",
     "[.design-canvas_&_button]:min-h-7 [.design-canvas_&_button]:flex-none [.design-canvas_&_button]:rounded-full [.design-canvas_&_button]:px-3 [.design-canvas_&_button]:py-1",
     "[.design-canvas_&_button]:border [.design-canvas_&_button]:border-solid [.design-canvas_&_button]:border-app-border",
@@ -82,10 +82,10 @@ export const workspaceStyles = {
   ].join(" "),
   workspaceSearch: [
     "workspace-search",
-    "[.design-canvas_&]:flex [.design-canvas_&]:items-center [.design-canvas_&]:gap-[10px] [.design-canvas_&]:bg-app-surface",
-    "[.design-canvas_&]:bg-none [.design-canvas_&]:m-0 [.design-canvas_&]:h-11 [.design-canvas_&]:rounded-[20px]",
-    "[.design-canvas_&]:p-[0_14px]",
-    "[.design-canvas_&_img]:h-auto [.design-canvas_&_img]:w-auto [.design-canvas_&_img]:flex-none",
+    "[.design-canvas_&]:flex [.design-canvas_&]:shrink-0 [.design-canvas_&]:items-center [.design-canvas_&]:gap-2.5 [.design-canvas_&]:bg-app-surface",
+    "[.design-canvas_&]:bg-none [.design-canvas_&]:m-0 [.design-canvas_&]:min-h-12 [.design-canvas_&]:h-12 [.design-canvas_&]:rounded-[24px]",
+    "[.design-canvas_&]:px-4",
+    "[.design-canvas_&_img]:h-5 [.design-canvas_&_img]:w-5 [.design-canvas_&_img]:flex-none",
     "[.design-canvas_&_input]:bg-transparent [.design-canvas_&_input]:bg-none [.design-canvas_&_input]:w-full [.design-canvas_&_input]:min-w-0",
     "[.design-canvas_&_input]:[outline-offset:4px] [.design-canvas_&_input]:text-label [.design-canvas_&_input]:border-0",
     "[.design-canvas_&_input]:border-none [.design-canvas_&_input]:border-current",
