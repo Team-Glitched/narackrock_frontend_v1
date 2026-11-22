@@ -357,7 +357,7 @@ export function NativeStudioBridge({ studio }: { studio: Studio }) {
       case "studio-publish-close":
         return studio.setShowPublishConfirmation(false);
       case "studio-publish-image":
-        void pickNativeImage()
+        void pickNativeImage({ crop: true })
           .then((image) => {
             if (image) studio.setPublishImage(image);
           })

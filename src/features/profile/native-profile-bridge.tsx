@@ -410,7 +410,7 @@ export function NativeEditProfileBridge({
       switch (action.type) {
         case "pick-image":
           if (!controls || saving) return;
-          void pickNativeImage()
+          void pickNativeImage({ crop: true })
             .then((file) => {
               if (file) controls.pick(file);
             })

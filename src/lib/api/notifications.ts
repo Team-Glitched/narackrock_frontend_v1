@@ -59,9 +59,9 @@ export const readAllNotifications = (throughId: number) =>
     method: "PATCH",
     body: JSON.stringify({ throughId }),
   });
-export async function deleteReadNotifications(): Promise<void> {
+async function deleteNotificationEndpoint(path: string, unavailableMessage: string): Promise<void> {
   try {
-    await apiRequest<ApiResponse<void> | undefined>("/api/v1/notifications/read", { method: "DELETE" });
+    await apiRequest<ApiResponse<void> | undefined>(path, { method: "DELETE" });
   } catch (cause) {
     if (!(cause instanceof ApiError)) throw cause;
     if (cause.status === 401 && getCurrentUserId() !== null) {
@@ -71,9 +71,27 @@ export async function deleteReadNotifications(): Promise<void> {
     } else if (cause.status !== 404 && cause.status !== 405) {
       throw cause;
     }
-    throw new ApiError(503, "현재 서버에서 읽은 알림 삭제 기능을 사용할 수 없습니다. 잠시 후 다시 시도해 주세요.",
-      "NOTIFICATION_DELETE_UNAVAILABLE");
+    throw new ApiError(503, unavailableMessage, "NOTIFICATION_DELETE_UNAVAILABLE");
   }
+}
+export function deleteReadNotifications(): Promise<void> {
+  return deleteNotificationEndpoint(
+    "/api/v1/notifications/read",
+    "현재 서버에서 읽은 알림 삭제 기능을 사용할 수 없습니다. 잠시 후 다시 시도해 주세요.",
+  );
+}
+export function deleteNotification(id: number): Promise<void> {
+  return deleteNotificationEndpoint(
+    `/api/v1/notifications/${id}`,
+    "현재 서버에서 알림 삭제 기능을 사용할 수 없습니다. 잠시 후 다시 시도해 주세요.",
+  );
+}
+
+/** A grouped row must finish every deletion before its list is refreshed, including partial failures. */
+export async function deleteNotifications(ids: number[]): Promise<void> {
+  const results = await Promise.allSettled(ids.map(deleteNotification));
+  const failed = results.find((result) => result.status === "rejected");
+  if (failed) throw failed.reason;
 }
 export const getNotificationPreferences = () =>
   data<NotificationPreferences>("/api/v1/notifications/preferences");

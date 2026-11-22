@@ -29,26 +29,26 @@ export type GalleryProposal = {
 
 export function listGalleryProposals(status: ProposalStatus | null, cursor: number | null, signal?: AbortSignal) {
   return data<{ proposals: GalleryProposal[]; nextCursor: number | null; hasNext: boolean }>(
-    `/api/v1/admin/gallery-proposals?${cursorQuery({ status, cursor, size: 20 })}`,
+    `/api/v1/admin/community-proposals?${cursorQuery({ status, cursor, size: 20 })}`,
     { signal },
   );
 }
 
 export function approveGalleryProposal(proposalId: number) {
   return data<{ proposalId: number; status: ProposalStatus; galleryId: number | null }>(
-    `/api/v1/admin/gallery-proposals/${proposalId}/approve`,
+    `/api/v1/admin/community-proposals/${proposalId}/approve`,
     { method: "PATCH" },
   );
 }
 
 export function rejectGalleryProposal(proposalId: number, reason: string) {
-  return data<{ proposalId: number; status: ProposalStatus }>(`/api/v1/admin/gallery-proposals/${proposalId}/reject`, {
+  return data<{ proposalId: number; status: ProposalStatus }>(`/api/v1/admin/community-proposals/${proposalId}/reject`, {
     method: "PATCH",
     body: JSON.stringify({ reason }),
   });
 }
 
-export type ReportTargetType = "POST" | "POST_COMMENT" | "SHORT" | "SHORT_COMMENT";
+export type ReportTargetType = "POST" | "POST_COMMENT" | "SHORT" | "SHORT_COMMENT" | "OPEN_SOURCE" | "OPEN_SOURCE_COMMENT";
 export type ReportUser = { userId: number; nickname: string | null };
 export type AdminReport = {
   reportId: number;

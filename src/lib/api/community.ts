@@ -93,17 +93,17 @@ export const DEFAULT_GALLERY_ID = 1;
 // 전체 갤러리 목록. 비로그인도 호출할 수 있고, 페이지네이션 없이 전량이 온다.
 // 정렬은 서버가 구독자 수 내림차순 → id 오름차순으로 고정한다.
 export function fetchGalleries(signal?: AbortSignal): Promise<GalleryListItem[]> {
-  return apiRequest<ApiResponse<GalleryListItem[]>>("/api/v1/galleries", { signal }).then((r) => r.data);
+  return apiRequest<ApiResponse<GalleryListItem[]>>("/api/v1/communities", { signal }).then((r) => r.data);
 }
 
 export function fetchManageableGalleries(signal?: AbortSignal): Promise<GalleryListItem[]> {
-  return apiRequest<ApiResponse<GalleryListItem[]>>("/api/v1/galleries/manageable", { signal })
+  return apiRequest<ApiResponse<GalleryListItem[]>>("/api/v1/communities/manageable", { signal })
     .then((response) => response.data);
 }
 
 // 요청자가 구독한 갤러리만. 인증 필수 — 비로그인으로 부르면 401(빈 본문)이다.
 export function fetchSubscribedGalleries(signal?: AbortSignal): Promise<GalleryListItem[]> {
-  return apiRequest<ApiResponse<GalleryListItem[]>>("/api/v1/galleries/subscribed", { signal }).then(
+  return apiRequest<ApiResponse<GalleryListItem[]>>("/api/v1/communities/subscribed", { signal }).then(
     (r) => r.data,
   );
 }
@@ -117,7 +117,7 @@ export function fetchSubscribedGalleries(signal?: AbortSignal): Promise<GalleryL
  */
 export function subscribeGallery(galleryId: number): Promise<void> {
   return apiRequest<ApiResponse<GallerySubscribeResponse>>(
-    `/api/v1/galleries/${galleryId}/subscriptions`,
+    `/api/v1/communities/${galleryId}/subscriptions`,
     {
       method: "POST",
     },
@@ -132,7 +132,7 @@ export function subscribeGallery(galleryId: number): Promise<void> {
 // 구독 취소. 구독 중이 아니면 404 NOT_SUBSCRIBED — 구독과 같은 이유로 성공으로 흡수한다.
 // 응답에 data 키가 없으므로(NON_NULL 봉투) 본문을 읽지 않는다.
 export function unsubscribeGallery(galleryId: number): Promise<void> {
-  return apiRequest<ApiResponse<void>>(`/api/v1/galleries/${galleryId}/subscriptions`, {
+  return apiRequest<ApiResponse<void>>(`/api/v1/communities/${galleryId}/subscriptions`, {
     method: "DELETE",
   })
     .then(() => undefined)
@@ -169,7 +169,7 @@ export function fetchPosts(
   const trimmed = keyword?.trim();
   if (trimmed) params.set("keyword", trimmed);
   return apiRequest<ApiResponse<PostListResponse>>(
-    `/api/v1/galleries/${galleryId}/posts?${params}`, { signal },
+    `/api/v1/communities/${galleryId}/posts?${params}`, { signal },
   ).then(({ data }) => {
     if (!data.galleryName?.trim()) return data;
     const gallery = { galleryId: data.galleryId, name: data.galleryName };
@@ -197,7 +197,7 @@ export function createPost(
   content: string,
   imageFileId: number | null = null,
 ): Promise<PostCreateResponse> {
-  return apiRequest<ApiResponse<PostCreateResponse>>(`/api/v1/galleries/${galleryId}/posts`, {
+  return apiRequest<ApiResponse<PostCreateResponse>>(`/api/v1/communities/${galleryId}/posts`, {
     method: "POST",
     body: JSON.stringify({ title, content, imageFileId }),
   }).then((response) => response.data);
@@ -267,39 +267,39 @@ export type GalleryRole = { galleryId: number; galleryRole: "MANAGER" | null; is
 
 /** The caller's moderation rights in one gallery; ownership fields are never used as permission. */
 export function getMyGalleryRole(galleryId: number, signal?: AbortSignal): Promise<GalleryRole> {
-  return apiRequest<ApiResponse<GalleryRole>>(`/api/v1/galleries/${galleryId}/manage/me`, { signal }).then((r) => r.data);
+  return apiRequest<ApiResponse<GalleryRole>>(`/api/v1/communities/${galleryId}/manage/me`, { signal }).then((r) => r.data);
 }
 
 export type GalleryManager = { userId: number; nickname: string | null; profileImageUrl: string | null; assignedAt: string };
 
 /** The gallery's community admins (`MANAGER`), oldest first. */
 export function getGalleryManagers(galleryId: number, signal?: AbortSignal): Promise<GalleryManager[]> {
-  return apiRequest<ApiResponse<GalleryManager[]>>(`/api/v1/galleries/${galleryId}/manage/managers`, { signal }).then(
+  return apiRequest<ApiResponse<GalleryManager[]>>(`/api/v1/communities/${galleryId}/manage/managers`, { signal }).then(
     (r) => r.data,
   );
 }
 
 export function grantGalleryManager(galleryId: number, userId: number): Promise<void> {
-  return apiRequest(`/api/v1/galleries/${galleryId}/manage/managers`, {
+  return apiRequest(`/api/v1/communities/${galleryId}/manage/managers`, {
     method: "POST",
     body: JSON.stringify({ userId }),
   }).then(() => undefined);
 }
 
 export function revokeGalleryManager(galleryId: number, userId: number): Promise<void> {
-  return apiRequest(`/api/v1/galleries/${galleryId}/manage/managers/${userId}`, { method: "DELETE" }).then(
+  return apiRequest(`/api/v1/communities/${galleryId}/manage/managers/${userId}`, { method: "DELETE" }).then(
     () => undefined,
   );
 }
 
 export function updateGalleryImages(galleryId: number, imageFileId: number | null, bannerImageFileId: number | null): Promise<void> {
-  return apiRequest(`/api/v1/galleries/${galleryId}/manage/images`, {
+  return apiRequest(`/api/v1/communities/${galleryId}/manage/images`, {
     method: "PUT", body: JSON.stringify({ imageFileId, bannerImageFileId }),
   }).then(() => undefined);
 }
 
 export function updateGalleryDescription(galleryId: number, description: string): Promise<void> {
-  return apiRequest(`/api/v1/galleries/${galleryId}/manage`, {
+  return apiRequest(`/api/v1/communities/${galleryId}/manage`, {
     method: "PATCH",
     body: JSON.stringify({ description }),
   }).then(() => undefined);
@@ -328,13 +328,13 @@ export type GalleryBan = {
 
 export function getGalleryModerationLogs(galleryId: number, cursor: number | null) {
   return apiRequest<ApiResponse<{ logs: GalleryModerationLog[]; nextCursor: number | null; hasNext: boolean }>>(
-    `/api/v1/galleries/${galleryId}/manage/logs?size=20${cursor === null ? "" : `&cursor=${cursor}`}`,
+    `/api/v1/communities/${galleryId}/manage/logs?size=20${cursor === null ? "" : `&cursor=${cursor}`}`,
   ).then((r) => r.data);
 }
 
 export function getGalleryBans(galleryId: number, cursor: number | null) {
   return apiRequest<ApiResponse<{ bans: GalleryBan[]; nextCursor: number | null; hasNext: boolean }>>(
-    `/api/v1/galleries/${galleryId}/manage/bans?size=20${cursor === null ? "" : `&cursor=${cursor}`}`,
+    `/api/v1/communities/${galleryId}/manage/bans?size=20${cursor === null ? "" : `&cursor=${cursor}`}`,
   ).then((r) => r.data);
 }
 
@@ -342,14 +342,14 @@ export function sanctionGalleryMember(
   galleryId: number,
   body: { userId: number; type: "SUSPEND" | "EXPEL"; durationDays: number | null; reason: string },
 ): Promise<{ banId: number }> {
-  return apiRequest<ApiResponse<{ banId: number }>>(`/api/v1/galleries/${galleryId}/manage/bans`, {
+  return apiRequest<ApiResponse<{ banId: number }>>(`/api/v1/communities/${galleryId}/manage/bans`, {
     method: "POST",
     body: JSON.stringify(body),
   }).then((r) => r.data);
 }
 
 export function liftGalleryBan(galleryId: number, banId: number): Promise<void> {
-  return apiRequest(`/api/v1/galleries/${galleryId}/manage/bans/${banId}/lift`, { method: "PATCH" }).then(() => undefined);
+  return apiRequest(`/api/v1/communities/${galleryId}/manage/bans/${banId}/lift`, { method: "PATCH" }).then(() => undefined);
 }
 
 /** Moderator deletion with a recorded reason; distinct from the author's own delete endpoints. */
@@ -359,7 +359,7 @@ export function moderateGalleryContent(
   id: number,
   reason: string,
 ): Promise<void> {
-  return apiRequest(`/api/v1/galleries/${galleryId}/manage/${kind}/${id}/delete`, {
+  return apiRequest(`/api/v1/communities/${galleryId}/manage/${kind}/${id}/delete`, {
     method: "PATCH",
     body: JSON.stringify({ reason }),
   }).then(() => undefined);
@@ -376,14 +376,14 @@ export type MyGalleryProposal = {
 
 /** Community creation is a proposal reviewed by a platform admin, not an immediate gallery. */
 export function proposeGallery(name: string, description: string): Promise<{ proposalId: number; status: "PENDING" }> {
-  return apiRequest<ApiResponse<{ proposalId: number; status: "PENDING" }>>("/api/v1/gallery-proposals", {
+  return apiRequest<ApiResponse<{ proposalId: number; status: "PENDING" }>>("/api/v1/community-proposals", {
     method: "POST",
     body: JSON.stringify({ name, description }),
   }).then((r) => r.data);
 }
 
 export function getMyGalleryProposals(signal?: AbortSignal): Promise<MyGalleryProposal[]> {
-  return apiRequest<ApiResponse<MyGalleryProposal[]>>("/api/v1/gallery-proposals/me", { signal }).then((r) => r.data);
+  return apiRequest<ApiResponse<MyGalleryProposal[]>>("/api/v1/community-proposals/me", { signal }).then((r) => r.data);
 }
 
 export type PopularPost = PostListItem & {

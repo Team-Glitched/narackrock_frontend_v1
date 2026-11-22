@@ -11,7 +11,7 @@ export type NativePagedList<T> = NativeList<T> & {
   appendFailed: boolean;
 };
 
-export type NativeContentKind = "post" | "short";
+export type NativeContentKind = "post" | "short" | "source";
 
 export type NativeSong = {
   shortId: number;

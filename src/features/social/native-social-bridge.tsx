@@ -348,6 +348,7 @@ export function NativeSocialFriendsBridge({ onSearch }: { onSearch: () => void }
 
 function SignedOutFriendsBridge({ onSearch }: { onSearch: () => void }) {
   const nav = useSocialNavigation(onSearch);
+  const { to } = useUrlNavigation();
   const { requestLogin } = useLoginPrompt();
   const friends: NativeFriends = { signedIn: false, message: friendsSignInMessage };
   const model: NativeSocial = {
@@ -355,10 +356,11 @@ function SignedOutFriendsBridge({ onSearch }: { onSearch: () => void }) {
     posts: null,
     communities: null,
     friends,
-    create: null,
+    create: { label: "친구 찾기", accessibilityLabel: "친구 찾기" },
   };
   return useSocialScreen(model, nav, (action) => {
-    if (action.type === "sign-in") requestLogin();
+    if (action.type === "create") to(creationTarget("people").path);
+    else if (action.type === "sign-in") requestLogin();
   });
 }
 
@@ -380,9 +382,10 @@ function SignedInFriendsBridge({ userId, onSearch }: { userId: number; onSearch:
     posts: null,
     communities: null,
     friends,
-    create: null,
+    create: { label: "친구 찾기", accessibilityLabel: "친구 찾기" },
   };
   return useSocialScreen(model, nav, (action) => {
+    if (action.type === "create") return to(creationTarget("people").path);
     if (isFriendsAction(action))
       handleFriends(action, {
         mutual,

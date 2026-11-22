@@ -5,7 +5,7 @@ import { designTokens } from "@/styles/tokens";
 import { creationTarget } from "./creation-target";
 import { useUrlNavigation } from "./use-url-navigation";
 
-type CreateScope = "posts" | "communities" | "sources";
+type CreateScope = "posts" | "communities" | "sources" | "people";
 type Position = { x: number; y: number };
 type Drag = {
   pointerId: number;
@@ -14,7 +14,6 @@ type Drag = {
   origin: Position;
 };
 
-const width = 104;
 const height = 50;
 const inset = Number.parseFloat(designTokens.spacing.gutter);
 const clamp = (value: number) => Math.max(0, Math.min(1, value));
@@ -25,7 +24,8 @@ export const contextualCreateArea = `${sharedStyles.screenBody} relative [&_.scr
 export function ContextualCreate({ scope, galleryId }: { scope: CreateScope; galleryId?: number | null }) {
   const { to } = useUrlNavigation();
   const target = creationTarget(scope, galleryId);
-  const label = scope === "posts" ? "글쓰기" : "만들기";
+  const label = scope === "posts" ? "글쓰기" : scope === "people" ? "친구 찾기" : "만들기";
+  const width = scope === "people" ? 116 : 104;
   const [position, setPosition] = useState<Position>({ x: 1, y: 1 });
   const [isDragging, setIsDragging] = useState(false);
   const [topInset, setTopInset] = useState(inset);
@@ -98,7 +98,7 @@ export function ContextualCreate({ scope, galleryId }: { scope: CreateScope; gal
         left: `calc(${inset}px + max(0px, 100% - ${width + 2 * inset}px) * ${position.x})`,
         top: `calc(${topInset}px + max(0px, 100% - ${height + topInset + inset}px) * ${position.y})`,
       }}
-      aria-label={scope === "posts" ? label : `${label}: ${target.label}`}
+      aria-label={scope === "posts" || scope === "people" ? label : `${label}: ${target.label}`}
       aria-description="끌어 놓으면 가까운 모서리에 붙습니다. 키보드에서는 방향키로 옮깁니다."
       onPointerDown={(event) => {
         if (!event.isPrimary || event.button !== 0) return;

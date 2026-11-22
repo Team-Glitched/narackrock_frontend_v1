@@ -6,7 +6,6 @@ import { DesignViewport } from "@/components/design-viewport";
 import { Header } from "@/features/navigation/header";
 import { Footer } from "@/features/navigation/footer";
 import { NotificationsOverlay } from "@/features/notifications/notifications-overlay";
-import { creationTarget } from "@/features/navigation/creation-target";
 import { resolveSearchScope } from "@/features/search/search-scope";
 import { sharedStyles } from "@/styles/shared.styles";
 import { nativeApp } from "@/lib/native-app";
@@ -14,20 +13,12 @@ import { NativeLibraryBridge } from "@/features/workspace/native-library-bridge"
 import { NativePageStateBridge } from "@/features/community/native-community-bridge";
 export default function ImportSourcePage() {
   const route = useRouteComposition();
-  const { to, back, params, query, currentPath } = route;
+  const { to, back, params, query } = route;
   const returnPath = route.trackId
     ? route.notesUrl({ trackId: route.trackId, clipId: route.clipId })
     : route.studioUrl;
   const galleryId = readId(params.galleryId) ?? readId(query.get("galleryId"));
   const scope = resolveSearchScope(query.get("scope"), "sources", Boolean(galleryId));
-  const target = creationTarget(scope, galleryId);
-  const onCreate = () =>
-    to(
-      target.path,
-      target.path === "/studio/new"
-        ? { state: { studioFrom: currentPath, studioIndex: window.history.state?.idx } }
-        : undefined,
-    );
   const search = () => to(withQuery("/search", { scope, galleryId }));
   if (nativeApp())
     return (
@@ -45,7 +36,7 @@ export default function ImportSourcePage() {
         ) : (
           <NativeLibraryBridge importing onSearch={search} onBack={() => back(returnPath)} />
         )}
-        <Footer activeTab={null} onCreate={onCreate} createLabel={target.label} />
+        <Footer activeTab={null} />
         <NotificationsOverlay />
       </>
     );
@@ -60,7 +51,7 @@ export default function ImportSourcePage() {
             <SourceLibraryContent importing />
           )}
         </div>
-        <Footer activeTab={null} onCreate={onCreate} createLabel={target.label} />
+        <Footer activeTab={null} />
         <NotificationsOverlay />
       </div>
     </DesignViewport>

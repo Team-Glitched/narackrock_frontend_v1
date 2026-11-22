@@ -7,18 +7,16 @@ import { DesignViewport } from "@/components/design-viewport";
 import { Footer } from "@/features/navigation/footer";
 import { NotificationsOverlay } from "@/features/notifications/notifications-overlay";
 import { useUrlNavigation } from "@/features/navigation/use-url-navigation";
-import { creationTarget } from "@/features/navigation/creation-target";
 import { resolveSearchScope } from "@/features/search/search-scope";
-import { readId } from "@/features/navigation/paths";
+import { readId, searchFallbackPath } from "@/features/navigation/paths";
 import { sharedStyles } from "@/styles/shared.styles";
 
 export default function SearchPage() {
-  const { to, back, params, query, currentPath } = useUrlNavigation();
+  const { to, back, params, query } = useUrlNavigation();
   const [, setQuery] = useSearchParams();
   const location = useLocation();
   const galleryId = readId(params.galleryId) ?? readId(query.get("galleryId"));
   const scope = resolveSearchScope(query.get("scope"), "songs", Boolean(galleryId));
-  const target = creationTarget(scope, galleryId);
   const result = useRouteCommunity(galleryId);
   const update = (key: string, value: string) =>
     setQuery(
@@ -39,7 +37,7 @@ export default function SearchPage() {
     query: query.get("q") ?? "",
     onQuery: (value: string) => update("q", value),
     community,
-    onBack: () => back("/"),
+    onBack: () => back(searchFallbackPath(scope, galleryId)),
     onPost: (id: number) =>
       to(galleryId ? `/communities/${galleryId}/posts/${id}` : `/posts/${id}`),
     onSong: (id: number) => to(`/abyss/${id}`),
@@ -50,46 +48,20 @@ export default function SearchPage() {
     return (
       <>
         <NativeSearchBridge {...search} onCommunity={(id) => to(`/communities/${id}`)} />
-        <Footer
-          activeTab={null}
-          createLabel={target.label}
-          onCreate={() =>
-            to(
-              target.path,
-              target.path === "/studio/new"
-                ? {
-                    state: { studioFrom: currentPath, studioIndex: window.history.state?.idx },
-                  }
-                : undefined,
-            )
-          }
-        />
+        <Footer activeTab={null} />
         <NotificationsOverlay />
       </>
     );
   return (
     <DesignViewport>
       <div className={sharedStyles.phoneFrame}>
-        <div className={sharedStyles.screenBody}>
+        <div className="min-h-0 flex-1 overflow-hidden pb-2">
           <ScopedSearch
             {...search}
             onCommunity={(value) => to(`/communities/${value.galleryId}`)}
           />
         </div>
-        <Footer
-          activeTab={null}
-          createLabel={target.label}
-          onCreate={() =>
-            to(
-              target.path,
-              target.path === "/studio/new"
-                ? {
-                    state: { studioFrom: currentPath, studioIndex: window.history.state?.idx },
-                  }
-                : undefined,
-            )
-          }
-        />
+        <Footer activeTab={null} />
         <NotificationsOverlay />
       </div>
     </DesignViewport>

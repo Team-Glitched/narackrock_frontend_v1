@@ -716,6 +716,8 @@ function PublishForm({ form }: { form: NonNullable<NativeStudio["publishForm"]> 
         <TextInput
           accessibilityLabel="곡 제목"
           value={title}
+          placeholder="예: 새벽 공기를 닮은 피아노"
+          placeholderTextColor={colors.muted}
           onChangeText={setTitle}
           maxLength={100}
           selectionColor={colors.accent}

@@ -175,6 +175,7 @@ export type NativeSourceDetail =
         saved: boolean;
         canPreview: boolean;
       };
+      canReport: boolean;
       saveBusy: boolean;
       saveError: string | null;
       /** A reaction or save is being sent: the reaction and save buttons are disabled. */

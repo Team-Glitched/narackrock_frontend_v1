@@ -59,7 +59,7 @@ export function PopularContentActions({ kind, id, title, ownerId }: { kind: "pos
     <button
       ref={anchor}
       type="button"
-      className="relative grid size-7 shrink-0 place-items-center rounded-full text-app-muted transition-colors hover:bg-white/10 hover:text-app-fg after:absolute after:-inset-1.5 after:content-[''] [&>img]:size-5"
+      className="relative grid size-8 shrink-0 place-items-center rounded-full text-app-muted transition-colors hover:bg-white/10 hover:text-app-fg after:absolute after:-inset-1 after:content-[''] [&>img]:h-auto [&>img]:w-auto [&>img]:max-w-none"
       aria-label={`${title} 더보기`}
       aria-haspopup="menu"
       aria-expanded={menu}

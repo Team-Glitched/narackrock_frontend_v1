@@ -160,7 +160,7 @@ export type NativeSocial = {
   posts: NativeFeed | null;
   communities: NativeCommunityDirectory | null;
   friends: NativeFriends | null;
-  /** The floating create button (ContextualCreate); null on the friends tab. */
+  /** The floating create button (ContextualCreate). */
   create: { label: string; accessibilityLabel: string } | null;
 };
 

@@ -291,9 +291,9 @@ export type CommentsState = {
   writes: CommentWrites;
   /** Sends `text` as a comment, or as a reply to the current target. */
   send: (text: string) => void;
-  /** The reply button of a thread with replies; an empty draft follows the thread as reply target. */
-  toggleReplies: (item: CommentItem, open: boolean, hasDraft: boolean) => void;
-  /** The reply button of a thread without replies; true when the input should take focus. */
+  /** Opens or collapses a thread's replies without altering the current reply target (unless collapsing it). */
+  toggleReplies: (item: CommentItem, open: boolean, hasDraft?: boolean) => void;
+  /** Focuses the composer targeting `item` as the reply parent. */
   startReply: (item: CommentItem) => boolean;
   hide: (item: CommentItem, parentId: number | null) => void;
   /** Opens the report sheet; absent when the target has no comment reports. */
@@ -455,14 +455,10 @@ export function useComments({
       if (!requireLogin() || busy || hideOnServer.isPending || !writable || !text.trim()) return;
       create.mutate({ text: text.trim(), parentId: reply?.threadId ?? null });
     },
-    /** The reply button of a thread with replies; an empty draft follows the thread as reply target. */
-    toggleReplies(item: CommentItem, open: boolean, hasDraft: boolean) {
+    /** Opens or collapses replies; clears the reply target only if collapsing the active thread. */
+    toggleReplies(item: CommentItem, open: boolean) {
       toggle(item.id);
-      if (!hasDraft) {
-        if (open && reply?.threadId === item.id) setReply(null);
-        else if (!open && writable)
-          setReply({ commentId: item.id, threadId: item.id, author: item.author });
-      }
+      if (open && reply?.threadId === item.id) setReply(null);
     },
     /** The reply button of a thread without replies; true when the input should take focus. */
     startReply(item: CommentItem) {

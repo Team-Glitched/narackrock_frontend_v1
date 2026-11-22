@@ -9,7 +9,8 @@ import { postError } from "@/features/posts/post-utils";
 import { ApiError } from "@/lib/api/client";
 import { getPostShareLink } from "@/lib/api/community";
 import { canonicalShareLink } from "@/lib/api/content-link";
-import { reportPost, reportShort } from "@/lib/api/reports";
+import { getOpenSourceShare } from "@/lib/api/open-sources";
+import { reportOpenSource, reportPost, reportShort } from "@/lib/api/reports";
 import { getShortShareLink } from "@/lib/api/shorts";
 import { onScreenAction, requestNative } from "@/lib/native-app";
 import type {
@@ -107,7 +108,11 @@ export function useNativeScreen<K extends NativeScreenKind>(
 
   async function share(kind: NativeContentKind, id: number, title: string) {
     try {
-      const { shareUrl } = await (kind === "post" ? getPostShareLink(id) : getShortShareLink(id));
+      const { shareUrl } = await (kind === "post"
+        ? getPostShareLink(id)
+        : kind === "short"
+          ? getShortShareLink(id)
+          : getOpenSourceShare(id));
       await shareLink(title, canonicalShareLink(kind, id, shareUrl, publicWebOrigin()));
     } catch (cause) {
       // The WebView turns alert() into a native dialog.
@@ -164,7 +169,9 @@ export function useNativeScreen<K extends NativeScreenKind>(
       onSubmit={(reason, description) =>
         report.kind === "post"
           ? reportPost(report.id, reason, description)
-          : reportShort(report.id, reason, description)
+          : report.kind === "short"
+            ? reportShort(report.id, reason, description)
+            : reportOpenSource(report.id, reason, description)
       }
       onDone={() => setReport(null)}
     />

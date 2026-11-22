@@ -167,19 +167,21 @@ function FeaturedStarButton({
 export function useMyMusic(tab: MusicListTab, featuredUserId?: number) {
   const userId = useCurrentUserId();
   const targetUserId = featuredUserId ?? userId;
+  const otherFeatured = featuredUserId !== undefined && featuredUserId !== userId;
+  const activeTab: MusicListTab = otherFeatured ? "featured" : tab;
   const canManageFeatured = userId !== null && targetUserId === userId;
   const queryClient = useQueryClient();
   const profile = useQuery({
     ...profileQuery(userId, targetUserId ?? 0),
     enabled: targetUserId !== null,
   });
-  const songs = useMySongs(20, tab !== "featured");
+  const songs = useMySongs(20, activeTab !== "featured");
   const [savingId, setSavingId] = useState<number | null>(null);
   const [featureNotice, setFeatureNotice] = useState<string | null>(null);
 
   const pinnedShorts = profile.data?.activities.pinnedShorts ?? [];
   const pinnedIds = new Set(pinnedShorts.map((song) => song.shortId));
-  const items = userId === null || tab === "featured" ? [] : songsForTab(songs.items, userId, tab);
+  const items = userId === null || activeTab === "featured" ? [] : songsForTab(songs.items, userId, activeTab);
 
   async function toggleFeatured(song: PinnedSongInput) {
     if (!canManageFeatured || !profile.data || savingId !== null) return;
@@ -212,6 +214,8 @@ export function useMyMusic(tab: MusicListTab, featuredUserId?: number) {
 
   return {
     targetUserId,
+    otherFeatured,
+    activeTab,
     canManageFeatured,
     profile,
     songs,
@@ -232,6 +236,8 @@ function MySongsChart({ tab, onTabChange, onOpenShort, featuredUserId }: {
 }) {
   const {
     targetUserId,
+    otherFeatured,
+    activeTab,
     canManageFeatured,
     profile,
     songs,
@@ -245,19 +251,23 @@ function MySongsChart({ tab, onTabChange, onOpenShort, featuredUserId }: {
 
   return (
     <div className={cn(sharedStyles.listView, sharedStyles.scrollContent)}>
-      <h1 className={sharedStyles.postsListTitle}>{uiLabels.myMusic}</h1>
-      <div className={cn(filterChipRow, "mb-4 px-5")} role="group" aria-label="내 음악 종류">
-        {(["featured", "authored", "participated"] as const).map((value) => (
-          <button key={value} type="button" aria-pressed={tab === value}
-            className={filterChip}
-            onClick={() => {
-              clearNotice();
-              onTabChange(value);
-            }}>
-            {value === "authored" ? "내 작업물" : value === "participated" ? "내 참가작" : "대표 음악"}
-          </button>
-        ))}
-      </div>
+      <h1 className={sharedStyles.postsListTitle}>
+        {otherFeatured ? uiLabels.featuredMusic : uiLabels.myMusic}
+      </h1>
+      {!otherFeatured && (
+        <div className={cn(filterChipRow, "mb-4 px-5")} role="group" aria-label="내 음악 종류">
+          {(["featured", "authored", "participated"] as const).map((value) => (
+            <button key={value} type="button" aria-pressed={activeTab === value}
+              className={filterChip}
+              onClick={() => {
+                clearNotice();
+                onTabChange(value);
+              }}>
+              {value === "authored" ? "내 작업물" : value === "participated" ? "내 참가작" : "대표 음악"}
+            </button>
+          ))}
+        </div>
+      )}
       {canManageFeatured && profile.data && (
         <p className="mb-4 px-5 text-caption leading-[18px] text-app-muted">
           내 작업물의 완성곡 중 한 곡을 대표 음악으로 설정할 수 있어요.
@@ -268,7 +278,7 @@ function MySongsChart({ tab, onTabChange, onOpenShort, featuredUserId }: {
           {featureNotice}
         </p>
       )}
-      {tab === "featured" ? (
+      {activeTab === "featured" ? (
         <FeaturedSongsChart
           key={targetUserId ?? "signed-out"}
           userId={targetUserId}
@@ -291,7 +301,7 @@ function MySongsChart({ tab, onTabChange, onOpenShort, featuredUserId }: {
                     <small className="truncate">{song.author.nickname}</small>
                   </span>
                 </button>
-                {canManageFeatured && profile.data && (pinnedIds.has(song.shortId) || (tab === "authored" && song.completionStatus === "COMPLETED")) && (
+                {canManageFeatured && profile.data && (pinnedIds.has(song.shortId) || (activeTab === "authored" && song.completionStatus === "COMPLETED")) && (
                   <FeaturedStarButton
                     songTitle={song.title}
                     pinned={pinnedIds.has(song.shortId)}
@@ -304,7 +314,7 @@ function MySongsChart({ tab, onTabChange, onOpenShort, featuredUserId }: {
           </div>
           {items.length === 0 && <p role="status" className="px-5 py-10 text-center text-body leading-[20px] text-app-muted">
             {songs.hasMore ? "아직 이 종류의 곡을 찾지 못했습니다. 다음 목록도 확인해 주세요."
-              : tab === "authored" ? "아직 작성한 곡이 없습니다." : "아직 참가한 곡이 없습니다."}
+              : activeTab === "authored" ? "아직 작성한 곡이 없습니다." : "아직 참가한 곡이 없습니다."}
           </p>}
         </>
       )}

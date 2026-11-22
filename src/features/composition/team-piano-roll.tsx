@@ -10,6 +10,7 @@ import { pointerAxes, logicalBounds } from "./pointer-coordinates";
 import { findInstrument } from "./instrument-catalog";
 import { drumPadFor } from "./drum-kit";
 import { DrumPadIcon } from "./drum-pad-icon";
+import { MIN_ROLL_ZOOM, MAX_ROLL_ZOOM, rollTouchPair, zoomRollViewport, type RollViewport } from "./note-roll-zoom";
 
 const pitchNames = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
 const rulerHeight = 30;
@@ -58,7 +59,7 @@ function crossesNote(from: Point, to: Point, left: number, top: number, right: n
 
 export function TeamPianoRoll({
   editor, signature, ppq, maxTick, positionTick, onSeekTick, playing,
-  instrument, initialPitch, onAudition, onSettings, rowHeight = 30, keyWidth = 87, clipStartTick = 0, suggestion, revealSuggestion,
+  instrument, initialPitch, onAudition, onSettings, rowHeight: baseRowHeight = 30, keyWidth: baseKeyWidth = 87, clipStartTick = 0, suggestion, revealSuggestion,
 }: {
   editor: NoteEditorController;
   signature: TimeSignature;
@@ -78,6 +79,9 @@ export function TeamPianoRoll({
   rowHeight?: number;
   keyWidth?: number;
 }) {
+  const zoom = editor.view.zoom;
+  const rowHeight = baseRowHeight * zoom;
+  const keyWidth = baseKeyWidth * zoom;
   const workspaceRef = useRef<HTMLDivElement>(null);
   const rollRef = useRef<HTMLDivElement>(null);
   const gesture = useRef<Gesture | null>(null);
@@ -87,6 +91,12 @@ export function TeamPianoRoll({
   });
   const [viewportWidth, setViewportWidth] = useState(0);
   const [marquee, setMarquee] = useState<Marquee | null>(null);
+  const touches = useRef(new Map<number, Point>());
+  const pinch = useRef<{ view: RollViewport; centre: Point; distance: number } | null>(null);
+  const zoomSession = useRef(false);
+  const suppressClickUntil = useRef(0);
+  const zoomView = useRef<RollViewport | null>(null);
+  const pendingScroll = useRef<number | null>(null);
   const rows = editor.bounds.rows;
   const rowIndices = useMemo(() => new Map(rows.map((pitch, row) => [pitch, row])), [rows]);
   useLayoutEffect(() => {
@@ -111,6 +121,95 @@ export function TeamPianoRoll({
   const pitchLabel = (pitch: number) => drum
     ? drumPadFor(pitch)?.label ?? `타악기 ${pitch}`
     : `${pitchNames[pitch % 12]}${Math.floor(pitch / 12) - 1}`;
+
+  useLayoutEffect(() => {
+    const workspace = workspaceRef.current;
+    if (!workspace) return;
+    if (pendingScroll.current !== null) {
+      workspace.scrollTop = pendingScroll.current;
+      pendingScroll.current = null;
+    }
+    zoomView.current = { width: workspace.clientWidth, height: workspace.clientHeight - rulerHeight,
+      baseKeyWidth, baseRowHeight, baseWindowTicks: windowTicks * zoom, maxTick, rows: rows.length,
+      zoom, viewStartTick: startTick, scrollTop: workspace.scrollTop };
+  });
+
+  function changeZoom(value: number, from?: Point, to = from, initial = zoomView.current) {
+    if (!initial) return;
+    const point = from ?? { x: (initial.width + initial.baseKeyWidth * initial.zoom) / 2, y: initial.height / 2 };
+    const view = { ...initial, scrollTop: initial === zoomView.current
+      ? workspaceRef.current?.scrollTop ?? initial.scrollTop : initial.scrollTop };
+    const next = zoomRollViewport(view, value, point, to ?? point);
+    pendingScroll.current = next.scrollTop;
+    zoomView.current = { ...view, ...next };
+    editor.setZoom(next.zoom, next.viewStartTick);
+    // Panning at the zoom limits may not change the editor state, but still moves the pitch viewport.
+    if (next.zoom === zoom && workspaceRef.current) workspaceRef.current.scrollTop = next.scrollTop;
+  }
+  function touchPoint(event: ReactPointerEvent<HTMLDivElement>) {
+    const point = pointerAxes(event.currentTarget, event);
+    const bounds = logicalBounds(event.currentTarget);
+    return { x: point.x - bounds.left, y: point.y - bounds.top - rulerHeight };
+  }
+  function restartPinch() {
+    const view = zoomView.current;
+    if (!view) return;
+    const points = [...touches.current.values()];
+    const pair = points.length > 1 ? rollTouchPair(points) : { centre: points[0], distance: 0 };
+    pinch.current = points.length ? { ...pair, view: { ...view,
+      scrollTop: workspaceRef.current?.scrollTop ?? view.scrollTop } } : null;
+  }
+  function touchDown(event: ReactPointerEvent<HTMLDivElement>) {
+    if (event.pointerType !== "touch" || touchPoint(event).y < 0 || touches.current.size >= 2) return;
+    touches.current.set(event.pointerId, touchPoint(event));
+    if (touches.current.size < 2) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const active = gesture.current;
+    cancel();
+    if (active && active.notes === latestEditor.current.snapshot.notes) editor.select(active.selected);
+    zoomSession.current = true;
+    for (const id of touches.current.keys()) event.currentTarget.setPointerCapture(id);
+    restartPinch();
+  }
+  function touchMove(event: ReactPointerEvent<HTMLDivElement>) {
+    if (!touches.current.has(event.pointerId)) return;
+    touches.current.set(event.pointerId, touchPoint(event));
+    const active = pinch.current;
+    if (!zoomSession.current || !active) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const points = [...touches.current.values()];
+    const pair = points.length > 1 ? rollTouchPair(points) : { centre: points[0], distance: 0 };
+    changeZoom(active.view.zoom * (active.distance ? pair.distance / active.distance : 1),
+      active.centre, pair.centre, active.view);
+  }
+  function touchEnd(event: ReactPointerEvent<HTMLDivElement>) {
+    if (!touches.current.delete(event.pointerId) || !zoomSession.current) return;
+    event.preventDefault();
+    event.stopPropagation();
+    suppressClickUntil.current = Date.now() + 500;
+    restartPinch();
+    if (!touches.current.size) zoomSession.current = false;
+  }
+  const wheelZoom = useEffectEvent((event: WheelEvent) => {
+    if (!event.ctrlKey && !event.metaKey) return;
+    event.preventDefault();
+    cancel();
+    const workspace = workspaceRef.current!;
+    const point = pointerAxes(workspace, event);
+    const bounds = logicalBounds(workspace);
+    changeZoom(zoom * Math.exp(-event.deltaY / 500), {
+      x: point.x - bounds.left, y: point.y - bounds.top - rulerHeight,
+    });
+  });
+  useEffect(() => {
+    const workspace = workspaceRef.current;
+    if (!workspace) return;
+    const listener = (event: WheelEvent) => wheelZoom(event);
+    workspace.addEventListener("wheel", listener, { passive: false });
+    return () => workspace.removeEventListener("wheel", listener);
+  }, []);
 
   function releaseCapture(pointerId: number) {
     const workspace = workspaceRef.current;
@@ -367,11 +466,28 @@ export function TeamPianoRoll({
     : "none";
 
   return (
+    <div className="note-roll-view flex min-h-0 w-full flex-1 flex-col overflow-hidden">
+      <div className="flex h-8 shrink-0 items-center justify-end gap-1 border-b border-app-line bg-app-panel px-2 text-caption text-app-muted" role="group" aria-label="피아노롤 확대·축소">
+        <button type="button" aria-label="피아노롤 축소" className="h-7 w-9 rounded bg-app-surface text-label disabled:opacity-35"
+          disabled={zoom <= MIN_ROLL_ZOOM} onClick={() => { cancel(); changeZoom(zoom / 1.25); }}>−</button>
+        <output className="w-12 text-center tabular-nums" aria-label="피아노롤 배율">{Math.round(zoom * 100)}%</output>
+        <button type="button" aria-label="피아노롤 확대" className="h-7 w-9 rounded bg-app-surface text-label disabled:opacity-35"
+          disabled={zoom >= MAX_ROLL_ZOOM} onClick={() => { cancel(); changeZoom(zoom * 1.25); }}>+</button>
+      </div>
     <div
       className={cn(studioStyles.noteWorkspace, studioStyles.teamNoteWorkspace)}
       ref={workspaceRef}
       aria-label={drum ? `드럼 피아노롤${hiddenCount ? `, 숨은 노트 ${hiddenCount}개` : ""}` : "피아노롤"}
       style={{ gridTemplateColumns: `${keyWidth}px max-content`, gridTemplateRows: `${rulerHeight}px max-content`, touchAction: "none" }}
+      onPointerDownCapture={touchDown}
+      onPointerMoveCapture={touchMove}
+      onPointerUpCapture={touchEnd}
+      onPointerCancelCapture={touchEnd}
+      onClickCapture={(event) => {
+        if (event.detail > 0 && (zoomSession.current || Date.now() < suppressClickUntil.current)) {
+          event.preventDefault(); event.stopPropagation();
+        }
+      }}
       onPointerDown={pointerDown}
       onPointerMove={pointerMove}
       onPointerUp={pointerUp}
@@ -467,7 +583,7 @@ export function TeamPianoRoll({
             {drum ? (
               <DrumPadIcon kind={drumPadFor(pitch)?.icon ?? "percussion"} />
             ) : (
-              <span style={{ display: "inline", position: "static", transform: "none" }}>{pitchLabel(pitch)}</span>
+              <span style={{ display: "inline", position: "static", transform: "none", fontSize: 12 * zoom }}>{pitchLabel(pitch)}</span>
             )}
           </button>
         ))}
@@ -480,7 +596,7 @@ export function TeamPianoRoll({
         {rows.map((pitch, row) => (
           <div
             className={cn(studioStyles.pianoRow, !drum && pitchNames[pitch % 12].includes("#") ? sharedStyles.sharpRow : "natural-row")}
-            style={{ width, height: rowHeight }}
+            style={{ width, height: rowHeight, minHeight: rowHeight }}
             data-row={row}
             key={pitch}
           >
@@ -573,6 +689,7 @@ export function TeamPianoRoll({
           aria-hidden="true"
         />
       </div>
+    </div>
     </div>
   );
 }
