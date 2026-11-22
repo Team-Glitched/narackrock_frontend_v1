@@ -89,7 +89,7 @@ export default function CreateCommunityPage() {
   return (
     <DesignViewport>
       <div className={sharedStyles.phoneFrame}>
-        <Header onBack={onBack} onSearch={onSearch} />
+        <Header minimal onBack={onBack} onSearch={onSearch} />
         <div className={sharedStyles.screenBody}>
           {signedIn ? (
             <>

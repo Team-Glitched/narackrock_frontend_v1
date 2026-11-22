@@ -236,7 +236,7 @@ export function NativeProfileBridge({
   };
 
   const node = useNativeScreen("profile-view", model, {
-    header: { left: "back", actions: ["notifications", "search", own ? "settings" : "account"] },
+    header: { left: "back", actions: ["notifications", "chat", "search", own ? "settings" : "account"] },
     onBack,
     onSearch,
     onAction: (action) => {
@@ -402,7 +402,7 @@ export function NativeEditProfileBridge({
     submitLabel: "프로필 저장",
   };
   const node = useNativeScreen("profile-edit", model, {
-    header: { left: "back", actions: ["notifications", "search", "settings"] },
+    header: { left: "back", actions: [] },
     onBack,
     onSearch,
     onAction: (action) => {
@@ -474,7 +474,7 @@ export function NativeLikedPostsBridge({
     more: ids && loaded < ids.length ? { busy: loading } : null,
   };
   return useNativeScreen("profile-likes", model, {
-    header: { left: "back", actions: ["notifications", "search", "account"] },
+    header: { left: "back", actions: ["notifications", "chat", "search", "account"] },
     onBack,
     onSearch,
     onAction: (action) => {

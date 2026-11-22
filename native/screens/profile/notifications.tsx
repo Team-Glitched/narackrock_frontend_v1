@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 
-import BellIcon from "../../../public/figma/bell.svg";
+import BellIcon from "../../../public/figma/v3-bell.svg";
 import type {
   NativeNotificationItem,
   NativeNotificationPreferences,
@@ -117,7 +117,7 @@ export function NotificationsScreen({ model, header }: ScreenProps<"profile-noti
           <>
             {ready && model.items.length === 0 && (
               <View style={styles.empty}>
-                <BellIcon width={30} height={30} />
+                <BellIcon width={22} height={26} style={{ opacity: 0.6 }} />
                 <Text style={type.muted}>{model.emptyMessage}</Text>
               </View>
             )}

@@ -24,7 +24,7 @@ import type {
   NativePageState,
 } from "@/lib/native-screens";
 
-const backHeader: NativeHeader = { left: "back", actions: ["notifications", "search", "account"] };
+const backHeader: NativeHeader = { left: "back", actions: ["notifications", "chat", "search", "account"] };
 
 /**
  * The web community directory (CommunityDirectory / JoinedCommunitiesScreen) as native lists: the same

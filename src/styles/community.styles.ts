@@ -481,10 +481,8 @@ export const communityStyles = {
     "[.design-canvas_&>button[type=submit]]:p-0 [.design-canvas_&>button[type=submit]]:bg-app-primary [.design-canvas_&>button[type=submit]]:bg-none [.design-canvas_&>button[type=submit]]:flex",
     "[.design-canvas_&>button[type=submit]]:items-center [.design-canvas_&>button[type=submit]]:justify-center",
     "[.design-canvas_&>button[type=submit]:disabled]:cursor-not-allowed [.design-canvas_&>button[type=submit]:disabled]:opacity-[1]",
-    "[.design-canvas_&>button[type=submit]_img]:absolute [.design-canvas_&>button[type=submit]_img]:top-[calc(50%_+_1px)]",
-    "[.design-canvas_&>button[type=submit]_img]:left-[calc(50%_-_1px)] [.design-canvas_&>button[type=submit]_img]:block [.design-canvas_&>button[type=submit]_img]:h-[22px]",
-    "[.design-canvas_&>button[type=submit]_img]:w-[22px] [.design-canvas_&>button[type=submit]_img]:max-w-none",
-    "[.design-canvas_&>button[type=submit]_img]:transform-[translate(-50%,_-50%)]",
+    "[.design-canvas_&>button[type=submit]_img]:block [.design-canvas_&>button[type=submit]_img]:h-5",
+    "[.design-canvas_&>button[type=submit]_img]:w-5 [.design-canvas_&>button[type=submit]_img]:max-w-none",
   ].join(" "),
   nrCommentText: [
     "nr-comment-text",

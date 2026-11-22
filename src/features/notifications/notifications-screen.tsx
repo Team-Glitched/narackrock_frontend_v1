@@ -1,7 +1,6 @@
 import { notificationError } from "./notification-error";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
-import { Bell } from "lucide-react";
 import {
   notificationCategories,
   type NotificationCategory,
@@ -403,7 +402,7 @@ function NotificationInbox({
               </ul>
               {list.isSuccess && groups.length === 0 && (
                 <div className="flex flex-col items-center gap-3 py-16 text-center text-app-muted">
-                  <Bell size={30} strokeWidth={1.5} />
+                  <Asset name="v3-bell.svg" className="h-[26px] w-[22px] opacity-60" />
                   <p className="text-body">{emptyMessage}</p>
                 </div>
               )}

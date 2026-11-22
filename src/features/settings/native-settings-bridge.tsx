@@ -27,7 +27,7 @@ export function NativeSettingsBridge({
     })),
   };
   return useNativeScreen("profile-settings", model, {
-    header: { left: "back", actions: ["notifications", "search", "account"] },
+    header: { left: "back", actions: ["notifications", "chat", "search", "account"] },
     onBack,
     onSearch,
     onAction: (action) => {
@@ -56,7 +56,7 @@ export function NativePrivacyBridge({
   onBack: () => void;
 }) {
   return useNativeScreen("profile-privacy", privacyPolicy, {
-    header: { left: "back", actions: ["notifications", "search", "account"] },
+    header: { left: "back", actions: ["notifications", "chat", "search", "account"] },
     onBack,
     onSearch,
     onAction: (action) => {

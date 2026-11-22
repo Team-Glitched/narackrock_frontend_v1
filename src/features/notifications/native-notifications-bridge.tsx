@@ -131,7 +131,7 @@ function Inbox({
   const group = (id: number) => groups.find((entry) => entry.first.id === id);
   return useNativeScreen("profile-notifications", model, {
     overlay,
-    header: { left: "back", actions: ["notifications", "search", "account"] },
+    header: { left: "back", actions: ["notifications", "chat", "search", "account"] },
     onBack,
     onSearch,
     onAction: (action) => {

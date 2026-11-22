@@ -57,7 +57,7 @@ export function NativeCreateCommunityBridge({
       }
     : { signedIn: false, message: createCommunitySignInMessage };
   return useNativeScreen("social-create-community", model, {
-    header: { left: "back", actions: ["notifications", "search", "account"] },
+    header: { left: "back", actions: [] },
     onBack,
     onSearch,
     onAction: (action) => {

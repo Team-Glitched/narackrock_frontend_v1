@@ -18,7 +18,7 @@ import type { NativeSourceCreate } from "@/lib/native-screens";
 import { clampCrop } from "./thumbnail-crop";
 
 type Navigation = { onBack: () => void; onSearch: () => void };
-const header = { left: "back", actions: ["notifications", "search", "account"] } as const;
+const header = { left: "back", actions: [] } as const;
 
 /**
  * Browser-owned source form, draft and publication; the details and the audio steps (choose,
