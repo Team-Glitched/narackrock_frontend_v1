@@ -360,7 +360,7 @@ export function ProfileScreen({
         )}
 
         <ProfileWorks
-          title={own ? `${uiLabels.featuredMusic} (${featured.pinnedCount}/${featured.maxFeatured})` : uiLabels.featuredMusic}
+          title={uiLabels.featuredMusic}
           songs={featuredSongs(profile)}
           onOpen={onOpenShort}
           allHref={featuredChartPath(profile, own)}

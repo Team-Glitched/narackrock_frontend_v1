@@ -188,7 +188,6 @@ export function NewProject({ project }: { project: NewProjectState }) {
           onChange={(event) =>
             project.setTitle(clampCodePoints(event.target.value, SONG_TITLE_MAX_LENGTH))
           }
-          maxLength={SONG_TITLE_MAX_LENGTH}
           required
         />
         <small className="text-right text-caption text-app-muted tabular-nums">

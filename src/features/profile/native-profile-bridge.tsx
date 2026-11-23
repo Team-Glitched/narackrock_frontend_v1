@@ -201,9 +201,7 @@ export function NativeProfileBridge({
     ? [
         {
           key: "featured",
-          title: own
-            ? `${uiLabels.featuredMusic} (${featured.pinnedCount}/${featured.maxFeatured})`
-            : uiLabels.featuredMusic,
+          title: uiLabels.featuredMusic,
           status: "ready",
           error: null,
           songs: featuredSongs(profile).map(({ shortId, title, albumImageUrl }) => ({

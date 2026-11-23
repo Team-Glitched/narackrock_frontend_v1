@@ -53,7 +53,6 @@ function CreateForm({ model }: { model: Extract<NativeSourceCreate, { state: "fo
             accessibilityLabel="샘플 이름"
             editable={!model.busy}
             value={title}
-            maxLength={SOURCE_TITLE_MAX_LENGTH}
             style={styles.input}
             onChangeText={(value) => {
               const clamped = clampCodePoints(value, SOURCE_TITLE_MAX_LENGTH);
@@ -71,7 +70,6 @@ function CreateForm({ model }: { model: Extract<NativeSourceCreate, { state: "fo
             accessibilityLabel="설명"
             editable={!model.busy}
             value={description}
-            maxLength={SOURCE_DESCRIPTION_MAX_LENGTH}
             multiline
             style={[styles.input, { minHeight: 80, textAlignVertical: "top" }]}
             onChangeText={(value) => {

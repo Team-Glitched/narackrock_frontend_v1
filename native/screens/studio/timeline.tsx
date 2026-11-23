@@ -724,7 +724,6 @@ function PublishForm({ form }: { form: NonNullable<NativeStudio["publishForm"]> 
           placeholder="예: 새벽 공기를 닮은 피아노"
           placeholderTextColor={colors.muted}
           onChangeText={(value) => setTitle(clampCodePoints(value, SONG_TITLE_MAX_LENGTH))}
-          maxLength={SONG_TITLE_MAX_LENGTH}
           selectionColor={colors.accent}
           returnKeyType="done"
           onSubmitEditing={save}

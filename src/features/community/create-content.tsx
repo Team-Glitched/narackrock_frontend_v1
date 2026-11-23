@@ -614,7 +614,7 @@ export function SocialCreateForm({ form }: { form: SocialCreateState }) {
                   : event.target.value,
               )
             }
-            maxLength={kind === "source" ? SOURCE_TITLE_MAX_LENGTH : 100}
+            maxLength={kind === "source" ? undefined : 100}
             required
           />
           {kind === "source" && (
@@ -636,7 +636,6 @@ export function SocialCreateForm({ form }: { form: SocialCreateState }) {
                   : event.target.value,
               )
             }
-            maxLength={kind === "source" ? SOURCE_DESCRIPTION_MAX_LENGTH : undefined}
             required={kind !== "source"}
             rows={1}
           />

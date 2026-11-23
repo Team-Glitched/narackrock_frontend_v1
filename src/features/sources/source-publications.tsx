@@ -391,7 +391,6 @@ function PublicationListManager({ onOpen }: { onOpen: (id: number) => void }) {
               <input
                 className="w-full rounded-[10px] bg-app-surface p-3 text-body"
                 value={editor.title}
-                maxLength={SOURCE_TITLE_MAX_LENGTH}
                 aria-describedby={`${formId}-title-count`}
                 onChange={(event) =>
                   setEditor((old) =>
@@ -412,7 +411,6 @@ function PublicationListManager({ onOpen }: { onOpen: (id: number) => void }) {
               설명 (선택)
               <textarea
                 value={editor.description}
-                maxLength={SOURCE_DESCRIPTION_MAX_LENGTH}
                 rows={4}
                 aria-describedby={`${formId}-description-count`}
                 onChange={(event) =>

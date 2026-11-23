@@ -291,7 +291,6 @@ function PublicationEditor({
             editable={!model.locked}
             style={styles.input}
             value={title}
-            maxLength={SOURCE_TITLE_MAX_LENGTH}
             onChangeText={(value) => {
               const clamped = clampCodePoints(value, SOURCE_TITLE_MAX_LENGTH);
               setTitle(clamped);
@@ -310,7 +309,6 @@ function PublicationEditor({
             multiline
             style={[styles.input, { minHeight: 100, textAlignVertical: "top" }]}
             value={description}
-            maxLength={SOURCE_DESCRIPTION_MAX_LENGTH}
             onChangeText={(value) => {
               const clamped = clampCodePoints(value, SOURCE_DESCRIPTION_MAX_LENGTH);
               setDescription(clamped);

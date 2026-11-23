@@ -49,7 +49,6 @@ export function StudioNewScreen({ model }: ScreenProps<"studio-new">) {
             accessibilityLabel="음악명"
             value={title}
             onChangeText={(value) => setTitle(clampCodePoints(value, SONG_TITLE_MAX_LENGTH))}
-            maxLength={SONG_TITLE_MAX_LENGTH}
             selectTextOnFocus={selectOnFocus}
             onFocus={() => setSelectOnFocus(false)}
             selectionColor={colors.accent}

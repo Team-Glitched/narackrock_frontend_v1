@@ -999,7 +999,6 @@ export function StudioScreen({ studio, portrait = true }: { studio: Studio; port
                 studio.setPublishTitle(clampCodePoints(event.target.value, SONG_TITLE_MAX_LENGTH))
               }
               required
-              maxLength={SONG_TITLE_MAX_LENGTH}
             />
             <small className="text-right text-caption text-app-muted tabular-nums">
               {codePointLength(studio.publishTitle)}/{SONG_TITLE_MAX_LENGTH}자
