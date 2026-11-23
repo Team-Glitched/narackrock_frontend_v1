@@ -9,6 +9,7 @@ import {
   unlink,
   writeFile,
 } from "@dr.pogodin/react-native-fs";
+import * as ScreenOrientation from "expo-screen-orientation";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -16,6 +17,7 @@ import {
   ActivityIndicator,
   AppState,
   BackHandler,
+  Dimensions,
   Keyboard,
   Linking,
   Platform,
@@ -51,7 +53,7 @@ import {
   screenActionScript,
   userAgentToken,
 } from "./bridge";
-import { emptyStack, reduceStack, ScreenStack } from "./screen-stack";
+import { canvasKinds, emptyStack, reduceStack, ScreenStack } from "./screen-stack";
 import { footerFrame, headerTop, TabBar, type Viewport } from "./tab-bar";
 
 const signedOut: NativeSession = {
@@ -76,6 +78,7 @@ const SPLASH_MAX_MS = 8000;
 
 void SplashScreen.preventAutoHideAsync();
 SplashScreen.setOptions({ duration: 200, fade: true });
+void ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP).catch(() => {});
 
 type WebBuildManifest = { buildId: string; apiOrigin: string };
 
@@ -174,6 +177,29 @@ function WebShell() {
   // The screen on display; hardware Back goes to its page like the header's back button.
   const shownScreen = useRef<string | null>(null);
   shownScreen.current = overlayStack.current ?? stack.current;
+  const activeStack = overlayStack.current !== null ? overlayStack : stack;
+  const activeView = activeStack.entries.find((entry) => entry.key === activeStack.current)?.view;
+  const allowsLandscape = activeView !== undefined && canvasKinds.has(activeView.kind);
+  const [manualOrientation, setManualOrientation] = useState<"portrait" | "landscape" | null>(null);
+  const [wasCanvas, setWasCanvas] = useState(allowsLandscape);
+  if (wasCanvas !== allowsLandscape) {
+    setWasCanvas(allowsLandscape);
+    if (!allowsLandscape && manualOrientation !== null) setManualOrientation(null);
+  }
+  const toggleOrientation = useCallback(() => {
+    const { width, height } = Dimensions.get("screen");
+    setManualOrientation(height >= width ? "landscape" : "portrait");
+  }, []);
+  useEffect(() => {
+    const lock = !allowsLandscape
+      ? ScreenOrientation.OrientationLock.PORTRAIT_UP
+      : manualOrientation === "landscape"
+        ? ScreenOrientation.OrientationLock.LANDSCAPE
+        : manualOrientation === "portrait"
+          ? ScreenOrientation.OrientationLock.PORTRAIT_UP
+          : ScreenOrientation.OrientationLock.DEFAULT;
+    void ScreenOrientation.lockAsync(lock).catch(() => {});
+  }, [allowsLandscape, manualOrientation]);
   const launched = stack.current !== null || error !== null;
   useEffect(() => {
     if (launched) SplashScreen.hide();
@@ -364,6 +390,7 @@ function WebShell() {
         bottomInset={bottomInset}
         topInset={topInset}
         onAction={onScreenAction}
+        onToggleOrientation={toggleOrientation}
       />
       {overlayStack.current !== null && (
         <ScreenStack
@@ -374,6 +401,7 @@ function WebShell() {
           bottomInset={0}
           topInset={topInset}
           onAction={onScreenAction}
+          onToggleOrientation={toggleOrientation}
         />
       )}
       {footer && viewport && !keyboardVisible && overlayStack.current === null && (

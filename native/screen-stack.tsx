@@ -41,6 +41,7 @@ export function ScreenStack({
   bottomInset,
   topInset,
   onAction,
+  onToggleOrientation,
 }: {
   stack: ScreenStackState;
   /** Another native screen is above this stack (e.g. the notification inbox). */
@@ -51,6 +52,7 @@ export function ScreenStack({
   /** Space above portrait screens: the web canvas's top padding above its header. */
   topInset: number;
   onAction: (key: string, action: NativeScreenAction) => void;
+  onToggleOrientation: () => void;
 }) {
   return (
     <>
@@ -64,6 +66,7 @@ export function ScreenStack({
           bottomInset={bottomInset}
           topInset={topInset}
           onAction={onAction}
+          onToggleOrientation={onToggleOrientation}
         />
       ))}
     </>
@@ -78,6 +81,7 @@ function ScreenHost({
   bottomInset,
   topInset,
   onAction,
+  onToggleOrientation,
 }: {
   entry: ScreenEntry;
   visible: boolean;
@@ -86,11 +90,13 @@ function ScreenHost({
   bottomInset: number;
   topInset: number;
   onAction: (key: string, action: NativeScreenAction) => void;
+  onToggleOrientation: () => void;
 }) {
   const [menu, setMenu] = useState<MenuTarget | null>(null);
   const context = useMemo<ScreenContextValue>(
     () => ({
       act: (action) => onAction(key, action),
+      toggleOrientation: onToggleOrientation,
       session,
       uri: (url) => {
         const trimmed = url?.trim();
@@ -102,7 +108,7 @@ function ScreenHost({
       active: visible,
       refreshed: view.refreshed,
     }),
-    [key, onAction, session, origin, bottomInset, topInset, visible, view.kind, view.refreshed],
+    [key, onAction, onToggleOrientation, session, origin, bottomInset, topInset, visible, view.kind, view.refreshed],
   );
   // The registry pairs each kind with its component; TypeScript cannot follow that through the union.
   const Screen = screens[view.kind] as ComponentType<ScreenProps<NativeScreenKind>>;
@@ -124,7 +130,7 @@ function ScreenHost({
 }
 
 /** Studio canvases fill the available view in either orientation. */
-const canvasKinds = new Set<NativeScreenKind>([
+export const canvasKinds = new Set<NativeScreenKind>([
   "studio-timeline",
   "editor-notes",
   "creation-piano",

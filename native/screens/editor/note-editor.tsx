@@ -5,6 +5,7 @@ import type { NativeNoteEditor, NativeTransport } from "../../../src/lib/native-
 import PlayIcon from "../../../public/figma/play.svg";
 import ReturnIcon from "../../../public/figma/return.svg";
 import { Touchable } from "../../ui/kit";
+import { OrientationFab } from "../../ui/orientation-fab";
 import { useScreen } from "../../ui/screen-context";
 import { useDevicePortrait } from "../../ui/use-device-portrait";
 import { colors } from "../../ui/theme";
@@ -41,6 +42,7 @@ export function NoteEditorScreen({ model }: ScreenProps<"editor-notes">) {
   return portrait ? (
     <View style={styles.page}>
       <Portrait model={model} />
+      <OrientationFab alignedWithTransport />
       <Overlays model={model} />
     </View>
   ) : (
@@ -67,6 +69,7 @@ export function NoteEditorScreen({ model }: ScreenProps<"editor-notes">) {
         <StatusRow model={model} />
         <Notices model={model} />
         <NoteRoll roll={model.roll} />
+        <OrientationFab />
         <Overlays model={model} />
       </View>
     </StudioCanvas>

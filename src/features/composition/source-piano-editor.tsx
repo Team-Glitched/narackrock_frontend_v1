@@ -1,4 +1,4 @@
-import { useDevicePortrait } from "@/hooks/use-device-portrait";
+import { useCanvasOrientation } from "@/hooks/use-canvas-orientation";
 import { studioStyles } from "@/styles/studio.styles";
 import { cn } from "@/lib/utils";
 import {
@@ -32,6 +32,7 @@ import { useNativeInstrumentPicker, type InstrumentChoice } from "./instrument-d
 import { resolveSampleInstrument } from "./piano-render-plan";
 import type { NativeCreationPiano, NativeCreationPianoAction } from "@/lib/native-screens";
 import { isNativeNoteRollAction } from "@/lib/native-screens/editor";
+import { OrientationToggleButton } from "@/components/orientation-toggle-button";
 import {
   isNativeInstrumentAction,
   isNativeTimingAction,
@@ -277,7 +278,7 @@ export function useNativeSourcePiano(props: SourcePianoProps): {
 
 export function SourcePianoEditor(props: SourcePianoProps) {
   const { bpm, onBack } = props;
-  const portrait = useDevicePortrait();
+  const { portrait, toggle } = useCanvasOrientation();
   const piano = useSourcePiano(props);
   const { maxTick, signature, player, pending, error, positionTick, editor, dialogs, play } = piano;
   const jsonInput = useRef<HTMLInputElement>(null);
@@ -460,6 +461,11 @@ export function SourcePianoEditor(props: SourcePianoProps) {
           event.currentTarget.value = "";
           if (file) void importJson(file);
         }}
+      />
+      <OrientationToggleButton
+        portrait={portrait}
+        onToggle={toggle}
+        alignedWithTransport={portrait}
       />
       {showChords && editor.editable && (
         <ChordPickerDialog
