@@ -672,7 +672,10 @@ export function CompositionRecordScreen({
               ) : (
                 <>
                   <div className="pointer-events-none absolute inset-x-0 top-1/2 h-px bg-app-primary/25" />
-                  <div className="pointer-events-none flex items-center gap-1.5 px-4 opacity-40" aria-hidden="true">
+                  <div
+                    className="pointer-events-none absolute inset-0 flex items-center justify-center gap-1.5 px-4 opacity-40"
+                    aria-hidden="true"
+                  >
                     {Array.from({ length: 28 }, (_, index) => {
                       const height = 14 + Math.abs(Math.sin((index + 1) * 0.65)) * 42;
                       return (
