@@ -68,15 +68,15 @@ export const preferenceSwitch =
   "relative h-6 w-11 shrink-0 cursor-pointer appearance-none rounded-full bg-app-line transition-colors checked:bg-app-primary motion-reduce:transition-none before:absolute before:top-1 before:left-1 before:size-4 before:rounded-full before:bg-app-fg before:transition-transform before:content-[''] checked:before:translate-x-5 motion-reduce:before:transition-none disabled:opacity-50";
 
 export const badgeVariants = cva(
-  "mb-[10px] inline-flex min-h-6 items-center rounded-control border border-solid px-[9px] py-[3px] font-sans text-caption leading-4 font-medium",
+  "inline-flex w-fit self-start min-h-6 items-center rounded-full border border-solid px-3 py-0.5 font-sans text-caption leading-4 font-semibold whitespace-nowrap",
   {
     variants: {
       status: {
-        request: "border-[#57358a] bg-app-primary-deep text-app-primary-soft",
-        approved: "border-[#3c5a4d] bg-[#24342e] text-[#c1e4d3]",
-        rejected: "border-[#61414a] bg-[#38292e] text-[#f1c1cb]",
-        resource: "border-[#57358a] bg-app-surface text-app-primary-soft",
-        pending: "border-app-border bg-app-surface text-app-fg",
+        request: "border-[#5b00ff] bg-[#5b00ff] text-white",
+        approved: "border-[#16a34a] bg-[#16a34a] text-white",
+        rejected: "border-[#e11d48] bg-[#e11d48] text-white",
+        resource: "border-[#7c3aed] bg-[#7c3aed] text-white",
+        pending: "border-[#d97706] bg-[#d97706] text-white",
       },
     },
     defaultVariants: { status: "pending" },

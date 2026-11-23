@@ -68,7 +68,7 @@ function Article({ model }: { model: Extract<NativeSourceDetail, { state: "ready
           onSeek={(ms) => act({ type: "source-seek", ms })}
           onMute={() => act({ type: "source-mute" })}
         />
-        <Text style={type.caption}>
+        <Text style={[type.caption, styles.hintBox]}>
           보관한 뒤 피아노롤의 ‘+ 샘플’에서 내 레이어에 오디오로 넣을 수 있습니다.
         </Text>
         <SourceActions
