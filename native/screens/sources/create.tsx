@@ -82,6 +82,7 @@ function CreateForm({ model }: { model: Extract<NativeSourceCreate, { state: "fo
             disabled={model.busy || model.audio === "locked"}
             onPress={() => act({ type: "source-create-audio" })}
           />
+          {model.instrumentLabel && <Text style={styles.copy}>악기: {model.instrumentLabel}</Text>}
           {model.audio === "locked" && (
             <Text style={type.caption}>
               등록 재시도에는 이미 업로드한 오디오를 사용합니다. 다른 오디오를 등록하려면 작성 취소

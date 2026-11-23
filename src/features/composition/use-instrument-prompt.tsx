@@ -18,14 +18,17 @@ export class InstrumentPromptCancelled extends Error {
   }
 }
 
-export type InstrumentPromptRequest = { mode: "midi" } | { mode: "audio"; audio: AudioAudition };
+export type InstrumentPromptRequest = ({ mode: "midi" } | { mode: "audio"; audio: AudioAudition }) & {
+  validate?: (id: string) => void;
+};
 
 /**
  * No layer is created until the caller receives an explicitly confirmed choice. Browsers render
  * `dialog`; in the app it is null and the page's native screen shows `native.model`
  * (`InstrumentSheet`), forwarding `NativeInstrumentAction`s to `native.act`.
+ * Standalone sample creation uses the same chooser without loading a project or its tracks.
  */
-export function useInstrumentPrompt(projectId: number | null) {
+export function useInstrumentPrompt(projectId: number | null, options?: { standalone: boolean }) {
   const userId = useCurrentUserId();
   const queryClient = useQueryClient();
   const preview = useCompositionPlayback(null, {
@@ -63,6 +66,7 @@ export function useInstrumentPrompt(projectId: number | null) {
               : preview.previewInstrument,
           onStopPreview: preview.stopPreview,
           onConfirm: async (id) => {
+            next.validate?.(id);
             request.resolve(id);
             setRequest(null);
           },
@@ -74,14 +78,14 @@ export function useInstrumentPrompt(projectId: number | null) {
     dialog,
     native,
     async ask(next: InstrumentPromptRequest) {
-      if (projectId === null) throw new Error("대상 프로젝트를 먼저 선택해주세요.");
+      if (projectId === null && !options?.standalone) throw new Error("대상 프로젝트를 먼저 선택해주세요.");
       // Read current project access and team usage from the server before showing the chooser.
-      const composition = await queryClient.fetchQuery({
+      const composition = projectId === null ? null : await queryClient.fetchQuery({
         ...compositionQuery(userId, projectId),
         staleTime: 0,
       });
       if (!mounted.current) throw new InstrumentPromptCancelled();
-      setTracks(composition.tracks);
+      setTracks(composition?.tracks ?? []);
       const { promise, resolve, reject } = Promise.withResolvers<string>();
       setRequest({ next, resolve, reject });
       return promise;

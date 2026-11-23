@@ -213,6 +213,7 @@ export type NativeSourceCreate =
       description: string;
       /** The "오디오" button: none ("오디오 추가"), chosen, or the uploaded audio of a retried publication. */
       audio: "none" | "selected" | "locked";
+      instrumentLabel: string | null;
       /**
        * The album picture: a downscaled preview for the crop editor (`failed` when it cannot be
        * decoded: "앨범 이미지를 미리 볼 수 없습니다...").

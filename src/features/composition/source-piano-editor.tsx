@@ -15,7 +15,7 @@ import { StudioToolbar } from "@/features/composition/studio-toolbar";
 import { NoteSettingsDialog } from "@/features/composition/note-settings-dialog";
 import { TeamPianoRoll } from "./team-piano-roll";
 import { useCompositionPlayback, type PlaybackComposition } from "./use-composition-playback";
-import { renderPianoAudio } from "./source-piano-render";
+import { renderSourceAudio } from "./source-piano-render";
 import { defaultSignature } from "./time-signature";
 import { useNoteEditor } from "./use-note-editor";
 import { NoteEditorControls, NoteTools } from "./note-editor-controls";
@@ -31,8 +31,10 @@ import { useNativeTiming } from "./timing-dialog";
 import type { NativeCreationPiano, NativeCreationPianoAction } from "@/lib/native-screens";
 import { isNativeNoteRollAction } from "@/lib/native-screens/editor";
 import { isNativeTimingAction, isNativeTransportAction } from "@/lib/native-screens/studio";
+import { partLabel } from "./instrument-parts";
 
 export type SourcePianoProps = {
+  instrument: string;
   notes: MidiNoteDto[];
   setNotes: Dispatch<SetStateAction<MidiNoteDto[]>>;
   bpm: number;
@@ -45,7 +47,7 @@ export type SourcePianoProps = {
  * The sample registration piano sketch: playback, note editor, its dialogs, timing and rendering the
  * notes to the audio attachment. Shared by the web editor and the app's native screen.
  */
-export function useSourcePiano({ notes, setNotes, bpm, onBpm, onSave }: SourcePianoProps) {
+export function useSourcePiano({ notes, setNotes, bpm, onBpm, onSave, instrument }: SourcePianoProps) {
   const maxTick = bpm * 480; // One minute, matching upload/record limits.
   // A source sketch is not a project; its time signature is only for this editor's grid.
   const [signature, setSignature] = useState(defaultSignature);
@@ -63,8 +65,8 @@ export function useSourcePiano({ notes, setNotes, bpm, onBpm, onSave }: SourcePi
         {
           trackId: 0,
           ownerId: 0,
-          name: "피아노",
-          instrument: "piano",
+          name: partLabel(instrument),
+          instrument,
           volume: 100,
           pan: 0,
           isMuted: false,
@@ -90,7 +92,7 @@ export function useSourcePiano({ notes, setNotes, bpm, onBpm, onSave }: SourcePi
         },
       ],
     }),
-    [notes, bpm, maxTick, signature],
+    [notes, bpm, maxTick, signature, instrument],
   );
   const player = useCompositionPlayback(composition, {
     scopeKey: JSON.stringify(["source", sourceScopeId]),
@@ -104,7 +106,7 @@ export function useSourcePiano({ notes, setNotes, bpm, onBpm, onSave }: SourcePi
     notes,
     ppq: 480,
     signature,
-    instrument: "piano",
+    instrument,
     bounds: { maxTick, minPitch: 0, maxPitch: 127 },
     editable: !pending,
     onCommit: (next) => {
@@ -136,7 +138,7 @@ export function useSourcePiano({ notes, setNotes, bpm, onBpm, onSave }: SourcePi
     setPending(true);
     setError(null);
     try {
-      onSave(await renderPianoAudio(notes, bpm));
+      onSave(await renderSourceAudio(notes, bpm, instrument));
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "오디오를 만들지 못했습니다.");
     } finally {
@@ -185,9 +187,9 @@ export function useNativeSourcePiano(props: SourcePianoProps): {
     timing: piano.timing,
     positionTick: piano.positionTick,
     playing: player.playing,
-    instrument: "piano",
+    instrument: props.instrument,
     initialPitch: 60,
-    onAudition: (pitch) => void player.audition(pitch, "piano"),
+    onAudition: (pitch) => void player.audition(pitch, props.instrument),
     onSeekTick: piano.seekTick,
     onOpenChords: () => {
       player.pause();
@@ -196,7 +198,7 @@ export function useNativeSourcePiano(props: SourcePianoProps): {
   });
   return {
     model: {
-      title: "샘플 피아노롤",
+      title: `샘플 피아노롤 · ${partLabel(props.instrument)}`,
       addLabel: "오디오 선택 완료",
       pending,
       error: piano.error ?? player.error ?? editor.error,
@@ -287,7 +289,7 @@ export function SourcePianoEditor(props: SourcePianoProps) {
             ? "JSON 파일을 읽는 중..."
             : pending
               ? "오디오를 만드는 중..."
-              : `${editor.snapshot.notes.length}개 노트`}
+              : `${partLabel(props.instrument)} · ${editor.snapshot.notes.length}개 노트`}
         </p>
       )}
       <button
@@ -309,8 +311,8 @@ export function SourcePianoEditor(props: SourcePianoProps) {
       positionTick={positionTick}
       onSeekTick={piano.seekTick}
       playing={player.playing}
-      instrument="piano"
-      onAudition={(pitch) => void player.audition(pitch, "piano")}
+      instrument={props.instrument}
+      onAudition={(pitch) => void player.audition(pitch, props.instrument)}
       rowHeight={portrait ? 40 : undefined}
       keyWidth={portrait ? 44 : undefined}
       initialPitch={props.notes[0]?.pitch ?? 60}
@@ -326,7 +328,7 @@ export function SourcePianoEditor(props: SourcePianoProps) {
     >
       {portrait ? (
         <PortraitNoteEditor
-          title="샘플 피아노롤"
+          title={`샘플 피아노롤 · ${partLabel(props.instrument)}`}
           bpm={bpm}
           signature={signature}
           onTiming={busy ? undefined : piano.applyTiming}
@@ -352,7 +354,7 @@ export function SourcePianoEditor(props: SourcePianoProps) {
             signature={signature}
             onTiming={busy ? undefined : piano.applyTiming}
             piano
-            title="샘플 피아노롤"
+            title={`샘플 피아노롤 · ${partLabel(props.instrument)}`}
             bpm={bpm}
             playing={player.playing}
             positionMs={player.positionMs}
@@ -400,7 +402,7 @@ export function SourcePianoEditor(props: SourcePianoProps) {
           note={editor.snapshot.notes[settings]}
           stepTick={editor.bounds.stepTick}
           maxTick={maxTick}
-          instrument="piano"
+          instrument={props.instrument}
           onClose={() => setSettings(null)}
           onApply={(note) => editor.execute({ type: "replace", index: settings, note })}
         />

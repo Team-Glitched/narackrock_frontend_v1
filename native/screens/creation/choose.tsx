@@ -10,6 +10,7 @@ import { ScreenScroll } from "../../ui/screen";
 import { useScreen } from "../../ui/screen-context";
 import { colors } from "../../ui/theme";
 import type { ScreenProps } from "../types";
+import { InstrumentSheet } from "../studio/parts";
 
 const choices = [
   {
@@ -45,6 +46,7 @@ export function CreationChooseScreen({ model, header }: ScreenProps<"creation-ch
           onChoose={(method) => act({ type: "creation-choose", method })}
         />
       </ScreenScroll>
+      <InstrumentSheet picker={model.instrument ?? null} />
     </>
   );
 }
