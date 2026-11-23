@@ -3,11 +3,23 @@ import { sharedStyles } from "@/styles/shared.styles";
 import { cn } from "@/lib/utils";
 import { studioStyles } from "@/styles/studio.styles";
 import { buttonVariants } from "@/styles/variants";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
+import { FileAudio, Mic, RotateCcw, Square, Upload } from "lucide-react";
 import { Asset } from "@/components/asset";
 import { Dropdown } from "@/components/dropdown";
-import { AudioTrimPicker } from "@/features/composition/audio-trim-picker";
+import { AudioTrimPicker, formatTrimTime } from "@/features/composition/audio-trim-picker";
+import {
+  CreationTimingBar,
+  type CreationTimingMode,
+} from "@/features/composition/creation-timing-bar";
+import { MetronomeIcon } from "@/features/composition/metronome-icon";
 import type { AudioSelection } from "@/features/composition/prepare-audio-file";
+import type { ProjectTiming } from "@/features/composition/project-timing";
+import {
+  defaultSignature,
+  parseSignature,
+  type TimeSignature,
+} from "@/features/composition/time-signature";
 import { beatsPerBarFromSignature, useMetronome } from "@/features/composition/use-metronome";
 import { recordNativeAudio } from "@/lib/native-app";
 
@@ -94,56 +106,107 @@ export function useSelectedAudio() {
 // The file selection and preview follow the team's UploadScreen; saving is wired to the project API.
 export function CompositionUploadScreen({
   onSave,
+  bpm = 120,
+  signature = defaultSignature,
+  onTiming,
+  timingMode = onTiming ? "editable" : "locked",
   saveLabel = "선택 구간을 레이어에 저장",
 }: {
   onSave: (file: File, selection: AudioSelection) => Promise<void>;
+  bpm?: number;
+  signature?: TimeSignature;
+  onTiming?: (timing: ProjectTiming) => Promise<void>;
+  timingMode?: CreationTimingMode;
   saveLabel?: string;
   onBack: () => void;
 }) {
   const [selected, select] = useSelectedAudio();
   return (
-    <div
-      className={cn(
-        cn(sharedStyles.uploadView, sharedStyles.scrollContent),
-        selected ? " has-audio" : "",
-      )}
-    >
-      <label className={sharedStyles.uploadArea}>
-        <Asset name="audio-upload-large.svg" />
-        <span>{selected?.file.name || "업로드 파일 선택"}</span>
-        <input
-          type="file"
-          accept="audio/wav,audio/x-wav,audio/wave,audio/mpeg,audio/mp4,audio/flac"
-          onChange={(event) => {
-            const selected = event.target.files?.[0] ?? null;
-            if (selected) select(selected);
-            event.target.value = "";
-          }}
-        />
-      </label>
-      {selected && (
-        <AudioTrimPicker
-          key={selected.url}
-          url={selected.url}
-          onSave={(selection) => onSave(selected.file, selection)}
-          saveLabel={saveLabel}
-        />
+    <div className={cn(sharedStyles.uploadView, sharedStyles.scrollContent)}>
+      <CreationTimingBar
+        bpm={bpm}
+        signature={signature}
+        onTiming={onTiming}
+        timingMode={timingMode}
+      />
+      {!selected ? (
+        <label className={sharedStyles.uploadArea}>
+          <span className="grid size-14 place-items-center rounded-full bg-app-primary/15 text-[#c4b5fd]">
+            <Upload size={26} aria-hidden="true" />
+          </span>
+          <div className="flex flex-col items-center gap-1.5">
+            <strong className="text-title font-bold text-white">오디오 파일 업로드</strong>
+            <span className="text-caption leading-relaxed text-app-muted">
+              WAV, MP3, M4A, FLAC · 박자에 맞춰 자르고 이어 붙이기
+            </span>
+          </div>
+          <span className="mt-1 rounded-full bg-app-primary px-5 py-2.5 text-body font-semibold text-white">
+            업로드 파일 선택
+          </span>
+          <input
+            type="file"
+            accept="audio/wav,audio/x-wav,audio/wave,audio/mpeg,audio/mp4,audio/flac"
+            onChange={(event) => {
+              const file = event.target.files?.[0] ?? null;
+              if (file) select(file);
+              event.target.value = "";
+            }}
+          />
+        </label>
+      ) : (
+        <div className="flex flex-col gap-3 pb-2">
+          <div className="flex items-center justify-between gap-3 rounded-[14px] border border-[#32323d] bg-[#1e1e26] px-3.5 py-2.5">
+            <div className="flex min-w-0 items-center gap-2.5">
+              <FileAudio size={18} className="shrink-0 text-[#c4b5fd]" aria-hidden="true" />
+              <span className="truncate text-body font-medium text-white">
+                {selected.file.name}
+              </span>
+            </div>
+            <label className="relative shrink-0 cursor-pointer rounded-[8px] border border-[#32323d] bg-[#23232a] px-2.5 py-1.5 text-caption font-medium text-app-fg transition-colors hover:border-app-primary">
+              <span>파일 변경</span>
+              <input
+                type="file"
+                className="sr-only"
+                accept="audio/wav,audio/x-wav,audio/wave,audio/mpeg,audio/mp4,audio/flac"
+                onChange={(event) => {
+                  const file = event.target.files?.[0] ?? null;
+                  if (file) select(file);
+                  event.target.value = "";
+                }}
+              />
+            </label>
+          </div>
+          <div className="rounded-[18px] border border-[#32323d] bg-[#1e1e26] p-4">
+            <AudioTrimPicker
+              key={selected.url}
+              url={selected.url}
+              bpm={bpm}
+              signature={signature}
+              enableSplice
+              onSave={(selection) => onSave(selected.file, selection)}
+              saveLabel={saveLabel}
+            />
+          </div>
+        </div>
       )}
     </div>
   );
 }
 
-function formatRecordingTime(seconds: number) {
-  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, "0")}`;
-}
-
 /** Horizontal pixels per animation frame; the waveform scrolls at about 120px per second. */
 const WAVE_COLUMN_WIDTH = 2;
 
-/** Elapsed time and the live microphone waveform, scrolling from right to left. */
-function RecordingMeter({ stream }: { stream: MediaStream }) {
+/** Live microphone waveform scrolling from right to left while reporting elapsed ms. */
+function RecordingMeter({
+  stream,
+  onElapsedMs,
+}: {
+  stream: MediaStream;
+  onElapsedMs: (ms: number) => void;
+}) {
   const canvas = useRef<HTMLCanvasElement>(null);
-  const [seconds, setSeconds] = useState(0);
+  const reportElapsed = useEffectEvent((ms: number) => onElapsedMs(ms));
+
   useEffect(() => {
     const element = canvas.current;
     const context2d = element?.getContext("2d");
@@ -158,13 +221,19 @@ function RecordingMeter({ stream }: { stream: MediaStream }) {
     // Signed minimum and maximum sample of each frame: the real waveform envelope, not a level meter.
     const lows: number[] = [];
     const highs: number[] = [];
-    const color = getComputedStyle(element).color;
+    const color = getComputedStyle(element).color || "#7c3aed";
     const startedAt = performance.now();
     let previous = startedAt;
+    let lastReportedDeci = -1;
     let frame = 0;
     const draw = (now: number) => {
       frame = requestAnimationFrame(draw);
-      setSeconds(Math.floor((now - startedAt) / 1000));
+      const elapsedMs = Math.max(0, now - startedAt);
+      const deci = Math.floor(elapsedMs / 100);
+      if (deci !== lastReportedDeci) {
+        lastReportedDeci = deci;
+        reportElapsed(deci * 100);
+      }
       analyser.getFloatTimeDomainData(samples);
       // Only the samples that arrived since the previous frame belong to this column.
       const fresh = Math.min(
@@ -183,6 +252,7 @@ function RecordingMeter({ stream }: { stream: MediaStream }) {
       const ratio = window.devicePixelRatio || 1;
       const width = element.clientWidth;
       const height = element.clientHeight;
+      if (width <= 0 || height <= 0) return;
       if (element.width !== Math.round(width * ratio)) element.width = Math.round(width * ratio);
       if (element.height !== Math.round(height * ratio))
         element.height = Math.round(height * ratio);
@@ -193,10 +263,10 @@ function RecordingMeter({ stream }: { stream: MediaStream }) {
       }
       const middle = height / 2;
       const x = (index: number) => width - (lows.length - 1 - index) * WAVE_COLUMN_WIDTH;
-      const y = (sample: number) => middle - Math.max(-1, Math.min(1, sample)) * (middle - 1);
+      const y = (sample: number) => middle - Math.max(-1, Math.min(1, sample)) * (middle - 2);
       context2d.setTransform(ratio, 0, 0, ratio, 0, 0);
       context2d.clearRect(0, 0, width, height);
-      context2d.globalAlpha = 0.35;
+      context2d.globalAlpha = 0.25;
       context2d.fillStyle = color;
       context2d.fillRect(0, middle - 0.5, width, 1);
       context2d.globalAlpha = 1;
@@ -210,7 +280,7 @@ function RecordingMeter({ stream }: { stream: MediaStream }) {
       const fill = context2d.createLinearGradient(0, 0, width, 0);
       fill.addColorStop(0, "transparent");
       fill.addColorStop(0.25, color);
-      fill.addColorStop(1, color);
+      fill.addColorStop(1, "#a78bfa");
       context2d.fillStyle = fill;
       context2d.fill();
     };
@@ -221,15 +291,8 @@ function RecordingMeter({ stream }: { stream: MediaStream }) {
       void audio.close();
     };
   }, [stream]);
-  return (
-    <div className="flex w-full flex-col items-center gap-3">
-      <span className="flex items-center gap-2 text-title font-semibold tabular-nums">
-        <span className="h-2 w-2 animate-pulse rounded-full bg-[#ff4d4f]" aria-hidden="true" />
-        <span aria-label={`녹음 시간 ${seconds}초`}>{formatRecordingTime(seconds)}</span>
-      </span>
-      <canvas ref={canvas} className="h-20 w-full text-app-primary" aria-hidden="true" />
-    </div>
-  );
+
+  return <canvas ref={canvas} className="h-full w-full text-app-primary" aria-hidden="true" />;
 }
 
 /**
@@ -251,6 +314,7 @@ export function useCompositionRecorder({
 }) {
   const recorder = useRef<MediaRecorder | null>(null);
   const stream = useRef<MediaStream | null>(null);
+  const discardOnStop = useRef(false);
   const nativeStartedAt = useRef<number | null>(null);
   const mounted = useRef(true);
   const [liveStream, setLiveStream] = useState<MediaStream | null>(null);
@@ -289,6 +353,7 @@ export function useCompositionRecorder({
         const recorded = await recordNativeAudio("stop");
         if (!mounted.current) return;
         setFile(recorded);
+        setUrl(recorded ? URL.createObjectURL(recorded) : "");
         setDurationMs(recorded && startedAt !== null ? Date.now() - startedAt : null);
       } catch (cause) {
         setError(cause instanceof Error ? cause.message : "녹음을 저장하지 못했습니다.");
@@ -300,6 +365,7 @@ export function useCompositionRecorder({
     setPending(true);
     setError("");
     setFile(null);
+    setUrl("");
     setDurationMs(null);
     try {
       await recordNativeAudio("start");
@@ -331,7 +397,15 @@ export function useCompositionRecorder({
       if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") {
         throw new Error("이 브라우저에서는 녹음을 사용할 수 없습니다.");
       }
-      const nextStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      discardOnStop.current = false;
+      // Echo cancellation suppresses any metronome audio from bleeding into the microphone track.
+      const nextStream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+        },
+      });
       stream.current = nextStream;
       const next = new MediaRecorder(nextStream);
       recorder.current = next;
@@ -341,6 +415,10 @@ export function useCompositionRecorder({
       };
       next.onstop = () => {
         nextStream.getTracks().forEach((track) => track.stop());
+        if (discardOnStop.current) {
+          discardOnStop.current = false;
+          return;
+        }
         const type = next.mimeType || "audio/webm";
         const extension = type.includes("mp4") ? "mp4" : "webm";
         const recorded = new File(chunks, `recording.${extension}`, { type });
@@ -385,6 +463,29 @@ export function useCompositionRecorder({
       setPending(false);
     }
   }
+  function reset() {
+    if (pending) return;
+    beforeSubmit?.();
+    if (native) {
+      if (recording || nativeStartedAt.current !== null) {
+        nativeStartedAt.current = null;
+        setRecording(false);
+        void recordNativeAudio("cancel").catch(() => {});
+      }
+    } else {
+      if (recorder.current?.state === "recording") {
+        discardOnStop.current = true;
+        recorder.current.stop();
+      }
+      stream.current?.getTracks().forEach((track) => track.stop());
+      setLiveStream(null);
+      setRecording(false);
+    }
+    setFile(null);
+    setDurationMs(null);
+    setUrl("");
+    setError("");
+  }
   return {
     soundKind,
     setSoundKind,
@@ -398,35 +499,62 @@ export function useCompositionRecorder({
     /** The status line under the recorder. */
     status: recording ? "녹음 중" : pending ? pendingLabel : file ? "녹음 완료" : "",
     toggle,
+    reset,
     save,
     transform,
   };
 }
 
-// The recorder UI and MediaRecorder lifecycle follow the team's RecordScreen.
 export function CompositionRecordScreen({
   onSave,
   onTransform,
   saveLabel = "레이어에 녹음 저장",
   bpm = 120,
-  timeSignature = "4/4",
+  timeSignature,
+  signature,
+  onTiming,
+  timingMode = onTiming ? "editable" : "locked",
 }: {
-  onSave: (file: File) => Promise<void>;
-  onTransform?: (file: File, soundKind?: AudioTranscriptionMode) => Promise<void>;
+  onSave: (file: File, selection?: AudioSelection) => Promise<void>;
+  onTransform?: (
+    file: File,
+    soundKind?: AudioTranscriptionMode,
+    selection?: AudioSelection,
+  ) => Promise<void>;
   saveLabel?: string;
   onBack: () => void;
   bpm?: number;
   timeSignature?: string;
+  signature?: TimeSignature;
+  onTiming?: (timing: ProjectTiming) => Promise<void>;
+  timingMode?: CreationTimingMode;
 }) {
-  const playback = useRef<HTMLAudioElement>(null);
+  const parsedSignature = useMemo(
+    () => signature ?? parseSignature(timeSignature ?? "4/4"),
+    [signature, timeSignature],
+  );
+  const formattedSignature = `${parsedSignature.numerator}/${parsedSignature.denominator}`;
+  const beatsPerBar = beatsPerBarFromSignature(formattedSignature);
+
   const [metronomeOn, setMetronomeOn] = useState(false);
   const [previewPlaying, setPreviewPlaying] = useState(false);
-  const beatsPerBar = beatsPerBarFromSignature(timeSignature);
-  const { activeBeat, isAccent } = useMetronome({
-    enabled: metronomeOn && !previewPlaying,
-    bpm,
-    timeSignature,
-  });
+  const [elapsedMs, setElapsedMs] = useState(0);
+  const selectionRef = useRef<AudioSelection | undefined>(undefined);
+  const previewControlRef = useRef<{ toggle: () => void; stop: () => void } | null>(null);
+
+  const saveWithSelection = useCallback(
+    (recordedFile: File) => onSave(recordedFile, selectionRef.current),
+    [onSave],
+  );
+  const transformWithSelection = useMemo(
+    () =>
+      onTransform
+        ? (recordedFile: File, kind?: AudioTranscriptionMode) =>
+            onTransform(recordedFile, kind, selectionRef.current)
+        : undefined,
+    [onTransform],
+  );
+
   const {
     soundKind,
     setSoundKind,
@@ -438,160 +566,290 @@ export function CompositionRecordScreen({
     error,
     status,
     toggle,
+    reset,
     save,
     transform,
   } = useCompositionRecorder({
-    onSave,
-    onTransform,
+    onSave: saveWithSelection,
+    onTransform: transformWithSelection,
     beforeSubmit: () => {
-      playback.current?.pause();
+      previewControlRef.current?.stop();
       setPreviewPlaying(false);
     },
   });
-  // A finished take shows the preview, conversion mode and actions; shrink the metronome to make room.
+
+  // Auto-start the metronome when recording begins if toggled ON; keep it strictly isolated from MediaRecorder.
+  const { activeBeat } = useMetronome({
+    enabled: metronomeOn && recording,
+    bpm,
+    timeSignature: formattedSignature,
+  });
+
   const recorded = Boolean(url);
+  const canRetry = !pending && (recording || recorded);
+
   return (
     <div className={cn(studioStyles.recordView, sharedStyles.scrollContent)}>
-      <div
-        className={cn(
-          "flex flex-col items-center gap-3 [.design-canvas_&]:absolute",
-          recorded ? "[.design-canvas_&]:top-16" : "[.design-canvas_&]:top-24",
+      <CreationTimingBar
+        bpm={bpm}
+        signature={parsedSignature}
+        onTiming={onTiming}
+        timingMode={timingMode}
+        disabled={recording || pending}
+      />
+
+      <div className="flex min-h-0 w-full flex-1 flex-col gap-3 overflow-y-auto">
+        {error && (
+          <p role="alert" className="m-0 rounded-[12px] border border-[#ff4d4f]/30 bg-[#ff4d4f]/10 px-3.5 py-2 text-caption text-[#ff9ca8]">
+            {error}
+          </p>
         )}
-      >
-        <button
-          type="button"
-          aria-label={metronomeOn ? "메트로놈 끄기" : "메트로놈 켜기"}
-          aria-pressed={metronomeOn}
-          onClick={() => setMetronomeOn((current) => !current)}
-          className={cn(
-            "relative flex flex-col items-center rounded-[24px] p-3 transition-transform duration-100",
-            metronomeOn
-              ? "bg-[#23232a] ring-2 ring-app-primary"
-              : "opacity-65 hover:opacity-90",
-            metronomeOn && activeBeat !== null && (isAccent ? "scale-105" : "scale-[1.02]"),
-          )}
-        >
-          <Asset
-            name="metronome-large.svg"
-            className={cn(
-              "object-contain [filter:invert(22%)_sepia(95%)_saturate(7000%)_hue-rotate(256deg)]",
-              recorded ? "h-24 w-[75px]" : "h-[144px] w-28",
-            )}
-          />
-        </button>
-        <div
-          className={cn(
-            "flex items-center gap-2 rounded-full border px-3 py-1 text-caption transition-colors",
-            metronomeOn ? "border-app-primary bg-app-primary text-white" : "border-[#32323d] bg-[#1e1e26]",
-          )}
-        >
-          <span className={cn("font-semibold tabular-nums", metronomeOn ? "text-white" : "text-app-fg")}>
-            {bpm} BPM · {timeSignature}
-          </span>
-          <span className={metronomeOn ? "font-semibold text-white" : "text-app-muted"}>
-            {metronomeOn ? "메트로놈 켜짐" : "메트로놈 눌러 켜기"}
-          </span>
-          {metronomeOn && (
-            <span className="flex items-center gap-1" aria-hidden="true">
-              {Array.from({ length: beatsPerBar }, (_, index) => (
+
+        {!recorded ? (
+          <div className="my-auto flex w-full flex-col gap-3.5 rounded-[18px] border border-[#32323d] bg-[#1e1e26] p-4">
+            <div className="flex items-center justify-between gap-2">
+              <span className="flex items-center gap-2 text-caption font-semibold text-app-fg">
                 <span
-                  key={index}
                   className={cn(
-                    "size-1.5 rounded-full transition-colors",
-                    activeBeat === index
-                      ? index === 0
-                        ? "bg-white"
-                        : "bg-white/80"
-                      : "bg-white/30",
+                    "size-2 rounded-full",
+                    recording ? "animate-pulse bg-[#ff4d4f]" : "bg-[#606072]",
                   )}
+                  aria-hidden="true"
                 />
-              ))}
-            </span>
+                <span>{status || "녹음 대기"}</span>
+              </span>
+
+              <div
+                className={cn(
+                  "flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors",
+                  metronomeOn
+                    ? "border-app-primary/60 bg-app-primary/20 text-[#d8b4fe]"
+                    : "border-[#32323d] bg-[#23232a] text-app-muted",
+                )}
+              >
+                <span>
+                  {recording && metronomeOn
+                    ? "메트로놈 재생 중"
+                    : metronomeOn
+                      ? "메트로놈 ON · 시작 시 자동 재생"
+                      : "메트로놈 OFF"}
+                </span>
+                {metronomeOn && recording && (
+                  <span className="flex items-center gap-1" aria-hidden="true">
+                    {Array.from({ length: beatsPerBar }, (_, index) => (
+                      <span
+                        key={index}
+                        className={cn(
+                          "size-1.5 rounded-full transition-colors",
+                          activeBeat === index
+                            ? index === 0
+                              ? "bg-white"
+                              : "bg-[#c4b5fd]"
+                            : "bg-white/25",
+                        )}
+                      />
+                    ))}
+                  </span>
+                )}
+              </div>
+            </div>
+
+            <div className="flex flex-col items-center gap-0.5 py-1 text-center">
+              <div className="flex items-baseline gap-1.5 tabular-nums">
+                <strong
+                  aria-label={`녹음 경과 시간 ${Math.floor(elapsedMs / 1000)}초`}
+                  className="text-[32px] leading-tight font-bold tracking-tight text-white"
+                >
+                  {formatTrimTime(elapsedMs)}
+                </strong>
+                <span className="text-body text-app-muted">/ 01:00.0</span>
+              </div>
+            </div>
+
+            <div className="relative flex h-28 w-full items-center justify-center overflow-hidden rounded-[12px] border border-[#2a2a35] bg-[#14141a]">
+              {recording && liveStream ? (
+                <RecordingMeter stream={liveStream} onElapsedMs={setElapsedMs} />
+              ) : (
+                <>
+                  <div className="pointer-events-none absolute inset-x-0 top-1/2 h-px bg-app-primary/25" />
+                  <div className="pointer-events-none flex items-center gap-1.5 px-4 opacity-40" aria-hidden="true">
+                    {Array.from({ length: 28 }, (_, index) => {
+                      const height = 14 + Math.abs(Math.sin((index + 1) * 0.65)) * 42;
+                      return (
+                        <span
+                          key={index}
+                          className="w-[3px] rounded-full bg-[#7c3aed]"
+                          style={{ height: `${Math.round(height)}%` }}
+                        />
+                      );
+                    })}
+                  </div>
+                  <span className="relative z-[1] rounded-full bg-[#14141a]/85 px-3 py-1 text-caption text-app-muted">
+                    아래 녹음 버튼을 눌러 시작하세요
+                  </span>
+                </>
+              )}
+            </div>
+
+            <p className="m-0 text-center text-[11px] leading-relaxed text-app-muted">
+              메트로놈 소리는 최종 녹음에 포함되지 않습니다 · 이어폰 착용 시 더 깔끔하게 녹음됩니다
+            </p>
+          </div>
+        ) : (
+          <div className="flex w-full flex-col gap-3 rounded-[18px] border border-[#32323d] bg-[#1e1e26] p-4">
+            <AudioTrimPicker
+              key={url}
+              url={url}
+              bpm={bpm}
+              signature={parsedSignature}
+              enableSplice
+              hideActions
+              hidePreviewButton
+              previewControlRef={previewControlRef}
+              onSelectionChange={(sel) => {
+                selectionRef.current = sel ?? undefined;
+              }}
+              onPreviewStateChange={setPreviewPlaying}
+              onSave={async () => {}}
+              saveLabel={saveLabel}
+            />
+            {file && onTransform && (
+              <div className={studioStyles.recordConvert}>
+                <span className="font-medium">변환 방식</span>
+                <Dropdown<AudioTranscriptionMode>
+                  label="변환 방식"
+                  className="min-w-[156px]"
+                  value={soundKind}
+                  disabled={pending}
+                  onChange={setSoundKind}
+                  options={[
+                    { value: "AUTO", label: "자동 판별" },
+                    { value: "HUMMING", label: "허밍 · 한 음씩" },
+                    { value: "INSTRUMENT", label: "악기 · 화음" },
+                  ]}
+                />
+              </div>
+            )}
+            {file && (
+              <div className={studioStyles.recordActions}>
+                {onTransform && (
+                  <button
+                    type="button"
+                    className={buttonVariants({ tone: "secondary" })}
+                    disabled={pending}
+                    onClick={() => {
+                      void transform();
+                    }}
+                  >
+                    MIDI로 변환
+                  </button>
+                )}
+                <button
+                  type="button"
+                  className={buttonVariants({ tone: "primary" })}
+                  disabled={pending}
+                  onClick={() => {
+                    void save();
+                  }}
+                >
+                  {saveLabel}
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Portrait Piano Roll style bottom transport bar */}
+      <div className="flex shrink-0 items-start justify-center gap-8 pt-1 pb-1">
+        <div className="flex flex-col items-center gap-1.5">
+          <button
+            type="button"
+            disabled={!canRetry}
+            aria-label="다시 녹음"
+            onClick={() => {
+              previewControlRef.current?.stop();
+              selectionRef.current = undefined;
+              setElapsedMs(0);
+              reset();
+            }}
+            className="grid size-12 place-items-center rounded-full border border-[#32323d] bg-[#23232a] text-app-fg transition-colors hover:border-app-primary disabled:opacity-40"
+          >
+            <RotateCcw size={20} aria-hidden="true" />
+          </button>
+          <span className="text-[11px] font-medium text-app-muted">다시 녹음</span>
+        </div>
+
+        <div className="flex flex-col items-center gap-1.5">
+          {recorded ? (
+            <button
+              type="button"
+              disabled={pending}
+              aria-label={previewPlaying ? "일시정지" : "미리 듣기"}
+              onClick={() => previewControlRef.current?.toggle()}
+              className={cn(studioStyles.recordButton, "bg-app-primary [&_img]:size-7")}
+            >
+              {previewPlaying ? (
+                <span className={sharedStyles.pauseSymbol} />
+              ) : (
+                <Asset name="play.svg" />
+              )}
+            </button>
+          ) : (
+            <button
+              type="button"
+              disabled={pending}
+              aria-label={recording ? "녹음 종료" : "녹음 시작"}
+              onClick={() => {
+                previewControlRef.current?.stop();
+                setPreviewPlaying(false);
+                if (!recording) {
+                  selectionRef.current = undefined;
+                  setElapsedMs(0);
+                }
+                void toggle();
+              }}
+              className={cn(
+                studioStyles.recordButton,
+                recording
+                  ? "bg-[#ef4444] ring-4 ring-[#ef4444]/25"
+                  : "bg-app-primary shadow-[0_6px_20px_rgba(76,0,229,0.4)] hover:brightness-110",
+                pending && "opacity-50",
+              )}
+            >
+              {recording ? (
+                <Square size={22} fill="currentColor" aria-hidden="true" />
+              ) : (
+                <Mic size={26} aria-hidden="true" />
+              )}
+            </button>
           )}
+          <span className="text-[11px] font-medium text-app-fg">
+            {recorded ? (previewPlaying ? "일시정지" : "미리 듣기") : recording ? "녹음 종료" : "녹음 시작"}
+          </span>
+        </div>
+
+        <div className="flex flex-col items-center gap-1.5">
+          <button
+            type="button"
+            disabled={pending}
+            aria-label={metronomeOn ? "메트로놈 끄기" : "메트로놈 켜기"}
+            aria-pressed={metronomeOn}
+            onClick={() => setMetronomeOn((current) => !current)}
+            className="grid size-12 place-items-center rounded-full border border-[#32323d] bg-[#23232a] text-[#F2F4F6] transition-colors aria-pressed:border-app-primary aria-pressed:bg-app-primary aria-pressed:text-white disabled:opacity-40"
+          >
+            <MetronomeIcon size={22} />
+          </button>
+          <span
+            className={cn(
+              "text-[11px] font-medium",
+              metronomeOn ? "text-[#c4b5fd]" : "text-app-muted",
+            )}
+          >
+            {metronomeOn ? "메트로놈 ON" : "메트로놈 OFF"}
+          </span>
         </div>
       </div>
-      <div className={cn(studioStyles.recordOutput, recorded && studioStyles.recordOutputRecorded)}>
-        {error && <p role="alert">{error}</p>}
-        {url && (
-          <audio
-            ref={playback}
-            controls
-            src={url}
-            onPlay={() => setPreviewPlaying(true)}
-            onPause={() => setPreviewPlaying(false)}
-            onEnded={() => setPreviewPlaying(false)}
-          />
-        )}
-        {recording && liveStream && <RecordingMeter stream={liveStream} />}
-        <p role="status">{status}</p>
-        {file && onTransform && (
-          <div className={studioStyles.recordConvert}>
-            <span className="font-medium">변환 방식</span>
-            <Dropdown<AudioTranscriptionMode>
-              label="변환 방식"
-              className="min-w-[156px]"
-              value={soundKind}
-              disabled={pending}
-              onChange={setSoundKind}
-              options={[
-                { value: "AUTO", label: "자동 판별" },
-                { value: "HUMMING", label: "허밍 · 한 음씩" },
-                { value: "INSTRUMENT", label: "악기 · 화음" },
-              ]}
-            />
-          </div>
-        )}
-        {file && (
-          <div className={studioStyles.recordActions}>
-            {onTransform && (
-              <button
-                className={buttonVariants({
-                  tone: "secondary",
-                })}
-                disabled={pending}
-                onClick={() => {
-                  void transform();
-                }}
-              >
-                MIDI로 변환
-              </button>
-            )}
-            <button
-              className={buttonVariants({
-                tone: "primary",
-              })}
-              disabled={pending}
-              onClick={() => {
-                void save();
-              }}
-            >
-              {saveLabel}
-            </button>
-          </div>
-        )}
-      </div>
-      <button
-        className={studioStyles.recordButton}
-        disabled={pending}
-        aria-label={recording ? "녹음 종료" : "녹음 시작"}
-        onClick={() => {
-          // A new take unmounts the preview <audio> before its pause/ended events can clear the flag
-          // that silences the metronome, so stop the preview here.
-          playback.current?.pause();
-          setPreviewPlaying(false);
-          void toggle();
-        }}
-      >
-        {recording ? (
-          // Same 82px light disc as record-start.svg; the design canvas makes the button itself transparent.
-          <svg width="82" height="82" viewBox="0 0 82 82" aria-hidden="true">
-            <circle cx="41" cy="41" r="41" fill="#F2F4F6" />
-            <rect x="29" y="29" width="24" height="24" rx="4" fill="#1D1D1D" />
-          </svg>
-        ) : (
-          <Asset name="record-start.svg" />
-        )}
-      </button>
     </div>
   );
 }

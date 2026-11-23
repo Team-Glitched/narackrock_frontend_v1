@@ -1,13 +1,21 @@
-import { useQuery } from "@tanstack/react-query";
-import { deleteEmptyTrack, type AudioTranscriptionMode } from "@/lib/api/composition";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+  deleteEmptyTrack,
+  updateProjectTiming,
+  type AudioTranscriptionMode,
+} from "@/lib/api/composition";
 import { useCurrentUserId } from "@/features/auth/use-current-user";
-import { compositionQuery } from "@/features/composition/composition-queries";
+import { compositionKeys, compositionQuery } from "@/features/composition/composition-queries";
+import type { CreationTimingMode } from "@/features/composition/creation-timing-bar";
 import { CompositionRecordScreen } from "@/features/composition/creation-screens";
 import {
   recordingToMidi,
   saveAudioLayer,
   PartialLayerError,
 } from "@/features/composition/composition-actions";
+import type { AudioSelection } from "@/features/composition/prepare-audio-file";
+import type { ProjectTiming } from "@/features/composition/project-timing";
+import { defaultSignature } from "@/features/composition/time-signature";
 import { InstrumentPromptCancelled, useInstrumentPrompt } from "../use-instrument-prompt";
 import { useRef, useState } from "react";
 import { useRouteComposition } from "@/features/composition/use-route-composition";
@@ -25,15 +33,48 @@ import { NativePageStateBridge } from "@/features/community/native-community-bri
 export default function RecordPage() {
   const route = useRouteComposition();
   const currentUserId = useCurrentUserId();
+  const queryClient = useQueryClient();
   const projectQuery = useQuery({
     ...compositionQuery(currentUserId, route.projectId ?? 0, route.view),
     enabled: currentUserId !== null && route.projectId !== null,
   });
   const project = projectQuery.data?.project;
+  const viewerPermission = projectQuery.data?.viewerPermission;
   const bpm = project?.bpm ?? 120;
-  const timeSignature = project
-    ? `${project.timeSignatureNumerator}/${project.timeSignatureDenominator}`
-    : "4/4";
+  const signature = project
+    ? {
+        numerator: project.timeSignatureNumerator,
+        denominator: project.timeSignatureDenominator,
+      }
+    : defaultSignature;
+  const timeSignature = `${signature.numerator}/${signature.denominator}`;
+  const canEditTiming =
+    route.shortId === null &&
+    Boolean(
+      project &&
+        viewerPermission?.canEdit &&
+        project.ownerId === viewerPermission.userId &&
+        ["DRAFT", "IN_PROGRESS"].includes(project.status),
+    );
+  const timingMode: CreationTimingMode = canEditTiming
+    ? (projectQuery.data?.tracks.length ?? 0) === 0
+      ? "initial"
+      : "editable"
+    : "locked";
+  const onTiming =
+    canEditTiming && project && route.projectId !== null
+      ? async (timing: ProjectTiming) => {
+          await updateProjectTiming(project.projectId, {
+            bpm: timing.bpm,
+            timeSignatureNumerator: timing.signature.numerator,
+            timeSignatureDenominator: timing.signature.denominator,
+          });
+          await queryClient.invalidateQueries(
+            { queryKey: compositionKeys.detail(currentUserId, route.projectId!) },
+            { throwOnError: true },
+          );
+        }
+      : undefined;
   const instrument = useInstrumentPrompt(route.projectId);
   const partial = useRef<{ error: PartialLayerError; mode: "audio" | "midi" } | null>(null);
   const [cancelError, setCancelError] = useState("");
@@ -50,7 +91,7 @@ export default function RecordPage() {
   const galleryId = readId(params.galleryId) ?? readId(query.get("galleryId"));
   const scope = resolveSearchScope(query.get("scope"), "songs", Boolean(galleryId));
   const search = () => to(withQuery("/search", { scope, galleryId }));
-  async function save(file: File) {
+  async function save(file: File, selection?: AudioSelection) {
     try {
       if (partial.current) {
         if (partial.current.mode !== "audio" || !partial.current.error.retry)
@@ -60,8 +101,9 @@ export default function RecordPage() {
         await saveAudioLayer(
           route.projectId!,
           file,
-          await instrument.ask({ mode: "audio", audio: { file } }),
+          await instrument.ask({ mode: "audio", audio: { file, selection } }),
           "RECORDING",
+          selection,
         );
       partial.current = null;
     } catch (cause) {
@@ -72,7 +114,11 @@ export default function RecordPage() {
     }
     to(route.studioUrl, { replace: true, state: route.studioState });
   }
-  async function transform(file: File, soundKind: AudioTranscriptionMode = "AUTO") {
+  async function transform(
+    file: File,
+    soundKind: AudioTranscriptionMode = "AUTO",
+    selection?: AudioSelection,
+  ) {
     try {
       if (partial.current) {
         if (partial.current.mode !== "midi" || !partial.current.error.retry)
@@ -88,6 +134,7 @@ export default function RecordPage() {
           file,
           await instrument.ask({ mode: "midi" }),
           soundKind,
+          selection,
         );
         to(route.notesUrl(editor), {
           replace: true,
@@ -119,7 +166,10 @@ export default function RecordPage() {
             onTransform={transform}
             instrument={instrument.native}
             bpm={bpm}
+            signature={signature}
             timeSignature={timeSignature}
+            onTiming={onTiming}
+            timingMode={timingMode}
             notice={cancelError || null}
             onBack={() => void cancel()}
             onSearch={search}
@@ -143,7 +193,10 @@ export default function RecordPage() {
               onSave={save}
               onTransform={transform}
               bpm={bpm}
+              signature={signature}
               timeSignature={timeSignature}
+              onTiming={onTiming}
+              timingMode={timingMode}
             />
           )}
         </div>

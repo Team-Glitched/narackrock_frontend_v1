@@ -156,9 +156,10 @@ export async function recordingToMidi(
   file: File,
   instrument: string,
   soundKind: AudioTranscriptionMode = "AUTO",
+  selection?: AudioSelection,
 ): Promise<EditorTarget> {
   const [{ wav, durationMs }, composition] = await Promise.all([
-    prepareAudioFile(file),
+    prepareAudioFile(file, selection),
     getComposition(projectId),
   ]);
   if (durationMs > composition.project.maxDurationMs)

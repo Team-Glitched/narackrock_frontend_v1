@@ -101,6 +101,9 @@ export function NativeStudioBridge({ studio }: { studio: Studio }) {
   const pendingAudio = studio.pendingAudio;
   const trim = useNativeAudioTrim(pendingAudio, {
     saveLabel: "선택 구간을 레이어에 저장",
+    bpm: project?.bpm ?? 120,
+    signature: playback.signature,
+    enableSplice: true,
     onCancel: () => studio.setPendingAudio(null),
     onSave: async (selection) => {
       if (!pendingAudio) return;

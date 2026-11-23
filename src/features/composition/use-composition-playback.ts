@@ -10,7 +10,7 @@ import {
 } from "react";
 import * as Tone from "tone";
 import type { TrackDto } from "@/lib/api/composition";
-import type { AudioSelection } from "./prepare-audio-file";
+import { prepareAudioFile, type AudioSelection } from "./prepare-audio-file";
 import { signatureTiming, type TimeSignature } from "./time-signature";
 import { findInstrument, type InstrumentDefinition } from "./instrument-catalog";
 import {
@@ -343,16 +343,45 @@ function useToneCompositionPlayback(
       if (!live()) return;
       const buffer = await resources().file(audition.file);
       if (!live()) return;
-      const start = (audition.selection?.startMs ?? 0) / 1000;
-      const end = (audition.selection?.endMs ?? buffer.duration * 1000) / 1000;
-      if (!Number.isFinite(start) || !Number.isFinite(end) || start < 0 || start >= buffer.duration || end <= start || end > buffer.duration + 0.1) {
-        throw new Error("선택한 오디오 구간이 올바르지 않습니다.");
-      }
+      const rawSegments = audition.selection?.segments?.length
+        ? audition.selection.segments
+        : [
+            {
+              startMs: audition.selection?.startMs ?? 0,
+              endMs: audition.selection?.endMs ?? buffer.duration * 1000,
+            },
+          ];
+      const normalized = rawSegments.map((segment) => {
+        const start = segment.startMs / 1000;
+        const end = segment.endMs / 1000;
+        if (
+          !Number.isFinite(start) ||
+          !Number.isFinite(end) ||
+          start < 0 ||
+          start >= buffer.duration ||
+          end <= start ||
+          end > buffer.duration + 0.1
+        ) {
+          throw new Error("선택한 오디오 구간이 올바르지 않습니다.");
+        }
+        return { start, duration: Math.min(end, buffer.duration) - start };
+      });
+      const totalSeconds = normalized.reduce((sum, segment) => sum + segment.duration, 0);
       const generation = new PlaybackGeneration(master());
       previewRef.current = generation;
       generation.epoch = generation.context.currentTime + 0.03;
-      generation.endMs = (Math.min(end, buffer.duration) - start) * 1000;
-      generation.audio(buffer, generation.output, generation.epoch, start, generation.endMs / 1000);
+      generation.endMs = totalSeconds * 1000;
+      let cursorSec = 0;
+      for (const segment of normalized) {
+        generation.audio(
+          buffer,
+          generation.output,
+          generation.epoch + cursorSec,
+          segment.start,
+          segment.duration,
+        );
+        cursorSec += segment.duration;
+      }
       schedule(generation, [], () => {
         generation.stop();
         if (previewRef.current === generation) previewRef.current = null;
@@ -588,13 +617,19 @@ function useNativeCompositionPlayback(
     const live = () => mounted.current && request === previewRequest.current;
     setError(null);
     try {
-      const audio = await fileToNativeAudio(audition.file);
+      const hasMultiSegment = Boolean(
+        audition.selection?.segments && audition.selection.segments.length > 1,
+      );
+      const previewFile = hasMultiSegment
+        ? (await prepareAudioFile(audition.file, audition.selection)).wav
+        : audition.file;
+      const audio = await fileToNativeAudio(previewFile);
       if (!live()) return;
       await send({
         type: "preview-audio",
         audio,
-        startMs: audition.selection?.startMs ?? null,
-        endMs: audition.selection?.endMs ?? null,
+        startMs: hasMultiSegment ? null : (audition.selection?.startMs ?? null),
+        endMs: hasMultiSegment ? null : (audition.selection?.endMs ?? null),
       });
     } catch (cause) {
       if (!live()) return;

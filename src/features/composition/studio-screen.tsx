@@ -1120,6 +1120,12 @@ export function StudioScreen({ studio, portrait = true }: { studio: Studio; port
             <p>{pendingAudio.file.name}</p>
             <AudioTrimPicker
               url={pendingAudio.url}
+              bpm={project.bpm}
+              signature={{
+                numerator: project.timeSignatureNumerator,
+                denominator: project.timeSignatureDenominator,
+              }}
+              enableSplice
               saveLabel="선택 구간을 레이어에 저장"
               onCancel={() => studio.setPendingAudio(null)}
               onSave={async (selection) => {

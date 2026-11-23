@@ -30,6 +30,7 @@ import {
   CompositionRecordScreen,
 } from "../composition/creation-screens";
 import { prepareAudioFile, type AudioSelection } from "@/features/composition/prepare-audio-file";
+import { defaultSignature, type TimeSignature } from "@/features/composition/time-signature";
 import {
   useCallback,
   useEffect,
@@ -649,6 +650,7 @@ function SocialCreateFormContent({ form }: { form: SocialCreateState }) {
     confirmDiscard,
     setConfirmDiscard,
   } = form;
+  const [sourceSignature, setSourceSignature] = useState<TimeSignature>(defaultSignature);
   function pickImage(input: HTMLInputElement) {
     const file = input.files?.[0];
     input.value = "";
@@ -698,6 +700,13 @@ function SocialCreateFormContent({ form }: { form: SocialCreateState }) {
           />
         ) : audioStage === "upload" ? (
           <CompositionUploadScreen
+            bpm={pianoBpm}
+            signature={sourceSignature}
+            timingMode="initial"
+            onTiming={async ({ bpm, signature }) => {
+              setPianoBpm(bpm);
+              setSourceSignature(signature);
+            }}
             saveLabel="오디오 선택 완료"
             onBack={() => setAudioStage("choose")}
             onSave={selectAudio}
@@ -715,6 +724,13 @@ function SocialCreateFormContent({ form }: { form: SocialCreateState }) {
           />
         ) : (
           <CompositionRecordScreen
+            bpm={pianoBpm}
+            signature={sourceSignature}
+            timingMode="initial"
+            onTiming={async ({ bpm, signature }) => {
+              setPianoBpm(bpm);
+              setSourceSignature(signature);
+            }}
             saveLabel="녹음 선택 완료"
             onBack={() => setAudioStage("choose")}
             onSave={selectAudio}
