@@ -774,6 +774,7 @@ function AbyssView({ abyss }: { abyss: AbyssState }) {
               playback={playback}
               onClose={abyss.closeParticipants}
               onListenAll={abyss.listenAll}
+              onProfile={abyss.openProfile}
             />
           </FigmaSheet>
         )}
