@@ -9,6 +9,11 @@ export const sourceStyles = {
     "[.design-canvas_&]:font-normal [.design-canvas_&]:text-caption [.design-canvas_&]:font-sans [.design-canvas_&]:m-[12px_0]",
     "[.design-canvas_&]:text-app-muted [.design-canvas_&]:leading-[18px]",
   ].join(" "),
+  osDiscoverySections: [
+    "os-discovery-sections",
+    "gap-9 [.design-canvas_&]:gap-y-9 [.design-canvas_&]:p-[24px_20px_40px]",
+    "[&>section]:flex [&>section]:min-w-0 [&>section]:flex-none [&>section]:flex-col [&>section]:gap-4",
+  ].join(" "),
   osCard: [
     "os-card",
     "rounded-[12px] p-4 bg-transparent bg-none flex flex-col gap-3 border border-solid border-app-border",

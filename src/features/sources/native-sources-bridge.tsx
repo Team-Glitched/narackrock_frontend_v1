@@ -9,6 +9,7 @@ import type {
   NativeMoreAction,
   NativePlayback,
   NativeSourceCard,
+  NativeSourceSection,
   NativeSources,
   NativeSourcesAction,
 } from "@/lib/native-screens";
@@ -26,7 +27,7 @@ import {
 import { useSavedOpenSources } from "./saved-open-sources";
 import { useSourcePlayback } from "./source-playback";
 import { useSourcePublications } from "./source-publications";
-import { sourceUsage, useOpensourceFeed, useSourceSave } from "./source-screens";
+import { sourceError, sourceUsage, useOpensourceFeed, useSourceSave } from "./source-screens";
 
 /** The web /sources Header: logo, notifications, chat, search, account. */
 const header: NativeHeader = { left: "logo", actions: ["notifications", "chat", "search", "account"] };
@@ -126,38 +127,55 @@ function SourceCardReporter({
   return canPreview ? <audio hidden {...player.audio} /> : null;
 }
 
+const feedSections = ["popular", "recommended", "all"] as const;
+
 /** The 탐색 tab (the web's OpensourceScreen). */
 function FeedBridge({ nav }: { nav: SourcesNavigation }) {
-  const list = useOpensourceFeed();
+  const { list, popular, popularItems, recommended } = useOpensourceFeed();
   const cards = useReportedItems<CardState, CardControls>();
   const { state } = list;
-  const items = state?.items ?? [];
-  const toCard = (source: OpenSourceSummary): NativeSourceCard => {
-    const key = String(source.openSourceId);
-    const reported = cards.states[key];
-    return {
-      key,
-      openSourceId: source.openSourceId,
-      title: source.title,
-      thumbnailUrl: source.thumbnailUrl,
-      usage: source.usageCount != null ? sourceUsage(source.usageCount) : null,
-      description: source.description ?? "",
-      writer: {
-        userId: source.writer.userId,
-        nickname: source.writer.nickname,
-        profileImageUrl: source.writer.profileImageUrl,
-      },
-      likeCount: source.likeCount,
-      dislikeCount: source.dislikeCount,
-      commentCount: source.commentCount,
-      saved: source.isSaved,
-      saveBusy: reported?.saveBusy ?? false,
-      saveError: reported?.saveError ?? null,
-      canPreview: source.canPreview ?? true,
-      player: reported?.player ?? null,
-      vote: source.isLiked ? "like" : source.isDisliked ? "dislike" : null,
-    };
+  const sections = {
+    popular: popularItems,
+    recommended,
+    all: state?.items,
   };
+  const toCard =
+    (section: (typeof feedSections)[number]) =>
+    (source: OpenSourceSummary): NativeSourceCard => {
+      const key = `${section}:${source.openSourceId}`;
+      const reported = cards.states[key];
+      return {
+        key,
+        openSourceId: source.openSourceId,
+        title: source.title,
+        thumbnailUrl: source.thumbnailUrl,
+        usage: source.usageCount != null ? sourceUsage(source.usageCount) : null,
+        description: source.description ?? "",
+        writer: {
+          userId: source.writer.userId,
+          nickname: source.writer.nickname,
+          profileImageUrl: source.writer.profileImageUrl,
+        },
+        likeCount: source.likeCount,
+        dislikeCount: source.dislikeCount,
+        commentCount: source.commentCount,
+        saved: source.isSaved,
+        saveBusy: reported?.saveBusy ?? false,
+        saveError: reported?.saveError ?? null,
+        canPreview: source.canPreview ?? true,
+        player: reported?.player ?? null,
+        vote: source.isLiked ? "like" : source.isDisliked ? "dislike" : null,
+      };
+    };
+  const toSection = (
+    title: string,
+    section: "popular" | "recommended",
+    error: string | undefined,
+  ): NativeSourceSection => ({
+    title,
+    items: sections[section]?.map(toCard(section)) ?? null,
+    error: error ?? null,
+  });
   const node = useSourcesScreen(
     "feed",
     {
@@ -165,18 +183,26 @@ function FeedBridge({ nav }: { nav: SourcesNavigation }) {
         ? { state: "signed-out" }
         : {
             state: "ready",
-            loading: !state,
-            error: state?.error ?? null,
-            empty: !!state && !state.error && items.length === 0,
-            items: items.map(toCard),
-            more: state?.hasNext ? { busy: list.moreBusy } : null,
+            popular: toSection(
+              "인기 샘플",
+              "popular",
+              popular.error ? sourceError(popular.error) : undefined,
+            ),
+            recommended: toSection("추천 샘플", "recommended", state?.error),
+            all: {
+              loading: !state,
+              error: state?.error ?? null,
+              empty: !!state && !state.error && state.items.length === 0,
+              items: state?.items.map(toCard("all")) ?? [],
+              more: state?.hasNext ? { busy: list.moreBusy } : null,
+            },
           },
     },
     nav,
     (action) => {
       switch (action.type) {
-        case "sources-feed-retry":
-          return list.retry();
+        case "sources-section-retry":
+          return action.section === "popular" ? void popular.refetch() : list.retry();
         case "more":
           return list.more();
         case "sources-save":
@@ -194,14 +220,16 @@ function FeedBridge({ nav }: { nav: SourcesNavigation }) {
     <>
       {node}
       {list.signedIn &&
-        items.map((source) => (
-          <SourceCardReporter
-            key={source.openSourceId}
-            id={String(source.openSourceId)}
-            source={source}
-            report={cards.report}
-          />
-        ))}
+        feedSections.map((section) =>
+          sections[section]?.map((source) => (
+            <SourceCardReporter
+              key={`${section}:${source.openSourceId}`}
+              id={`${section}:${source.openSourceId}`}
+              source={source}
+              report={cards.report}
+            />
+          )),
+        )}
     </>
   );
 }

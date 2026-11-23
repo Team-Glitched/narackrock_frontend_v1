@@ -17,6 +17,7 @@ import {
   type UseQueryResult,
 } from "@tanstack/react-query";
 import { AlbumArtwork } from "@/components/music-card";
+import { SectionTitle } from "@/components/section-title";
 import { Avatar } from "@/components/avatar";
 import { FigmaSheet } from "@/components/figma-sheet";
 import { PageState } from "@/components/page-state";
@@ -52,6 +53,7 @@ import {
   openSourceListQuery,
   openSourceQuery,
   patchSource,
+  popularOpenSourcesQuery,
   sourceKeys,
   useSourceSaveMutation,
 } from "./source-queries";
@@ -199,6 +201,8 @@ export function useOpenSourceList(keyword: string, enabled: boolean) {
       : null;
   return {
     state,
+    firstPage: data?.pages[0]?.items,
+    userId,
     more: () => {
       if (hasNextPage && !isFetchingNextPage) void fetchNextPage();
     },
@@ -208,48 +212,80 @@ export function useOpenSourceList(keyword: string, enabled: boolean) {
   };
 }
 
-/** The 탐색 tab's public sample feed (used by OpensourceScreen and NativeSourcesBridge). */
-export function useOpensourceFeed() {
-  return useOpenSourceList("", true);
+const sourceDiscoverySectionLimit = 3;
+
+function recommendSources(items: OpenSourceSummary[], viewerId: number | null) {
+  const others = items.filter((item) => item.writer.userId !== viewerId);
+  const authors = new Set<number>();
+  const first: OpenSourceSummary[] = [];
+  const rest: OpenSourceSummary[] = [];
+  for (const item of others.length ? others : items) {
+    const authorId = item.writer.userId;
+    if (authors.has(authorId)) {
+      rest.push(item);
+    } else {
+      authors.add(authorId);
+      first.push(item);
+    }
+  }
+  return [...first, ...rest].slice(0, sourceDiscoverySectionLimit);
 }
 
-export function OpensourceScreen({
+/**
+ * The 탐색 tab's data (OpensourceScreen and the app's native screen): the public list, the popular
+ * section's query and the recommended section (from the list's first page; undefined until loaded).
+ */
+export function useOpensourceFeed() {
+  const list = useOpenSourceList("", true);
+  const popular = useQuery({ ...popularOpenSourcesQuery(list.userId), enabled: list.signedIn });
+  const popularItems = popular.data?.items.slice(0, sourceDiscoverySectionLimit);
+  const recommended = list.firstPage && recommendSources(list.firstPage, list.userId);
+  return { list, popular, popularItems, recommended };
+}
+
+function SourceDiscoverySection({
+  title,
+  items,
+  error,
+  retry,
   onOpen,
   onProfile,
 }: {
+  title: string;
+  items?: OpenSourceSummary[];
+  error?: string;
+  retry: () => void;
   onOpen: (id: number, comments?: boolean) => void;
   onProfile: (id: number) => void;
 }) {
-  const list = useOpensourceFeed();
-  if (!list.signedIn) return <SignInRequired>샘플은 로그인 후 볼 수 있습니다.</SignInRequired>;
-  const { state } = list;
   return (
-    <div className={cn(sourceStyles.opensourceView, sharedStyles.scrollContent)}>
-      {!state && (
-        <p role="status" className="px-1 py-2 text-body leading-[20px] text-app-muted">
-          샘플을 불러오는 중...
-        </p>
-      )}
-      {state?.error && (
-        <div
-          role="alert"
-          className="rounded-[10px] bg-app-panel p-4 text-body leading-[20px] text-[#ff8d8d]"
-        >
-          <p className="mb-3">{state.error}</p>
-          <button
-            className={buttonVariants({ tone: "secondary", size: "compact" })}
-            onClick={list.retry}
+    <section aria-label={title}>
+      <SectionTitle className="mb-0! px-0">{title}</SectionTitle>
+      {!items &&
+        (error ? (
+          <div
+            role="alert"
+            className="rounded-[10px] bg-app-panel p-4 text-body leading-[20px] text-[#ff8d8d]"
           >
-            다시 시도
-          </button>
-        </div>
+            <p className="mb-3">{error}</p>
+            <button
+              className={buttonVariants({ tone: "secondary", size: "compact" })}
+              onClick={retry}
+            >
+              다시 시도
+            </button>
+          </div>
+        ) : (
+          <p role="status" className="px-1 py-2 text-body leading-[20px] text-app-muted">
+            샘플을 불러오는 중...
+          </p>
+        ))}
+      {items?.length === 0 && (
+        <p className={sourceStyles.osDiscoveryEmpty}>표시할 샘플이 없습니다.</p>
       )}
-      {state && !state.error && state.items.length === 0 && (
-        <p className={sourceStyles.osDiscoveryEmpty}>아직 공개된 샘플이 없습니다.</p>
-      )}
-      {state && state.items.length > 0 && (
+      {!!items?.length && (
         <div className={sourceStyles.osDiscoveryList}>
-          {state.items.map((source) => (
+          {items.map((source) => (
             <OpenSourceCard
               key={source.openSourceId}
               source={source}
@@ -259,15 +295,90 @@ export function OpensourceScreen({
           ))}
         </div>
       )}
-      {state?.hasNext && (
-        <button
-          className={communityStyles.nrCommentsMore}
-          disabled={list.moreBusy}
-          onClick={() => void list.more()}
-        >
-          {list.moreBusy ? "불러오는 중..." : "더보기"}
-        </button>
+    </section>
+  );
+}
+
+export function OpensourceScreen({
+  onOpen,
+  onProfile,
+}: {
+  onOpen: (id: number, comments?: boolean) => void;
+  onProfile: (id: number) => void;
+}) {
+  const { list, popular, popularItems, recommended } = useOpensourceFeed();
+  if (!list.signedIn) return <SignInRequired>샘플은 로그인 후 볼 수 있습니다.</SignInRequired>;
+  const { state } = list;
+  return (
+    <div
+      className={cn(
+        sourceStyles.opensourceView,
+        sharedStyles.scrollContent,
+        sourceStyles.osDiscoverySections,
       )}
+    >
+      <SourceDiscoverySection
+        title="인기 샘플"
+        items={popularItems}
+        error={popular.error ? sourceError(popular.error) : undefined}
+        retry={() => void popular.refetch()}
+        onOpen={onOpen}
+        onProfile={onProfile}
+      />
+      <SourceDiscoverySection
+        title="추천 샘플"
+        items={recommended}
+        error={state?.error}
+        retry={list.retry}
+        onOpen={onOpen}
+        onProfile={onProfile}
+      />
+      <section aria-label="전체 샘플">
+        <SectionTitle className="mb-0! px-0">전체 샘플</SectionTitle>
+        {!state && (
+          <p role="status" className="px-1 py-2 text-body leading-[20px] text-app-muted">
+            샘플을 불러오는 중...
+          </p>
+        )}
+        {state?.error && (
+          <div
+            role="alert"
+            className="rounded-[10px] bg-app-panel p-4 text-body leading-[20px] text-[#ff8d8d]"
+          >
+            <p className="mb-3">{state.error}</p>
+            <button
+              className={buttonVariants({ tone: "secondary", size: "compact" })}
+              onClick={list.retry}
+            >
+              다시 시도
+            </button>
+          </div>
+        )}
+        {state && !state.error && state.items.length === 0 && (
+          <p className={sourceStyles.osDiscoveryEmpty}>아직 공개된 샘플이 없습니다.</p>
+        )}
+        {state && state.items.length > 0 && (
+          <div className={sourceStyles.osDiscoveryList}>
+            {state.items.map((source) => (
+              <OpenSourceCard
+                key={source.openSourceId}
+                source={source}
+                onOpen={onOpen}
+                onProfile={onProfile}
+              />
+            ))}
+          </div>
+        )}
+        {state?.hasNext && (
+          <button
+            className={communityStyles.nrCommentsMore}
+            disabled={list.moreBusy}
+            onClick={() => void list.more()}
+          >
+            {list.moreBusy ? "불러오는 중..." : "더보기"}
+          </button>
+        )}
+      </section>
     </div>
   );
 }

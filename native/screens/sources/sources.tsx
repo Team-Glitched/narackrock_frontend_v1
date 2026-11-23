@@ -3,6 +3,7 @@ import { Text, TextInput, View } from "react-native";
 import type {
   NativeSourceCard,
   NativeSourcePublications,
+  NativeSourceSection,
   NativeSources,
 } from "../../../src/lib/native-screens";
 import { Cover } from "../../ui/cards";
@@ -35,26 +36,33 @@ export function SourcesScreen({ model, header }: ScreenProps<"sources">) {
           (model.feed.state === "signed-out" ? (
             <SourceLogin>샘플은 로그인 후 볼 수 있습니다.</SourceLogin>
           ) : (
-            <View style={{ gap: 16 }}>
-              {model.feed.loading && <Status>샘플을 불러오는 중...</Status>}
-              {model.feed.error && (
-                <ErrorRetry
-                  message={model.feed.error}
-                  onRetry={() => act({ type: "sources-feed-retry" })}
-                />
-              )}
-              {model.feed.empty && <Status>아직 공개된 샘플이 없습니다.</Status>}
-              {model.feed.items.map((source) => (
-                <SourceCard key={source.key} source={source} />
-              ))}
-              {model.feed.more && (
-                <Button
-                  tone="secondary"
-                  label={model.feed.more.busy ? "불러오는 중..." : "더보기"}
-                  disabled={model.feed.more.busy}
-                  onPress={() => act({ type: "more" })}
-                />
-              )}
+            <View style={styles.column}>
+              <SourceSection section={model.feed.popular} kind="popular" />
+              <SourceSection section={model.feed.recommended} kind="recommended" />
+              <View style={{ gap: 16 }}>
+                <Text accessibilityRole="header" style={type.title}>
+                  전체 샘플
+                </Text>
+                {model.feed.all.loading && <Status>샘플을 불러오는 중...</Status>}
+                {model.feed.all.error && (
+                  <ErrorRetry
+                    message={model.feed.all.error}
+                    onRetry={() => act({ type: "sources-section-retry", section: "recommended" })}
+                  />
+                )}
+                {model.feed.all.empty && <Status>아직 공개된 샘플이 없습니다.</Status>}
+                {model.feed.all.items.map((source) => (
+                  <SourceCard key={source.key} source={source} />
+                ))}
+                {model.feed.all.more && (
+                  <Button
+                    tone="secondary"
+                    label={model.feed.all.more.busy ? "불러오는 중..." : "더보기"}
+                    disabled={model.feed.all.more.busy}
+                    onPress={() => act({ type: "more" })}
+                  />
+                )}
+              </View>
             </View>
           ))}
         {model.saved && (
@@ -66,6 +74,40 @@ export function SourcesScreen({ model, header }: ScreenProps<"sources">) {
       </ScreenScroll>
       {model.create && <Fab label="만들기" onPress={() => act({ type: "sources-create" })} />}
     </>
+  );
+}
+
+function SourceSection({
+  section,
+  kind,
+}: {
+  section: NativeSourceSection;
+  kind: "popular" | "recommended";
+}) {
+  const { act } = useScreen();
+  return (
+    <View style={{ gap: 12 }}>
+      <Text accessibilityRole="header" style={type.title}>
+        {section.title}
+      </Text>
+      {!section.items &&
+        (section.error ? (
+          <ErrorRetry
+            message={section.error}
+            onRetry={() => act({ type: "sources-section-retry", section: kind })}
+          />
+        ) : (
+          <Status>샘플을 불러오는 중...</Status>
+        ))}
+      {section.items?.length === 0 && <Status>표시할 샘플이 없습니다.</Status>}
+      {!!section.items?.length && (
+        <View style={{ gap: 16 }}>
+          {section.items.map((source) => (
+            <SourceCard key={source.key} source={source} />
+          ))}
+        </View>
+      )}
+    </View>
   );
 }
 
