@@ -239,10 +239,14 @@ export function PostRow({
             </Text>
           </View>
           <View style={styles.postStats} accessibilityLabel="게시글 통계">
-            <Text style={type.caption}>{post.createdLabel}</Text>
-            <Stat icon={<LikeIcon width={13} height={13} />} value={post.likeCount} />
-            <Stat icon={<DislikeIcon width={13} height={13} />} value={post.dislikeCount} />
-            <Stat icon={<CommentIcon width={13} height={13} />} value={post.commentCount} />
+            <Text style={[type.caption, styles.postTime]} numberOfLines={1}>
+              {post.createdLabel}
+            </Text>
+            <View style={styles.postStatGroup}>
+              <Stat icon={<LikeIcon width={13} height={13} />} value={post.likeCount} />
+              <Stat icon={<DislikeIcon width={13} height={13} />} value={post.dislikeCount} />
+              <Stat icon={<CommentIcon width={13} height={13} />} value={post.commentCount} />
+            </View>
           </View>
         </View>
       </Touchable>
@@ -281,6 +285,8 @@ const styles = StyleSheet.create({
   postCopy: { flex: 1, gap: 6 },
   postExcerpt: { color: colors.fg, fontSize: 15, lineHeight: 20, fontWeight: "600" },
   postAuthor: { flexDirection: "row", alignItems: "center", gap: 6 },
-  postStats: { flexDirection: "row", alignItems: "center", gap: 10 },
+  postStats: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8, paddingRight: 4 },
+  postTime: { flexShrink: 1 },
+  postStatGroup: { flexDirection: "row", alignItems: "center", gap: 10 },
   stat: { flexDirection: "row", alignItems: "center", gap: 3 },
 });

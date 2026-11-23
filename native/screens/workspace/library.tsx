@@ -266,12 +266,12 @@ export function Player({
 
 const styles = StyleSheet.create({
   search: {
-    height: 44,
+    height: 48,
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
-    borderRadius: 20,
-    paddingHorizontal: 14,
+    borderRadius: 24,
+    paddingHorizontal: 16,
     backgroundColor: colors.surface,
   },
   searchInput: { flex: 1, minWidth: 0, color: colors.fg, fontSize: 16, padding: 0 },
