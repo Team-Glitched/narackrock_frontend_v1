@@ -261,13 +261,13 @@ function AccountMigrationScreen({ userId }: { userId: number | null }) {
         "flex flex-col gap-5 px-5 pt-6 pb-10 text-app-fg",
       )}
     >
-      <div className="flex items-center justify-between gap-3">
-        <h1 className="m-0 text-title leading-7 font-bold text-app-fg">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h1 className="m-0 text-[18px] leading-6 font-bold text-app-fg break-keep">
           이 브라우저 데이터 이관·복구
         </h1>
         <button
           type="button"
-          className={buttonVariants({ tone: "secondary", size: "compact" })}
+          className={cn(buttonVariants({ tone: "secondary", size: "compact" }), "shrink-0")}
           onClick={() => navigate("/settings", { replace: true })}
         >
           설정으로 돌아가기
