@@ -44,6 +44,7 @@ import { signatureGrid, musicalGridBackground } from "@/features/composition/tim
 import { MusicalRuler } from "@/features/composition/musical-ruler";
 import { TimelineClip } from "@/features/composition/timeline-clip";
 import { canMoveClip, overlapsClip } from "@/features/composition/timeline-move";
+import { emptyMidiChoices, isEmptyMidi } from "@/features/composition/midi-content";
 import type { ProjectTiming } from "@/features/composition/project-timing";
 import {
   createAudioClip,
@@ -1054,6 +1055,13 @@ export function StudioScreen({ studio, portrait = true }: { studio: Studio; port
               ? () => studio.changeInstrument(trackSettings.track.trackId)
               : undefined
           }
+          emptyMidi={emptyMidiChoices(trackSettings.track.clips, project.ppq, playback.signature).map(
+            ({ clipId, label }) => ({
+              clipId,
+              label,
+              open: () => onEditTrack(trackSettings.track.trackId, clipId > 0 ? clipId : null),
+            }),
+          )}
         />
       )}
       {studio.instrumentChoice && (
@@ -1195,7 +1203,7 @@ export function StudioScreen({ studio, portrait = true }: { studio: Studio; port
                     + 노트 · 이어서 편집
                   </button>
                 )}
-                {track.clips.map((clip) => (
+                {track.clips.filter((clip) => !isEmptyMidi(clip)).map((clip) => (
                   <TimelineClip
                     key={clip.clipId}
                     clip={clip}

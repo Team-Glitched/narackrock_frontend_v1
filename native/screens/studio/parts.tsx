@@ -182,12 +182,14 @@ export function DialogButton({
   tone = "primary",
   disabled = false,
   wide = false,
+  style,
   onPress,
 }: {
   label: string;
   tone?: "primary" | "secondary";
   disabled?: boolean;
   wide?: boolean;
+  style?: StyleProp<ViewStyle>;
   onPress: () => void;
 }) {
   return (
@@ -200,6 +202,7 @@ export function DialogButton({
         tone === "secondary" && styles.dialogButtonSecondary,
         wide && styles.wide,
         disabled && styles.disabled,
+        style,
       ]}
       onPress={onPress}
     >
@@ -216,19 +219,24 @@ function Alert({ children }: { children: string }) {
   );
 }
 
-/** The web's VolumeDialog: "음량" slider + number, optionally a track's identity and "악기/보컬 변경". */
+/**
+ * The web's VolumeDialog: "음량" slider + number, optionally a track's identity, "악기/보컬 변경"
+ * and the track's note-free MIDI entries.
+ */
 export function VolumeSheet({
   value,
   onChange,
   onClose,
   identity,
   onChangeInstrument,
+  emptyMidi = [],
 }: {
   value: number;
   onChange: (value: number) => void;
   onClose: () => void;
   identity?: { name: string; part: string };
   onChangeInstrument?: () => void;
+  emptyMidi?: { clipId: number; label: string; open: () => void }[];
 }) {
   return (
     <Dialog label="음량" onClose={onClose} style={styles.volumeDialog}>
@@ -264,6 +272,16 @@ export function VolumeSheet({
           <DialogButton label="악기/보컬 변경" tone="secondary" wide onPress={onChangeInstrument} />
         </View>
       )}
+      {emptyMidi.map(({ clipId, label, open }) => (
+        <DialogButton
+          key={clipId}
+          label={label}
+          tone="secondary"
+          wide
+          style={styles.emptyMidiButton}
+          onPress={open}
+        />
+      ))}
     </Dialog>
   );
 }
@@ -643,6 +661,7 @@ const styles = StyleSheet.create({
   volumeRow: { flexDirection: "row", alignItems: "center", gap: 12, alignSelf: "stretch" },
   volumeIcon: { marginRight: 18 },
   instrumentChange: { marginTop: 20 },
+  emptyMidiButton: { minHeight: 44, marginTop: 12 },
   slider: { height: 30, justifyContent: "center" },
   sliderTrack: {
     height: 5,

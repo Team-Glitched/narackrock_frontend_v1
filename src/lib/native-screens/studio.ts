@@ -177,6 +177,8 @@ export function isNativeSourcePickerAction(action: {
 export type NativeStudioClip = {
   clipId: number;
   midi: boolean;
+  /** Note-free MIDI: not drawn on the lane; the track settings (`trackSettings.emptyMidi`) reopen it. */
+  emptyMidi: boolean;
   startTick: number;
   durationTick: number;
   /** The visible label (part · layer name), or null. */
@@ -261,6 +263,8 @@ export type NativeStudio = {
     part: string;
     volume: number;
     canChangeInstrument: boolean;
+    /** Note-free MIDI of this track; each entry sends `studio-clip` (edit) to reopen it. */
+    emptyMidi: { clipId: number; label: string }[];
   } | null;
   instrument: NativeInstrumentPicker | null;
   timing: NativeTimingSheet | null;
