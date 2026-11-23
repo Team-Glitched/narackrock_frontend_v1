@@ -53,7 +53,7 @@ export function AudioPlaybackBar({
       >
         {playing ? <Pause aria-hidden="true" size={18} /> : <Asset name="play.svg" />}
       </button>
-      <span className={"flex-none text-body"}>
+      <span className={"flex-none text-body tabular-nums"}>
         {elapsed} / {duration}
       </span>
       <input
@@ -65,7 +65,7 @@ export function AudioPlaybackBar({
         aria-valuetext={`${elapsed} / ${durationMs === null ? "재생 시간 정보 없음" : duration}`}
         min={0}
         max={durationMs || 0}
-        step={100}
+        step="any"
         value={durationMs === null ? 0 : position}
         disabled={disabled || loading || !durationMs}
         onChange={(event) => onSeek(Number(event.target.value))}

@@ -39,30 +39,17 @@ export function SourcesScreen({ model, header }: ScreenProps<"sources">) {
             <View style={styles.column}>
               <SourceSection section={model.feed.popular} kind="popular" />
               <SourceSection section={model.feed.recommended} kind="recommended" />
-              <View style={{ gap: 16 }}>
-                <Text accessibilityRole="header" style={type.title}>
-                  전체 샘플
-                </Text>
-                {model.feed.all.loading && <Status>샘플을 불러오는 중...</Status>}
-                {model.feed.all.error && (
-                  <ErrorRetry
-                    message={model.feed.all.error}
-                    onRetry={() => act({ type: "sources-section-retry", section: "recommended" })}
-                  />
-                )}
-                {model.feed.all.empty && <Status>아직 공개된 샘플이 없습니다.</Status>}
-                {model.feed.all.items.map((source) => (
-                  <SourceCard key={source.key} source={source} />
-                ))}
-                {model.feed.all.more && (
-                  <Button
-                    tone="secondary"
-                    label={model.feed.all.more.busy ? "불러오는 중..." : "더보기"}
-                    disabled={model.feed.all.more.busy}
-                    onPress={() => act({ type: "more" })}
-                  />
-                )}
-              </View>
+              <SourceSection
+                section={{
+                  title: "전체 샘플",
+                  items: model.feed.all.loading || model.feed.all.error ? null : model.feed.all.items,
+                  error: model.feed.all.error,
+                }}
+                kind="recommended"
+                emptyMessage="아직 공개된 샘플이 없습니다."
+                more={model.feed.all.more}
+                onMore={() => act({ type: "more" })}
+              />
             </View>
           ))}
         {model.saved && (
@@ -80,14 +67,21 @@ export function SourcesScreen({ model, header }: ScreenProps<"sources">) {
 function SourceSection({
   section,
   kind,
+  emptyMessage = "표시할 샘플이 없습니다.",
+  more = null,
+  onMore,
 }: {
   section: NativeSourceSection;
   kind: "popular" | "recommended";
+  emptyMessage?: string;
+  more?: { busy: boolean } | null;
+  onMore?: () => void;
 }) {
   const { act } = useScreen();
   const innerWidth = Math.max(1, useWindowDimensions().width - gutter * 2);
   const count = section.items?.length ?? 0;
-  const cardWidth = count > 1 ? Math.max(240, innerWidth - 50) : innerWidth;
+  const paged = count > 1 || Boolean(more && onMore);
+  const cardWidth = paged ? Math.max(240, innerWidth - 50) : innerWidth;
   return (
     <View style={{ gap: 12 }}>
       <Text accessibilityRole="header" style={type.title}>
@@ -102,7 +96,7 @@ function SourceSection({
         ) : (
           <Status>샘플을 불러오는 중...</Status>
         ))}
-      {section.items?.length === 0 && <Status>표시할 샘플이 없습니다.</Status>}
+      {section.items?.length === 0 && <Status>{emptyMessage}</Status>}
       {!!section.items?.length && (
         <ScrollView
           horizontal
@@ -111,6 +105,17 @@ function SourceSection({
           snapToAlignment="start"
           decelerationRate="fast"
           disableIntervalMomentum
+          scrollEventThrottle={120}
+          onScroll={(event) => {
+            if (!more || more.busy || !onMore) return;
+            const { contentOffset, layoutMeasurement, contentSize } = event.nativeEvent;
+            if (
+              contentOffset.x + layoutMeasurement.width >=
+              contentSize.width - (cardWidth + 12) * 1.5
+            ) {
+              onMore();
+            }
+          }}
           style={{ marginHorizontal: -gutter }}
           contentContainerStyle={{ paddingHorizontal: gutter, gap: 12 }}
         >
@@ -119,6 +124,16 @@ function SourceSection({
               <SourceCard source={source} />
             </View>
           ))}
+          {more && onMore && (
+            <View style={{ width: 124, justifyContent: "center" }}>
+              <Button
+                tone="secondary"
+                label={more.busy ? "불러오는 중..." : "더보기"}
+                disabled={more.busy}
+                onPress={onMore}
+              />
+            </View>
+          )}
         </ScrollView>
       )}
     </View>

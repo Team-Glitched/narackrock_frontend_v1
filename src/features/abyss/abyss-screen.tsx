@@ -691,7 +691,7 @@ function AbyssView({ abyss }: { abyss: AbyssState }) {
             type="range"
             min={0}
             max={playback.totalMs / 1000 || 1}
-            step="0.1"
+            step="any"
             value={Math.min(playback.positionMs / 1000, playback.totalMs / 1000 || 1)}
             style={{
               background: `linear-gradient(to right, #f2f4f6 ${progress}%, #303030 ${progress}%)`,

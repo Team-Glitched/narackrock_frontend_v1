@@ -259,6 +259,10 @@ function SourceDiscoverySection({
   items,
   error,
   retry,
+  emptyMessage = "표시할 샘플이 없습니다.",
+  hasNext = false,
+  moreBusy = false,
+  onMore,
   onOpen,
   onProfile,
 }: {
@@ -266,6 +270,10 @@ function SourceDiscoverySection({
   items?: OpenSourceSummary[];
   error?: string;
   retry: () => void;
+  emptyMessage?: string;
+  hasNext?: boolean;
+  moreBusy?: boolean;
+  onMore?: () => void;
   onOpen: (id: number, comments?: boolean) => void;
   onProfile: (id: number) => void;
 }) {
@@ -280,10 +288,11 @@ function SourceDiscoverySection({
   } | null>(null);
   const suppressClick = useRef(false);
   const count = items?.length ?? 0;
+  const paged = count > 1 || Boolean(hasNext && onMore);
 
   function startDrag(event: PointerEvent<HTMLDivElement>) {
     suppressClick.current = false;
-    if (count < 2 || event.pointerType !== "mouse" || event.button !== 0) return;
+    if (!paged || event.pointerType !== "mouse" || event.button !== 0) return;
     if (event.target instanceof Element && event.target.closest("input")) return;
     const track = event.currentTarget;
     drag.current = {
@@ -331,9 +340,10 @@ function SourceDiscoverySection({
     } else {
       target = Math.round(track.scrollLeft / step);
     }
+    const maxIndex = Math.max(0, track.children.length - 1);
     const next = Math.max(
       Math.max(0, initial - 1),
-      Math.min(Math.min(count - 1, initial + 1), target),
+      Math.min(Math.min(maxIndex, initial + 1), target),
     );
     delete track.dataset.dragging;
     track.scrollTo({ left: next * step, behavior: "smooth" });
@@ -361,14 +371,20 @@ function SourceDiscoverySection({
             샘플을 불러오는 중...
           </p>
         ))}
-      {items?.length === 0 && (
-        <p className={sourceStyles.osDiscoveryEmpty}>표시할 샘플이 없습니다.</p>
-      )}
+      {items?.length === 0 && <p className={sourceStyles.osDiscoveryEmpty}>{emptyMessage}</p>}
       {!!items?.length && (
         <div
           ref={rail}
           className={sourceStyles.osDiscoveryRail}
-          data-paged={count > 1}
+          data-paged={paged}
+          onScroll={(event) => {
+            if (!hasNext || moreBusy || !onMore) return;
+            const track = event.currentTarget;
+            const step = discoveryCardStep(track);
+            if (track.scrollLeft + track.clientWidth >= track.scrollWidth - step * 1.5) {
+              onMore();
+            }
+          }}
           onPointerDown={startDrag}
           onPointerMove={updateDrag}
           onPointerUp={finishDrag}
@@ -393,6 +409,16 @@ function SourceDiscoverySection({
               onProfile={onProfile}
             />
           ))}
+          {hasNext && onMore && (
+            <button
+              type="button"
+              className="flex w-[124px] flex-none snap-start items-center justify-center rounded-[12px] border border-solid border-app-border bg-app-panel px-4 text-body font-medium text-app-muted transition-colors hover:text-app-fg disabled:opacity-50"
+              disabled={moreBusy}
+              onClick={onMore}
+            >
+              {moreBusy ? "불러오는 중..." : "더보기"}
+            </button>
+          )}
         </div>
       )}
     </section>
@@ -433,52 +459,18 @@ export function OpensourceScreen({
         onOpen={onOpen}
         onProfile={onProfile}
       />
-      <section aria-label="전체 샘플">
-        <SectionTitle className="mb-0! px-0">전체 샘플</SectionTitle>
-        {!state && (
-          <p role="status" className="px-1 py-2 text-body leading-[20px] text-app-muted">
-            샘플을 불러오는 중...
-          </p>
-        )}
-        {state?.error && (
-          <div
-            role="alert"
-            className="rounded-[10px] bg-app-panel p-4 text-body leading-[20px] text-[#ff8d8d]"
-          >
-            <p className="mb-3">{state.error}</p>
-            <button
-              className={buttonVariants({ tone: "secondary", size: "compact" })}
-              onClick={list.retry}
-            >
-              다시 시도
-            </button>
-          </div>
-        )}
-        {state && !state.error && state.items.length === 0 && (
-          <p className={sourceStyles.osDiscoveryEmpty}>아직 공개된 샘플이 없습니다.</p>
-        )}
-        {state && state.items.length > 0 && (
-          <div className={sourceStyles.osDiscoveryList}>
-            {state.items.map((source) => (
-              <OpenSourceCard
-                key={source.openSourceId}
-                source={source}
-                onOpen={onOpen}
-                onProfile={onProfile}
-              />
-            ))}
-          </div>
-        )}
-        {state?.hasNext && (
-          <button
-            className={communityStyles.nrCommentsMore}
-            disabled={list.moreBusy}
-            onClick={() => void list.more()}
-          >
-            {list.moreBusy ? "불러오는 중..." : "더보기"}
-          </button>
-        )}
-      </section>
+      <SourceDiscoverySection
+        title="전체 샘플"
+        items={state && !state.error ? state.items : undefined}
+        error={state?.error}
+        retry={list.retry}
+        emptyMessage="아직 공개된 샘플이 없습니다."
+        hasNext={state?.hasNext}
+        moreBusy={list.moreBusy}
+        onMore={() => void list.more()}
+        onOpen={onOpen}
+        onProfile={onProfile}
+      />
     </div>
   );
 }
