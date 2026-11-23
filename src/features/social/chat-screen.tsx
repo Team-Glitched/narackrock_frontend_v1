@@ -4,13 +4,12 @@ import { sharedStyles } from "@/styles/shared.styles";
 import { communityStyles } from "@/styles/community.styles";
 import { buttonVariants } from "@/styles/variants";
 import { cn } from "@/lib/utils";
-import { Search, SquarePen, X } from "lucide-react";
 import { relativeTime } from "@/features/posts/post-utils";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { shouldSubmitOnEnter, usesTouchKeyboard } from "@/features/comments/submit-on-enter";
 import { Asset } from "@/components/asset";
 import { Avatar } from "@/components/avatar";
-import { useCurrentUserId } from "@/features/auth/use-current-user";
+import { useAuthSession } from "@/features/auth/auth-session";
 import { SignInRequired } from "@/features/auth/sign-in-required";
 import { useChatPartner } from "@/features/social/use-chat-partner";
 import { filterChatInbox } from "@/features/social/chat-inbox";
@@ -19,6 +18,9 @@ import { canSendChatTo } from "@/features/social/chat-access";
 import { useChatSend, useConversation } from "@/features/social/use-conversation";
 import type { UserProfile } from "@/lib/api/contracts";
 import { CHAT_MESSAGE_MAX_LENGTH, chatMessageContent } from "@/features/social/chat-messages";
+
+const headerControl =
+  "grid size-11 shrink-0 place-items-center rounded-full p-[10px] hover:bg-white/5 [&>img]:h-auto [&>img]:w-auto [&>img]:max-h-none [&>img]:max-w-none [&>img]:shrink-0";
 
 function Inbox({
   me,
@@ -48,15 +50,15 @@ function Inbox({
   const rows = filterChatInbox(inbox.rows, searchText);
   return (
     <>
-      <div className="mx-5 mt-2 mb-3 flex h-11 shrink-0 items-center gap-2.5 rounded-xl bg-app-surface px-3.5 text-app-muted focus-within:ring-2 focus-within:ring-violet-500/60">
-        <Search aria-hidden="true" className="size-[17px] shrink-0" />
+      <label className={socialStyles.chatSearch}>
+        <Asset name="search-input.svg" className="size-[19px] shrink-0" />
         <input
           ref={input}
           type="search"
           aria-label="대화 상대 검색"
           placeholder="대화 상대 검색"
           value={searchText}
-          className="min-w-0 flex-1 bg-transparent text-body text-app-fg outline-none placeholder:text-app-muted [&::-webkit-search-cancel-button]:appearance-none"
+          className="min-w-0 flex-1 border-0 bg-transparent text-label leading-[22px] text-app-fg outline-none placeholder:text-app-muted focus-visible:outline-none! [&::-webkit-search-cancel-button]:appearance-none"
           onChange={(event) => setSearchText(event.target.value)}
         />
         {searchText && (
@@ -70,10 +72,10 @@ function Inbox({
               input.current?.focus();
             }}
           >
-            <X aria-hidden="true" className="size-4" />
+            <Asset name="search-close.svg" className="size-[13px]" />
           </button>
         )}
-      </div>
+      </label>
       <div className={cn("min-h-0 flex-1 px-2", sharedStyles.scrollContent)}>
         {inbox.error && (
           <div
@@ -318,30 +320,31 @@ export function ChatScreen({
   friendId,
   onBack,
   onSearch,
-  onNewMessage,
   onNotifications,
   onSelect,
   onProfile,
+  onMyProfile,
+  onLogin,
   query,
   onQueryChange,
 }: {
   friendId: number | null;
   onBack: () => void;
   onSearch: () => void;
-  onNewMessage: () => void;
   onNotifications: () => void;
   onSelect: (id: number) => void;
   onProfile: (id: number) => void;
+  onMyProfile: () => void;
+  onLogin: () => void;
   query: string;
   onQueryChange: (query: string) => void;
 }) {
-  const me = useCurrentUserId();
+  const { currentUserId: me, headerProfileImageUrl } = useAuthSession();
   const { key, partner: current } = useChatPartner(me, friendId);
-  const isInbox = friendId === null;
   return (
     <div className={socialStyles.chatScreen}>
       <header className={socialStyles.chatHeader}>
-        <button type="button" aria-label="뒤로" onClick={onBack}>
+        <button type="button" className={headerControl} aria-label="뒤로" onClick={onBack}>
           <Asset name="return.svg" />
         </button>
         {current?.profile ? (
@@ -363,16 +366,30 @@ export function ChatScreen({
             채팅
           </h1>
         )}
-        <NotificationBell onClick={onNotifications} />
-        {isInbox ? (
-          <button type="button" aria-label="새 메시지" onClick={onNewMessage}>
-            <SquarePen aria-hidden="true" className="size-5" />
-          </button>
-        ) : (
-          <button type="button" aria-label="검색" onClick={onSearch}>
+        <div className="flex h-11 shrink-0 items-center gap-1">
+          <NotificationBell className={headerControl} onClick={onNotifications} />
+          <button type="button" className={headerControl} aria-label="검색" onClick={onSearch}>
             <Asset name="v3-search.svg" />
           </button>
-        )}
+          {me === null ? (
+            <button
+              type="button"
+              className={cn(buttonVariants({ tone: "primary", size: "compact" }), "mr-2 shrink-0")}
+              onClick={onLogin}
+            >
+              로그인
+            </button>
+          ) : (
+            <button
+              type="button"
+              aria-label="프로필"
+              className={cn(headerControl, "p-1.5 [&_.avatar]:border-0")}
+              onClick={onMyProfile}
+            >
+              <Avatar size="md" src={headerProfileImageUrl} />
+            </button>
+          )}
+        </div>
       </header>
       {me === null ? (
         <SignInRequired>채팅은 로그인 후 사용할 수 있습니다.</SignInRequired>

@@ -24,7 +24,6 @@ type ChatNavigation = {
   onQueryChange: (query: string) => void;
   onBack: () => void;
   onSearch: () => void;
-  onNewMessage: () => void;
   onSelect: (id: number) => void;
   onProfile: (id: number) => void;
 };
@@ -123,8 +122,6 @@ function NativeChatInboxBridge({ nav }: { nav: ChatNavigation }) {
           return nav.onQueryChange(action.value);
         case "chat-open":
           return nav.onSelect(action.userId);
-        case "chat-new":
-          return nav.onNewMessage();
         case "chat-retry":
           return controls.current?.refresh();
         case "sign-in":

@@ -1,4 +1,6 @@
 import { buttonVariants } from "@/styles/variants";
+import { socialStyles } from "@/styles/social.styles";
+import { cn } from "@/lib/utils";
 import { ChevronDown } from "lucide-react";
 import { useId, useRef, useState } from "react";
 import { Asset } from "@/components/asset";
@@ -57,7 +59,12 @@ export function PostCommunityPicker({
               </button>
             </header>
             <p>가입한 커뮤니티 중 게시글을 올릴 곳을 선택하세요.</p>
-            <label className="flex h-11 items-center gap-[10px] rounded-xl bg-app-surface px-3 [&>img]:size-[18px] [&>img]:shrink-0 [&>input]:min-w-0 [&>input]:w-full [&>input]:flex-1 [&>input]:border-0 [&>input]:bg-transparent [&>input]:text-body [&>input]:leading-5 [&>input]:font-normal [&>input]:text-app-fg [&>button]:grid [&>button]:h-9 [&>button]:w-7 [&>button]:shrink-0 [&>button]:place-items-center [&>button>img]:size-3">
+            <label
+              className={cn(
+                "flex h-11 items-center gap-2.5 rounded-full bg-app-surface pl-4 pr-2 [&>img]:size-[19px] [&>img]:shrink-0 [&>input]:min-w-0 [&>input]:w-full [&>input]:flex-1 [&>input]:border-0 [&>input]:bg-transparent [&>input]:text-label [&>input]:leading-[22px] [&>input]:font-normal [&>input]:text-app-fg [&>input]:outline-none [&>input]:focus-visible:outline-none! [&>input::placeholder]:text-app-muted [&>button]:grid [&>button]:size-8 [&>button]:shrink-0 [&>button]:place-items-center [&>button]:rounded-full [&>button:hover]:bg-white/10 [&>button>img]:size-[13px]",
+                socialStyles.searchFocus,
+              )}
+            >
               <Asset name="search-input.svg" />
               <input
                 ref={searchInput}

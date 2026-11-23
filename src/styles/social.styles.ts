@@ -1,5 +1,12 @@
+/**
+ * Keyboard focus of the search pills (chat inbox, /search, community picker): a solid accent outline,
+ * ≥3:1 against the dark page and kept by forced-colors mode, unlike a box-shadow ring.
+ */
+const searchFocus = "focus-within:outline-2 focus-within:outline-app-accent";
+
 /** Tailwind presets for social UI. Marker classes also support DOM queries and contextual states. */
 export const socialStyles = {
+  searchFocus,
   searchLine: [
     "search-line",
     "[.community-members-view_&]:shrink-0 [.community-members-view_&]:gap-1 [.community-members-view_&]:p-[0_16px_0_6px]",
@@ -7,13 +14,13 @@ export const socialStyles = {
     "flex h-12 flex-[0_0_48px] items-center gap-1 p-[0_16px_0_6px]",
     "[&>button]:grid [&>button]:size-11 [&>button]:flex-[0_0_44px] [&>button]:place-items-center [&>button]:p-0",
     "[&>button_img]:h-auto [&>button_img]:w-auto [&>button_img]:max-w-none",
-    "[&_:is(label,.search-field)]:h-9 [&_:is(label,.search-field)]:flex-1 [&_:is(label,.search-field)]:rounded-[18px] [&_:is(label,.search-field)]:bg-app-surface [&_:is(label,.search-field)]:bg-none [&_:is(label,.search-field)]:flex [&_:is(label,.search-field)]:items-center",
-    "[&_:is(label,.search-field)]:gap-2 [&_:is(label,.search-field)]:p-[0_4px_0_12px]",
-    "[&_:is(label,.search-field)>img]:h-6 [&_:is(label,.search-field)>img]:w-6",
+    "[&_:is(label,.search-field)]:h-10 [&_:is(label,.search-field)]:flex-1 [&_:is(label,.search-field)]:rounded-full [&_:is(label,.search-field)]:bg-app-surface [&_:is(label,.search-field)]:bg-none [&_:is(label,.search-field)]:flex [&_:is(label,.search-field)]:items-center",
+    "[&_:is(label,.search-field)]:gap-2.5 [&_:is(label,.search-field)]:p-[0_5px_0_14px]",
+    "[&_:is(label,.search-field)>img]:size-[19px] [&_:is(label,.search-field)>img]:shrink-0",
     "[&_input]:min-w-0 [&_input]:flex-1 [&_input]:bg-transparent [&_input]:bg-none [&_input]:[outline:0] [&_input]:text-label [&_input]:border-0",
     "[&_input]:border-none [&_input]:border-current",
     "[&_input::placeholder]:text-app-muted",
-    "[&_:is(label,.search-field)_button]:text-app-muted [&_:is(label,.search-field)_button]:leading-[20px]",
+    "[&_:is(label,.search-field)_button]:text-app-muted [&_:is(label,.search-field)_button]:leading-[20px] [&_:is(label,.search-field)_button]:rounded-full [&_:is(label,.search-field)_button:hover]:bg-white/10",
     "[.design-canvas_&_:is(label,.search-field)>button]:flex [.design-canvas_&_:is(label,.search-field)>button]:h-[30px] [.design-canvas_&_:is(label,.search-field)>button]:w-[30px]",
     "[.design-canvas_&_:is(label,.search-field)>button]:flex-[0_0_30px] [.design-canvas_&_:is(label,.search-field)>button]:items-center [.design-canvas_&_:is(label,.search-field)>button]:justify-center",
     "[.design-canvas_&_:is(label,.search-field)>button]:p-0",
@@ -23,10 +30,10 @@ export const socialStyles = {
     "[.design-canvas_&>button]:grid [.design-canvas_&>button]:h-11 [.design-canvas_&>button]:w-11 [.design-canvas_&>button]:flex-[0_0_44px]",
     "[.design-canvas_&>button]:place-items-center [.design-canvas_&>button]:p-0",
     "[.design-canvas_&>button_img]:h-auto [.design-canvas_&>button_img]:w-auto [.design-canvas_&>button_img]:max-w-none",
-    "[.design-canvas_&_:is(label,.search-field)]:h-9 [.design-canvas_&_:is(label,.search-field)]:min-w-0 [.design-canvas_&_:is(label,.search-field)]:flex-1 [.design-canvas_&_:is(label,.search-field)]:gap-2",
-    "[.design-canvas_&_:is(label,.search-field)]:rounded-[18px] [.design-canvas_&_:is(label,.search-field)]:p-[0_4px_0_12px] [.design-canvas_&_:is(label,.search-field)]:bg-app-surface",
+    "[.design-canvas_&_:is(label,.search-field)]:h-10 [.design-canvas_&_:is(label,.search-field)]:min-w-0 [.design-canvas_&_:is(label,.search-field)]:flex-1 [.design-canvas_&_:is(label,.search-field)]:gap-2.5",
+    "[.design-canvas_&_:is(label,.search-field)]:rounded-full [.design-canvas_&_:is(label,.search-field)]:p-[0_5px_0_14px] [.design-canvas_&_:is(label,.search-field)]:bg-app-surface",
     "[.design-canvas_&_:is(label,.search-field)]:bg-none",
-    "[.design-canvas_&_:is(label,.search-field)>img]:h-auto [.design-canvas_&_:is(label,.search-field)>img]:w-auto [.design-canvas_&_:is(label,.search-field)>img]:max-w-none",
+    "[.design-canvas_&_:is(label,.search-field)>img]:size-[19px] [.design-canvas_&_:is(label,.search-field)>img]:shrink-0",
   ].join(" "),
   friendsView: [
     "friends-view",
@@ -100,8 +107,11 @@ export const socialStyles = {
   chatHeader: [
     "chat-header",
     "flex h-12 flex-[0_0_48px] items-center justify-between gap-1 pr-2 pl-1.5",
-    "[&>button:not(.chat-recipient)]:grid [&>button:not(.chat-recipient)]:size-11 [&>button:not(.chat-recipient)]:shrink-0 [&>button:not(.chat-recipient)]:place-items-center [&>button:not(.chat-recipient)]:rounded-full [&>button:not(.chat-recipient):hover]:bg-white/5",
-    "[&_img]:h-auto [&_img]:w-auto",
+  ].join(" "),
+  chatSearch: [
+    "chat-search",
+    "mx-5 mt-2 mb-3 flex h-11 shrink-0 items-center gap-2.5 rounded-full bg-app-surface pl-4 pr-2",
+    searchFocus,
   ].join(" "),
   chatRecipient: [
     "chat-recipient",

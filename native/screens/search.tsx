@@ -1,15 +1,14 @@
 import { useEffect, useRef, useState } from "react";
-import { StyleSheet, Text, TextInput, View, type TextInputInstance } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 
 import BackIcon from "../../public/figma/return.svg";
-import CloseIcon from "../../public/figma/search-close.svg";
-import SearchIcon from "../../public/figma/search-input.svg";
 import type { NativeSearch, NativeSearchScope } from "../../src/lib/native-screens";
 import { MediaRow, PersonRow, PostRow, SongRow } from "../ui/cards";
 import { CommunityCard } from "../ui/community";
 import { Button, ErrorRetry, Status, Tabs, Touchable } from "../ui/kit";
 import { ScreenList } from "../ui/screen";
 import { useScreen } from "../ui/screen-context";
+import { SearchPill } from "../ui/search-pill";
 import { colors, gutter, type } from "../ui/theme";
 import type { ScreenProps } from "./types";
 
@@ -150,7 +149,6 @@ export function SearchScreen({ model: search }: ScreenProps<"search">) {
 /** Back button and the search field; typing is sent to the page after a short pause, as on the web. */
 function SearchLine({ search }: { search: NativeSearch }) {
   const { act } = useScreen();
-  const input = useRef<TextInputInstance>(null);
   const [text, setText] = useState(search.query);
   // The page's query changes only through this field (or a new search page), so follow it when it
   // differs from what was last sent.
@@ -179,38 +177,23 @@ function SearchLine({ search }: { search: NativeSearch }) {
       >
         <BackIcon width={22} height={22} />
       </Touchable>
-      <View style={styles.field}>
-        <SearchIcon width={19} height={19} />
-        <TextInput
-          ref={input}
-          autoFocus
-          value={text}
-          onChangeText={setText}
-          placeholder={search.placeholder}
-          placeholderTextColor="#9692a6"
-          selectionColor={colors.accent}
-          returnKeyType="search"
-          accessibilityLabel={
-            search.community ? `${search.community} 내부 게시글 검색` : search.placeholder
-          }
-          style={styles.input}
-        />
-        {text !== "" && (
-          <Touchable
-            accessibilityRole="button"
-            accessibilityLabel="검색어 지우기"
-            hitSlop={8}
-            onPress={() => {
-              setText("");
-              sent.current = "";
-              act({ type: "query", value: "" });
-              input.current?.focus();
-            }}
-          >
-            <CloseIcon width={13} height={13} />
-          </Touchable>
-        )}
-      </View>
+      <SearchPill
+        autoFocus
+        value={text}
+        onChangeText={setText}
+        onClear={() => {
+          setText("");
+          sent.current = "";
+          act({ type: "query", value: "" });
+        }}
+        clearLabel="검색어 지우기"
+        placeholder={search.placeholder}
+        returnKeyType="search"
+        accessibilityLabel={
+          search.community ? `${search.community} 내부 게시글 검색` : search.placeholder
+        }
+        style={styles.field}
+      />
     </View>
   );
 }
@@ -242,19 +225,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   back: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
-  field: {
-    flex: 1,
-    height: 46,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    paddingHorizontal: 14,
-    borderRadius: 23,
-    borderWidth: 2,
-    borderColor: colors.primary,
-    backgroundColor: colors.surface,
-  },
-  input: { flex: 1, color: colors.fg, fontSize: 16, paddingVertical: 0 },
+  field: { flex: 1 },
   context: { paddingHorizontal: gutter, paddingBottom: 8 },
   list: { gap: 12 },
   signIn: { gap: 16, padding: gutter, alignItems: "stretch" },
