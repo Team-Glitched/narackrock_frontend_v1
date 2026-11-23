@@ -36,6 +36,7 @@ import type { AudioSelection } from "@/features/composition/prepare-audio-file";
 import { AudioTrimPicker } from "@/features/composition/audio-trim-picker";
 import {
   canCreateLayer,
+  orderStudioTracks,
   shouldShowContributionSubmit,
   shouldOfferSongPublish,
 } from "@/features/composition/contribution-session";
@@ -48,17 +49,14 @@ import { MusicalRuler } from "@/features/composition/musical-ruler";
 import { TimelineClip } from "@/features/composition/timeline-clip";
 import { canMoveClip, overlapsClip } from "@/features/composition/timeline-move";
 import { emptyMidiChoices, isEmptyMidi } from "@/features/composition/midi-content";
-import { partFor } from "@/features/composition/instrument-parts";
 import { openSourceDurationMs, insertThenRefresh } from "@/features/composition/open-source-insertion";
 import type { OpenSourceSummary } from "@/lib/api/open-sources";
 import type { ProjectTiming } from "@/features/composition/project-timing";
 import {
   createAudioClip,
-  createTrack,
-  deleteEmptyTrack,
+  createOpenSourceTrack,
   getExport,
   getPendingContributions,
-  insertOpenSourceClip,
   publishComposition,
   reviewContribution,
   updateProjectMetadata,
@@ -521,7 +519,10 @@ export function useStudio({
   }
 
   const ready = composition !== null && composition.viewerPermission.userId === userId;
-  const tracks = preview?.tracks ?? composition?.tracks ?? [];
+  const tracks = useMemo(
+    () => orderStudioTracks(preview?.tracks ?? composition?.tracks ?? []),
+    [preview?.tracks, composition?.tracks],
+  );
 
   /** Saves a clip's new start as the viewer's draft of it; the timeline then shows the draft. */
   async function moveClip(track: TrackDto, clip: ClipDto, startTick: number) {
@@ -611,19 +612,11 @@ export function useStudio({
     !effectiveReadOnly &&
     viewerPermission !== undefined &&
     canCreateLayer(viewerPermission, tracks, shortId === null);
-  const ownWritableTrack =
-    !effectiveReadOnly && viewerPermission
-      ? tracks.find(
-          (track) =>
-            track.ownerId === viewerPermission.userId &&
-            ["DRAFT", "APPROVED"].includes(track.approvalStatus),
-        )
-      : undefined;
   const canImportSource =
     !effectiveReadOnly &&
     viewerPermission !== undefined &&
-    (layerCreationAllowed ||
-      ((viewerPermission.canContribute || viewerPermission.canEdit) && Boolean(ownWritableTrack)));
+    project?.status !== "COMPLETED" &&
+    (viewerPermission.canContribute || viewerPermission.canEdit);
   const trackEditorTarget = (track: TrackDto) =>
     !effectiveReadOnly && viewerPermission && project && (selectMidiLayer || track.clips.length === 0)
       ? layerEditorTarget(viewerPermission, project.status, track)
@@ -746,48 +739,23 @@ export function useStudio({
     setBusy(true);
     setError(null);
     setStatus(null);
-    let createdTrackId: number | null = null;
     try {
       playback.pause();
       const durationMs = await openSourceDurationMs(source.openSourceId);
       const { projectId: id, bpm, ppq, maxTick } = composition.project;
-      const existingTrack = tracks.find(
-        (track) =>
-          track.ownerId === userId && ["DRAFT", "APPROVED"].includes(track.approvalStatus),
-      );
-      if (!existingTrack && !layerCreationAllowed) {
-        throw new Error("한 곡에는 하나의 레이어만 만들 수 있습니다.");
-      }
-      if (!existingTrack) {
-        createdTrackId = (
-          await createTrack(
-            id,
-            clampCodePoints(sanitizeSingleLine(source.title), SONG_TITLE_MAX_LENGTH) || "샘플",
-            partFor(source.instrument)?.id ?? "other",
-            composition.tracks.length,
-          )
-        ).trackId;
-      }
-      const targetTrackId = existingTrack?.trackId ?? createdTrackId!;
       const ticksPerMs = (bpm * ppq) / 60000;
       const startTick = Math.min(maxTick - 1, Math.max(0, Math.round(playback.positionMs * ticksPerMs)));
       const durationTick = Math.max(1, Math.min(Math.ceil(durationMs * ticksPerMs), maxTick - startTick));
       const refreshed = await insertThenRefresh(
-        () => insertOpenSourceClip(id, targetTrackId, source.openSourceId, startTick, durationTick),
+        () => createOpenSourceTrack(id, source.openSourceId, startTick, durationTick),
         refresh,
       );
-      createdTrackId = null;
       setShowSources(false);
       setStatus(
         refreshed
-          ? `‘${source.title}’ 샘플을 레이어에 추가했습니다.`
-          : `‘${source.title}’ 삽입은 완료되었지만 타임라인을 새로 불러오지 못했습니다.`,
+          ? `‘${source.title}’ 샘플을 하단 새 트랙으로 추가했습니다.`
+          : `‘${source.title}’ 추가는 완료되었지만 타임라인을 새로 불러오지 못했습니다.`,
       );
-    } catch (cause) {
-      if (createdTrackId !== null) {
-        await deleteEmptyTrack(composition.project.projectId, createdTrackId).catch(() => {});
-      }
-      throw cause;
     } finally {
       setBusy(false);
     }
@@ -1334,7 +1302,7 @@ export function StudioScreen({ studio, portrait = true }: { studio: Studio; port
                   />
                 ))}
               </div>
-              {!studio.readOnly && track.ownerId === viewerPermission.userId && (
+              {!studio.readOnly && track.ownerId === viewerPermission.userId && track.originOpenSourceId == null && (
                 <div className={studioStyles.studioTrackActions}>
                   {track.instrument && (
                     <button onClick={() => onEditTrack(track.trackId, null)}>+ 노트</button>

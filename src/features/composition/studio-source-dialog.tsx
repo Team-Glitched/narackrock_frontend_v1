@@ -157,7 +157,7 @@ function localRows(resources: Resource[], keyword: string, busy: string | null) 
 
 const pickerText: Record<Tab, { description: string; placeholder: string }> = {
   saved: {
-    description: "보관한 샘플을 현재 재생 위치에 추가할 수 있습니다.",
+    description: "보관한 샘플을 타임라인 아래 새 트랙으로 추가할 수 있습니다.",
     placeholder: "보관한 샘플 검색",
   },
   local: {

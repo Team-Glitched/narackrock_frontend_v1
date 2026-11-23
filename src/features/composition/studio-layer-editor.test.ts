@@ -78,6 +78,14 @@ test("public studio allows owners to change their approved instrument without co
     canChangeTrackInstrument(viewer.userId, "IN_PROGRESS", { ...track, ownerId: 1 }),
     false,
   );
+  assert.equal(
+    canChangeTrackInstrument(viewer.userId, "IN_PROGRESS", { ...track, originOpenSourceId: 301 }),
+    false,
+  );
+  assert.equal(
+    emptyLayerEditor(permission, "IN_PROGRESS", { ...track, originOpenSourceId: 301 }),
+    null,
+  );
 });
 
 test("own approved MIDI opens personal working view even when public permissions are read-only", () => {

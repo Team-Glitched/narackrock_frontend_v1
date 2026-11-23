@@ -48,6 +48,7 @@ export async function releaseAbandonedLayer(projectId: number) {
   }
   const abandoned = composition.tracks.find(
     (track) =>
+      track.originOpenSourceId == null &&
       track.ownerId === composition.viewerPermission.userId &&
       track.clips.length === 0 &&
       !localDrafts.some((draft) => draft.trackId === track.trackId) &&
@@ -222,6 +223,7 @@ export async function importMidiResource(
     throw new Error("선택한 레이어가 곡의 최대 길이를 초과합니다.");
   const ownTrack = composition.tracks.find(
     (track) =>
+      track.originOpenSourceId == null &&
       track.ownerId === composition.viewerPermission.userId &&
       ["DRAFT", "APPROVED"].includes(track.approvalStatus),
   );
