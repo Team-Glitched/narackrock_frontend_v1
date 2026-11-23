@@ -177,6 +177,8 @@ export function isNativeSourcePickerAction(action: {
 export type NativeStudioClip = {
   clipId: number;
   midi: boolean;
+  /** Note-free MIDI: not drawn on the lane; the track header offers its editor via `studio-clip`. */
+  emptyMidi: boolean;
   startTick: number;
   durationTick: number;
   /** The visible label (part · layer name), or null. */

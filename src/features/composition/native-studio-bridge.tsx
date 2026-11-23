@@ -13,6 +13,7 @@ import { isNativeAudioTrimAction } from "@/lib/native-screens/creation";
 import { useNativeAudioTrim } from "./native-audio-trim";
 import { useNativeInstrumentPicker } from "./instrument-dialog";
 import { partLabel } from "./instrument-parts";
+import { isEmptyMidi } from "./midi-content";
 import { midiPreviewHeight, midiPreviewNotes } from "./midi-preview-notes";
 import { useNativeSourcePicker } from "./studio-source-dialog";
 import { errorText } from "./studio-helpers";
@@ -184,6 +185,7 @@ export function NativeStudioBridge({ studio }: { studio: Studio }) {
               return {
                 clipId: clip.clipId,
                 midi: clip.clipType === "MIDI",
+                emptyMidi: isEmptyMidi(clip),
                 startTick: clip.startTick,
                 durationTick: clip.durationTick,
                 label: label || null,

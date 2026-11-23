@@ -1,4 +1,4 @@
-import { midiContent } from "./midi-content";
+import { emptyMidiRange, midiContent } from "./midi-content";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCompositionPlayback } from "./use-composition-playback";
@@ -230,12 +230,21 @@ export function useNoteEditorScreen({
     onCommittedRecovery: recoverCommitted,
   });
   const storedWorking = draft.state?.content ?? content;
-  const working = storedWorking.midiNotes.length
-    ? storedWorking
-    : midiContent(
-        storedWorking.startTick, storedWorking.midiNotes,
-        composition.project.ppq, composition.project.maxTick,
-      );
+  // Stable per stored snapshot so zoom or autosave acknowledgements do not rebuild playback.
+  const working = useMemo(
+    () =>
+      storedWorking.midiNotes.length
+        ? storedWorking
+        : {
+            ...emptyMidiRange(
+              storedWorking.startTick,
+              composition.project.ppq,
+              composition.project.maxTick,
+            ),
+            midiNotes: storedWorking.midiNotes,
+          },
+    [storedWorking, composition.project.ppq, composition.project.maxTick],
+  );
   const notes = working.midiNotes;
   const timing = clipLocalTiming(
     composition.project.bpm,
@@ -269,8 +278,7 @@ export function useNoteEditorScreen({
     const updated = midiContent(
       current.midiNotes.length ? current.startTick : working.startTick,
       next,
-      composition.project.ppq,
-      composition.project.maxTick,
+      composition.project,
     );
     const { durationTick } = updated;
     if (updated.startTick + durationTick > composition.project.maxTick) {

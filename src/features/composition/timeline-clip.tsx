@@ -72,19 +72,6 @@ export function TimelineClip({
       setPosition(null);
     }
   }
-  // Keep the existing clip reachable without displaying an empty timeline range.
-  if (midi && !clip.midiNotes?.length) {
-    return (
-      <button
-        type="button"
-        className="relative m-1 rounded-md border border-dashed border-app-primary-soft px-4 py-2 text-caption text-app-primary-soft"
-        onClick={() => onEdit ? onEdit() : onSelect()}
-        aria-label={`${name} 빈 MIDI 편집`}
-      >
-        + 노트 · 이어서 편집
-      </button>
-    );
-  }
   return (
     <button
       className={cn(
