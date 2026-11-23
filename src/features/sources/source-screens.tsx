@@ -1,3 +1,4 @@
+import { partLabel } from "@/features/composition/instrument-parts";
 import { sourceStyles } from "@/styles/source.styles";
 import { sharedStyles } from "@/styles/shared.styles";
 import { communityStyles } from "@/styles/community.styles";
@@ -5,14 +6,12 @@ import { buttonVariants } from "@/styles/variants";
 import { cn } from "@/lib/utils";
 import {
   useCallback,
-  useId,
   useMemo,
   useRef,
   useState,
   type PointerEvent,
   type ReactNode,
 } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
 import {
   useInfiniteQuery,
   useMutation,
@@ -20,8 +19,8 @@ import {
   useQueryClient,
   type UseQueryResult,
 } from "@tanstack/react-query";
-import { SectionTitle } from "@/components/section-title";
 import { AlbumArtwork } from "@/components/music-card";
+import { SectionTitle } from "@/components/section-title";
 import { Avatar } from "@/components/avatar";
 import { FigmaSheet } from "@/components/figma-sheet";
 import { PageState } from "@/components/page-state";
@@ -138,6 +137,7 @@ function OpenSourceCard({
           />
           <span className="min-w-0 flex-1">
             <strong className="truncate">{source.title}</strong>
+            {source.instrument && <small>악기: {partLabel(source.instrument)}</small>}
             {source.usageCount != null && <small>{sourceUsage(source.usageCount)}</small>}
           </span>
         </button>
@@ -183,13 +183,18 @@ function OpenSourceCard({
   );
 }
 
-/** Paged public source list for a keyword; following pages are appended until the server reports no more. */
+/**
+ * Paged public source list for a keyword; following pages are appended until the server reports no
+ * more. A failure with no cards is `error` (retry resets the list); once cards are shown it is
+ * `pageError` and the cards stay, `more` retrying the failed load.
+ */
 export function useOpenSourceList(keyword: string, enabled: boolean) {
   const userId = useCurrentUserId();
   const queryClient = useQueryClient();
   const options = openSourceListQuery(userId, keyword.trim());
   const query = useInfiniteQuery({ ...options, enabled: enabled && userId !== null });
-  const { data, error, isFetching, isFetchingNextPage, hasNextPage, fetchNextPage } = query;
+  const { data, error, isFetching, isFetchNextPageError, hasNextPage, fetchNextPage, refetch } =
+    query;
   const items = useMemo(() => {
     const seen = new Set<number>();
     return (data?.pages ?? [])
@@ -200,33 +205,81 @@ export function useOpenSourceList(keyword: string, enabled: boolean) {
         return true;
       });
   }, [data]);
+  const failure = error ? sourceError(error) : undefined;
   const state =
     data || (error && !isFetching)
-      ? { items, hasNext: hasNextPage, error: error ? sourceError(error) : undefined }
+      ? {
+          items,
+          hasNext: hasNextPage,
+          error: items.length ? undefined : failure,
+          pageError: items.length ? failure : undefined,
+        }
       : null;
   return {
     state,
     firstPage: data?.pages[0]?.items,
     userId,
+    /** Loads the next page, or retries the failed load; never interrupts a running fetch (refresh). */
     more: () => {
-      if (hasNextPage && !isFetchingNextPage) void fetchNextPage();
+      if (isFetching) return;
+      if (error && !isFetchNextPageError) void refetch();
+      else if (hasNextPage) void fetchNextPage({ cancelRefetch: false });
     },
-    moreBusy: isFetchingNextPage,
+    moreBusy: isFetching,
     retry: () => void queryClient.resetQueries({ queryKey: options.queryKey, exact: true }),
     signedIn: userId !== null,
   };
 }
 
-function discoveryCardStep(track: HTMLDivElement) {
-  const nextCard = track.children[1];
-  return nextCard instanceof HTMLElement ? nextCard.offsetLeft : track.clientWidth;
+function recommendSources(items: OpenSourceSummary[], viewerId: number | null) {
+  const others = items.filter((item) => item.writer.userId !== viewerId);
+  const authors = new Set<number>();
+  const first: OpenSourceSummary[] = [];
+  const rest: OpenSourceSummary[] = [];
+  for (const item of others.length ? others : items) {
+    const authorId = item.writer.userId;
+    if (authors.has(authorId)) {
+      rest.push(item);
+    } else {
+      authors.add(authorId);
+      first.push(item);
+    }
+  }
+  return [...first, ...rest].slice(0, sourceDiscoverySize);
 }
 
-function SourceDiscoveryRail({
+/**
+ * The 탐색 tab's data (OpensourceScreen and the app's native screen): the public list, the popular
+ * section's query and the recommended section (from the list's first page; undefined until loaded).
+ */
+export function useOpensourceFeed() {
+  const list = useOpenSourceList("", true);
+  const popular = useQuery({ ...popularOpenSourcesQuery(list.userId), enabled: list.signedIn });
+  const popularItems = popular.data?.items;
+  const recommended = list.firstPage && recommendSources(list.firstPage, list.userId);
+  return { list, popular, popularItems, recommended };
+}
+
+function discoveryCardStep(track: HTMLDivElement) {
+  const first = track.children[0];
+  const second = track.children[1];
+  if (first instanceof HTMLElement && second instanceof HTMLElement) {
+    const delta = second.offsetLeft - first.offsetLeft;
+    if (delta > 0) return delta;
+  }
+  return track.clientWidth;
+}
+
+function SourceDiscoverySection({
   title,
   items,
   error,
   retry,
+  emptyMessage = "표시할 샘플이 없습니다.",
+  hasNext = false,
+  moreBusy = false,
+  moreError,
+  onMore,
   onOpen,
   onProfile,
 }: {
@@ -234,38 +287,40 @@ function SourceDiscoveryRail({
   items?: OpenSourceSummary[];
   error?: string;
   retry: () => void;
+  emptyMessage?: string;
+  hasNext?: boolean;
+  moreBusy?: boolean;
+  /** A failed load after cards are shown: the end tile offers "다시 시도" (`onMore`) instead. */
+  moreError?: string;
+  onMore?: () => void;
   onOpen: (id: number, comments?: boolean) => void;
   onProfile: (id: number) => void;
 }) {
-  const railId = useId();
   const rail = useRef<HTMLDivElement>(null);
   const drag = useRef<{
     pointerId: number;
     x: number;
     left: number;
     scale: number;
+    startTime: number;
     active: boolean;
   } | null>(null);
   const suppressClick = useRef(false);
-  const [page, setPage] = useState(0);
   const count = items?.length ?? 0;
-  const index = Math.max(0, Math.min(page, count - 1));
-
-  function moveTo(next: number) {
-    const track = rail.current;
-    if (track) track.scrollTo({ left: next * discoveryCardStep(track) });
-  }
+  const moreTile = Boolean(onMore && (hasNext || moreError));
+  const paged = count > 1 || moreTile;
 
   function startDrag(event: PointerEvent<HTMLDivElement>) {
     suppressClick.current = false;
-    if (count < 2 || event.pointerType !== "mouse" || event.button !== 0) return;
+    if (!paged || event.pointerType !== "mouse" || event.button !== 0) return;
     if (event.target instanceof Element && event.target.closest("input")) return;
     const track = event.currentTarget;
     drag.current = {
       pointerId: event.pointerId,
       x: event.clientX,
       left: track.scrollLeft,
-      scale: track.getBoundingClientRect().width / track.clientWidth,
+      scale: track.getBoundingClientRect().width / track.clientWidth || 1,
+      startTime: performance.now(),
       active: false,
     };
   }
@@ -293,54 +348,38 @@ function SourceDiscoveryRail({
     const track = event.currentTarget;
     const step = discoveryCardStep(track);
     const initial = Math.round(start.left / step);
-    const nearest = Math.round(track.scrollLeft / step);
     const distance = (start.x - event.clientX) / start.scale;
-    // A short mouse swipe advances a card even if it stops before the midpoint.
-    const next =
-      event.type === "pointerup" && nearest === initial && Math.abs(distance) >= 40
-        ? initial + Math.sign(distance)
-        : nearest;
+    const elapsed = Math.max(1, performance.now() - start.startTime);
+    const velocity = Math.abs(distance) / elapsed;
+    let target: number;
+    if (
+      event.type === "pointerup" &&
+      ((velocity >= 0.35 && Math.abs(distance) >= 18) || Math.abs(distance) >= 36)
+    ) {
+      target = initial + Math.sign(distance);
+    } else {
+      target = Math.round(track.scrollLeft / step);
+    }
+    const maxIndex = Math.max(0, track.children.length - 1);
+    const next = Math.max(
+      Math.max(0, initial - 1),
+      Math.min(Math.min(maxIndex, initial + 1), target),
+    );
     delete track.dataset.dragging;
-    moveTo(Math.max(0, Math.min(next, count - 1)));
+    // No explicit behavior: the rail's `motion-safe:scroll-smooth` decides, honoring reduced motion.
+    track.scrollTo({ left: next * step });
   }
 
   return (
     <section aria-label={title}>
-      <div className="flex min-h-9 items-center justify-between gap-2">
-        <h2 className="m-0 text-title leading-6 font-bold tracking-[-0.4px]">{title}</h2>
-        {count > 1 && (
-          <div className="flex shrink-0 items-center gap-1.5">
-            <span role="status" className="mr-1 text-caption text-app-muted tabular-nums">
-              <span className="sr-only">{title} </span>
-              {index + 1} / {count}
-            </span>
-            <button
-              type="button"
-              className={sourceStyles.osDiscoveryArrow}
-              aria-label={`${title} 이전 카드`}
-              aria-controls={railId}
-              disabled={index === 0}
-              onClick={() => moveTo(index - 1)}
-            >
-              <ChevronLeft size={18} aria-hidden="true" />
-            </button>
-            <button
-              type="button"
-              className={sourceStyles.osDiscoveryArrow}
-              aria-label={`${title} 다음 카드`}
-              aria-controls={railId}
-              disabled={index === count - 1}
-              onClick={() => moveTo(index + 1)}
-            >
-              <ChevronRight size={18} aria-hidden="true" />
-            </button>
-          </div>
-        )}
-      </div>
+      <SectionTitle className="mb-0! px-0">{title}</SectionTitle>
       {!items &&
         (error ? (
-          <div role="alert">
-            <p>{error}</p>
+          <div
+            role="alert"
+            className="rounded-[10px] bg-app-panel p-4 text-body leading-[20px] text-[#ff8d8d]"
+          >
+            <p className="mb-3">{error}</p>
             <button
               className={buttonVariants({ tone: "secondary", size: "compact" })}
               onClick={retry}
@@ -349,20 +388,23 @@ function SourceDiscoveryRail({
             </button>
           </div>
         ) : (
-          <p role="status">샘플을 불러오는 중...</p>
+          <p role="status" className="px-1 py-2 text-body leading-[20px] text-app-muted">
+            샘플을 불러오는 중...
+          </p>
         ))}
-      {items?.length === 0 && (
-        <p className={sourceStyles.osDiscoveryEmpty}>표시할 샘플이 없습니다.</p>
-      )}
+      {items?.length === 0 && <p className={sourceStyles.osDiscoveryEmpty}>{emptyMessage}</p>}
       {!!items?.length && (
         <div
-          id={railId}
           ref={rail}
           className={sourceStyles.osDiscoveryRail}
-          data-paged={count > 1}
-          onScroll={({ currentTarget: track }) => {
+          data-paged={paged}
+          onScroll={(event) => {
+            if (!hasNext || moreBusy || moreError || !onMore) return;
+            const track = event.currentTarget;
             const step = discoveryCardStep(track);
-            if (step) setPage(Math.round(track.scrollLeft / step));
+            if (track.scrollLeft + track.clientWidth >= track.scrollWidth - step * 1.5) {
+              onMore();
+            }
           }}
           onPointerDown={startDrag}
           onPointerMove={updateDrag}
@@ -388,38 +430,35 @@ function SourceDiscoveryRail({
               onProfile={onProfile}
             />
           ))}
+          {moreTile &&
+            (moreError && !moreBusy ? (
+              <div
+                role="alert"
+                className="flex w-[168px] flex-none snap-start flex-col items-center justify-center gap-3 rounded-[12px] border border-solid border-app-border bg-app-panel p-4 text-center text-body leading-[20px] text-[#ff8d8d]"
+              >
+                <p className="m-0">{moreError}</p>
+                <button
+                  type="button"
+                  className={buttonVariants({ tone: "secondary", size: "compact" })}
+                  onClick={onMore}
+                >
+                  다시 시도
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                className="flex w-[124px] flex-none snap-start items-center justify-center rounded-[12px] border border-solid border-app-border bg-app-panel px-4 text-body font-medium text-app-muted transition-colors hover:text-app-fg disabled:opacity-50"
+                disabled={moreBusy}
+                onClick={onMore}
+              >
+                {moreBusy ? "불러오는 중..." : "더보기"}
+              </button>
+            ))}
         </div>
       )}
     </section>
   );
-}
-
-function recommendSources(items: OpenSourceSummary[], viewerId: number | null) {
-  const others = items.filter((item) => item.writer.userId !== viewerId);
-  const authors = new Set<number>();
-  const first: OpenSourceSummary[] = [];
-  const rest: OpenSourceSummary[] = [];
-  for (const item of others.length ? others : items) {
-    const authorId = item.writer.userId;
-    if (authors.has(authorId)) {
-      rest.push(item);
-    } else {
-      authors.add(authorId);
-      first.push(item);
-    }
-  }
-  return [...first, ...rest].slice(0, sourceDiscoverySize);
-}
-
-/**
- * The 탐색 tab's data (OpensourceScreen and the app's native screen): the public list, the popular
- * rail's query and the recommended rail (from the list's first page; undefined until it loads).
- */
-export function useOpensourceFeed() {
-  const list = useOpenSourceList("", true);
-  const popular = useQuery({ ...popularOpenSourcesQuery(list.userId), enabled: list.signedIn });
-  const recommended = list.firstPage && recommendSources(list.firstPage, list.userId);
-  return { list, popular, recommended };
 }
 
 export function OpensourceScreen({
@@ -429,7 +468,7 @@ export function OpensourceScreen({
   onOpen: (id: number, comments?: boolean) => void;
   onProfile: (id: number) => void;
 }) {
-  const { list, popular, recommended } = useOpensourceFeed();
+  const { list, popular, popularItems, recommended } = useOpensourceFeed();
   if (!list.signedIn) return <SignInRequired>샘플은 로그인 후 볼 수 있습니다.</SignInRequired>;
   const { state } = list;
   return (
@@ -440,15 +479,15 @@ export function OpensourceScreen({
         sourceStyles.osDiscoverySections,
       )}
     >
-      <SourceDiscoveryRail
+      <SourceDiscoverySection
         title="인기 샘플"
-        items={popular.data?.items}
+        items={popularItems}
         error={popular.error ? sourceError(popular.error) : undefined}
         retry={() => void popular.refetch()}
         onOpen={onOpen}
         onProfile={onProfile}
       />
-      <SourceDiscoveryRail
+      <SourceDiscoverySection
         title="추천 샘플"
         items={recommended}
         error={state?.error}
@@ -456,52 +495,19 @@ export function OpensourceScreen({
         onOpen={onOpen}
         onProfile={onProfile}
       />
-      <section aria-label="전체 샘플">
-        <SectionTitle className="mb-0! px-0">전체 샘플</SectionTitle>
-        {!state && (
-          <p role="status" className="px-1 py-2 text-body leading-[20px] text-app-muted">
-            샘플을 불러오는 중...
-          </p>
-        )}
-        {state?.error && (
-          <div
-            role="alert"
-            className="rounded-[10px] bg-app-panel p-4 text-body leading-[20px] text-[#ff8d8d]"
-          >
-            <p className="mb-3">{state.error}</p>
-            <button
-              className={buttonVariants({ tone: "secondary", size: "compact" })}
-              onClick={list.retry}
-            >
-              다시 시도
-            </button>
-          </div>
-        )}
-        {state && !state.error && state.items.length === 0 && (
-          <p className={sourceStyles.osDiscoveryEmpty}>아직 공개된 샘플이 없습니다.</p>
-        )}
-        {state && state.items.length > 0 && (
-          <div className={sourceStyles.osDiscoveryList}>
-            {state.items.map((source) => (
-              <OpenSourceCard
-                key={source.openSourceId}
-                source={source}
-                onOpen={onOpen}
-                onProfile={onProfile}
-              />
-            ))}
-          </div>
-        )}
-        {state?.hasNext && (
-          <button
-            className={communityStyles.nrCommentsMore}
-            disabled={list.moreBusy}
-            onClick={() => void list.more()}
-          >
-            {list.moreBusy ? "불러오는 중..." : "더보기"}
-          </button>
-        )}
-      </section>
+      <SourceDiscoverySection
+        title="전체 샘플"
+        items={state?.error ? undefined : state?.items}
+        error={state?.error}
+        retry={list.retry}
+        emptyMessage="아직 공개된 샘플이 없습니다."
+        hasNext={state?.hasNext}
+        moreBusy={list.moreBusy}
+        moreError={state?.pageError}
+        onMore={() => void list.more()}
+        onOpen={onOpen}
+        onProfile={onProfile}
+      />
     </div>
   );
 }
@@ -672,7 +678,8 @@ function SourceDetail({
             />
             <span className="min-w-0 flex-1">
               <strong className="break-words">{source.title}</strong>
-              {source.usageCount != null && <small>{sourceUsage(source.usageCount)}</small>}
+              {source.instrument && <small>악기: {partLabel(source.instrument)}</small>}
+            {source.usageCount != null && <small>{sourceUsage(source.usageCount)}</small>}
             </span>
           </div>
           <SaveButton save={save} />

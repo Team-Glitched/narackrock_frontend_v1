@@ -20,6 +20,7 @@ export function VolumeDialog({
   onClose,
   track,
   onChangeInstrument,
+  emptyMidi = [],
 }: {
   value: number;
   onChange: (value: number) => void;
@@ -27,6 +28,8 @@ export function VolumeDialog({
   track?: Pick<TrackDto, "ownerId" | "instrument" | "ownerNickname" | "ownerProfileImageUrl">;
   /** Present only when the viewer may change this track's instrument/recording role. */
   onChangeInstrument?: () => void;
+  /** Note-free MIDI has no timeline block; the track's settings reopen it. */
+  emptyMidi?: { clipId: number; label: string; open: () => void }[];
 }) {
   const titleId = useId();
   const userId = useCurrentUserId();
@@ -100,6 +103,16 @@ export function VolumeDialog({
           악기/보컬 변경
         </button>
       )}
+      {emptyMidi.map(({ clipId, label, open }) => (
+        <button
+          key={clipId}
+          type="button"
+          className={cn(buttonVariants({ tone: "secondary" }), "mt-3 h-11 w-full")}
+          onClick={open}
+        >
+          {label}
+        </button>
+      ))}
     </CanvasDialog>
   );
 }

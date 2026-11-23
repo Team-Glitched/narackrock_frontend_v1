@@ -167,6 +167,12 @@ function Studio({ model }: { model: NativeStudio }) {
               ? () => act({ type: "studio-change-instrument" })
               : undefined
           }
+          emptyMidi={model.trackSettings.emptyMidi.map(({ clipId, label }) => ({
+            clipId,
+            label,
+            open: () =>
+              act({ type: "studio-clip", trackId: model.trackSettings!.trackId, clipId, edit: true }),
+          }))}
         />
       )}
       <InstrumentSheet picker={model.instrument} />
@@ -265,7 +271,7 @@ function Timeline({ model }: { model: NativeStudio }) {
                     track.highlighted ? `${track.name} · 이 요청으로 추가된 트랙` : undefined
                   }
                 >
-                  {track.clips.map((clip) => (
+                  {track.clips.filter((clip) => !clip.emptyMidi).map((clip) => (
                     <Clip
                       key={clip.clipId}
                       clip={clip}

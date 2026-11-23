@@ -13,6 +13,7 @@ import type {
   NativeHeader,
 } from "@/lib/native-screens";
 import { isNativeCommentAction } from "@/lib/native-screens/comments";
+import { reportedPositionMs } from "@/lib/playback-progress";
 import type { AbyssState } from "./abyss-screen";
 import { useShortCommentAdapter } from "./abyss-comments";
 import { participantRole, useShortParticipants } from "./short-participants";
@@ -23,9 +24,6 @@ const header: NativeHeader = { left: "back", actions: ["notifications", "chat", 
 
 /** Swiping rewrites /abyss/:shortId with `replace`; one app entry keeps the screen (and its carousel) mounted. */
 const path = "/abyss";
-
-/** Position updates are rounded down to this step, so playback resends the model at most 4 times a second. */
-const POSITION_STEP_MS = 250;
 
 type SheetHandler = RefObject<((action: NativeAbyssAction) => void) | null>;
 type SheetReport = (sheet: NativeAbyssSheet | null) => void;
@@ -75,8 +73,9 @@ function abyssModel(abyss: AbyssState, sheet: NativeAbyssSheet | null): NativeAb
     canNext: abyss.hasNext && !abyss.loadingMore,
     playback: {
       playing: playback.playing,
+      progressing: playback.progressing,
       canPlay: playback.canPlay,
-      positionMs: Math.floor(positionMs / POSITION_STEP_MS) * POSITION_STEP_MS,
+      positionMs: reportedPositionMs(positionMs, playback.progressing),
       totalMs,
     },
     messages,

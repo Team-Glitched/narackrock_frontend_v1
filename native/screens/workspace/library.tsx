@@ -7,6 +7,7 @@ import type {
   NativePlayback,
   NativePlaybackTarget,
 } from "../../../src/lib/native-screens";
+import { Cover } from "../../ui/cards";
 import { AppHeader } from "../../ui/header";
 import { Touchable } from "../../ui/kit";
 import { ScreenScroll } from "../../ui/screen";
@@ -177,29 +178,32 @@ export function SavedSources({
       {saved.empty && <Empty>{saved.empty}</Empty>}
       {saved.items.map((item) => (
         <Card key={item.openSourceId} style={styles.libraryCard}>
-          <Text style={text.bodyMuted}>저장한 샘플</Text>
           {item.source ? (
             <>
-              <Text style={[text.labelStrong, styles.savedTitle]}>{item.source.title}</Text>
+              <View style={styles.savedHead}>
+                <Cover url={item.source.thumbnailUrl} size={48} radius={8} />
+                <View style={styles.savedMeta}>
+                  <Text style={[text.labelStrong, styles.savedTitle]} numberOfLines={1}>
+                    {item.source.title}
+                  </Text>
+                  <Text style={text.bodyMuted} numberOfLines={1}>
+                    {item.source.writer}
+                  </Text>
+                </View>
+              </View>
               {item.source.description && (
                 <Text style={text.bodyMuted}>{item.source.description}</Text>
               )}
-              <Text style={text.bodyMuted}>{item.source.writer}</Text>
               {!item.source.canPreview ? (
                 <Text style={[text.caption, styles.audioNote]}>
                   이 샘플은 현재 미리듣기를 사용할 수 없습니다.
                 </Text>
               ) : (
                 item.source.player && (
-                  <>
-                    <Player
-                      player={item.source.player}
-                      target={{ kind: "saved", id: item.openSourceId }}
-                    />
-                    {item.source.player.durationMs === null && (
-                      <Text style={text.bodyMuted}>재생 시간 정보 없음</Text>
-                    )}
-                  </>
+                  <Player
+                    player={item.source.player}
+                    target={{ kind: "saved", id: item.openSourceId }}
+                  />
                 )
               )}
               <Text style={styles.hint}>
@@ -266,12 +270,12 @@ export function Player({
 
 const styles = StyleSheet.create({
   search: {
-    height: 44,
+    height: 48,
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
-    borderRadius: 20,
-    paddingHorizontal: 14,
+    borderRadius: 24,
+    paddingHorizontal: 16,
     backgroundColor: colors.surface,
   },
   searchInput: { flex: 1, minWidth: 0, color: colors.fg, fontSize: 16, padding: 0 },
@@ -288,7 +292,9 @@ const styles = StyleSheet.create({
   tabSelected: { borderColor: colors.primary, backgroundColor: colors.primary },
   tabText: { color: colors.muted, fontSize: 14, lineHeight: 18, fontWeight: "500" },
   tabTextSelected: { color: colors.fg },
-  libraryCard: { gap: 8 },
+  libraryCard: { gap: 10 },
+  savedHead: { flexDirection: "row", alignItems: "center", gap: 12 },
+  savedMeta: { flex: 1, minWidth: 0, gap: 2 },
   cardTitle: { marginVertical: 6 },
   cardLink: { marginTop: 12 },
   savedTitle: { lineHeight: 24, fontWeight: "700" },

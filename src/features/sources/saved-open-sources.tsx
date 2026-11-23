@@ -1,5 +1,6 @@
 import { sourceStyles } from "@/styles/source.styles";
 import { workspaceStyles } from "@/styles/workspace.styles";
+import { AlbumArtwork } from "@/components/music-card";
 import { useCurrentUserId } from "@/features/auth/use-current-user";
 import { SignInRequired } from "@/features/auth/sign-in-required";
 import { SourcePlayback } from "@/features/sources/source-playback";
@@ -117,16 +118,30 @@ function SavedSourceList({ query, onOpen }: { query: string; onOpen: (id: number
           className={`${workspaceStyles.workspaceCard} ${sourceStyles.libraryCard}`}
           key={item.openSourceId}
         >
-          <span className={workspaceStyles.workspaceStatus}>저장한 샘플</span>
           {item.availability === "AVAILABLE" && item.source ? (
             <>
-              <h2>{item.source.title}</h2>
+              <div className="flex items-center gap-3">
+                <AlbumArtwork
+                  src={item.source.thumbnailUrl}
+                  title={item.source.title}
+                  className="size-12 shrink-0 rounded-[8px]"
+                />
+                <div className="min-w-0 flex-1">
+                  <h2 className="m-0! truncate text-label! leading-6! font-bold! text-app-fg">
+                    {item.source.title}
+                  </h2>
+                  <small className="mt-0.5 block truncate text-body leading-5 text-app-muted">
+                    {item.source.writer.nickname}
+                  </small>
+                </div>
+              </div>
               {item.source.description && <p>{item.source.description}</p>}
-              <small>{item.source.writer.nickname}</small>
               <SourcePlayback
                 sourceId={item.openSourceId}
                 canPreview={item.source.canPreview ?? true}
                 durationMs={null}
+                label={item.source.title}
+                showDurationHint={false}
               />
               <p className="text-caption! leading-5! text-app-muted">
                 피아노롤의 ‘+ 샘플’에서 내 레이어에 오디오로 넣을 수 있습니다.

@@ -16,6 +16,8 @@ import { useNativeScreen } from "@/features/navigation/use-native-screen";
 import { pickNativeImage } from "@/lib/native-app";
 import type { NativeSourceCreate } from "@/lib/native-screens";
 import { clampCrop } from "./thumbnail-crop";
+import { isNativeInstrumentAction } from "@/lib/native-screens/studio";
+import { partLabel, supportsMidi } from "@/features/composition/instrument-parts";
 
 type Navigation = { onBack: () => void; onSearch: () => void };
 const header = { left: "back", actions: [] } as const;
@@ -120,6 +122,7 @@ function NativeSourceCreateBridge({
           title: form.title,
           description: form.content,
           audio: form.sourceAudioLocked ? "locked" : form.audio ? "selected" : "none",
+          instrumentLabel: form.sourceInstrument ? partLabel(form.sourceInstrument) : null,
           image,
           crop: form.imageCrop,
           cropping: cropOpen && form.image !== null,
@@ -209,7 +212,9 @@ function NativeSourceAudioStep({
     case "record":
       return <SourceRecordStep form={form} onBack={back} onSearch={onSearch} />;
     default:
-      return <SourcePianoStep form={form} />;
+      return supportsMidi(form.pianoInstrument)
+        ? <SourcePianoStep form={form} />
+        : <SourceChooseStep form={form} onBack={back} onSearch={onSearch} />;
   }
 }
 
@@ -218,20 +223,21 @@ type StepProps = { form: SocialCreateState } & Navigation;
 function SourceChooseStep({ form, onBack, onSearch }: StepProps) {
   return useNativeScreen(
     "creation-choose",
-    { busy: false, error: null },
+    { busy: false, error: null, instrument: form.instrumentPrompt.native.model },
     {
       header: creationHeader,
       onBack,
       onSearch,
       onAction: (action) => {
-        if (action.type === "creation-choose") form.setAudioStage(action.method);
+        if (isNativeInstrumentAction(action)) return form.instrumentPrompt.native.act(action);
+        if (action.type === "creation-choose") void form.chooseAudioMethod(action.method);
       },
     },
   );
 }
 
 function SourceUploadStep({ form, onBack, onSearch }: StepProps) {
-  const upload = useNativeUpload({ saveLabel: "오디오 선택 완료", onSave: form.selectAudio });
+  const upload = useNativeUpload({ saveLabel: "오디오 선택 완료", onSave: form.selectAudio, instrument: form.instrumentPrompt.native });
   const node = useNativeScreen("creation-upload", upload.model, {
     header: creationHeader,
     onBack,
@@ -249,7 +255,7 @@ function SourceUploadStep({ form, onBack, onSearch }: StepProps) {
 }
 
 function SourceRecordStep({ form, onBack, onSearch }: StepProps) {
-  const record = useNativeRecord({ saveLabel: "녹음 선택 완료", onSave: form.selectAudio });
+  const record = useNativeRecord({ saveLabel: "녹음 선택 완료", onSave: form.selectAudio, instrument: form.instrumentPrompt.native });
   return useNativeScreen("creation-record", record.model, {
     header: creationHeader,
     onBack,
@@ -263,6 +269,8 @@ function SourceRecordStep({ form, onBack, onSearch }: StepProps) {
 /** The landscape piano has no page header; its toolbar's back (and the app's) returns to the choice. */
 function SourcePianoStep({ form }: { form: SocialCreateState }) {
   const piano = useNativeSourcePiano({
+    instrument: form.pianoInstrument!,
+    onInstrument: form.setPianoInstrument,
     notes: form.pianoNotes,
     setNotes: form.setPianoNotes,
     bpm: form.pianoBpm,

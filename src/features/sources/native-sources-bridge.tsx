@@ -1,3 +1,4 @@
+import { partLabel } from "@/features/composition/instrument-parts";
 import { useState, type ReactNode } from "react";
 import { useCurrentUserId } from "@/features/auth/use-current-user";
 import { useLoginPrompt } from "@/features/auth/login-prompt";
@@ -9,7 +10,7 @@ import type {
   NativeMoreAction,
   NativePlayback,
   NativeSourceCard,
-  NativeSourceRail,
+  NativeSourceSection,
   NativeSources,
   NativeSourcesAction,
 } from "@/lib/native-screens";
@@ -131,15 +132,15 @@ const feedSections = ["popular", "recommended", "all"] as const;
 
 /** The 탐색 tab (the web's OpensourceScreen). */
 function FeedBridge({ nav }: { nav: SourcesNavigation }) {
-  const { list, popular, recommended } = useOpensourceFeed();
+  const { list, popular, popularItems, recommended } = useOpensourceFeed();
   const cards = useReportedItems<CardState, CardControls>();
   const { state } = list;
   const sections = {
-    popular: popular.data?.items,
+    popular: popularItems,
     recommended,
     all: state?.items,
   };
-  const card =
+  const toCard =
     (section: (typeof feedSections)[number]) =>
     (source: OpenSourceSummary): NativeSourceCard => {
       const key = `${section}:${source.openSourceId}`;
@@ -148,6 +149,7 @@ function FeedBridge({ nav }: { nav: SourcesNavigation }) {
         key,
         openSourceId: source.openSourceId,
         title: source.title,
+        instrumentLabel: source.instrument ? partLabel(source.instrument) : null,
         thumbnailUrl: source.thumbnailUrl,
         usage: source.usageCount != null ? sourceUsage(source.usageCount) : null,
         description: source.description ?? "",
@@ -167,13 +169,13 @@ function FeedBridge({ nav }: { nav: SourcesNavigation }) {
         vote: source.isLiked ? "like" : source.isDisliked ? "dislike" : null,
       };
     };
-  const rail = (
+  const toSection = (
     title: string,
     section: "popular" | "recommended",
     error: string | undefined,
-  ): NativeSourceRail => ({
+  ): NativeSourceSection => ({
     title,
-    items: sections[section]?.map(card(section)) ?? null,
+    items: sections[section]?.map(toCard(section)) ?? null,
     error: error ?? null,
   });
   const node = useSourcesScreen(
@@ -183,26 +185,29 @@ function FeedBridge({ nav }: { nav: SourcesNavigation }) {
         ? { state: "signed-out" }
         : {
             state: "ready",
-            popular: rail(
+            popular: toSection(
               "인기 샘플",
               "popular",
               popular.error ? sourceError(popular.error) : undefined,
             ),
-            recommended: rail("추천 샘플", "recommended", state?.error),
+            recommended: toSection("추천 샘플", "recommended", state?.error),
             all: {
               loading: !state,
               error: state?.error ?? null,
               empty: !!state && !state.error && state.items.length === 0,
-              items: state?.items.map(card("all")) ?? [],
-              more: state?.hasNext ? { busy: list.moreBusy } : null,
+              items: state?.items.map(toCard("all")) ?? [],
+              more:
+                state && (state.hasNext || state.pageError)
+                  ? { busy: list.moreBusy, error: state.pageError ?? null }
+                  : null,
             },
           },
     },
     nav,
     (action) => {
       switch (action.type) {
-        case "sources-rail-retry":
-          return action.rail === "popular" ? void popular.refetch() : list.retry();
+        case "sources-section-retry":
+          return action.section === "popular" ? void popular.refetch() : list.retry();
         case "more":
           return list.more();
         case "sources-save":
@@ -308,6 +313,7 @@ function MineBridge({ nav }: { nav: SourcesNavigation }) {
             items: items.map((source) => ({
               openSourceId: source.openSourceId,
               title: source.title,
+              instrumentLabel: source.instrument ? partLabel(source.instrument) : null,
               description: source.description || null,
               public: source.visibility === "PUBLIC",
               managing: busy?.kind === "manage" && busy.id === source.openSourceId,

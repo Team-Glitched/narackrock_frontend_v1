@@ -1,3 +1,4 @@
+import { partLabel } from "@/features/composition/instrument-parts";
 import { useId, useMemo, useRef, useState } from "react";
 import {
   useInfiniteQuery,
@@ -6,6 +7,7 @@ import {
   type InfiniteData,
 } from "@tanstack/react-query";
 import { CanvasDialog } from "@/components/canvas-dialog";
+import { FilePicker } from "@/components/file-picker";
 import { SignInRequired } from "@/features/auth/sign-in-required";
 import { useCurrentUserId } from "@/features/auth/use-current-user";
 import { validatePostImage } from "@/features/community/post-image";
@@ -378,6 +380,7 @@ function PublicationListManager({ onOpen }: { onOpen: (id: number) => void }) {
           }}
         >
           <h2>등록 관리</h2>
+          {editor.source.instrument && <p>악기: {partLabel(editor.source.instrument)}</p>}
           <p>
             공개 상태: {editor.source.visibility === "PUBLIC" ? "공개" : "비공개"}. 원본 음원은
             변경되지 않습니다.
@@ -457,19 +460,15 @@ function PublicationListManager({ onOpen }: { onOpen: (id: number) => void }) {
                   새 이미지로 변경
                 </span>
               </label>
-              <label>
-                새 썸네일 이미지 (JPG, PNG, WEBP, GIF · 최대 100MB)
-                <input
-                  type="file"
+              <div className="flex min-w-0 flex-col gap-2">
+                <span>새 썸네일 이미지 (JPG, PNG, WEBP, GIF · 최대 100MB)</span>
+                <FilePicker
                   accept="image/jpeg,image/png,image/webp,image/gif"
-                  className="w-full min-w-0 text-body"
-                  onChange={(event) => {
-                    const file = event.target.files?.[0];
-                    event.target.value = "";
-                    if (file) pickThumbnail(file);
-                  }}
+                  label="새 썸네일 이미지 파일 선택"
+                  disabled={busy !== null}
+                  onSelect={pickThumbnail}
                 />
-              </label>
+              </div>
               {editor.file && <p>선택한 이미지: {editor.file.name}</p>}
               <label>
                 <span>
@@ -534,6 +533,7 @@ function PublicationListManager({ onOpen }: { onOpen: (id: number) => void }) {
                 {source.visibility === "PUBLIC" ? "공개" : "비공개"}
               </span>
               <h2>{source.title}</h2>
+              {source.instrument && <p>악기: {partLabel(source.instrument)}</p>}
               {source.description && <p className="whitespace-pre-wrap">{source.description}</p>}
               <div className={cn(workspaceStyles.workspaceActions, sourceStyles.libraryActions)}>
                 <button
