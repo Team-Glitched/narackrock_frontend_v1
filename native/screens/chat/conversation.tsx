@@ -11,7 +11,6 @@ import {
 
 import SendIcon from "../../../public/figma/comment-send.svg";
 import BackIcon from "../../../public/figma/return.svg";
-import SearchIcon from "../../../public/figma/search.svg";
 import type {
   NativeChatConversation,
   NativeChatMessage,
@@ -24,7 +23,7 @@ import { useScreen } from "../../ui/screen-context";
 import { colors, gutter, type } from "../../ui/theme";
 import { SignInRequired } from "../social/friends";
 import type { ScreenProps } from "../types";
-import { ChatBell } from "./parts";
+import { ChatHeaderActions, chatBarStyle } from "./parts";
 
 /** /chat?userId=: the web's conversation (src/features/social/chat-screen.tsx Conversation). */
 export function ChatConversationScreen({ model }: ScreenProps<"chat-conversation">) {
@@ -78,10 +77,7 @@ function TopBar({ model }: { model: NativeChatConversation }) {
           채팅
         </Text>
       )}
-      <ChatBell />
-      <HeaderButton label="검색" onPress={() => act({ type: "search" })}>
-        <SearchIcon width={24} height={24} />
-      </HeaderButton>
+      <ChatHeaderActions />
     </View>
   );
 }
@@ -283,9 +279,9 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   bold: { fontWeight: "700" },
   padded: { paddingHorizontal: gutter, paddingVertical: 8 },
-  bar: { height: 44, flexDirection: "row", alignItems: "center", paddingHorizontal: 4 },
-  recipient: { flex: 1, flexDirection: "row", alignItems: "center", gap: 12 },
-  recipientText: { flex: 1, gap: 4 },
+  bar: chatBarStyle,
+  recipient: { flex: 1, minWidth: 0, flexDirection: "row", alignItems: "center", gap: 10 },
+  recipientText: { flex: 1, minWidth: 0, gap: 2 },
   // Inverted: flex-end keeps a short conversation at the top, as on the web.
   messages: { flexGrow: 1, justifyContent: "flex-end", paddingVertical: 30, paddingHorizontal: 20 },
   messageRow: { paddingTop: 20 },

@@ -247,7 +247,7 @@ function CommunityPicker({ communities }: { communities: NativePostCreate["commu
             </View>
             <Text style={styles.sheetText}>게시글을 올릴 커뮤니티를 선택하세요.</Text>
             <View style={styles.search}>
-              <SearchIcon width={18} height={18} />
+              <SearchIcon width={19} height={19} />
               <TextInput
                 accessibilityLabel="게시할 커뮤니티 검색"
                 placeholder="커뮤니티 검색"
@@ -264,7 +264,7 @@ function CommunityPicker({ communities }: { communities: NativePostCreate["commu
                   style={styles.searchClear}
                   onPress={() => setQuery("")}
                 >
-                  <CloseIcon width={12} height={12} />
+                  <CloseIcon width={13} height={13} />
                 </Touchable>
               )}
             </View>
@@ -421,11 +421,12 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
-    paddingHorizontal: 12,
-    borderRadius: 12,
+    paddingLeft: 16,
+    paddingRight: 8,
+    borderRadius: 22,
     backgroundColor: colors.surface,
   },
-  searchInput: { flex: 1, color: colors.fg, fontSize: 14, paddingVertical: 0 },
+  searchInput: { flex: 1, minWidth: 0, color: colors.fg, fontSize: 15, paddingVertical: 0 },
   searchClear: { width: 28, height: 36, alignItems: "center", justifyContent: "center" },
   sheetList: { marginTop: 20 },
   sheetError: { paddingTop: 20 },

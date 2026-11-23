@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import { StyleSheet, Text, TextInput, View, type TextInputInstance } from "react-native";
-import Svg, { Circle, Path } from "react-native-svg";
 
+import BackIcon from "../../../public/figma/return.svg";
+import CloseIcon from "../../../public/figma/search-close.svg";
+import SearchIcon from "../../../public/figma/search-input.svg";
 import type { NativeChatInbox, NativeChatInboxRow } from "../../../src/lib/native-screens";
 import { HeaderButton } from "../../ui/header";
 import { Avatar, Touchable } from "../../ui/kit";
@@ -10,33 +12,7 @@ import { useScreen } from "../../ui/screen-context";
 import { colors, gutter, type } from "../../ui/theme";
 import { SignInRequired } from "../social/friends";
 import type { ScreenProps } from "../types";
-import { ChatBell } from "./parts";
-
-/** lucide icons of the web inbox, drawn with the same paths. */
-function LineIcon({
-  size,
-  color,
-  children,
-}: {
-  size: number;
-  color: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <Svg
-      width={size}
-      height={size}
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke={color}
-      strokeWidth={2}
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      {children}
-    </Svg>
-  );
-}
+import { ChatHeaderActions, chatBarStyle } from "./parts";
 
 /** /chat: the web's chat inbox (src/features/social/chat-screen.tsx Inbox). */
 export function ChatInboxScreen({ model: inbox }: ScreenProps<"chat-inbox">) {
@@ -45,20 +21,12 @@ export function ChatInboxScreen({ model: inbox }: ScreenProps<"chat-inbox">) {
     <View style={styles.flex}>
       <View style={styles.bar}>
         <HeaderButton label="뒤로" onPress={() => act({ type: "back" })}>
-          <LineIcon size={24} color={colors.fg}>
-            <Path d="m15 18-6-6 6-6" />
-          </LineIcon>
+          <BackIcon width={22} height={22} />
         </HeaderButton>
-        <Text style={[type.title, styles.flex]} numberOfLines={1} accessibilityRole="header">
+        <Text style={[type.title, styles.title]} numberOfLines={1} accessibilityRole="header">
           채팅
         </Text>
-        <ChatBell />
-        <HeaderButton label="새 메시지" onPress={() => act({ type: "chat-new" })}>
-          <LineIcon size={20} color={colors.fg}>
-            <Path d="M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-            <Path d="M18.375 2.625a1 1 0 0 1 3 3l-9.013 9.014a2 2 0 0 1-.853.505l-2.873.84a.5.5 0 0 1-.62-.62l.84-2.873a2 2 0 0 1 .506-.852z" />
-          </LineIcon>
-        </HeaderButton>
+        <ChatHeaderActions />
       </View>
       {inbox.signedOut ? (
         <SignInRequired message="채팅은 로그인 후 사용할 수 있습니다." />
@@ -104,10 +72,7 @@ function SearchField({ query }: { query: string }) {
   }, [text, act]);
   return (
     <View style={styles.search}>
-      <LineIcon size={17} color={colors.muted}>
-        <Path d="m21 21-4.34-4.34" />
-        <Circle cx={11} cy={11} r={8} />
-      </LineIcon>
+      <SearchIcon width={19} height={19} />
       <TextInput
         ref={input}
         value={text}
@@ -131,10 +96,7 @@ function SearchField({ query }: { query: string }) {
             input.current?.focus();
           }}
         >
-          <LineIcon size={16} color={colors.muted}>
-            <Path d="M18 6 6 18" />
-            <Path d="m6 6 12 12" />
-          </LineIcon>
+          <CloseIcon width={13} height={13} />
         </Touchable>
       )}
     </View>
@@ -229,19 +191,22 @@ function Row({ row, onPress }: { row: NativeChatInboxRow; onPress: () => void })
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
-  bar: { height: 64, flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 12 },
+  bar: chatBarStyle,
+  title: { flex: 1, paddingLeft: 4 },
   search: {
     height: 44,
     marginHorizontal: gutter,
+    marginTop: 8,
     marginBottom: 12,
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
-    paddingHorizontal: 14,
-    borderRadius: 12,
+    paddingLeft: 16,
+    paddingRight: 8,
+    borderRadius: 22,
     backgroundColor: colors.surface,
   },
-  searchInput: { flex: 1, minWidth: 0, padding: 0, color: colors.fg, fontSize: 14 },
+  searchInput: { flex: 1, minWidth: 0, padding: 0, color: colors.fg, fontSize: 15 },
   clear: {
     width: 32,
     height: 32,

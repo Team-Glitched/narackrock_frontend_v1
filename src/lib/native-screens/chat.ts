@@ -34,8 +34,6 @@ export type NativeChatInboxAction =
   /** Search text, sent after a short pause as on the web; "" clears it. */
   | { type: "chat-query"; value: string }
   | { type: "chat-open"; userId: number }
-  /** The "새 메시지" button. */
-  | { type: "chat-new" }
   | { type: "chat-retry" }
   | { type: "sign-in" };
 
