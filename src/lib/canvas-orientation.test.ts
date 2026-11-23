@@ -134,4 +134,28 @@ test("native locks non-canvas screens to portrait and renders OrientationFab on 
   assert.equal(nativeTimelineSource.includes("<OrientationFab"), true);
   assert.equal(nativeEditorSource.includes("<OrientationFab"), true);
   assert.equal(nativePianoSource.includes("<OrientationFab"), true);
+
+  const webToggleSource = readFileSync(
+    path.join(rootDir, "src", "components", "orientation-toggle-button.tsx"),
+    "utf8",
+  );
+  const nativeToggleSource = readFileSync(
+    path.join(rootDir, "native", "ui", "orientation-fab.tsx"),
+    "utf8",
+  );
+  const portraitNoteSource = readFileSync(
+    path.join(rootDir, "src", "features", "composition", "note-editor-portrait.tsx"),
+    "utf8",
+  );
+  assert.equal(webToggleSource.includes("M5.42 8.54"), true);
+  assert.equal(nativeToggleSource.includes("M5.42 8.54"), true);
+  assert.equal(webToggleSource.includes("#23232a"), true);
+  assert.equal(webToggleSource.includes("#32323d"), true);
+  assert.equal(webToggleSource.includes("#9966ff"), false);
+  assert.equal(webToggleSource.includes("#241e33"), false);
+  assert.equal(nativeToggleSource.includes("#23232a"), true);
+  assert.equal(nativeToggleSource.includes("#32323d"), true);
+  assert.equal(nativeToggleSource.includes("#241e33"), false);
+  assert.equal(nativeToggleSource.includes("153, 102, 255"), false);
+  assert.equal(portraitNoteSource.includes("{rollOverlay}"), true);
 });

@@ -4,12 +4,10 @@ import { cn } from "@/lib/utils";
 export function OrientationToggleButton({
   portrait,
   onToggle,
-  alignedWithTransport = false,
   className,
 }: {
   portrait: boolean;
   onToggle: () => void;
-  alignedWithTransport?: boolean;
   className?: string;
 }) {
   const label = portrait ? "가로 모드로 전환" : "세로 모드로 전환";
@@ -21,41 +19,27 @@ export function OrientationToggleButton({
       title={label}
       onClick={onToggle}
       className={cn(
-        "orientation-toggle-fab absolute z-[12] inline-flex cursor-pointer items-center justify-center rounded-full border border-[#9966ff]/45 bg-[#241e33]/92 text-[#f2f4f6] shadow-[0_8px_22px_rgba(0,0,0,0.48),0_0_0_1px_rgba(109,0,255,0.22)] backdrop-blur-md transition-[transform,background-color,border-color,box-shadow] duration-150 hover:border-[#b388ff]/80 hover:bg-[#31254d] active:scale-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#9966ff] motion-reduce:transition-none",
-        portrait
-          ? alignedWithTransport
-            ? "right-4 bottom-8 size-12"
-            : "right-5 bottom-5 size-12"
-          : "right-4 bottom-4 size-11",
+        "orientation-toggle-fab absolute z-[12] inline-flex cursor-pointer items-center justify-center rounded-full border border-[#32323d] bg-[#23232a]/92 text-[#f2f4f6] shadow-[0_6px_18px_rgba(0,0,0,0.45)] backdrop-blur-md transition-[transform,background-color,border-color,box-shadow] duration-150 hover:border-[#4e4e5d] hover:bg-[#2c2c37] active:scale-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#f2f4f6]/70 motion-reduce:transition-none",
+        portrait ? "right-4 bottom-4 size-12" : "right-4 bottom-4 size-11",
         className,
       )}
     >
       <svg
-        width="22"
-        height="22"
+        width={portrait ? 24 : 22}
+        height={portrait ? 24 : 22}
         viewBox="0 0 24 24"
         fill="none"
         stroke="currentColor"
-        strokeWidth={1.85}
+        strokeWidth={2.05}
         strokeLinecap="round"
         strokeLinejoin="round"
         aria-hidden="true"
       >
-        {portrait ? (
-          <>
-            <rect x="3" y="10" width="14.5" height="10" rx="2.2" />
-            <path d="M14.8 13.7v2.6" />
-            <path d="M9 4.5a8.86 8.86 0 0 1 11.2 6.8" />
-            <path d="M17.9 9.7 20.2 11.3 21.7 8.8" />
-          </>
-        ) : (
-          <>
-            <rect x="4" y="6.5" width="10" height="14.5" rx="2.2" />
-            <path d="M7.7 18.3h2.6" />
-            <path d="M19.7 14.2a8.86 8.86 0 0 0-7-10.4" />
-            <path d="M15.2 2.4 12.7 3.8 14.4 6.1" />
-          </>
-        )}
+        <path d="M5.42 8.54 8.54 5.42a1.8 1.8 0 0 1 2.54 0l7.5 7.5a1.8 1.8 0 0 1 0 2.54l-3.12 3.12a1.8 1.8 0 0 1-2.54 0l-7.5-7.5a1.8 1.8 0 0 1 0-2.54Z" />
+        <path d="M20.46 9.25A8.9 8.9 0 0 0 14.75 3.54" />
+        <path d="M17.03 2.52 14.75 3.54 16 5.71" />
+        <path d="M3.54 14.75A8.9 8.9 0 0 0 9.25 20.46" />
+        <path d="M6.97 21.48 9.25 20.46 8 18.29" />
       </svg>
     </button>
   );

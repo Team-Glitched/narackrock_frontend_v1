@@ -423,6 +423,7 @@ export function SourcePianoEditor(props: SourcePianoProps) {
           status={status}
           tools={<NoteTools editor={editor} large />}
           roll={roll}
+          rollOverlay={<OrientationToggleButton portrait onToggle={toggle} />}
         />
       ) : (
         <>
@@ -462,11 +463,7 @@ export function SourcePianoEditor(props: SourcePianoProps) {
           if (file) void importJson(file);
         }}
       />
-      <OrientationToggleButton
-        portrait={portrait}
-        onToggle={toggle}
-        alignedWithTransport={portrait}
-      />
+      {!portrait && <OrientationToggleButton portrait={false} onToggle={toggle} />}
       {showChords && editor.editable && (
         <ChordPickerDialog
           editor={editor}

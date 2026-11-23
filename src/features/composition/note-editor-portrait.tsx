@@ -28,6 +28,7 @@ const rowScroll = "overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]
 export function PortraitNoteEditor({
   title, bpm, signature, onTiming, timeMs, instrument, playing, onPlay, onPause, onRewind, metronome,
   onMetronome, onBack, action, onImportSource, onChord, drumToggle, controls, status, tools, roll,
+  rollOverlay,
 }: {
   title: string;
   bpm: number;
@@ -54,6 +55,7 @@ export function PortraitNoteEditor({
   /** Draw/select/erase/pan buttons, shown in the bottom bar. */
   tools: ReactNode;
   roll: ReactNode;
+  rollOverlay?: ReactNode;
 }) {
   const [timingDialog, setTimingDialog] = useState<"bpm" | "beat" | null>(null);
   const [instrumentOpen, setInstrumentOpen] = useState(false);
@@ -140,7 +142,10 @@ export function PortraitNoteEditor({
       </div>
       {controls}
       {status}
-      <div className={studioStyles.portraitRoll}>{roll}</div>
+      <div className={studioStyles.portraitRoll}>
+        {roll}
+        {rollOverlay}
+      </div>
       <div className="mx-4 mt-3 mb-6 flex shrink-0 flex-col gap-4">
         {tools}
         <div className="flex items-center justify-center gap-8">

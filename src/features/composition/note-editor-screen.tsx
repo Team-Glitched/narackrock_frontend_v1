@@ -263,6 +263,11 @@ function LoadedNoteEditor({
           status={statusRow}
           tools={editable && <NoteTools editor={editor} large />}
           roll={roll}
+          rollOverlay={
+            onToggleOrientation && (
+              <OrientationToggleButton portrait onToggle={onToggleOrientation} />
+            )
+          }
         />
       ) : (
         <>
@@ -310,12 +315,8 @@ function LoadedNoteEditor({
         </div>
       )}
       {!editable && <p>내 MIDI 레이어만 수정할 수 있습니다.</p>}
-      {onToggleOrientation && (
-        <OrientationToggleButton
-          portrait={portrait}
-          onToggle={onToggleOrientation}
-          alignedWithTransport={portrait}
-        />
+      {!portrait && onToggleOrientation && (
+        <OrientationToggleButton portrait={false} onToggle={onToggleOrientation} />
       )}
       {screen.showSources && editor.editable && (
         <StudioSourceDialog
