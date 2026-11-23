@@ -1,11 +1,5 @@
 import { useRef, useState, type ComponentRef } from "react";
 import { ScrollView, Text, TextInput, View, useWindowDimensions } from "react-native";
-import {
-  SOURCE_DESCRIPTION_MAX_LENGTH,
-  SOURCE_TITLE_MAX_LENGTH,
-  clampCodePoints,
-  codePointLength,
-} from "../../../src/lib/content-limits";
 import type {
   NativeSourceCard,
   NativeSourcePublications,
@@ -24,6 +18,12 @@ import { SavedSources } from "../workspace/library";
 import { Card, Notice, Page, Pill } from "../workspace/parts";
 import { Sheet } from "../profile/parts";
 import { SourceActions, SourceAuthor, SourceLogin, SourcePlayer, styles } from "./parts";
+import {
+  SOURCE_DESCRIPTION_MAX_LENGTH,
+  SOURCE_TITLE_MAX_LENGTH,
+  clampCodePoints,
+  codePointLength,
+} from "../../../src/lib/content-limits";
 
 const tabs: { value: NativeSources["tab"]; label: string }[] = [
   { value: "feed", label: "탐색" },
