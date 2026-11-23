@@ -2,42 +2,22 @@
 export const sourceStyles = {
   libraryPage: "flex flex-col gap-4 pt-4! [&>h1]:m-0! [&>h1]:text-title! [&>h1]:leading-7!",
   libraryCard:
-    "m-0! flex! flex-col gap-2 p-4! [&>h2]:m-0! [&>h2]:text-label! [&>h2]:leading-6! [&>h2]:font-bold! [&>p]:m-0! [&>small]:text-body [&>small]:text-app-muted",
+    "m-0! flex! flex-col gap-3 p-4! [&>h2]:m-0! [&>h2]:text-label! [&>h2]:leading-6! [&>h2]:font-bold! [&>p]:m-0! [&>small]:text-body [&>small]:text-app-muted",
   libraryActions: "mt-1! gap-2! [&>button]:text-body!",
   osAudioError: [
     "os-audio-error",
     "[.design-canvas_&]:font-normal [.design-canvas_&]:text-caption [.design-canvas_&]:font-sans [.design-canvas_&]:m-[12px_0]",
     "[.design-canvas_&]:text-app-muted [.design-canvas_&]:leading-[18px]",
   ].join(" "),
-  osDiscoverySections: [
-    "os-discovery-sections",
-    "gap-11 [.design-canvas_&]:gap-y-11 [.design-canvas_&]:p-[24px_20px_40px]",
-    "[&>section]:flex [&>section]:min-w-0 [&>section]:flex-none [&>section]:flex-col [&>section]:gap-4",
-  ].join(" "),
   osCard: [
     "os-card",
-    "[.design-canvas_.os-discovery-sections_&]:gap-3 [.design-canvas_.os-discovery-sections_&]:p-4",
-    "[.os-discovery-rail>&]:w-full [.os-discovery-rail>&]:min-w-0 [.os-discovery-rail>&]:flex-none",
-    "[.os-discovery-rail[data-paged=true]>&]:w-[calc(100%_-_44px)]",
-    "[.os-discovery-rail>&]:snap-start [.os-discovery-rail>&]:snap-always",
     "rounded-[12px] p-4 bg-transparent bg-none flex flex-col gap-3 border border-solid border-app-border",
     "[.design-canvas_&]:p-4 [.design-canvas_&]:bg-transparent [.design-canvas_&]:bg-none [.design-canvas_&]:gap-3",
     "[.design-canvas_&]:rounded-[12px] [.design-canvas_&]:h-auto [.design-canvas_&]:border [.design-canvas_&]:border-solid",
     "[.design-canvas_&]:border-app-border",
-  ].join(" "),
-  osDiscoveryRail: [
-    "os-discovery-rail",
-    "relative flex gap-3 snap-x snap-mandatory overflow-x-auto overscroll-x-contain motion-safe:scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
-    "data-[paged=true]:cursor-grab data-[paged=true]:select-none data-[dragging=true]:cursor-grabbing data-[dragging=true]:snap-none",
-    "data-[paged=true]:after:w-8 data-[paged=true]:after:flex-none data-[paged=true]:after:content-['']",
     "[&_.os-author_strong]:line-clamp-2 [&_.os-author_strong]:[overflow-wrap:anywhere]",
     "[&_.os-body]:line-clamp-2 [&_.os-body]:[overflow-wrap:anywhere]",
     "[&_.os-foot-author]:min-w-0 [&_.os-foot-author>span:last-child]:truncate",
-  ].join(" "),
-  osDiscoveryArrow: [
-    "grid size-9 place-items-center rounded-full border border-app-border bg-app-surface text-app-fg",
-    "enabled:hover:border-app-primary-soft focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-app-primary-soft",
-    "disabled:cursor-default disabled:opacity-40",
   ].join(" "),
   osDiscoveryList: ["os-discovery-list", "flex flex-col gap-3"].join(" "),
   osDiscoveryEmpty: [

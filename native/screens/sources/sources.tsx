@@ -1,9 +1,8 @@
-import { useRef, useState, type ComponentRef } from "react";
-import { ScrollView, Text, TextInput, View, useWindowDimensions } from "react-native";
+import { useState } from "react";
+import { Text, TextInput, View } from "react-native";
 import type {
   NativeSourceCard,
   NativeSourcePublications,
-  NativeSourceRail,
   NativeSources,
 } from "../../../src/lib/native-screens";
 import { Cover } from "../../ui/cards";
@@ -36,33 +35,26 @@ export function SourcesScreen({ model, header }: ScreenProps<"sources">) {
           (model.feed.state === "signed-out" ? (
             <SourceLogin>샘플은 로그인 후 볼 수 있습니다.</SourceLogin>
           ) : (
-            <View style={styles.column}>
-              <Rail rail={model.feed.popular} section="popular" />
-              <Rail rail={model.feed.recommended} section="recommended" />
-              <View style={{ gap: 16 }}>
-                <Text accessibilityRole="header" style={type.title}>
-                  전체 샘플
-                </Text>
-                {model.feed.all.loading && <Status>샘플을 불러오는 중...</Status>}
-                {model.feed.all.error && (
-                  <ErrorRetry
-                    message={model.feed.all.error}
-                    onRetry={() => act({ type: "sources-rail-retry", rail: "recommended" })}
-                  />
-                )}
-                {model.feed.all.empty && <Status>아직 공개된 샘플이 없습니다.</Status>}
-                {model.feed.all.items.map((source) => (
-                  <SourceCard key={source.key} source={source} />
-                ))}
-                {model.feed.all.more && (
-                  <Button
-                    tone="secondary"
-                    label={model.feed.all.more.busy ? "불러오는 중..." : "더보기"}
-                    disabled={model.feed.all.more.busy}
-                    onPress={() => act({ type: "more" })}
-                  />
-                )}
-              </View>
+            <View style={{ gap: 16 }}>
+              {model.feed.loading && <Status>샘플을 불러오는 중...</Status>}
+              {model.feed.error && (
+                <ErrorRetry
+                  message={model.feed.error}
+                  onRetry={() => act({ type: "sources-feed-retry" })}
+                />
+              )}
+              {model.feed.empty && <Status>아직 공개된 샘플이 없습니다.</Status>}
+              {model.feed.items.map((source) => (
+                <SourceCard key={source.key} source={source} />
+              ))}
+              {model.feed.more && (
+                <Button
+                  tone="secondary"
+                  label={model.feed.more.busy ? "불러오는 중..." : "더보기"}
+                  disabled={model.feed.more.busy}
+                  onPress={() => act({ type: "more" })}
+                />
+              )}
             </View>
           ))}
         {model.saved && (
@@ -74,73 +66,6 @@ export function SourcesScreen({ model, header }: ScreenProps<"sources">) {
       </ScreenScroll>
       {model.create && <Fab label="만들기" onPress={() => act({ type: "sources-create" })} />}
     </>
-  );
-}
-
-function Rail({ rail, section }: { rail: NativeSourceRail; section: "popular" | "recommended" }) {
-  const { act } = useScreen();
-  const scroll = useRef<ComponentRef<typeof ScrollView>>(null);
-  const width = Math.max(1, useWindowDimensions().width - 40);
-  const [page, setPage] = useState(0);
-  const count = rail.items?.length ?? 0;
-  const index = Math.max(0, Math.min(page, count - 1));
-  return (
-    <View style={{ gap: 12 }}>
-      <View style={[styles.row, { justifyContent: "space-between" }]}>
-        <Text accessibilityRole="header" style={type.title}>
-          {rail.title}
-        </Text>
-        {count > 1 && (
-          <View style={styles.row}>
-            <Text style={type.caption}>
-              {index + 1} / {count}
-            </Text>
-            <Pill
-              label="‹"
-              accessibilityLabel={`${rail.title} 이전 카드`}
-              disabled={index === 0}
-              onPress={() => scroll.current?.scrollTo({ x: (index - 1) * (width + 12) })}
-            />
-            <Pill
-              label="›"
-              accessibilityLabel={`${rail.title} 다음 카드`}
-              disabled={index === count - 1}
-              onPress={() => scroll.current?.scrollTo({ x: (index + 1) * (width + 12) })}
-            />
-          </View>
-        )}
-      </View>
-      {!rail.items &&
-        (rail.error ? (
-          <ErrorRetry
-            message={rail.error}
-            onRetry={() => act({ type: "sources-rail-retry", rail: section })}
-          />
-        ) : (
-          <Status>샘플을 불러오는 중...</Status>
-        ))}
-      {rail.items?.length === 0 && <Status>표시할 샘플이 없습니다.</Status>}
-      {!!rail.items?.length && (
-        <ScrollView
-          ref={scroll}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          snapToInterval={width + 12}
-          decelerationRate="fast"
-          contentContainerStyle={{ gap: 12 }}
-          onScroll={({ nativeEvent }) =>
-            setPage(Math.round(nativeEvent.contentOffset.x / (width + 12)))
-          }
-          scrollEventThrottle={100}
-        >
-          {rail.items.map((source) => (
-            <View key={source.key} style={{ width }}>
-              <SourceCard source={source} />
-            </View>
-          ))}
-        </ScrollView>
-      )}
-    </View>
   );
 }
 

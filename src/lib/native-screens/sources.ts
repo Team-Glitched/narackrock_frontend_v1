@@ -35,31 +35,18 @@ export type NativeSourceCard = {
   player: NativePlayback | null;
 };
 
-/** A swipeable rail of the 탐색 tab ("인기 샘플", "추천 샘플"). */
-export type NativeSourceRail = {
-  title: string;
-  /** Null while loading ("샘플을 불러오는 중...") or failed (`error` with "다시 시도"). */
-  items: NativeSourceCard[] | null;
-  error: string | null;
-};
-
 /** The 탐색 tab (the web's OpensourceScreen). */
 export type NativeSourceFeed =
   | { state: "signed-out" }
   | {
       state: "ready";
-      popular: NativeSourceRail;
-      recommended: NativeSourceRail;
-      /** "전체 샘플". */
-      all: {
-        loading: boolean;
-        error: string | null;
-        /** "아직 공개된 샘플이 없습니다." */
-        empty: boolean;
-        items: NativeSourceCard[];
-        /** The "더보기" button. */
-        more: { busy: boolean } | null;
-      };
+      loading: boolean;
+      error: string | null;
+      /** "아직 공개된 샘플이 없습니다." */
+      empty: boolean;
+      items: NativeSourceCard[];
+      /** The "더보기" button. */
+      more: { busy: boolean } | null;
     };
 
 /** A row of 내 등록 (the web's SourcePublications). */
@@ -135,7 +122,7 @@ export type NativeSourcesAction =
   | { type: "sources-create" }
   | { type: "sources-open"; openSourceId: number; comments?: boolean }
   | { type: "sources-profile"; userId: number }
-  | { type: "sources-rail-retry"; rail: "popular" | "recommended" }
+  | { type: "sources-feed-retry" }
   | { type: "sources-save"; key: string }
   | { type: "sources-play"; key: string }
   | { type: "sources-seek"; key: string; ms: number }

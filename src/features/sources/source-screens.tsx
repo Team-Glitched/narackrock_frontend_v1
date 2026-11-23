@@ -5,11 +5,8 @@ import { buttonVariants } from "@/styles/variants";
 import { cn } from "@/lib/utils";
 import {
   useCallback,
-  useId,
   useMemo,
-  useRef,
   useState,
-  type PointerEvent,
   type ReactNode,
 } from "react";
 import {
@@ -19,7 +16,6 @@ import {
   useQueryClient,
   type UseQueryResult,
 } from "@tanstack/react-query";
-import { SectionTitle } from "@/components/section-title";
 import { AlbumArtwork } from "@/components/music-card";
 import { Avatar } from "@/components/avatar";
 import { FigmaSheet } from "@/components/figma-sheet";
@@ -56,8 +52,6 @@ import {
   openSourceListQuery,
   openSourceQuery,
   patchSource,
-  popularOpenSourcesQuery,
-  sourceDiscoverySize,
   sourceKeys,
   useSourceSaveMutation,
 } from "./source-queries";
@@ -205,8 +199,6 @@ export function useOpenSourceList(keyword: string, enabled: boolean) {
       : null;
   return {
     state,
-    firstPage: data?.pages[0]?.items,
-    userId,
     more: () => {
       if (hasNextPage && !isFetchingNextPage) void fetchNextPage();
     },
@@ -216,175 +208,9 @@ export function useOpenSourceList(keyword: string, enabled: boolean) {
   };
 }
 
-function discoveryCardStep(track: HTMLDivElement) {
-  const nextCard = track.children[1];
-  return nextCard instanceof HTMLElement ? nextCard.offsetLeft : track.clientWidth;
-}
-
-function SourceDiscoveryRail({
-  title,
-  items,
-  error,
-  retry,
-  onOpen,
-  onProfile,
-}: {
-  title: string;
-  items?: OpenSourceSummary[];
-  error?: string;
-  retry: () => void;
-  onOpen: (id: number, comments?: boolean) => void;
-  onProfile: (id: number) => void;
-}) {
-  const railId = useId();
-  const rail = useRef<HTMLDivElement>(null);
-  const drag = useRef<{
-    pointerId: number;
-    x: number;
-    left: number;
-    scale: number;
-    active: boolean;
-  } | null>(null);
-  const suppressClick = useRef(false);
-  const count = items?.length ?? 0;
-
-  function moveTo(next: number) {
-    const track = rail.current;
-    if (track) track.scrollTo({ left: next * discoveryCardStep(track) });
-  }
-
-  function startDrag(event: PointerEvent<HTMLDivElement>) {
-    suppressClick.current = false;
-    if (count < 2 || event.pointerType !== "mouse" || event.button !== 0) return;
-    if (event.target instanceof Element && event.target.closest("input")) return;
-    const track = event.currentTarget;
-    drag.current = {
-      pointerId: event.pointerId,
-      x: event.clientX,
-      left: track.scrollLeft,
-      scale: track.getBoundingClientRect().width / track.clientWidth,
-      active: false,
-    };
-  }
-
-  function updateDrag(event: PointerEvent<HTMLDivElement>) {
-    const start = drag.current;
-    if (!start || start.pointerId !== event.pointerId) return;
-    const distance = (start.x - event.clientX) / start.scale;
-    const track = event.currentTarget;
-    if (!start.active) {
-      if (Math.abs(distance) < 6) return;
-      start.active = true;
-      suppressClick.current = true;
-      track.setPointerCapture(event.pointerId);
-      track.dataset.dragging = "true";
-    }
-    track.scrollTo({ left: start.left + distance, behavior: "instant" });
-  }
-
-  function finishDrag(event: PointerEvent<HTMLDivElement>) {
-    const start = drag.current;
-    if (!start || start.pointerId !== event.pointerId) return;
-    drag.current = null;
-    if (!start.active) return;
-    const track = event.currentTarget;
-    const step = discoveryCardStep(track);
-    const initial = Math.round(start.left / step);
-    const nearest = Math.round(track.scrollLeft / step);
-    const distance = (start.x - event.clientX) / start.scale;
-    // A short mouse swipe advances a card even if it stops before the midpoint.
-    const next =
-      event.type === "pointerup" && nearest === initial && Math.abs(distance) >= 40
-        ? initial + Math.sign(distance)
-        : nearest;
-    delete track.dataset.dragging;
-    moveTo(Math.max(0, Math.min(next, count - 1)));
-  }
-
-  return (
-    <section aria-label={title}>
-      <div className="flex min-h-9 items-center justify-between gap-2">
-        <h2 className="m-0 text-title leading-6 font-bold tracking-[-0.4px]">{title}</h2>
-      </div>
-      {!items &&
-        (error ? (
-          <div role="alert">
-            <p>{error}</p>
-            <button
-              className={buttonVariants({ tone: "secondary", size: "compact" })}
-              onClick={retry}
-            >
-              다시 시도
-            </button>
-          </div>
-        ) : (
-          <p role="status">샘플을 불러오는 중...</p>
-        ))}
-      {items?.length === 0 && (
-        <p className={sourceStyles.osDiscoveryEmpty}>표시할 샘플이 없습니다.</p>
-      )}
-      {!!items?.length && (
-        <div
-          id={railId}
-          ref={rail}
-          className={sourceStyles.osDiscoveryRail}
-          data-paged={count > 1}
-          onPointerDown={startDrag}
-          onPointerMove={updateDrag}
-          onPointerUp={finishDrag}
-          onPointerCancel={finishDrag}
-          onLostPointerCapture={finishDrag}
-          onPointerLeave={(event) => {
-            if (drag.current?.pointerId === event.pointerId && !drag.current.active)
-              drag.current = null;
-          }}
-          onClickCapture={(event) => {
-            if (!suppressClick.current || event.detail === 0) return;
-            suppressClick.current = false;
-            event.preventDefault();
-            event.stopPropagation();
-          }}
-        >
-          {items.map((source) => (
-            <OpenSourceCard
-              key={source.openSourceId}
-              source={source}
-              onOpen={onOpen}
-              onProfile={onProfile}
-            />
-          ))}
-        </div>
-      )}
-    </section>
-  );
-}
-
-function recommendSources(items: OpenSourceSummary[], viewerId: number | null) {
-  const others = items.filter((item) => item.writer.userId !== viewerId);
-  const authors = new Set<number>();
-  const first: OpenSourceSummary[] = [];
-  const rest: OpenSourceSummary[] = [];
-  for (const item of others.length ? others : items) {
-    const authorId = item.writer.userId;
-    if (authors.has(authorId)) {
-      rest.push(item);
-    } else {
-      authors.add(authorId);
-      first.push(item);
-    }
-  }
-  return [...first, ...rest].slice(0, sourceDiscoverySize);
-}
-
-/**
- * The 탐색 tab's data (OpensourceScreen and the app's native screen): the public list, the popular
- * rail's query and the recommended rail (from the list's first page; undefined until it loads).
- */
+/** The 탐색 tab's public sample feed (used by OpensourceScreen and NativeSourcesBridge). */
 export function useOpensourceFeed() {
-  const list = useOpenSourceList("", true);
-  const popular = useQuery({ ...popularOpenSourcesQuery(list.userId), enabled: list.signedIn });
-  const recommended = list.firstPage && recommendSources(list.firstPage, list.userId);
-  return { list, popular, recommended };
+  return useOpenSourceList("", true);
 }
 
 export function OpensourceScreen({
@@ -394,79 +220,54 @@ export function OpensourceScreen({
   onOpen: (id: number, comments?: boolean) => void;
   onProfile: (id: number) => void;
 }) {
-  const { list, popular, recommended } = useOpensourceFeed();
+  const list = useOpensourceFeed();
   if (!list.signedIn) return <SignInRequired>샘플은 로그인 후 볼 수 있습니다.</SignInRequired>;
   const { state } = list;
   return (
-    <div
-      className={cn(
-        sourceStyles.opensourceView,
-        sharedStyles.scrollContent,
-        sourceStyles.osDiscoverySections,
+    <div className={cn(sourceStyles.opensourceView, sharedStyles.scrollContent)}>
+      {!state && (
+        <p role="status" className="px-1 py-2 text-body leading-[20px] text-app-muted">
+          샘플을 불러오는 중...
+        </p>
       )}
-    >
-      <SourceDiscoveryRail
-        title="인기 샘플"
-        items={popular.data?.items}
-        error={popular.error ? sourceError(popular.error) : undefined}
-        retry={() => void popular.refetch()}
-        onOpen={onOpen}
-        onProfile={onProfile}
-      />
-      <SourceDiscoveryRail
-        title="추천 샘플"
-        items={recommended}
-        error={state?.error}
-        retry={list.retry}
-        onOpen={onOpen}
-        onProfile={onProfile}
-      />
-      <section aria-label="전체 샘플">
-        <SectionTitle className="mb-0! px-0">전체 샘플</SectionTitle>
-        {!state && (
-          <p role="status" className="px-1 py-2 text-body leading-[20px] text-app-muted">
-            샘플을 불러오는 중...
-          </p>
-        )}
-        {state?.error && (
-          <div
-            role="alert"
-            className="rounded-[10px] bg-app-panel p-4 text-body leading-[20px] text-[#ff8d8d]"
-          >
-            <p className="mb-3">{state.error}</p>
-            <button
-              className={buttonVariants({ tone: "secondary", size: "compact" })}
-              onClick={list.retry}
-            >
-              다시 시도
-            </button>
-          </div>
-        )}
-        {state && !state.error && state.items.length === 0 && (
-          <p className={sourceStyles.osDiscoveryEmpty}>아직 공개된 샘플이 없습니다.</p>
-        )}
-        {state && state.items.length > 0 && (
-          <div className={sourceStyles.osDiscoveryList}>
-            {state.items.map((source) => (
-              <OpenSourceCard
-                key={source.openSourceId}
-                source={source}
-                onOpen={onOpen}
-                onProfile={onProfile}
-              />
-            ))}
-          </div>
-        )}
-        {state?.hasNext && (
+      {state?.error && (
+        <div
+          role="alert"
+          className="rounded-[10px] bg-app-panel p-4 text-body leading-[20px] text-[#ff8d8d]"
+        >
+          <p className="mb-3">{state.error}</p>
           <button
-            className={communityStyles.nrCommentsMore}
-            disabled={list.moreBusy}
-            onClick={() => void list.more()}
+            className={buttonVariants({ tone: "secondary", size: "compact" })}
+            onClick={list.retry}
           >
-            {list.moreBusy ? "불러오는 중..." : "더보기"}
+            다시 시도
           </button>
-        )}
-      </section>
+        </div>
+      )}
+      {state && !state.error && state.items.length === 0 && (
+        <p className={sourceStyles.osDiscoveryEmpty}>아직 공개된 샘플이 없습니다.</p>
+      )}
+      {state && state.items.length > 0 && (
+        <div className={sourceStyles.osDiscoveryList}>
+          {state.items.map((source) => (
+            <OpenSourceCard
+              key={source.openSourceId}
+              source={source}
+              onOpen={onOpen}
+              onProfile={onProfile}
+            />
+          ))}
+        </div>
+      )}
+      {state?.hasNext && (
+        <button
+          className={communityStyles.nrCommentsMore}
+          disabled={list.moreBusy}
+          onClick={() => void list.more()}
+        >
+          {list.moreBusy ? "불러오는 중..." : "더보기"}
+        </button>
+      )}
     </div>
   );
 }
