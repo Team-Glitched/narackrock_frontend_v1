@@ -8,7 +8,7 @@ import type {
   NativeProfileSong,
   NativeProfileWorks,
 } from "../../../src/lib/native-screens";
-import { Cover, PersonRow, PostRow } from "../../ui/cards";
+import { Cover, FeaturedCardStar, PersonRow, PostRow } from "../../ui/cards";
 import { AppHeader } from "../../ui/header";
 import { Avatar, Button, Status, Touchable } from "../../ui/kit";
 import { ScreenScroll } from "../../ui/screen";
@@ -75,8 +75,13 @@ export function ProfileScreen({ model, header }: ScreenProps<"profile-view">) {
                 {user.explanation}
               </Text>
             </View>
+            {model.featuredNotice && (
+              <Text accessibilityRole="alert" style={styles.featuredNotice}>
+                {model.featuredNotice}
+              </Text>
+            )}
             {model.sections.map((section) => (
-              <Works key={section.key} works={section} />
+              <Works key={section.key} works={section} starBusy={Boolean(model.starBusy)} />
             ))}
           </View>
         </ScreenScroll>
@@ -161,7 +166,7 @@ function Stat({
   );
 }
 
-function Works({ works }: { works: NativeProfileWorks }) {
+function Works({ works, starBusy }: { works: NativeProfileWorks; starBusy: boolean }) {
   const { act } = useScreen();
   const [showAll, setShowAll] = useState(false);
   return (
@@ -231,7 +236,7 @@ function Works({ works }: { works: NativeProfileWorks }) {
           showsHorizontalScrollIndicator={false}
           style={styles.rail}
           contentContainerStyle={styles.railContent}
-          renderItem={({ item }) => <SongCard song={item} />}
+          renderItem={({ item }) => <SongCard song={item} starBusy={starBusy} />}
         />
       )}
       {works.status === "ready" && works.songs.length === 0 && works.emptyMessage !== "" && (
@@ -241,20 +246,30 @@ function Works({ works }: { works: NativeProfileWorks }) {
   );
 }
 
-function SongCard({ song }: { song: NativeProfileSong }) {
+function SongCard({ song, starBusy }: { song: NativeProfileSong; starBusy: boolean }) {
   const { act } = useScreen();
   return (
-    <Touchable
-      accessibilityRole="button"
-      accessibilityLabel={`${song.title} 열기`}
-      style={styles.songCard}
-      onPress={() => act({ type: "open-short", shortId: song.shortId })}
-    >
-      <Cover url={song.albumImageUrl} size={160} radius={10} />
-      <Text style={styles.songTitle} numberOfLines={1}>
-        {song.title}
-      </Text>
-    </Touchable>
+    <View style={styles.songCard}>
+      <Touchable
+        accessibilityRole="button"
+        accessibilityLabel={`${song.title} 열기`}
+        style={styles.songCardBody}
+        onPress={() => act({ type: "open-short", shortId: song.shortId })}
+      >
+        <Cover url={song.albumImageUrl} size={160} radius={10} />
+        <Text style={styles.songTitle} numberOfLines={1}>
+          {song.title}
+        </Text>
+      </Touchable>
+      {song.star && (
+        <FeaturedCardStar
+          songTitle={song.title}
+          pinned={song.star === "pinned"}
+          busy={starBusy}
+          onPress={() => act({ type: "toggle-featured", shortId: song.shortId })}
+        />
+      )}
+    </View>
   );
 }
 
@@ -345,7 +360,7 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   disabled: { opacity: 0.5 },
   identity: { alignItems: "center", gap: 16, paddingHorizontal: gutter, paddingTop: 20 },
-  avatarRing: { borderRadius: 70, borderWidth: 2, borderColor: colors.fg },
+  avatarRing: { borderRadius: 70, overflow: "hidden" },
   nickname: {
     color: colors.fg,
     fontSize: 25,
@@ -409,6 +424,17 @@ const styles = StyleSheet.create({
   rail: { marginHorizontal: -gutter },
   railContent: { paddingHorizontal: gutter, gap: 20, paddingBottom: 4 },
   songCard: { width: 160, gap: 10 },
+  songCardBody: { gap: 10 },
+  featuredNotice: {
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    color: colors.error,
+    fontSize: 14,
+    lineHeight: 20,
+  },
   songTitle: { color: colors.fg, fontSize: 16, lineHeight: 20, fontWeight: "700" },
   sheetTitle: {
     color: colors.fg,

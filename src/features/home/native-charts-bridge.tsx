@@ -17,7 +17,9 @@ function useMyMusicChart(tab: MusicListTab, featuredUserId: number | undefined) 
   const base = {
     title: otherFeatured ? uiLabels.featuredMusic : uiLabels.myMusic,
     tab: otherFeatured ? null : activeTab,
-    hint: managing ? "내 작업물의 완성곡 중 한 곡을 대표 음악으로 설정할 수 있어요." : null,
+    hint: managing
+      ? `별표를 눌러 대표 음악을 최대 ${music.maxFeatured}개까지 설정할 수 있어요. (${music.pinnedCount}/${music.maxFeatured})`
+      : null,
     menu: false,
     starBusy: music.savingId !== null,
   };
@@ -39,7 +41,7 @@ function useMyMusicChart(tab: MusicListTab, featuredUserId: number | undefined) 
         star: canManageFeatured ? "pinned" : null,
       })),
       emptyMessage: canManageFeatured
-        ? "아직 등록한 대표 음악이 없습니다.\n내 작업물에서 완성곡의 별표를 눌러 설정해 보세요."
+        ? "아직 등록한 대표 음악이 없습니다.\n내 작업물이나 내 참가작에서 별표를 눌러 설정해 보세요."
         : "아직 등록한 대표 음악이 없습니다.",
       paging: null,
     };
@@ -51,8 +53,7 @@ function useMyMusicChart(tab: MusicListTab, featuredUserId: number | undefined) 
       error: songs.status === "error" ? (songs.error ?? songStatus.error) : null,
       items: music.items.map((song): NativeChartSong => {
         const isPinned = pinnedIds.has(song.shortId);
-        const eligible = isPinned || (activeTab === "authored" && song.completionStatus === "COMPLETED");
-        return { ...nativeSong(song), star: managing && eligible ? (isPinned ? "pinned" : "unpinned") : null };
+        return { ...nativeSong(song), star: managing ? (isPinned ? "pinned" : "unpinned") : null };
       }),
       emptyMessage: songs.hasMore
         ? "아직 이 종류의 곡을 찾지 못했습니다. 다음 목록도 확인해 주세요."
@@ -136,7 +137,7 @@ function useChartScreen(
   { onTabChange, onOpenShort, onSearch, onBack }: ChartsBridgeProps,
 ) {
   return useNativeScreen("charts", chart, {
-    header: { left: "back", actions: ["notifications", "search", "account"] },
+    header: { left: "back", actions: ["notifications", "chat", "search", "account"] },
     onBack,
     onSearch,
     onAction: (action) => {

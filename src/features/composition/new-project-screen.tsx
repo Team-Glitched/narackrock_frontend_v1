@@ -3,6 +3,11 @@ import { buttonVariants } from "@/styles/variants";
 import { useEffect, useId, useRef, useState, useSyncExternalStore } from "react";
 import { createDraftProject, updateProjectMetadata, uploadMedia } from "@/lib/api/composition";
 import { apiOrigin, getCurrentUserId } from "@/lib/api/client";
+import {
+  SONG_TITLE_MAX_LENGTH,
+  clampCodePoints,
+  codePointLength,
+} from "@/lib/content-limits";
 import { useImageCrop } from "@/features/images/use-image-crop";
 import {
   errorText,
@@ -54,7 +59,12 @@ export function useNewProject({ userId, onCreated, onResume }: NewProjectOptions
   );
 
   async function start(chosenTitle: string) {
-    if (busy || !chosenTitle.trim()) return;
+    const trimmed = chosenTitle.trim();
+    if (busy || !trimmed) return;
+    if (codePointLength(trimmed) > SONG_TITLE_MAX_LENGTH) {
+      setError(`곡 제목은 ${SONG_TITLE_MAX_LENGTH}자 이내로 입력해 주세요.`);
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
@@ -64,7 +74,7 @@ export function useNewProject({ userId, onCreated, onResume }: NewProjectOptions
       const { projectId } = await createDraftProject();
       setStoredDraftId(projectId, scope);
       const imageId = image ? await uploadMedia(image, "IMAGE") : null;
-      await updateProjectMetadata(projectId, chosenTitle.trim(), imageId);
+      await updateProjectMetadata(projectId, trimmed, imageId);
       onCreated(projectId);
     } catch (cause) {
       setError(errorText(cause));
@@ -175,10 +185,14 @@ export function NewProject({ project }: { project: NewProjectState }) {
             event.currentTarget.select();
             selectOnClick.current = false;
           }}
-          onChange={(event) => project.setTitle(event.target.value)}
-          maxLength={100}
+          onChange={(event) =>
+            project.setTitle(clampCodePoints(event.target.value, SONG_TITLE_MAX_LENGTH))
+          }
           required
         />
+        <small className="text-right text-caption text-app-muted tabular-nums">
+          {codePointLength(title)}/{SONG_TITLE_MAX_LENGTH}자
+        </small>
       </div>
       <label className={"project-artwork-field"}>
         앨범

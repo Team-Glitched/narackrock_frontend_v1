@@ -27,8 +27,6 @@ export type NativeTransport = {
   numerator: number;
   denominator: number;
   metronome: boolean;
-  /** Master volume 0–100. */
-  volume: number;
   error: string | null;
 };
 
@@ -36,14 +34,12 @@ export type NativeTransportAction =
   | { type: "transport-play" }
   | { type: "transport-pause" }
   | { type: "transport-metronome" }
-  | { type: "transport-volume"; value: number }
   | { type: "transport-seek"; positionMs: number };
 
 const transportActions: Record<NativeTransportAction["type"], true> = {
   "transport-play": true,
   "transport-pause": true,
   "transport-metronome": true,
-  "transport-volume": true,
   "transport-seek": true,
 };
 
@@ -181,6 +177,8 @@ export function isNativeSourcePickerAction(action: {
 export type NativeStudioClip = {
   clipId: number;
   midi: boolean;
+  /** Note-free MIDI: not drawn on the lane; the track settings (`trackSettings.emptyMidi`) reopen it. */
+  emptyMidi: boolean;
   startTick: number;
   durationTick: number;
   /** The visible label (part · layer name), or null. */
@@ -265,6 +263,8 @@ export type NativeStudio = {
     part: string;
     volume: number;
     canChangeInstrument: boolean;
+    /** Note-free MIDI of this track; each entry sends `studio-clip` (edit) to reopen it. */
+    emptyMidi: { clipId: number; label: string }[];
   } | null;
   instrument: NativeInstrumentPicker | null;
   timing: NativeTimingSheet | null;

@@ -50,3 +50,10 @@ test("nonstandard beat grid uses the same spacing for drag and snap", () => {
   assert.equal(snappedClipStart(0, cellPx, stepTick, 57600, 960, cellPx), 320);
   assert.equal(snappedClipStart(0, cellPx * 2, stepTick, 57600, 960, cellPx), 640);
 });
+
+test("empty MIDI does not occupy another clip's destination", () => {
+  const clip = { clipId: 1, durationTick: 480 };
+  const empty = { clipId: 2, clipType: "MIDI" as const, midiNotes: [], startTick: 0, durationTick: 40_000 };
+  assert.equal(overlapsClip(clip, 0, [empty]), false);
+  assert.equal(overlapsClip(clip, 0, [{ ...empty, clipType: "AUDIO" as const }]), true);
+});

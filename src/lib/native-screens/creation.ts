@@ -23,9 +23,9 @@ import type {
 export type NativeCreationMethod = "upload" | "record" | "note";
 
 /** The web's CompositionChoiceScreen (업로드 / 녹음 / 피아노롤 cards). */
-export type NativeCreationChoose = { busy: boolean; error: string | null };
+export type NativeCreationChoose = { busy: boolean; error: string | null; instrument?: NativeInstrumentPicker | null };
 
-export type NativeCreationChooseAction = { type: "creation-choose"; method: NativeCreationMethod };
+export type NativeCreationChooseAction = { type: "creation-choose"; method: NativeCreationMethod } | NativeInstrumentAction;
 
 /** The web's AudioTrimPicker for one chosen file. */
 export type NativeAudioTrim = {
@@ -75,7 +75,7 @@ export type NativeCreationUpload = {
   /** A failed pick or a failed "신규 트랙" cancel. */
   error: string | null;
   trim: NativeAudioTrim | null;
-  /** The studio pages' instrument prompt; null in sample registration. */
+  /** The studio or sample registration's instrument prompt. */
   instrument: NativeInstrumentPicker | null;
 };
 
@@ -103,6 +103,8 @@ export type NativeCreationRecord = {
   /** A failed "신규 트랙" cancel (studio pages). */
   notice: string | null;
   instrument: NativeInstrumentPicker | null;
+  bpm?: number;
+  timeSignature?: string;
 };
 
 export type NativeCreationRecordAction =
@@ -124,15 +126,19 @@ export type NativeCreationPiano = {
   transport: NativeTransport;
   timing: NativeTimingSheet | null;
   roll: NativeNoteRoll;
+  instrumentLabel?: string;
+  instrumentPicker?: NativeInstrumentPicker | null;
 };
 
 export type NativeCreationPianoAction =
   | { type: "creation-piano-back" }
   | { type: "creation-piano-rewind" }
   | { type: "creation-piano-save" }
+  | { type: "creation-piano-instrument-open" }
   | NativeTransportAction
   | NativeTimingAction
-  | NativeNoteRollAction;
+  | NativeNoteRollAction
+  | NativeInstrumentAction;
 
 export type CreationScreens = {
   "creation-choose": { model: NativeCreationChoose; action: NativeCreationChooseAction };

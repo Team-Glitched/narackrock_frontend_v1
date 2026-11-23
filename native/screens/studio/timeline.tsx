@@ -11,6 +11,11 @@ import {
 } from "react-native";
 import Svg, { Path, Rect } from "react-native-svg";
 
+import {
+  SONG_TITLE_MAX_LENGTH,
+  clampCodePoints,
+  codePointLength,
+} from "../../../src/lib/content-limits";
 import { rulerLabels, signatureGrid } from "../../../src/features/composition/time-signature";
 import { snappedClipStart } from "../../../src/features/composition/timeline-move";
 import type {
@@ -162,6 +167,12 @@ function Studio({ model }: { model: NativeStudio }) {
               ? () => act({ type: "studio-change-instrument" })
               : undefined
           }
+          emptyMidi={model.trackSettings.emptyMidi.map(({ clipId, label }) => ({
+            clipId,
+            label,
+            open: () =>
+              act({ type: "studio-clip", trackId: model.trackSettings!.trackId, clipId, edit: true }),
+          }))}
         />
       )}
       <InstrumentSheet picker={model.instrument} />
@@ -260,7 +271,7 @@ function Timeline({ model }: { model: NativeStudio }) {
                     track.highlighted ? `${track.name} · 이 요청으로 추가된 트랙` : undefined
                   }
                 >
-                  {track.clips.map((clip) => (
+                  {track.clips.filter((clip) => !clip.emptyMidi).map((clip) => (
                     <Clip
                       key={clip.clipId}
                       clip={clip}
@@ -718,13 +729,15 @@ function PublishForm({ form }: { form: NonNullable<NativeStudio["publishForm"]> 
           value={title}
           placeholder="예: 새벽 공기를 닮은 피아노"
           placeholderTextColor={colors.muted}
-          onChangeText={setTitle}
-          maxLength={100}
+          onChangeText={(value) => setTitle(clampCodePoints(value, SONG_TITLE_MAX_LENGTH))}
           selectionColor={colors.accent}
           returnKeyType="done"
           onSubmitEditing={save}
           style={styles.formInput}
         />
+        <Text style={styles.formCounter}>
+          {codePointLength(title)}/{SONG_TITLE_MAX_LENGTH}자
+        </Text>
       </View>
       <View style={styles.formField}>
         <Text style={styles.formLabel}>앨범 이미지 (선택)</Text>
@@ -978,4 +991,5 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary,
   },
   formButtonText: { color: "#ffffff", fontSize: 14, lineHeight: 20 },
+  formCounter: { color: colors.muted, fontSize: 12, textAlign: "right" },
 });

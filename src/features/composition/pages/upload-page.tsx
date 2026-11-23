@@ -86,7 +86,7 @@ export default function UploadPage() {
   return (
     <DesignViewport>
       <div className={sharedStyles.phoneFrame}>
-        <Header onSearch={search} onBack={() => void cancel()} />
+        <Header minimal onSearch={search} onBack={() => void cancel()} />
         <div className={sharedStyles.screenBody}>
           {cancelError && <p role="alert">{cancelError}</p>}
           {route.projectId === null ? (

@@ -10,6 +10,11 @@ import { studioStyles } from "@/styles/studio.styles";
 import { cn } from "@/lib/utils";
 import { sharedStyles } from "@/styles/shared.styles";
 import { buttonVariants } from "@/styles/variants";
+import {
+  SONG_TITLE_MAX_LENGTH,
+  clampCodePoints,
+  codePointLength,
+} from "@/lib/content-limits";
 import { useEffect, useMemo, useRef, useState, type PointerEvent } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { queryScope } from "@/lib/query";
@@ -39,6 +44,7 @@ import { signatureGrid, musicalGridBackground } from "@/features/composition/tim
 import { MusicalRuler } from "@/features/composition/musical-ruler";
 import { TimelineClip } from "@/features/composition/timeline-clip";
 import { canMoveClip, overlapsClip } from "@/features/composition/timeline-move";
+import { emptyMidiChoices, isEmptyMidi } from "@/features/composition/midi-content";
 import type { ProjectTiming } from "@/features/composition/project-timing";
 import {
   createAudioClip,
@@ -834,8 +840,6 @@ export function StudioScreen({ studio, portrait = true }: { studio: Studio; port
           void playback.play();
         }}
         onPause={playback.pause}
-        volume={playback.volume}
-        onVolume={playback.setVolume}
         metronome={playback.metronome}
         onMetronome={() => playback.setMetronome((value) => !value)}
         onImportSource={
@@ -990,10 +994,14 @@ export function StudioScreen({ studio, portrait = true }: { studio: Studio; port
             <input
               value={studio.publishTitle}
               placeholder="예: 새벽 공기를 닮은 피아노"
-              onChange={(event) => studio.setPublishTitle(event.target.value)}
+              onChange={(event) =>
+                studio.setPublishTitle(clampCodePoints(event.target.value, SONG_TITLE_MAX_LENGTH))
+              }
               required
-              maxLength={100}
             />
+            <small className="text-right text-caption text-app-muted tabular-nums">
+              {codePointLength(studio.publishTitle)}/{SONG_TITLE_MAX_LENGTH}자
+            </small>
           </label>
           <ImageCropInput file={studio.publishImage} onChange={studio.setPublishImage} disabled={busy} />
           {error && <p role="alert">{error}</p>}
@@ -1047,6 +1055,13 @@ export function StudioScreen({ studio, portrait = true }: { studio: Studio; port
               ? () => studio.changeInstrument(trackSettings.track.trackId)
               : undefined
           }
+          emptyMidi={emptyMidiChoices(trackSettings.track.clips, project.ppq, playback.signature).map(
+            ({ clipId, label }) => ({
+              clipId,
+              label,
+              open: () => onEditTrack(trackSettings.track.trackId, clipId > 0 ? clipId : null),
+            }),
+          )}
         />
       )}
       {studio.instrumentChoice && (
@@ -1188,7 +1203,7 @@ export function StudioScreen({ studio, portrait = true }: { studio: Studio; port
                     + 노트 · 이어서 편집
                   </button>
                 )}
-                {track.clips.map((clip) => (
+                {track.clips.filter((clip) => !isEmptyMidi(clip)).map((clip) => (
                   <TimelineClip
                     key={clip.clipId}
                     clip={clip}

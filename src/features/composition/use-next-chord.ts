@@ -12,7 +12,6 @@ export function useNextChord({
   clipStart,
   editor,
   stopMainPlayback,
-  volume,
 }: {
   composition: CompositionDto;
   trackId: number;
@@ -20,7 +19,6 @@ export function useNextChord({
   clipStart: number;
   editor: NoteEditorController;
   stopMainPlayback: () => void;
-  volume: number;
 }) {
   const appliedRevision = useRef<number | null>(null);
   const [enabled, setEnabled] = useState(true);
@@ -153,7 +151,6 @@ export function useNextChord({
       return;
     }
     stopMainPlayback();
-    audition.setVolume(volume);
     audition.seek(Math.max(0, (clipStart + result.localTick - bar) * tickMs));
     void audition.play();
   }

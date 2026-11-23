@@ -105,3 +105,38 @@
     display: none;
   }
 }
+
+.studio-audio-dialog-content,
+.instrument-dialog,
+.scrollbar-dark {
+  color-scheme: dark;
+  scrollbar-width: thin;
+  scrollbar-color: #3f3e4a #17171c;
+}
+
+.studio-audio-dialog-content::-webkit-scrollbar,
+.instrument-dialog::-webkit-scrollbar,
+.scrollbar-dark::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.studio-audio-dialog-content::-webkit-scrollbar-track,
+.instrument-dialog::-webkit-scrollbar-track,
+.scrollbar-dark::-webkit-scrollbar-track {
+  background: #17171c;
+  border-radius: 999px;
+}
+
+.studio-audio-dialog-content::-webkit-scrollbar-thumb,
+.instrument-dialog::-webkit-scrollbar-thumb,
+.scrollbar-dark::-webkit-scrollbar-thumb {
+  background: #3f3e4a;
+  border-radius: 999px;
+}
+
+.studio-audio-dialog-content::-webkit-scrollbar-thumb:hover,
+.instrument-dialog::-webkit-scrollbar-thumb:hover,
+.scrollbar-dark::-webkit-scrollbar-thumb:hover {
+  background: #5b00ff;
+}

@@ -37,7 +37,7 @@ export default function EditProfilePage() {
   return (
     <DesignViewport>
       <div className={sharedStyles.phoneFrame}>
-        <Header onBack={() => back("/profile")} onSearch={search} />
+        <Header minimal onBack={() => back("/profile")} onSearch={search} />
         <div className={sharedStyles.screenBody}>
           <EditProfileScreen onSaved={saved} />
         </div>

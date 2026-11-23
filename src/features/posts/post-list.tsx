@@ -61,18 +61,20 @@ export function MiniPost({
         </div>
         <div className={communityStyles.miniMeta} aria-label="게시글 통계">
           <span className="mini-meta-time">{relativeTime(post.createdAt)}</span>
-          <span>
-            <IconSlot name="v3-post-like-off.svg" kind="mini" />
-            <span className="tabular-nums">{post.likeCount}</span>
-          </span>
-          <span>
-            <IconSlot name="v3-post-dislike-off.svg" kind="mini" />
-            <span className="tabular-nums">{post.dislikeCount ?? 0}</span>
-          </span>
-          <span>
-            <IconSlot name="post-comment.svg" kind="mini" />
-            <span className="tabular-nums">{post.commentCount}</span>
-          </span>
+          <div className="ml-auto flex shrink-0 items-center gap-2.5">
+            <span>
+              <IconSlot name="v3-post-like-off.svg" kind="mini" />
+              <span className="tabular-nums">{post.likeCount}</span>
+            </span>
+            <span>
+              <IconSlot name="v3-post-dislike-off.svg" kind="mini" />
+              <span className="tabular-nums">{post.dislikeCount ?? 0}</span>
+            </span>
+            <span>
+              <IconSlot name="post-comment.svg" kind="mini" />
+              <span className="tabular-nums">{post.commentCount}</span>
+            </span>
+          </div>
         </div>
       </div>
       </button>

@@ -6,7 +6,7 @@ const avatarSizeClasses = {
   xs: "size-4",
   sm: "size-6",
   md: "size-8",
-  lg: "size-[140px] border-2 border-app-fg",
+  lg: "size-[140px]",
 } as const;
 
 export function Avatar({
@@ -25,7 +25,7 @@ export function Avatar({
     <span
       className={cn(
         sharedStyles.avatar,
-        "block flex-none overflow-hidden rounded-full border border-solid border-white/15 bg-[#555] [&>img]:size-full [&>img]:object-cover",
+        "block flex-none overflow-hidden rounded-full bg-[#555] [&>img]:size-full [&>img]:object-cover",
         avatarSizeClasses[resolvedSize],
         large && sharedStyles.avatarLarge,
         className,

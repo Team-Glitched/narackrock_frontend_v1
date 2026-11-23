@@ -3,12 +3,12 @@ import { Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 
 import Svg, { Path } from "react-native-svg";
 
 import CloseIcon from "../../../public/figma/search-close.svg";
-import SearchIcon from "../../../public/figma/search-input.svg";
 import type { NativePostCreate } from "../../../src/lib/native-screens";
 import { AppHeader } from "../../ui/header";
 import { Avatar, Button, Status, Touchable } from "../../ui/kit";
 import { useScreen } from "../../ui/screen-context";
 import { ScreenModal } from "../../ui/screen-modal";
+import { SearchPill } from "../../ui/search-pill";
 import { colors, gutter, type } from "../../ui/theme";
 import type { ScreenProps } from "../types";
 
@@ -26,9 +26,7 @@ export function PostCreateScreen({ model }: ScreenProps<"post-create">) {
           <AppHeader
             header={{
               left: "back",
-              actions: signedIn
-                ? ["notifications", "search"]
-                : ["notifications", "search", "account"],
+              actions: [],
             }}
           />
         </View>
@@ -205,12 +203,9 @@ function CommunityPicker({ communities }: { communities: NativePostCreate["commu
           setOpen(true);
         }}
       >
-        <View style={styles.pickerButtonCopy}>
-          <Text style={styles.pickerSmall}>게시할 커뮤니티</Text>
-          <Text style={styles.pickerName} numberOfLines={1}>
-            {communities.selectedName ?? "커뮤니티 선택"}
-          </Text>
-        </View>
+        <Text style={styles.pickerName} numberOfLines={1}>
+          {communities.selectedName ?? "커뮤니티 선택"}
+        </Text>
         <Svg
           width={16}
           height={16}
@@ -251,28 +246,14 @@ function CommunityPicker({ communities }: { communities: NativePostCreate["commu
               </Touchable>
             </View>
             <Text style={styles.sheetText}>게시글을 올릴 커뮤니티를 선택하세요.</Text>
-            <View style={styles.search}>
-              <SearchIcon width={18} height={18} />
-              <TextInput
-                accessibilityLabel="게시할 커뮤니티 검색"
-                placeholder="커뮤니티 검색"
-                placeholderTextColor="#9692a6"
-                selectionColor={colors.accent}
-                value={query}
-                onChangeText={setQuery}
-                style={styles.searchInput}
-              />
-              {query !== "" && (
-                <Touchable
-                  accessibilityRole="button"
-                  accessibilityLabel="커뮤니티 검색어 지우기"
-                  style={styles.searchClear}
-                  onPress={() => setQuery("")}
-                >
-                  <CloseIcon width={12} height={12} />
-                </Touchable>
-              )}
-            </View>
+            <SearchPill
+              value={query}
+              onChangeText={setQuery}
+              onClear={() => setQuery("")}
+              clearLabel="커뮤니티 검색어 지우기"
+              placeholder="커뮤니티 검색"
+              accessibilityLabel="게시할 커뮤니티 검색"
+            />
             <ScrollView style={styles.sheetList} keyboardShouldPersistTaps="handled">
               {communities.status === "loading" && <Status>커뮤니티를 불러오는 중...</Status>}
               {communities.status === "error" && (
@@ -389,21 +370,18 @@ const styles = StyleSheet.create({
   submitText: { color: colors.fg, fontSize: 16, lineHeight: 20, fontWeight: "500" },
   discard: { minHeight: 40, paddingVertical: 8, paddingHorizontal: 20, justifyContent: "center" },
   pickerButton: {
-    width: 154,
-    height: 44,
+    maxWidth: 168,
+    height: 40,
     marginRight: 8,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    gap: 10,
+    gap: 8,
     paddingHorizontal: 12,
-    paddingVertical: 6,
     borderRadius: 12,
     backgroundColor: colors.surface,
   },
-  pickerButtonCopy: { flex: 1, gap: 4 },
-  pickerSmall: { color: colors.muted, fontSize: 14, lineHeight: 18, fontWeight: "500" },
-  pickerName: { color: colors.fg, fontSize: 16, lineHeight: 20, fontWeight: "600" },
+  pickerName: { flexShrink: 1, color: colors.fg, fontSize: 16, lineHeight: 20, fontWeight: "600" },
   sheetRoot: { flex: 1, justifyContent: "flex-end" },
   backdrop: { ...StyleSheet.absoluteFill, backgroundColor: "rgba(0, 0, 0, 0.6)" },
   sheet: {
@@ -424,17 +402,6 @@ const styles = StyleSheet.create({
   sheetTitle: { color: colors.fg, fontSize: 16, lineHeight: 22, fontWeight: "700" },
   sheetClose: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
   sheetText: { marginTop: 12, marginBottom: 24, color: colors.muted, fontSize: 14, lineHeight: 21 },
-  search: {
-    height: 44,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    paddingHorizontal: 12,
-    borderRadius: 12,
-    backgroundColor: colors.surface,
-  },
-  searchInput: { flex: 1, color: colors.fg, fontSize: 14, paddingVertical: 0 },
-  searchClear: { width: 28, height: 36, alignItems: "center", justifyContent: "center" },
   sheetList: { marginTop: 20 },
   sheetError: { paddingTop: 20 },
   rows: { gap: 8 },

@@ -349,43 +349,45 @@ export function SubmissionDetailScreen({
   const imageUrl = own ? owner.data?.profileImageUrl : item.profileImageUrl;
   return (
     <RequestPage title={own ? "보낸 참여 요청" : "받은 참여 요청"}>
-      <div className="mb-6 flex items-center gap-3">
-        <Avatar src={imageUrl} />
-        <div className="min-w-0 flex-1">
-          <p className="mb-1 text-caption text-app-muted">{own ? "받는 사람" : "보낸 사람"}</p>
-          <strong className="text-label font-semibold [overflow-wrap:anywhere]">{nickname}</strong>
+      <div className="flex flex-col gap-3">
+        <div className="flex items-center gap-3">
+          <Avatar src={imageUrl} />
+          <div className="min-w-0 flex-1">
+            <p className="mb-0.5 text-caption text-app-muted">{own ? "받는 사람" : "보낸 사람"}</p>
+            <strong className="text-label font-semibold [overflow-wrap:anywhere]">{nickname}</strong>
+          </div>
+          <RequestTime createdAt={item.createdAt} />
         </div>
-        <RequestTime createdAt={item.createdAt} />
-      </div>
-      <span className={badgeVariants({ status: requestTone(item.approvalStatus) })}>
-        {requestStatus[item.approvalStatus]}
-      </span>
-      <h2 className="mt-3 text-label leading-6 font-semibold [overflow-wrap:anywhere]">
-        {composition.data.project.title}
-      </h2>
-      {item.description?.trim() && (
-        <p className="mt-4 whitespace-pre-wrap text-body leading-7 text-app-muted [overflow-wrap:anywhere]">
-          {item.description}
-        </p>
-      )}
-      {item.approvalStatus === "REJECTED" && item.reviewComment?.trim() && (
-        <section
-          className="mt-4 rounded-xl border border-app-border bg-app-surface px-4 py-3"
-          aria-label="거절 사유"
-        >
-          <h3 className="mb-1 text-label font-semibold text-app-muted">거절 사유</h3>
-          <p className="m-0 whitespace-pre-wrap text-body leading-6 [overflow-wrap:anywhere]">
-            {item.reviewComment}
+        <span className={badgeVariants({ status: requestTone(item.approvalStatus) })}>
+          {requestStatus[item.approvalStatus]}
+        </span>
+        <h2 className="m-0 text-label leading-6 font-semibold [overflow-wrap:anywhere]">
+          {composition.data.project.title}
+        </h2>
+        {item.description?.trim() && (
+          <p className="m-0 whitespace-pre-wrap text-body leading-7 text-app-muted [overflow-wrap:anywhere]">
+            {item.description}
           </p>
-        </section>
-      )}
-      <button
-        className="mt-6 flex min-h-12 w-full items-center justify-between gap-3 rounded-xl border border-app-border bg-app-surface px-4 py-3 text-left text-label font-medium"
-        onClick={() => onResume(projectId, id)}
-      >
-        전체 트랙 보기
-        <ArrowUpRight size={20} aria-hidden="true" />
-      </button>
+        )}
+        {item.approvalStatus === "REJECTED" && item.reviewComment?.trim() && (
+          <section
+            className="rounded-xl border border-app-border bg-app-surface px-4 py-3"
+            aria-label="거절 사유"
+          >
+            <h3 className="mb-1 text-label font-semibold text-app-muted">거절 사유</h3>
+            <p className="m-0 whitespace-pre-wrap text-body leading-6 [overflow-wrap:anywhere]">
+              {item.reviewComment}
+            </p>
+          </section>
+        )}
+        <button
+          className="mt-2 flex min-h-12 w-full items-center justify-between gap-3 rounded-xl border border-app-border bg-app-surface px-4 py-3 text-left text-label font-medium"
+          onClick={() => onResume(projectId, id)}
+        >
+          전체 트랙 보기
+          <ArrowUpRight size={20} aria-hidden="true" />
+        </button>
+      </div>
       {canReview && (
         <>
           <label className="mt-6 block">

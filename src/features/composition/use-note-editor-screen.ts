@@ -1,3 +1,4 @@
+import { emptyMidiRange, midiContent } from "./midi-content";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCompositionPlayback } from "./use-composition-playback";
@@ -228,7 +229,22 @@ export function useNoteEditorScreen({
     enabled: editable,
     onCommittedRecovery: recoverCommitted,
   });
-  const working = draft.state?.content ?? content;
+  const storedWorking = draft.state?.content ?? content;
+  // Stable per stored snapshot so zoom or autosave acknowledgements do not rebuild playback.
+  const working = useMemo(
+    () =>
+      storedWorking.midiNotes.length
+        ? storedWorking
+        : {
+            ...emptyMidiRange(
+              storedWorking.startTick,
+              composition.project.ppq,
+              composition.project.maxTick,
+            ),
+            midiNotes: storedWorking.midiNotes,
+          },
+    [storedWorking, composition.project.ppq, composition.project.maxTick],
+  );
   const notes = working.midiNotes;
   const timing = clipLocalTiming(
     composition.project.bpm,
@@ -259,17 +275,17 @@ export function useNoteEditorScreen({
       setError("이 악기에서 지원하지 않는 음입니다. 드럼은 35~81번을 사용해주세요.");
       return false;
     }
-    const durationTick = Math.max(
-      content.durationTick,
-      current.durationTick,
-      Math.ceil(composition.project.ppq / 4),
-      ...next.map((note) => note.startTick + note.durationTick),
+    const updated = midiContent(
+      current.midiNotes.length ? current.startTick : working.startTick,
+      next,
+      composition.project,
     );
-    if (current.startTick + durationTick > composition.project.maxTick) {
+    const { durationTick } = updated;
+    if (updated.startTick + durationTick > composition.project.maxTick) {
       setError("노트가 곡의 최대 길이를 초과합니다.");
       return false;
     }
-    session.edit({ ...current, durationTick, midiNotes: next });
+    session.edit(updated);
     const accepted = session.getSnapshot().content;
     const success = accepted.durationTick === durationTick && sameNotes(accepted.midiNotes, next);
     if (success) {
@@ -342,7 +358,7 @@ export function useNoteEditorScreen({
   });
   const recommendation = useNextChord({
     composition, trackId, clipId: targetClipId, clipStart: working.startTick,
-    editor, stopMainPlayback: playback.pause, volume: playback.volume,
+    editor, stopMainPlayback: playback.pause,
   });
   // Each orientation opens with its own bar count: one bar keeps portrait cells wide enough to tap.
   const { setVisibleBars } = editor;

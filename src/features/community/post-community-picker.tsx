@@ -1,4 +1,6 @@
 import { buttonVariants } from "@/styles/variants";
+import { socialStyles } from "@/styles/social.styles";
+import { cn } from "@/lib/utils";
 import { ChevronDown } from "lucide-react";
 import { useId, useRef, useState } from "react";
 import { Asset } from "@/components/asset";
@@ -30,7 +32,7 @@ export function PostCommunityPicker({
     <>
       <button
         type="button"
-        className="flex h-11 w-[154px] items-center justify-between gap-[10px] rounded-xl border-0 bg-app-surface px-3 py-[6px] text-left [&>svg]:size-4 [&>svg]:shrink-0 [&>svg]:text-app-fg"
+        className="flex h-10 max-w-[168px] items-center justify-between gap-2 rounded-xl border-0 bg-app-surface px-3 text-left [&>svg]:size-4 [&>svg]:shrink-0 [&>svg]:text-app-fg"
         aria-label={`게시할 커뮤니티 선택${selected ? `: ${selected.name}` : ""}`}
         aria-haspopup="dialog"
         aria-expanded={open}
@@ -39,10 +41,9 @@ export function PostCommunityPicker({
           setOpen(true);
         }}
       >
-        <span className="flex min-w-0 flex-col gap-1 [&>small]:text-caption [&>small]:leading-[18px] [&>small]:font-medium [&>small]:text-app-muted [&>strong]:truncate [&>strong]:text-label [&>strong]:leading-[20px] [&>strong]:font-semibold [&>strong]:text-app-fg">
-          <small>게시할 커뮤니티</small>
-          <strong>{selected?.name ?? "커뮤니티 선택"}</strong>
-        </span>
+        <strong className="min-w-0 truncate text-label leading-5 font-semibold text-app-fg">
+          {selected?.name ?? "커뮤니티 선택"}
+        </strong>
         <ChevronDown aria-hidden="true" size={16} strokeWidth={1.5} />
       </button>
       {open && (
@@ -58,7 +59,12 @@ export function PostCommunityPicker({
               </button>
             </header>
             <p>가입한 커뮤니티 중 게시글을 올릴 곳을 선택하세요.</p>
-            <label className="flex h-11 items-center gap-[10px] rounded-xl bg-app-surface px-3 [&>img]:size-[18px] [&>img]:shrink-0 [&>input]:min-w-0 [&>input]:w-full [&>input]:flex-1 [&>input]:border-0 [&>input]:bg-transparent [&>input]:text-body [&>input]:leading-5 [&>input]:font-normal [&>input]:text-app-fg [&>button]:grid [&>button]:h-9 [&>button]:w-7 [&>button]:shrink-0 [&>button]:place-items-center [&>button>img]:size-3">
+            <label
+              className={cn(
+                "flex h-11 items-center gap-2.5 rounded-full bg-app-surface pl-4 pr-2 [&>img]:size-[19px] [&>img]:shrink-0 [&>input]:min-w-0 [&>input]:w-full [&>input]:flex-1 [&>input]:border-0 [&>input]:bg-transparent [&>input]:text-label [&>input]:leading-[22px] [&>input]:font-normal [&>input]:text-app-fg [&>input]:outline-none [&>input]:focus-visible:outline-none! [&>input::placeholder]:text-app-muted [&>button]:grid [&>button]:size-8 [&>button]:shrink-0 [&>button]:place-items-center [&>button]:rounded-full [&>button:hover]:bg-white/10 [&>button>img]:size-[13px]",
+                socialStyles.searchFocus,
+              )}
+            >
               <Asset name="search-input.svg" />
               <input
                 ref={searchInput}

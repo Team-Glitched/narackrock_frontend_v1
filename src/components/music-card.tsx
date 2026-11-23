@@ -34,6 +34,7 @@ export function MusicCard({
   albumImageUrl,
   onOpen,
   actionsSlot,
+  cornerSlot,
   className,
 }: {
   title: string;
@@ -41,6 +42,7 @@ export function MusicCard({
   albumImageUrl?: string | null;
   onOpen: () => void;
   actionsSlot?: ReactNode;
+  cornerSlot?: ReactNode;
   className?: string;
 }) {
   return (
@@ -50,6 +52,7 @@ export function MusicCard({
         title={title}
         className={cn(sharedStyles.songArt, "mb-[10px] size-40 rounded-[10px]")}
       />
+      {cornerSlot && <div className="absolute top-2 right-2 z-[2]">{cornerSlot}</div>}
       <div className="flex w-full min-w-0 items-start justify-between gap-1">
         <div className="flex min-w-0 flex-1 flex-col gap-1 text-left">
           <button

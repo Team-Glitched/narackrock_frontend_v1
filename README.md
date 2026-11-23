@@ -142,6 +142,7 @@ npm run native:prebuild              # app.config.ts/플러그인 변경 후 nat
 - 뒤로가기(Android): 네이티브 Modal·시트·대화창이 열렸으면 그쪽이 처리하고(표시 중인 화면의 것만), 없으면 현재 화면에 `back` 액션을 보내 헤더의 뒤로 버튼과 같은 흐름(피아노롤 초안 선택, 빈 신규 레이어 정리 등)을 실행합니다. 첫 화면이면 앱을 닫습니다. `WebView.canGoBack()`은 페이지 안 사용자 제스처 없이 추가된 항목(네이티브 버튼으로 시작한 이동)을 건너뛰므로, 컨트롤러가 react-router history 위치를 보냅니다(`set-history`).
 - 화면 모달: 화면 안의 시트·메뉴는 `ScreenModal`을 써서 현재 표시 중인 화면일 때만 보입니다. 보관된 이전 화면이나 알림 오버레이 아래 화면의 모달은 닫힙니다.
 - 문서 시작: 문서 시작 스크립트가 `document-start`를 보내고, 앱은 이때만 이전 문서의 오디오 엔진과 녹음을 정리합니다. Android WebView의 로드 시작 이벤트는 SPA 이동에도 발생하므로 쓰지 않습니다.
+- 시작 화면: `expo-splash-screen`이 앱 배경색(`designTokens.colors.bg`)과 로고(`native/assets/splash-icon.png`)로 시작 화면을 그립니다. 앱은 첫 네이티브 화면이 보고되거나 시작 오류가 날 때까지 시작 화면을 유지하고, 8초가 지나면 로딩 화면으로 넘깁니다. 설정을 바꾸면 prebuild를 다시 실행해야 합니다.
 - 아이콘: 네이티브 화면은 `public/figma/*.svg`를 웹과 함께 쓰고, `native/svg-transformer.js`가 SVGR로 `react-native-svg` 컴포넌트로 바꿉니다. 색·글꼴 크기는 `src/styles/tokens.ts`를 씁니다.
 
 ### 배포 설정

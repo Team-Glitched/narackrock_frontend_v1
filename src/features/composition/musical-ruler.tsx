@@ -34,10 +34,13 @@ export function MusicalRuler({ signature, width, tickWindow }: {
               key={beat}
               style={{
                 left: (beat * beatTicks - startTick - originTick) * pixelsPerTick,
-                height: bar ? "100%" : "40%",
-                top: bar ? 0 : "60%",
+                height: bar ? "100%" : "45%",
+                top: bar ? 0 : "55%",
                 borderLeft: `1px solid ${bar ? "var(--grid-bar)" : "var(--grid-beat)"}`,
-                paddingLeft: 3,
+                paddingLeft: 4,
+                paddingTop: bar ? 2 : 0,
+                fontSize: 11,
+                fontWeight: 500,
               }}
             >
               {bar ? Math.floor(beat / signature.numerator) + 1 : ""}

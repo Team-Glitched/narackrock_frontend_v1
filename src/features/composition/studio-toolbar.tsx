@@ -2,8 +2,9 @@ import { studioStyles } from "@/styles/studio.styles";
 import { cn } from "@/lib/utils";
 import { sharedStyles } from "@/styles/shared.styles";
 import { useState } from "react";
-import { VolumeDialog } from "@/features/composition/volume-dialog";
 import { InstrumentDialog, type InstrumentChoice } from "@/features/composition/instrument-dialog";
+import { MetronomeIcon } from "@/features/composition/metronome-icon";
+import { RewindIcon } from "@/features/composition/rewind-icon";
 import { TimingDialog } from "@/features/composition/timing-dialog";
 import type { ProjectTiming } from "@/features/composition/project-timing";
 import { Asset } from "@/components/asset";
@@ -19,12 +20,10 @@ export type TransportPlayback = {
   positionMs: number;
   signature: TimeSignature;
   metronome: boolean;
-  volume: number;
   error: string | null;
   play: () => Promise<void>;
   pause: () => void;
   seek: (positionMs: number) => void;
-  setVolume: (value: number) => void;
   setMetronome: (update: (value: boolean) => boolean) => void;
 };
 
@@ -38,7 +37,6 @@ export function nativeTransport(playback: TransportPlayback, bpm: number): Nativ
     numerator: playback.signature.numerator,
     denominator: playback.signature.denominator,
     metronome: playback.metronome,
-    volume: playback.volume,
     error: playback.error,
   };
 }
@@ -53,8 +51,6 @@ export function transportAction(playback: TransportPlayback, action: NativeTrans
       return playback.pause();
     case "transport-metronome":
       return playback.setMetronome((value) => !value);
-    case "transport-volume":
-      return playback.setVolume(action.value);
     case "transport-seek":
       return playback.seek(action.positionMs);
   }
@@ -71,8 +67,6 @@ export function StudioToolbar({
   onRewind,
   children,
   piano,
-  volume,
-  onVolume,
   onAdd,
   metronome,
   onMetronome,
@@ -101,26 +95,10 @@ export function StudioToolbar({
   metronome?: boolean;
   onMetronome?: () => void;
   piano?: boolean;
-  volume?: number;
-  onVolume?: (value: number) => void;
   onAdd?: () => void;
 }) {
-  const [volumeOpen, setVolumeOpen] = useState(false);
   const [instrumentOpen, setInstrumentOpen] = useState(false);
   const [timing, setTiming] = useState<"bpm" | "beat" | null>(null);
-  const masterVolume = (
-    <input
-      className={studioStyles.studioMasterVolume}
-      type="range"
-      min={0}
-      max={100}
-      value={volume ?? 20}
-      onChange={(event) => onVolume?.(Number(event.target.value))}
-      disabled={!onVolume}
-      aria-label="마스터 볼륨"
-      aria-valuetext={`${volume ?? 20}%`}
-    />
-  );
   return (
     <div className={cn(studioStyles.studioToolbar, piano ? "team-original-toolbar" : "")}>
       <div className={studioStyles.studioTransport}>
@@ -129,19 +107,19 @@ export function StudioToolbar({
         </button>
         {onRewind && (
           <button onClick={onRewind} aria-label="처음으로">
-            |&lt;
+            <RewindIcon size={18} />
           </button>
         )}
         <button onClick={playing ? onPause : onPlay} aria-label={playing ? "일시정지" : "재생"}>
           {playing ? <span className={sharedStyles.pauseSymbol} /> : <Asset name="play.svg" />}
         </button>
         <button
-          className={studioStyles.studioMetronome}
+          className={piano ? studioStyles.studioPianoMetronome : studioStyles.studioMetronome}
           aria-label="메트로놈"
           aria-pressed={metronome ?? false}
           onClick={onMetronome}
         >
-          <Asset name="metronome.svg" />
+          <MetronomeIcon size={22} />
         </button>
       </div>
       <strong className={"sr-only"}>{title}</strong>
@@ -177,7 +155,7 @@ export function StudioToolbar({
             </span>
           </>
         )}
-        <span>
+        <span className={studioStyles.studioTiming}>
           <small>time</small>
           {`00:${clockTime(positionMs)}`}
         </span>
@@ -193,8 +171,9 @@ export function StudioToolbar({
         )}
         {piano && instrument && (
           <button
-            className={studioStyles.studioTiming}
+            className={cn(studioStyles.studioTiming, "disabled:opacity-50")}
             aria-label="악기 선택"
+            disabled={instrument.disabled}
             onClick={() => setInstrumentOpen(true)}
           >
             <small>악기</small>
@@ -202,23 +181,6 @@ export function StudioToolbar({
           </button>
         )}
       </div>
-      <div className={studioStyles.studioVolume}>
-        <button
-          className={studioStyles.studioVolumeTrigger}
-          aria-label="음량 설정"
-          onClick={() => setVolumeOpen(true)}
-        >
-          <Asset name="sound.svg" />
-        </button>
-        {masterVolume}
-      </div>
-      {volumeOpen && (
-        <VolumeDialog
-          value={volume ?? 20}
-          onChange={(value) => onVolume?.(value)}
-          onClose={() => setVolumeOpen(false)}
-        />
-      )}
       {instrumentOpen && instrument && (
         <InstrumentDialog choice={instrument} onClose={() => setInstrumentOpen(false)} />
       )}
@@ -231,12 +193,12 @@ export function StudioToolbar({
         />
       )}
       {!piano && children && (
-        <div className="studio-toolbar-actions flex shrink-0 items-center gap-2">{children}</div>
+        <div className="studio-toolbar-actions ml-auto flex shrink-0 items-center gap-2">{children}</div>
       )}
       {piano && onAdd && (
         <>
           <button
-            className={cn(studioStyles.studioAdd, "studio-toolbar-actions")}
+            className={cn(studioStyles.studioAdd, "studio-toolbar-actions ml-auto!")}
             aria-label={addLabel}
             disabled={!onAdd}
             onClick={onAdd}

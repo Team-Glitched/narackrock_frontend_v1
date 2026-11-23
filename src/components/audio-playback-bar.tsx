@@ -1,5 +1,6 @@
 import { sourceStyles } from "@/styles/source.styles";
 import { cn } from "@/lib/utils";
+import { keyboardSeekMs } from "@/lib/playback-progress";
 import { Pause } from "lucide-react";
 import { Asset } from "./asset";
 export function playbackClock(ms: number) {
@@ -53,7 +54,7 @@ export function AudioPlaybackBar({
       >
         {playing ? <Pause aria-hidden="true" size={18} /> : <Asset name="play.svg" />}
       </button>
-      <span className={"flex-none text-body"}>
+      <span className={"flex-none text-body tabular-nums"}>
         {elapsed} / {duration}
       </span>
       <input
@@ -65,10 +66,16 @@ export function AudioPlaybackBar({
         aria-valuetext={`${elapsed} / ${durationMs === null ? "재생 시간 정보 없음" : duration}`}
         min={0}
         max={durationMs || 0}
-        step={100}
+        step="any"
         value={durationMs === null ? 0 : position}
         disabled={disabled || loading || !durationMs}
         onChange={(event) => onSeek(Number(event.target.value))}
+        onKeyDown={(event) => {
+          const next = durationMs ? keyboardSeekMs(event.key, position, durationMs) : null;
+          if (next === null) return;
+          event.preventDefault();
+          onSeek(next);
+        }}
         style={{
           background: `linear-gradient(to right,var(--purple) ${durationMs ? (position / durationMs) * 100 : 0}%,var(--line-strong) 0)`,
         }}
