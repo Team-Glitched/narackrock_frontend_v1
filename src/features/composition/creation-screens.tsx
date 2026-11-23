@@ -484,7 +484,7 @@ export function CompositionRecordScreen({
             {bpm} BPM · {timeSignature}
           </span>
           <span className={metronomeOn ? "font-semibold text-[#c4b5fd]" : "text-app-muted"}>
-            {metronomeOn ? "메트로놈 켜짐" : "탭하여 켜기"}
+            {metronomeOn ? "메트로놈 켜짐" : "메트로놈 눌러 켜기"}
           </span>
           {metronomeOn && (
             <span className="flex items-center gap-1" aria-hidden="true">

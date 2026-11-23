@@ -144,7 +144,7 @@ export function CreationRecordScreen({ model, header }: ScreenProps<"creation-re
               {bpm} BPM · {timeSignature}
             </Text>
             <Text style={[styles.metronomeState, metronomeOn && styles.metronomeStateOn]}>
-              {metronomeOn ? "메트로놈 켜짐" : "탭하여 켜기"}
+              {metronomeOn ? "메트로놈 켜짐" : "메트로놈 눌러 켜기"}
             </Text>
             {metronomeOn && (
               <View style={styles.beatRow}>
