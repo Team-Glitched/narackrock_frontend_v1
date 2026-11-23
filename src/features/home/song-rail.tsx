@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { sharedStyles } from "@/styles/shared.styles";
 import type { SongCardDto } from "@/lib/api/contracts";
 import { MusicCard } from "@/components/music-card";
@@ -6,10 +7,12 @@ export function SongRail({
   songs,
   onOpen,
   actions = false,
+  renderCorner,
 }: {
   songs: SongCardDto[];
   onOpen: (shortId: number) => void;
   actions?: boolean;
+  renderCorner?: (song: SongCardDto) => ReactNode;
 }) {
   return (
     <div className={sharedStyles.songRail}>
@@ -20,6 +23,7 @@ export function SongRail({
           author={song.author.nickname}
           albumImageUrl={song.albumImageUrl}
           onOpen={() => onOpen(song.shortId)}
+          cornerSlot={renderCorner?.(song)}
           actionsSlot={
             actions ? (
               <PopularContentActions

@@ -16,11 +16,14 @@ export type NativeAbyssShort = NativeAbyssCover & {
 
 /**
  * The player of the current short; the audio (original `<audio>` or the owner-subset composition)
- * plays in the web page. `positionMs` is rounded down to 250 ms so playback does not resend the
- * model on every time update.
+ * plays in the web page. `positionMs` follows `reportedPositionMs` (src/lib/playback-progress.ts):
+ * stepped while `progressing`, exact otherwise.
  */
 export type NativeAbyssPlayback = {
+  /** Play intent (the pause button shows); an owner-subset start may still wait for its stems. */
   playing: boolean;
+  /** The position actually moves: the audio plays. */
+  progressing: boolean;
   /** The play/pause button is enabled. */
   canPlay: boolean;
   positionMs: number;

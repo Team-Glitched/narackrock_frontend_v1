@@ -350,7 +350,7 @@ export function useNoteEditorScreen({
   });
   const recommendation = useNextChord({
     composition, trackId, clipId: targetClipId, clipStart: working.startTick,
-    editor, stopMainPlayback: playback.pause, volume: playback.volume,
+    editor, stopMainPlayback: playback.pause,
   });
   // Each orientation opens with its own bar count: one bar keeps portrait cells wide enough to tap.
   const { setVisibleBars } = editor;

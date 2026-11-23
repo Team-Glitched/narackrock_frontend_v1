@@ -65,3 +65,20 @@ test("a failed image restore survives autosave and reload until the user resolve
     else globalThis.localStorage = previousStorage;
   }
 });
+
+test("sample drafts restore the attached part and the piano-roll instrument independently", async () => {
+  const values = new Map();
+  const previousStorage = globalThis.localStorage;
+  globalThis.localStorage = { getItem: key => values.get(key) ?? null, setItem: (key, value) => values.set(key, value), removeItem: key => values.delete(key) };
+  try {
+    await rememberCreationDraft("source-instruments", { title: "악기 초안", content: "", image: null, audio: null, notes: [], bpm: 120, sourceInstrument: "vocal", pianoInstrument: "drum-kit" });
+    const { restoreCreationDraft } = await import("./creation-draft.ts?instrument-restoration");
+    const restored = await restoreCreationDraft("source-instruments");
+    assert.equal(restored.sourceInstrument, "vocal");
+    assert.equal(restored.pianoInstrument, "drum-kit");
+  } finally {
+    clearCreationDraft("source-instruments");
+    if (previousStorage === undefined) delete globalThis.localStorage;
+    else globalThis.localStorage = previousStorage;
+  }
+});

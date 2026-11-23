@@ -17,7 +17,7 @@ export function ChatShortcut({ onClick, className }: { onClick: () => void; clas
       className={cn("relative", className)}
       aria-label={count > 0 ? `대화 목록, 읽지 않은 메시지 ${count}개` : "대화 목록"}
     >
-      <Asset name="abyss-comment.svg" />
+      <Asset name="v3-chat.svg" />
       <UnreadBadge count={count} />
     </button>
   );

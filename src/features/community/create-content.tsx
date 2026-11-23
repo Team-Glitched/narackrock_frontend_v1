@@ -2,8 +2,19 @@ import { sharedStyles } from "@/styles/shared.styles";
 import { communityStyles } from "@/styles/community.styles";
 import { cn } from "@/lib/utils";
 import { buttonVariants } from "@/styles/variants";
+import {
+  SOURCE_DESCRIPTION_MAX_LENGTH,
+  SOURCE_TITLE_MAX_LENGTH,
+  clampCodePoints,
+  codePointLength,
+} from "@/lib/content-limits";
 import type { PostTargetStatus } from "@/features/community/post-target";
 import { SourcePianoEditor } from "@/features/composition/source-piano-editor";
+import {
+  InstrumentPromptCancelled,
+  useInstrumentPrompt,
+} from "@/features/composition/use-instrument-prompt";
+import { partLabel, supportsMidi } from "@/features/composition/instrument-parts";
 import type { MidiNoteDto } from "@/lib/api/composition";
 import {
   CompositionChoiceScreen,
@@ -14,6 +25,7 @@ import { prepareAudioFile, type AudioSelection } from "@/features/composition/pr
 import {
   useCallback,
   useEffect,
+  useEffectEvent,
   useMemo,
   useRef,
   useState,
@@ -38,6 +50,7 @@ import type { GalleryListItem } from "@/lib/api/contracts";
 import {
   clearPendingPublication,
   getPendingSourceAudioId,
+  getPendingSourceInstrument,
   getSourceDraftRevision,
   hasPendingPublication,
   publishSource,
@@ -87,6 +100,12 @@ export type SocialCreateState = {
   pickImage: (file: File) => void;
   removeImage: () => void;
   audio: File | null;
+  sourceInstrument: string | null;
+  /** The piano roll's instrument: chosen before entering it and changed from its toolbar picker. */
+  pianoInstrument: string | null;
+  setPianoInstrument: (id: string) => void;
+  instrumentPrompt: ReturnType<typeof useInstrumentPrompt>;
+  chooseAudioMethod: (method: "upload" | "record" | "note") => Promise<void>;
   /** A retried sample publication reuses the uploaded audio. */
   sourceAudioLocked: boolean;
   selectAudio: (file: File, selection?: AudioSelection) => Promise<void>;
@@ -150,6 +169,13 @@ export function useSocialCreate({
   const writes = useRef(0);
   const [pianoNotes, setPianoNotes] = useState<MidiNoteDto[]>(() => initial?.notes ?? []);
   const [pianoBpm, setPianoBpm] = useState(() => initial?.bpm ?? 120);
+  const [pianoInstrument, setPianoInstrument] = useState<string | null>(
+    () => initial?.pianoInstrument ?? null,
+  );
+  const [sourceInstrument, setSourceInstrument] = useState<string | null>(
+    () => initial?.sourceInstrument ?? null,
+  );
+  const instrumentPrompt = useInstrumentPrompt(null, { standalone: true });
   const [title, setTitle] = useState(() => initial?.title ?? "");
   const [content, setContent] = useState(() => initial?.content ?? "");
   const [image, setImage] = useState<{ file: File; url: string } | null>(() =>
@@ -177,6 +203,13 @@ export function useSocialCreate({
   const readSourceAudioId = () =>
     kind === "source" && userId !== null ? getPendingSourceAudioId({ userId, draftKey }) : null;
   const pendingAudioId = useSyncExternalStore(subscribeSourceDraft, readSourceAudioId, () => null);
+  // An uploaded audio keeps the instrument it was uploaded with, even when another tab uploaded it.
+  const pendingInstrument = useSyncExternalStore(
+    subscribeSourceDraft,
+    () =>
+      kind === "source" && userId !== null ? getPendingSourceInstrument({ userId, draftKey }) : null,
+    () => null,
+  );
   const currentRevision = useSyncExternalStore(
     subscribeSourceDraft,
     readSourceRevision,
@@ -192,6 +225,8 @@ export function useSocialCreate({
       audio,
       notes: pianoNotes,
       bpm: pianoBpm,
+      pianoInstrument,
+      sourceInstrument,
       sourceVisibility,
       imageCrop,
       imageRestoreFailed,
@@ -203,6 +238,8 @@ export function useSocialCreate({
       audio,
       pianoNotes,
       pianoBpm,
+      pianoInstrument,
+      sourceInstrument,
       sourceVisibility,
       imageCrop,
       imageRestoreFailed,
@@ -224,6 +261,8 @@ export function useSocialCreate({
         setAudio(draft.audio);
         setPianoNotes(draft.notes);
         setPianoBpm(draft.bpm);
+        setPianoInstrument(draft.pianoInstrument ?? null);
+        setSourceInstrument(draft.sourceInstrument ?? null);
         setImage(draft.image ? { file: draft.image, url: URL.createObjectURL(draft.image) } : null);
         setImageCrop(draft.imageCrop ?? defaultCrop());
         setImageRestoreFailed(kind === "source" && draft.imageRestoreFailed === true);
@@ -280,14 +319,52 @@ export function useSocialCreate({
     return () => window.removeEventListener("beforeunload", preventLoss);
   }, [draftSaving]);
   const setAudioStage = (stage: AudioStage) => onAudioStage?.(stage);
+  // A pre-upgrade piano-roll draft has no instrument; its `stage=note` link continues at the choice step.
+  const leaveNoteWithoutInstrument = useEffectEvent(() => setAudioStage("choose"));
+  useEffect(() => {
+    if (!restoring && audioStage === "note" && !supportsMidi(pianoInstrument))
+      leaveNoteWithoutInstrument();
+  }, [restoring, audioStage, pianoInstrument]);
+  // An instrument request belongs to the audio step that asked for it. Leaving that step (or the page)
+  // closes the chooser and discards its answer, even while the audio is still being prepared.
+  const audioStep = useRef<object>({});
+  const cancelInstrument = instrumentPrompt.cancel;
+  useEffect(() => {
+    audioStep.current = {};
+    return cancelInstrument;
+  }, [audioStage, cancelInstrument]);
+  async function chooseAudioMethod(method: "upload" | "record" | "note") {
+    if (method !== "note") return setAudioStage(method);
+    const step = audioStep.current;
+    try {
+      const id = await instrumentPrompt.ask({ mode: "midi" });
+      if (audioStep.current !== step || readSourceAudioId() !== null) return;
+      setPianoInstrument(id);
+      setAudioStage("note");
+    } catch (cause) {
+      if (!(cause instanceof InstrumentPromptCancelled))
+        setError(sourceError(cause, "악기를 선택하지 못했습니다."));
+    }
+  }
   function saveSelectedAudio(file: File) {
-    if (readSourceAudioId() === null) setAudio(file);
+    if (readSourceAudioId() === null) {
+      setAudio(file);
+      setSourceInstrument(pianoInstrument);
+    }
     setAudioStage("details");
   }
   async function selectAudio(file: File, selection?: AudioSelection) {
+    const step = audioStep.current;
     setRestoreError("");
     const { wav } = await prepareAudioFile(file, selection);
-    saveSelectedAudio(new File([wav], "opensource.wav", { type: "audio/wav" }));
+    if (audioStep.current !== step) throw new InstrumentPromptCancelled();
+    const prepared = new File([wav], "opensource.wav", { type: "audio/wav" });
+    const id = await instrumentPrompt.ask({ mode: "audio", audio: { file: prepared } });
+    if (audioStep.current !== step) throw new InstrumentPromptCancelled();
+    if (readSourceAudioId() !== null) return;
+    setAudio(prepared);
+    setSourceInstrument(id);
+    setAudioStage("details");
   }
   function pickImage(file: File) {
     try {
@@ -331,13 +408,19 @@ export function useSocialCreate({
         const userId = getCurrentUserId();
         if (userId === null) throw new Error("로그인 후 샘플을 등록할 수 있습니다.");
         if (!audio && !sourceAudioLocked) throw new Error("오디오를 먼저 선택해주세요.");
-        if ([...title.trim()].length > 100 || [...content].length > 2000)
-          throw new Error("샘플 이름은 100자, 설명은 2000자 이내로 입력해주세요.");
+        if (
+          codePointLength(title.trim()) > SOURCE_TITLE_MAX_LENGTH ||
+          codePointLength(content) > SOURCE_DESCRIPTION_MAX_LENGTH
+        )
+          throw new Error(
+            `샘플 이름은 ${SOURCE_TITLE_MAX_LENGTH}자, 설명은 ${SOURCE_DESCRIPTION_MAX_LENGTH}자 이내로 입력해주세요.`,
+          );
         try {
           await withSourcePublicationLock({ userId, draftKey, draftRevision }, async () => {
             // The original stays in the draft; only the framed thumbnail is uploaded.
             const thumbnail = image ? await renderThumbnail(image.file, imageCrop) : null;
             await publishSource({
+              instrument: sourceInstrument,
               userId,
               draftKey,
               title: title.trim(),
@@ -410,6 +493,11 @@ export function useSocialCreate({
     pickImage,
     removeImage: () => setImage(null),
     audio,
+    sourceInstrument: sourceAudioLocked ? pendingInstrument : sourceInstrument,
+    pianoInstrument,
+    setPianoInstrument,
+    instrumentPrompt,
+    chooseAudioMethod,
     sourceAudioLocked,
     selectAudio,
     saveSelectedAudio,
@@ -473,6 +561,15 @@ export function useSocialCreate({
 
 /** The web creation form for the state of `useSocialCreate`. */
 export function SocialCreateForm({ form }: { form: SocialCreateState }) {
+  return (
+    <>
+      {form.instrumentPrompt.dialog}
+      <SocialCreateFormContent form={form} />
+    </>
+  );
+}
+
+function SocialCreateFormContent({ form }: { form: SocialCreateState }) {
   const {
     kind,
     audioStage,
@@ -492,6 +589,9 @@ export function SocialCreateForm({ form }: { form: SocialCreateState }) {
     setPianoNotes,
     pianoBpm,
     setPianoBpm,
+    pianoInstrument,
+    setPianoInstrument,
+    sourceInstrument,
     sourceVisibility,
     setSourceVisibility,
     imageCrop,
@@ -545,12 +645,12 @@ export function SocialCreateForm({ form }: { form: SocialCreateState }) {
   if (kind === "source" && audioStage !== "details" && !sourceAudioLocked)
     return (
       <div className={sharedStyles.sourceAudioFlow}>
-        {audioStage === "choose" ? (
+        {audioStage === "choose" || (audioStage === "note" && !supportsMidi(pianoInstrument)) ? (
           <CompositionChoiceScreen
             busy={false}
             error={null}
             onBack={() => setAudioStage("details")}
-            onChoose={(method) => setAudioStage(method)}
+            onChoose={(method) => void form.chooseAudioMethod(method)}
           />
         ) : audioStage === "upload" ? (
           <CompositionUploadScreen
@@ -560,6 +660,8 @@ export function SocialCreateForm({ form }: { form: SocialCreateState }) {
           />
         ) : audioStage === "note" ? (
           <SourcePianoEditor
+            instrument={pianoInstrument!}
+            onInstrument={setPianoInstrument}
             notes={pianoNotes}
             setNotes={setPianoNotes}
             bpm={pianoBpm}
@@ -596,10 +698,21 @@ export function SocialCreateForm({ form }: { form: SocialCreateState }) {
             }
             disabled={busy}
             value={title}
-            onChange={(event) => setTitle(event.target.value)}
+            onChange={(event) =>
+              setTitle(
+                kind === "source"
+                  ? clampCodePoints(event.target.value, SOURCE_TITLE_MAX_LENGTH)
+                  : event.target.value,
+              )
+            }
             maxLength={kind === "source" ? undefined : 100}
             required
           />
+          {kind === "source" && (
+            <small className="text-right text-caption text-app-muted tabular-nums">
+              {codePointLength(title)}/{SOURCE_TITLE_MAX_LENGTH}자
+            </small>
+          )}
         </label>
         <label>
           {kind === "post" ? "본문" : "설명"}
@@ -607,10 +720,21 @@ export function SocialCreateForm({ form }: { form: SocialCreateState }) {
             aria-label={kind === "post" ? "게시글 내용" : "설명"}
             disabled={busy}
             value={content}
-            onChange={(event) => setContent(event.target.value)}
+            onChange={(event) =>
+              setContent(
+                kind === "source"
+                  ? clampCodePoints(event.target.value, SOURCE_DESCRIPTION_MAX_LENGTH)
+                  : event.target.value,
+              )
+            }
             required={kind !== "source"}
             rows={1}
           />
+          {kind === "source" && (
+            <small className="text-right text-caption text-app-muted tabular-nums">
+              {codePointLength(content)}/{SOURCE_DESCRIPTION_MAX_LENGTH}자
+            </small>
+          )}
         </label>
         {kind === "source" && (
           <label>
@@ -627,6 +751,11 @@ export function SocialCreateForm({ form }: { form: SocialCreateState }) {
                   ? "오디오 선택됨 · 다시 선택"
                   : "오디오 추가"}
             </button>
+            {sourceInstrument && (
+              <span className={sharedStyles.creationSaveStatus}>
+                악기: {partLabel(sourceInstrument)}
+              </span>
+            )}
             {sourceAudioLocked && (
               <span className={sharedStyles.creationSaveStatus}>
                 등록 재시도에는 이미 업로드한 오디오를 사용합니다. 다른 오디오를 등록하려면 작성

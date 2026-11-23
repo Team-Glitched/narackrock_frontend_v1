@@ -3,7 +3,7 @@ export const workspaceStyles = {
   workspacePage: [
     "workspace-page",
     "[.design-canvas_&]:flex [.design-canvas_&]:flex-col [.design-canvas_&]:gap-5 [.design-canvas_&]:p-[24px_20px_36px] [.design-canvas_&]:font-sans [.design-canvas_&]:text-app-fg",
-    "[.design-canvas_&_h1]:m-0 [.design-canvas_&_h1]:text-title [.design-canvas_&_h1]:font-semibold [.design-canvas_&_h1]:leading-[28px]",
+    "[.design-canvas_&_h1]:m-0 [.design-canvas_&_h1]:shrink-0 [.design-canvas_&_h1]:text-title [.design-canvas_&_h1]:font-semibold [.design-canvas_&_h1]:leading-[28px]",
     "[.design-canvas_&_h2]:m-[6px_0] [.design-canvas_&_h2]:text-title [.design-canvas_&_h2]:font-bold [.design-canvas_&_h2]:leading-[26px]",
     "[.design-canvas_&_p]:text-label [.design-canvas_&_p]:[overflow-wrap:anywhere] [.design-canvas_&_p]:leading-6",
     "[.design-canvas_&_button:disabled]:cursor-default [.design-canvas_&_button:disabled]:opacity-[.5]",
@@ -13,14 +13,14 @@ export const workspaceStyles = {
   ].join(" "),
   workspaceSubtitle: [
     "workspace-subtitle",
-    "[.design-canvas_&]:m-0 [.design-canvas_&]:text-label [.design-canvas_&]:leading-6 [.design-canvas_&]:text-app-muted [.design-canvas_&]:[overflow-wrap:anywhere] [.design-canvas_&]:min-w-0",
+    "[.design-canvas_&]:m-0 [.design-canvas_&]:shrink-0 [.design-canvas_&]:text-label [.design-canvas_&]:leading-6 [.design-canvas_&]:text-app-muted [.design-canvas_&]:[overflow-wrap:anywhere] [.design-canvas_&]:min-w-0",
   ].join(" "),
   workspaceCard: [
     "workspace-card",
     "[.design-canvas_&_h2]:m-[6px_0] [.design-canvas_&_h2]:text-label [.design-canvas_&_h2]:font-semibold [.design-canvas_&_h2]:leading-[22px] [.design-canvas_&_h2]:[overflow-wrap:anywhere] [.design-canvas_&_h2]:min-w-0",
     "[.design-canvas_&_p]:m-0 [.design-canvas_&_p]:text-body [.design-canvas_&_p]:leading-5 [.design-canvas_&_p]:text-app-muted [.design-canvas_&_p]:[overflow-wrap:anywhere]",
     "[.design-canvas_&_p]:min-w-0",
-    "[.design-canvas_&]:block [.design-canvas_&]:w-full [.design-canvas_&]:p-4 [.design-canvas_&]:text-left [.design-canvas_&]:rounded-[12px]",
+    "[.design-canvas_&]:block [.design-canvas_&]:shrink-0 [.design-canvas_&]:w-full [.design-canvas_&]:p-4 [.design-canvas_&]:text-left [.design-canvas_&]:rounded-[12px]",
     "[.design-canvas_&]:bg-transparent [.design-canvas_&]:bg-none [.design-canvas_&]:m-0 [.design-canvas_&]:border",
     "[.design-canvas_&]:border-solid [.design-canvas_&]:border-app-border",
   ].join(" "),
@@ -34,7 +34,7 @@ export const workspaceStyles = {
   ].join(" "),
   workspaceHeading: [
     "workspace-heading",
-    "[.design-canvas_&]:m-[8px_0_0] [.design-canvas_&]:flex [.design-canvas_&]:items-center [.design-canvas_&]:justify-between",
+    "[.design-canvas_&]:m-[8px_0_0] [.design-canvas_&]:flex [.design-canvas_&]:shrink-0 [.design-canvas_&]:items-center [.design-canvas_&]:justify-between",
     "[.design-canvas_&_button]:min-h-10 [.design-canvas_&_button]:rounded-[20px] [.design-canvas_&_button]:bg-app-surface",
     "[.design-canvas_&_button]:bg-none [.design-canvas_&_button]:p-[10px_16px] [.design-canvas_&_button]:text-label",
     "[.design-canvas_&_button]:font-medium [.design-canvas_&_button]:leading-[20px]",
@@ -43,13 +43,13 @@ export const workspaceStyles = {
   ].join(" "),
   workspaceWide: [
     "workspace-wide",
-    "[.design-canvas_&]:min-h-11 [.design-canvas_&]:w-full [.design-canvas_&]:rounded-[20px] [.design-canvas_&]:p-[12px_16px]",
+    "[.design-canvas_&]:min-h-11 [.design-canvas_&]:shrink-0 [.design-canvas_&]:w-full [.design-canvas_&]:rounded-[20px] [.design-canvas_&]:p-[12px_16px]",
     "[.design-canvas_&]:bg-app-surface [.design-canvas_&]:bg-none [.design-canvas_&]:text-left [.design-canvas_&]:text-label",
     "[.design-canvas_&]:font-sans [.design-canvas_&]:font-medium [.design-canvas_&]:leading-[20px]",
   ].join(" "),
   workspaceTabs: [
     "workspace-tabs",
-    "[.design-canvas_&]:flex [.design-canvas_&]:gap-2 [.design-canvas_&]:overflow-auto [.design-canvas_&]:[scrollbar-width:none]",
+    "[.design-canvas_&]:flex [.design-canvas_&]:min-h-10 [.design-canvas_&]:shrink-0 [.design-canvas_&]:items-center [.design-canvas_&]:gap-2 [.design-canvas_&]:overflow-auto [.design-canvas_&]:[scrollbar-width:none]",
     "[.design-canvas_&]:m-0 [.design-canvas_&]:py-1",
     "[.design-canvas_&_button]:min-h-7 [.design-canvas_&_button]:flex-none [.design-canvas_&_button]:rounded-full [.design-canvas_&_button]:px-3 [.design-canvas_&_button]:py-1",
     "[.design-canvas_&_button]:border [.design-canvas_&_button]:border-solid [.design-canvas_&_button]:border-app-border",
@@ -82,10 +82,10 @@ export const workspaceStyles = {
   ].join(" "),
   workspaceSearch: [
     "workspace-search",
-    "[.design-canvas_&]:flex [.design-canvas_&]:items-center [.design-canvas_&]:gap-[10px] [.design-canvas_&]:bg-app-surface",
-    "[.design-canvas_&]:bg-none [.design-canvas_&]:m-0 [.design-canvas_&]:h-11 [.design-canvas_&]:rounded-[20px]",
-    "[.design-canvas_&]:p-[0_14px]",
-    "[.design-canvas_&_img]:h-auto [.design-canvas_&_img]:w-auto [.design-canvas_&_img]:flex-none",
+    "[.design-canvas_&]:flex [.design-canvas_&]:w-full [.design-canvas_&]:shrink-0 [.design-canvas_&]:items-center [.design-canvas_&]:gap-2.5 [.design-canvas_&]:bg-app-surface",
+    "[.design-canvas_&]:bg-none [.design-canvas_&]:m-0 [.design-canvas_&]:min-h-12 [.design-canvas_&]:h-12 [.design-canvas_&]:rounded-[24px]",
+    "[.design-canvas_&]:px-4",
+    "[.design-canvas_&_img]:h-5 [.design-canvas_&_img]:w-5 [.design-canvas_&_img]:flex-none",
     "[.design-canvas_&_input]:bg-transparent [.design-canvas_&_input]:bg-none [.design-canvas_&_input]:w-full [.design-canvas_&_input]:min-w-0",
     "[.design-canvas_&_input]:[outline-offset:4px] [.design-canvas_&_input]:text-label [.design-canvas_&_input]:border-0",
     "[.design-canvas_&_input]:border-none [.design-canvas_&_input]:border-current",
@@ -100,7 +100,7 @@ export const workspaceStyles = {
   ].join(" "),
   workspaceNotice: [
     "workspace-notice",
-    "[.design-canvas_&]:border [.design-canvas_&]:border-solid [.design-canvas_&]:border-app-border [.design-canvas_&]:bg-transparent [.design-canvas_&]:bg-none [.design-canvas_&]:m-0 [.design-canvas_&]:rounded-xl",
+    "[.design-canvas_&]:shrink-0 [.design-canvas_&]:border [.design-canvas_&]:border-solid [.design-canvas_&]:border-app-border [.design-canvas_&]:bg-transparent [.design-canvas_&]:bg-none [.design-canvas_&]:m-0 [.design-canvas_&]:rounded-xl",
     "[.design-canvas_&]:p-4 [.design-canvas_&]:text-label [.design-canvas_&]:leading-6",
   ].join(" "),
   submissionPlaybackModes: [

@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 import { SavedOpenSources } from "@/features/sources/saved-open-sources";
 import { AudioPlaybackBar } from "@/components/audio-playback-bar";
 import { uiLabels } from "@/lib/ui-labels";
-import { useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { useEffect, useId, useState, type ReactNode } from "react";
 import type { CompositionDto } from "@/lib/api/composition";
 import { useCurrentUserId } from "@/features/auth/use-current-user";
 import { compositionDurationMs } from "@/features/composition/playback-duration";
@@ -36,6 +36,7 @@ function Empty({ children }: { children: ReactNode }) {
 /** A composition preview player (the web's ClipPlayer): one preview plays at a time. */
 export function useClipPlayer(composition: CompositionDto) {
   const userId = useCurrentUserId();
+  const [muted, setMuted] = useState(false);
   const player = useCompositionPlayback(composition, {
     scopeKey: JSON.stringify([
       apiOrigin(),
@@ -43,12 +44,12 @@ export function useClipPlayer(composition: CompositionDto) {
       composition?.project.projectId ?? null,
       "workspace",
     ]),
+    muted,
   });
   const id = useId();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const duration = compositionDurationMs(composition);
-  const previousVolume = useRef(70);
   const pause = player.pause;
   useEffect(() => {
     const stopOther = (event: Event) => {
@@ -76,7 +77,7 @@ export function useClipPlayer(composition: CompositionDto) {
   }
   return {
     playing: player.playing,
-    muted: player.volume === 0,
+    muted,
     positionMs: player.positionMs,
     durationMs: duration,
     disabled: duration === 0,
@@ -84,13 +85,7 @@ export function useClipPlayer(composition: CompositionDto) {
     error,
     toggle: () => void toggle(),
     seek: player.seek,
-    toggleMute: () => {
-      if (player.volume === 0) player.setVolume(previousVolume.current);
-      else {
-        previousVolume.current = player.volume;
-        player.setVolume(0);
-      }
-    },
+    toggleMute: () => setMuted((value) => !value),
   };
 }
 
@@ -163,22 +158,31 @@ export function WorkspaceScreen({
             </Empty>
           )
         : works.map((work) => (
-            <article className={workspaceStyles.workspaceCard} key={work.id}>
-              <span className={workspaceStyles.workspaceStatus}>
-                {work.shortId === null ? uiLabels.myMusic : "참여한 작업"}
-              </span>
-              <h2>{work.title}</h2>
-              <p>
-                {work.composition.tracks.length}개 레이어 · {work.composition.project.bpm} BPM
-              </p>
-              <div className={workspaceStyles.workspaceActions}>
-                <button
-                  className={workspaceStyles.workspacePrimary}
-                  onClick={() => onResume(work.id, work.shortId)}
-                >
-                  이어하기
-                </button>
+            <article
+              className={cn(
+                workspaceStyles.workspaceCard,
+                "[.design-canvas_&]:flex items-center justify-between gap-3",
+              )}
+              key={work.id}
+            >
+              <div className="min-w-0 flex-1 flex flex-col gap-1">
+                <span className={workspaceStyles.workspaceStatus}>
+                  {work.shortId === null ? uiLabels.myMusic : "참여한 작업"}
+                </span>
+                <h2 className="m-0!">{work.title}</h2>
+                <p>
+                  {work.composition.tracks.length}개 레이어 · {work.composition.project.bpm} BPM
+                </p>
               </div>
+              <button
+                className={cn(
+                  workspaceStyles.workspacePrimary,
+                  "min-h-10 shrink-0 rounded-[20px] px-4 py-2 text-label font-medium leading-5 text-app-fg",
+                )}
+                onClick={() => onResume(work.id, work.shortId)}
+              >
+                이어하기
+              </button>
             </article>
           ))}
       {hasMore && (

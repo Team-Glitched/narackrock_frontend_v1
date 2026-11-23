@@ -610,15 +610,39 @@ export function NoteRoll({
 
   return (
     <View style={{ flex: 1, minHeight: 0 }}>
-      <View style={{ height: 32, flexDirection: "row", justifyContent: "flex-end", alignItems: "center", gap: 4, paddingHorizontal: 8, backgroundColor: colors.panel }}>
-        <Touchable accessibilityRole="button" accessibilityLabel="피아노롤 축소" disabled={roll.zoom <= MIN_ROLL_ZOOM}
-          onPress={() => { zoomCallbacks.current.apply(roll.zoom / 1.25); zoomCallbacks.current.finish(); }}>
-          <Text style={{ color: colors.fg, width: 36, textAlign: "center", fontSize: 20 }}>−</Text>
+      <View
+        style={{
+          height: 36,
+          flexDirection: "row",
+          justifyContent: "flex-end",
+          alignItems: "center",
+          gap: 6,
+          paddingHorizontal: 10,
+          backgroundColor: "#19191f",
+          borderBottomWidth: 1,
+          borderBottomColor: "#2b2b34",
+        }}
+      >
+        <Touchable
+          accessibilityRole="button"
+          accessibilityLabel="피아노롤 축소"
+          disabled={roll.zoom <= MIN_ROLL_ZOOM}
+          style={[styles.zoomButton, roll.zoom <= MIN_ROLL_ZOOM && styles.disabled]}
+          onPress={() => { zoomCallbacks.current.apply(roll.zoom / 1.25); zoomCallbacks.current.finish(); }}
+        >
+          <Text style={{ color: colors.fg, fontSize: 18, lineHeight: 20 }}>−</Text>
         </Touchable>
-        <Text accessibilityLabel="피아노롤 배율" style={{ color: colors.muted, width: 48, textAlign: "center" }}>{Math.round(roll.zoom * 100)}%</Text>
-        <Touchable accessibilityRole="button" accessibilityLabel="피아노롤 확대" disabled={roll.zoom >= MAX_ROLL_ZOOM}
-          onPress={() => { zoomCallbacks.current.apply(roll.zoom * 1.25); zoomCallbacks.current.finish(); }}>
-          <Text style={{ color: colors.fg, width: 36, textAlign: "center", fontSize: 20 }}>+</Text>
+        <Text accessibilityLabel="피아노롤 배율" style={{ color: colors.fg, width: 48, textAlign: "center", fontSize: 13, fontWeight: "500" }}>
+          {Math.round(roll.zoom * 100)}%
+        </Text>
+        <Touchable
+          accessibilityRole="button"
+          accessibilityLabel="피아노롤 확대"
+          disabled={roll.zoom >= MAX_ROLL_ZOOM}
+          style={[styles.zoomButton, roll.zoom >= MAX_ROLL_ZOOM && styles.disabled]}
+          onPress={() => { zoomCallbacks.current.apply(roll.zoom * 1.25); zoomCallbacks.current.finish(); }}
+        >
+          <Text style={{ color: colors.fg, fontSize: 18, lineHeight: 20 }}>+</Text>
         </Touchable>
       </View>
     <View
@@ -686,10 +710,12 @@ export function NoteRoll({
             >
               {roll.drum ? (
                 <>
-                  <DrumPadIcon kind={drumPadFor(pitch)?.icon ?? "percussion"} color={colors["key-black"]} />
-                  <Text style={styles.drumLabel} numberOfLines={2}>
-                    {label}
-                  </Text>
+                  <DrumPadIcon kind={drumPadFor(pitch)?.icon ?? "percussion"} color={colors.fg} />
+                  {keyWidth >= 70 && (
+                    <Text style={styles.drumLabel} numberOfLines={2}>
+                      {label}
+                    </Text>
+                  )}
                 </>
               ) : (
                 <>
@@ -998,7 +1024,15 @@ const barsOptions = ([1, 2, 4] as const).map((value) => ({ value, label: `${valu
  * The grouped strip of the web's NoteEditorControls: tools (unless shown elsewhere), history, snap and
  * window, selection actions, then the drum kit toggle or the chord button. Scrolls horizontally.
  */
-export function NoteControls({ roll, tools: showTools = true }: { roll: NativeNoteRoll; tools?: boolean }) {
+export function NoteControls({
+  roll,
+  tools: showTools = true,
+  showModeAction = true,
+}: {
+  roll: NativeNoteRoll;
+  tools?: boolean;
+  showModeAction?: boolean;
+}) {
   const { act } = useScreen();
   const count = roll.selection.length;
   const lastStart = Math.max(0, roll.maxTick - roll.windowTicks);
@@ -1103,8 +1137,8 @@ export function NoteControls({ roll, tools: showTools = true }: { roll: NativeNo
           />
         )}
       </Group>
-      {(roll.drum || roll.canChord) && <Divider />}
-      {roll.drum ? (
+      {showModeAction && (roll.drum || roll.canChord) && <Divider />}
+      {showModeAction && roll.drum ? (
         // Filled while all 47 pads show; hidden notes stay saved and playable.
         <Touchable
           accessibilityRole="button"
@@ -1122,6 +1156,7 @@ export function NoteControls({ roll, tools: showTools = true }: { roll: NativeNo
           )}
         </Touchable>
       ) : (
+        showModeAction &&
         roll.canChord && (
           <Touchable
             accessibilityRole="button"
@@ -1378,7 +1413,15 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: "#b9b8c2",
   },
-  drumKey: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 4 },
+  drumKey: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 4,
+    paddingHorizontal: 5,
+    backgroundColor: "#23232a",
+    borderBottomColor: "#32323d",
+  },
   blackKey: {
     position: "absolute",
     left: 0,
@@ -1395,7 +1438,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 14,
   },
-  drumLabel: { flex: 1, color: colors["key-black"], fontSize: 9, lineHeight: 11 },
+  drumLabel: { flex: 1, color: colors.fg, fontSize: 10, lineHeight: 12 },
   grid: { position: "absolute", right: 0, bottom: 0, overflow: "hidden" },
   row: {
     position: "absolute",
@@ -1458,13 +1501,23 @@ const styles = StyleSheet.create({
     flexGrow: 0,
     flexShrink: 0,
     borderBottomWidth: 1,
-    borderBottomColor: colors.line,
-    backgroundColor: colors.panel,
+    borderBottomColor: "#2b2b34",
+    backgroundColor: "#19191f",
   },
-  controlsContent: { alignItems: "center", gap: 2, paddingHorizontal: 6, paddingVertical: 6 },
-  group: { flexDirection: "row", alignItems: "center", gap: 2 },
-  divider: { width: 1, height: 20, marginHorizontal: 2, backgroundColor: colors.line },
-  iconButton: { width: 32, height: 32, alignItems: "center", justifyContent: "center", borderRadius: 6 },
+  controlsContent: { alignItems: "center", gap: 4, paddingHorizontal: 8, paddingVertical: 6 },
+  group: { flexDirection: "row", alignItems: "center", gap: 3 },
+  divider: { width: 1, height: 20, marginHorizontal: 4, backgroundColor: "#2e2e38" },
+  iconButton: { width: 32, height: 32, alignItems: "center", justifyContent: "center", borderRadius: 8 },
+  zoomButton: {
+    width: 32,
+    height: 28,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#32323d",
+    backgroundColor: "#23232a",
+  },
   segments: {
     flexDirection: "row",
     alignItems: "center",
@@ -1472,14 +1525,16 @@ const styles = StyleSheet.create({
     height: 32,
     paddingHorizontal: 6,
     borderRadius: 8,
-    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: "#32323d",
+    backgroundColor: "#23232a",
   },
   segment: { height: 26, justifyContent: "center", paddingHorizontal: 6, borderRadius: 6 },
   segmentActive: { backgroundColor: colors.primary },
   segmentText: { color: colors.muted, fontSize: 12, lineHeight: 16 },
   segmentTextActive: { color: colors.fg, fontWeight: "700" },
   count: { minWidth: 36, paddingHorizontal: 6, paddingVertical: 4, borderRadius: 8, alignItems: "center" },
-  countActive: { backgroundColor: "rgba(76, 0, 229, 0.25)" },
+  countActive: { backgroundColor: "rgba(91, 0, 255, 0.28)" },
   countText: { color: colors.muted, fontSize: 12, lineHeight: 16 },
   countTextActive: { color: colors.fg, fontWeight: "700" },
   pill: {
@@ -1487,11 +1542,13 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
-    paddingHorizontal: 8,
+    paddingHorizontal: 9,
     borderRadius: 8,
-    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: "#32323d",
+    backgroundColor: "#23232a",
   },
-  pillActive: { backgroundColor: colors.primary },
+  pillActive: { borderColor: colors.primary, backgroundColor: colors.primary },
   pillText: { color: colors.fg, fontSize: 12, lineHeight: 16 },
   pillTextActive: { color: colors.fg, fontSize: 12, lineHeight: 16, fontWeight: "700" },
   badge: { borderRadius: 999, paddingHorizontal: 4, backgroundColor: colors.bg },

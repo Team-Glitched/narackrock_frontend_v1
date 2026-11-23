@@ -6,6 +6,7 @@ import { updateGalleryImages } from "@/lib/api/community";
 import { galleryKeys } from "./community-queries";
 import { adminKeys } from "@/features/admin/admin-queries";
 import { buttonVariants } from "@/styles/variants";
+import { FilePicker } from "@/components/file-picker";
 import type { Community } from "./community-card";
 
 type ImageEdit = { file: File; url: string } | null | undefined;
@@ -110,19 +111,14 @@ export function CommunityImagesEditor({ community }: { community: Community }) {
           ) : (
             <p className="m-0 text-caption text-app-muted">등록된 이미지가 없습니다.</p>
           )}
-          <input
-            type="file"
+          <FilePicker
             accept="image/png,image/jpeg,image/webp,image/gif"
-            aria-label={`${item.label} 파일 선택`}
-            className="w-full min-w-0 text-caption"
-            onChange={(event) => {
-              const file = event.target.files?.[0];
-              if (file) {
-                item.set({ file, url: URL.createObjectURL(file) });
-                setSaved(false);
-                setError(null);
-              }
-              event.currentTarget.value = "";
+            label={`${item.label} 파일 선택`}
+            disabled={busy}
+            onSelect={(file) => {
+              item.set({ file, url: URL.createObjectURL(file) });
+              setSaved(false);
+              setError(null);
             }}
           />
           {preview(item.edit, item.current) && (

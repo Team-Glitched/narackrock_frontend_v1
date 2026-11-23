@@ -125,6 +125,7 @@ export type NativePlayback = {
   playing: boolean;
   loading: boolean;
   muted: boolean;
+  /** `reportedPositionMs` (src/lib/playback-progress.ts): stepped while playing and not loading, exact otherwise. */
   positionMs: number;
   durationMs: number | null;
   /** The whole bar is disabled (empty clip). */
@@ -148,6 +149,7 @@ export type NativeSavedSource = {
   /** Null when the sample was deleted or made private ("사용할 수 없는 샘플"). */
   source: {
     title: string;
+    thumbnailUrl: string | null;
     description: string | null;
     writer: string;
     /** False: "이 샘플은 현재 미리듣기를 사용할 수 없습니다." */

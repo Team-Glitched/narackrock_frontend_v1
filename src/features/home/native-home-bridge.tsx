@@ -6,6 +6,7 @@ import { nativePost, nativeSong } from "@/features/navigation/native-models";
 import { nativeWork } from "@/features/workspace/native-work";
 import { useVisitedWorks } from "@/features/workspace/use-visited-works";
 import { workingMusic } from "@/features/workspace/working-music";
+import { useFeaturedMusic } from "@/features/profile/use-featured-music";
 import type { NativeHome } from "@/lib/native-screens";
 import type { SongChartKind } from "./home-screens";
 
@@ -33,6 +34,7 @@ export function NativeHomeBridge({
   const songs = useHomeSongs();
   const posts = useGalleryPosts("popular");
   const visited = useVisitedWorks({ home: true, enabled: signedIn });
+  const featured = useFeaturedMusic(signedIn);
 
   const home: NativeHome = {
     works: signedIn
@@ -55,6 +57,9 @@ export function NativeHomeBridge({
       songs.mine.status === "signed-out"
         ? null
         : { status: songs.mine.status, items: songs.mine.items.map(nativeSong) },
+    minePinnedIds: [...featured.pinnedIds],
+    starBusy: !featured.profile.data || featured.savingId !== null,
+    featuredNotice: featured.notice,
   };
 
   return useNativeScreen("home", home, {
@@ -70,6 +75,11 @@ export function NativeHomeBridge({
           return onShowSongs(action.kind);
         case "resume":
           return onResume(action.projectId, action.shortId);
+        case "toggle-featured": {
+          const song = songs.mine.items.find((item) => item.shortId === action.shortId);
+          if (song) void featured.toggleFeatured(song);
+          return;
+        }
         case "open-posts":
           return onOpenPosts();
         case "open-workspace":

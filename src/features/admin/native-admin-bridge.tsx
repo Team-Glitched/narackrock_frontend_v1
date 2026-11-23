@@ -29,7 +29,7 @@ import {
   useGalleryManagers,
 } from "./admin-screens";
 
-const header: NativeHeader = { left: "back", actions: ["notifications", "search", "account"] };
+const header: NativeHeader = { left: "back", actions: ["notifications", "chat", "search", "account"] };
 
 type CursorList<T> = {
   loaded: boolean;

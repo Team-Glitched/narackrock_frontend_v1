@@ -1,3 +1,4 @@
+import { partLabel } from "@/features/composition/instrument-parts";
 import { useLoginPrompt } from "@/features/auth/login-prompt";
 import { useNativeComments } from "@/features/comments/use-native-comments";
 import { useNativeScreen } from "@/features/navigation/use-native-screen";
@@ -7,7 +8,7 @@ import { SourcePlayerReporter, useNativePlayers } from "./native-source-players"
 import { sourceUsage, type SourceDetailState } from "./source-screens";
 
 /** The web sample page's Header: back, notifications, search, account. */
-const header: NativeHeader = { left: "back", actions: ["notifications", "search", "account"] };
+const header: NativeHeader = { left: "back", actions: ["notifications", "chat", "search", "account"] };
 
 /** The detail's player key. */
 const player = "detail";
@@ -46,6 +47,7 @@ export function NativeSourceDetailBridge({
               source: {
                 openSourceId: source.openSourceId,
                 title: source.title,
+                instrumentLabel: source.instrument ? partLabel(source.instrument) : null,
                 thumbnailUrl: source.thumbnailUrl,
                 usage: source.usageCount != null ? sourceUsage(source.usageCount) : null,
                 description: source.description ?? "",

@@ -1,10 +1,17 @@
 import { useEffect, useState } from "react";
-import { Animated, StyleSheet, Text, View } from "react-native";
+import { Animated, AppState, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import Svg, { Circle, Defs, LinearGradient, Path, Rect, Stop } from "react-native-svg";
 
+import {
+  beatIntervalMs,
+  beatsPerBarFromSignature,
+  isAccentBeat,
+} from "../../../src/features/composition/metronome-timing";
 import MetronomeIcon from "../../../public/figma/metronome-large.svg";
 import RecordStartIcon from "../../../public/figma/record-start.svg";
 import { useRecordingLevels } from "../../audio";
+import { runningContext } from "../../audio/graph";
+import { clickSamples } from "../../audio/logic";
 import { AppHeader } from "../../ui/header";
 import { Button, Touchable } from "../../ui/kit";
 import { useScreen } from "../../ui/screen-context";
@@ -33,7 +40,73 @@ function meterLevel(peak: number): number {
 
 /** The web's CompositionRecordScreen; the app records and draws the live meter. */
 export function CreationRecordScreen({ model, header }: ScreenProps<"creation-record">) {
-  const { act, bottomInset } = useScreen();
+  const { act, bottomInset, active } = useScreen();
+  const [metronomeOn, setMetronomeOn] = useState(false);
+  const [activeBeat, setActiveBeat] = useState<number | null>(null);
+  const [appActive, setAppActive] = useState(AppState.currentState === "active");
+  const screenSize = useWindowDimensions();
+  // The portrait column (metronome above, record button at the bottom) overlaps on short landscape
+  // screens, so landscape puts the metronome, output and record button side by side.
+  const landscape = screenSize.width > screenSize.height;
+  const bpm = model.bpm ?? 120;
+  const timeSignature = model.timeSignature ?? "4/4";
+  const beatsPerBar = beatsPerBarFromSignature(timeSignature);
+
+  useEffect(() => {
+    const subscription = AppState.addEventListener("change", (state) =>
+      setAppActive(state === "active"),
+    );
+    return () => subscription.remove();
+  }, []);
+
+  // The screen stack keeps this screen mounted after leaving it; turn the click off as the web
+  // page does when it unmounts, so it never sounds behind another screen.
+  useEffect(() => {
+    if (!active) setMetronomeOn(false);
+  }, [active]);
+
+  useEffect(() => {
+    if (!metronomeOn || model.previewing || !active || !appActive) return;
+    let cancelled = false;
+    let beat = 0;
+    const intervalMs = beatIntervalMs(bpm, timeSignature);
+    const playBeat = () => {
+      if (cancelled) return;
+      const current = beat % beatsPerBar;
+      const accent = isAccentBeat(beat, beatsPerBar);
+      setActiveBeat(current);
+      beat += 1;
+      void runningContext()
+        .then((ctx) => {
+          if (cancelled) return;
+          const samples = clickSamples(ctx.sampleRate);
+          const buffer = ctx.createBuffer(1, samples.length, ctx.sampleRate);
+          buffer.copyToChannel(samples, 0);
+          const src = ctx.createBufferSource();
+          src.buffer = buffer;
+          src.playbackRate.value = accent ? 1.25 : 0.9;
+          const gain = ctx.createGain();
+          gain.gain.value = accent ? 1.3 : 0.85;
+          src.connect(gain);
+          gain.connect(ctx.destination);
+          src.start();
+        })
+        .catch(() => {});
+    };
+    playBeat();
+    const timer = setInterval(playBeat, intervalMs);
+    return () => {
+      cancelled = true;
+      clearInterval(timer);
+      setActiveBeat(null);
+    };
+  }, [metronomeOn, model.previewing, active, appActive, bpm, timeSignature, beatsPerBar]);
+
+  // A finished take shows the preview, conversion mode and actions; portrait shrinks the metronome
+  // and lifts the output so they keep their spacing above the record button.
+  const recorded = model.recorded && !model.recording;
+  const compact = !landscape && recorded;
+
   return (
     <>
       {header && <AppHeader header={header} />}
@@ -43,8 +116,58 @@ export function CreationRecordScreen({ model, header }: ScreenProps<"creation-re
             {model.notice}
           </Text>
         )}
-        <MetronomeIcon width={137} height={200} style={styles.symbol} />
-        <View style={styles.output}>
+        <View
+          style={[
+            styles.symbolBox,
+            landscape && styles.symbolBoxLandscape,
+            compact && styles.symbolBoxRecorded,
+          ]}
+        >
+          <Touchable
+            accessibilityRole="button"
+            accessibilityLabel={metronomeOn ? "메트로놈 끄기" : "메트로놈 켜기"}
+            accessibilityState={{ checked: metronomeOn }}
+            style={[
+              styles.metronomeButton,
+              metronomeOn && styles.metronomeActive,
+              metronomeOn && activeBeat === 0 && styles.metronomeAccentPulse,
+            ]}
+            onPress={() => setMetronomeOn((current) => !current)}
+          >
+            <MetronomeIcon
+              width={landscape ? 54 : compact ? 72 : 108}
+              height={landscape ? 78 : compact ? 104 : 156}
+            />
+          </Touchable>
+          <View style={styles.metronomeMeta}>
+            <Text style={styles.metronomeTempo}>
+              {bpm} BPM · {timeSignature}
+            </Text>
+            <Text style={[styles.metronomeState, metronomeOn && styles.metronomeStateOn]}>
+              {metronomeOn ? "메트로놈 켜짐" : "메트로놈 눌러 켜기"}
+            </Text>
+            {metronomeOn && (
+              <View style={styles.beatRow}>
+                {Array.from({ length: beatsPerBar }, (_, index) => (
+                  <View
+                    key={index}
+                    style={[
+                      styles.beatDot,
+                      activeBeat === index && (index === 0 ? styles.beatDotAccent : styles.beatDotOn),
+                    ]}
+                  />
+                ))}
+              </View>
+            )}
+          </View>
+        </View>
+        <View
+          style={[
+            styles.output,
+            landscape ? styles.outputLandscape : styles.outputPortrait,
+            compact && styles.outputRecorded,
+          ]}
+        >
           {model.error && (
             <Text accessibilityRole="alert" style={styles.text}>
               {model.error}
@@ -66,30 +189,59 @@ export function CreationRecordScreen({ model, header }: ScreenProps<"creation-re
             {model.status}
           </Text>
           {model.recorded && model.transform && (
-            <View style={{flexDirection: "row", gap: 8}}>
-              {([['AUTO','자동 판별'],['HUMMING','허밍 · 한 음씩'],['INSTRUMENT','악기 · 화음']] as const).map(([kind,label]) => (
-                <Touchable key={kind} accessibilityRole="button" accessibilityState={{selected:model.soundKind===kind}}
-                  disabled={model.pending} onPress={()=>act({type:"creation-record-sound-kind",kind})}>
-                  <Text style={{color:model.soundKind===kind?colors.accent:colors.fg}}>{label}</Text>
-                </Touchable>
-              ))}
+            <View style={styles.convert}>
+              <Text style={styles.convertLabel}>변환 방식</Text>
+              <View style={styles.convertOptions}>
+                {(
+                  [
+                    ["AUTO", "자동 판별"],
+                    ["HUMMING", "허밍 · 한 음씩"],
+                    ["INSTRUMENT", "악기 · 화음"],
+                  ] as const
+                ).map(([kind, label]) => {
+                  const selected = model.soundKind === kind;
+                  return (
+                    <Touchable
+                      key={kind}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected, disabled: model.pending }}
+                      disabled={model.pending}
+                      style={[
+                        styles.convertOption,
+                        selected && styles.convertOptionSelected,
+                        model.pending && styles.disabled,
+                      ]}
+                      onPress={() => act({ type: "creation-record-sound-kind", kind })}
+                    >
+                      <Text
+                        numberOfLines={1}
+                        style={[styles.convertText, selected && styles.convertTextSelected]}
+                      >
+                        {label}
+                      </Text>
+                    </Touchable>
+                  );
+                })}
+              </View>
             </View>
           )}
           {model.recorded && (
             <View style={styles.actions}>
-              <Button
-                label={model.saveLabel}
-                disabled={model.pending}
-                onPress={() => act({ type: "creation-record-save" })}
-              />
               {model.transform && (
                 <Button
                   tone="secondary"
                   label="MIDI로 변환"
                   disabled={model.pending}
+                  style={styles.actionButton}
                   onPress={() => act({ type: "creation-record-transform" })}
                 />
               )}
+              <Button
+                label={model.saveLabel}
+                disabled={model.pending}
+                style={styles.actionButton}
+                onPress={() => act({ type: "creation-record-save" })}
+              />
             </View>
           )}
         </View>
@@ -100,7 +252,7 @@ export function CreationRecordScreen({ model, header }: ScreenProps<"creation-re
           disabled={model.pending}
           style={[
             styles.recordButton,
-            { bottom: bottomInset + 48 },
+            landscape ? styles.recordButtonLandscape : { bottom: bottomInset + 48 },
             model.pending && styles.disabled,
           ]}
           onPress={() => act({ type: "creation-record-toggle" })}
@@ -202,35 +354,92 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
   },
-  symbol: { position: "absolute", top: 120 },
+  symbolBox: {
+    position: "absolute",
+    top: 84,
+    alignItems: "center",
+    gap: 10,
+  },
+  symbolBoxLandscape: { top: 16, left: 24 },
+  symbolBoxRecorded: { top: 56 },
+  metronomeButton: {
+    padding: 12,
+    borderRadius: 24,
+    opacity: 0.65,
+  },
+  metronomeActive: {
+    opacity: 1,
+    backgroundColor: "rgba(91, 0, 255, 0.16)",
+    borderWidth: 1.5,
+    borderColor: "rgba(91, 0, 255, 0.7)",
+  },
+  metronomeAccentPulse: {
+    transform: [{ scale: 1.04 }],
+  },
+  metronomeMeta: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: "#32323d",
+    backgroundColor: "#1e1e26",
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+  },
+  metronomeTempo: { color: colors.fg, fontSize: 12, fontWeight: "600", fontVariant: ["tabular-nums"] },
+  metronomeState: { color: colors.muted, fontSize: 12 },
+  metronomeStateOn: { color: "#c4b5fd", fontWeight: "600" },
+  beatRow: { flexDirection: "row", alignItems: "center", gap: 4 },
+  beatDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: "#3f3e4a" },
+  beatDotOn: { backgroundColor: "#a78bfa" },
+  beatDotAccent: { backgroundColor: "#ffffff" },
   output: {
     position: "absolute",
-    top: 345,
-    width: 350,
-    maxWidth: "100%",
     alignItems: "center",
-    gap: 16,
+    gap: 20,
   },
+  outputPortrait: { top: 345, width: "100%", maxWidth: 390, paddingHorizontal: 32 },
+  outputRecorded: { top: 250 },
+  outputLandscape: { top: 16, left: 220, right: 156 },
   text: { color: colors.fg, fontSize: 14, lineHeight: 20, textAlign: "center" },
   status: { color: colors.muted, fontSize: 14, lineHeight: 20, textAlign: "center" },
   play: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: "center",
     justifyContent: "center",
     paddingLeft: 2,
     backgroundColor: "#ffffff",
   },
   playText: { color: "#15161a", fontSize: 14 },
-  actions: {
-    flexDirection: "row",
-    flexWrap: "wrap",
+  convert: { alignSelf: "stretch", gap: 8 },
+  convertLabel: { color: colors.muted, fontSize: 13, lineHeight: 18, textAlign: "center" },
+  convertOptions: { flexDirection: "row", gap: 8 },
+  convertOption: {
+    flex: 1,
+    minHeight: 40,
+    paddingHorizontal: 8,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
     alignItems: "center",
     justifyContent: "center",
+  },
+  convertOptionSelected: { borderColor: colors.accent, backgroundColor: "rgba(153, 102, 255, 0.16)" },
+  convertText: { color: colors.fg, fontSize: 13, fontWeight: "500" },
+  convertTextSelected: { color: colors.accent, fontWeight: "700" },
+  actions: {
+    alignSelf: "stretch",
+    flexDirection: "row",
+    alignItems: "center",
     gap: 10,
   },
+  actionButton: { flex: 1, paddingHorizontal: 12 },
   recordButton: { position: "absolute", width: 82, height: 82 },
+  recordButtonLandscape: { right: 48, top: "50%", marginTop: -41 },
   disabled: { opacity: 0.5 },
   meter: { width: "100%", alignItems: "center", gap: 12 },
   elapsed: { flexDirection: "row", alignItems: "center", gap: 8 },

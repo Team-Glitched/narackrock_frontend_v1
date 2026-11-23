@@ -10,6 +10,7 @@ export type OpenSourceWriter = { userId: number; nickname: string; profileImageU
 
 /** `GET /api/v1/open-sources` item. A null usageCount means usage is not tracked. */
 export type OpenSourceSummary = {
+  instrument?: string | null;
   openSourceId: number;
   title: string;
   description: string | null;
@@ -39,6 +40,7 @@ export type SavedOpenSource = {
 };
 
 export type OpenSourcePublication = {
+  instrument?: string | null;
   openSourceId: number;
   ownerId: number;
   title: string;
@@ -184,6 +186,7 @@ export function reactToOpenSourceComment(commentId: number, kind: "like" | "disl
 
 /** Creates a PRIVATE publication from the caller's READY audio. */
 export function createOpenSource(body: {
+  instrument?: string | null;
   title: string;
   description: string | null;
   mediaFileId: number;
@@ -195,7 +198,7 @@ export function createOpenSource(body: {
 /** Omitted fields are kept; null description/thumbnail removes them. */
 export function updateOpenSource(
   id: number,
-  patch: { title?: string; description?: string | null; thumbnailMediaFileId?: number | null },
+  patch: { title?: string; description?: string | null; thumbnailMediaFileId?: number | null; instrument?: string | null },
 ): Promise<OpenSourcePublication> {
   return data(`/api/v1/sources/${id}`, { method: "PATCH", body: JSON.stringify(patch) });
 }

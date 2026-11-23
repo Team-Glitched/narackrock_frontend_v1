@@ -18,7 +18,13 @@ export function Participants({ participants }: { participants: NativeAbyssPartic
         <View style={styles.list}>
           {participants.people.length ? (
             participants.people.map((person) => (
-              <Row key={person.userId} name={person.nickname} detail={person.role} avatar={null} />
+              <Row
+                key={person.userId}
+                name={person.nickname}
+                detail={person.role}
+                avatar={null}
+                onProfile={() => act({ type: "abyss-profile", userId: person.userId })}
+              />
             ))
           ) : (
             <Text style={styles.empty}>아직 참여자가 없습니다.</Text>
@@ -58,6 +64,7 @@ export function Participants({ participants }: { participants: NativeAbyssPartic
             name={owner.nickname}
             detail={owner.detail}
             avatar={uri(owner.profileImageUrl)}
+            onProfile={() => act({ type: "abyss-profile", userId: owner.userId })}
           >
             <Touchable
               accessibilityRole="checkbox"
@@ -96,18 +103,28 @@ function Row({
   name,
   detail,
   avatar,
+  onProfile,
   children,
 }: {
   name: string;
   detail: string;
   avatar: string | null;
+  onProfile: () => void;
   children?: React.ReactNode;
 }) {
   return (
     <View style={styles.row}>
-      <Avatar uri={avatar} size={32} />
+      <Touchable
+        accessibilityRole="link"
+        accessibilityLabel={`${name} 프로필 보기`}
+        onPress={onProfile}
+      >
+        <Avatar uri={avatar} size={32} />
+      </Touchable>
       <View style={styles.rowText}>
-        <Text style={styles.name}>{name}</Text>
+        <Touchable accessibilityRole="link" onPress={onProfile}>
+          <Text style={styles.name}>{name}</Text>
+        </Touchable>
         <Text style={styles.detail}>{detail}</Text>
       </View>
       {children}

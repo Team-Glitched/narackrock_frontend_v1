@@ -18,6 +18,8 @@ const matches = (file: File | null | undefined, identity: FileIdentity | null) =
     file.lastModified === identity.lastModified,
   );
 export type CreationDraft = {
+  sourceInstrument?: string | null;
+  pianoInstrument?: string | null;
   sourceVisibility?: "PRIVATE" | "PUBLIC";
   /** Framing of `image` for the circular open-source thumbnail; the original image is what is stored. */
   imageCrop?: ThumbnailCrop;
@@ -104,6 +106,8 @@ export function rememberCreationDraft(key: string, draft: CreationDraft): Promis
       localStorage.setItem(
         storageKey(key),
         JSON.stringify({
+          sourceInstrument: draft.sourceInstrument,
+          pianoInstrument: draft.pianoInstrument,
           sourceVisibility: draft.sourceVisibility,
           imageCrop: draft.imageCrop,
           imageRestoreFailed: draft.imageRestoreFailed || undefined,

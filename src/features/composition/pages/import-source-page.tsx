@@ -43,7 +43,7 @@ export default function ImportSourcePage() {
   return (
     <DesignViewport>
       <div className={sharedStyles.phoneFrame}>
-        <Header onSearch={search} onBack={() => back(returnPath)} />
+        <Header minimal onSearch={search} onBack={() => back(returnPath)} />
         <div className={sharedStyles.screenBody}>
           {route.projectId === null ? (
             <PageState error>올바르지 않은 페이지 주소입니다.</PageState>
