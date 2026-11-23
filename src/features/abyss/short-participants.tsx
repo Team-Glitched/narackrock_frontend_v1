@@ -87,11 +87,13 @@ export function ShortParticipants({
   playback,
   onClose,
   onListenAll,
+  onProfile,
 }: {
   short: ShortItemDto;
   playback: ShortPlayback;
   onClose: () => void;
   onListenAll: () => void;
+  onProfile: (userId: number) => void;
 }) {
   const { requestLogin } = useLoginPrompt();
   const { userId, composers, composersError, owners, selectable, stemsText, empty, toggle } =
@@ -103,9 +105,22 @@ export function ShortParticipants({
         {short.participants.length ? (
           short.participants.map((person) => (
             <li key={person.userId}>
-              <Avatar />
+              <button
+                type="button"
+                className="shrink-0 rounded-full"
+                aria-label={`${person.nickname} 프로필 보기`}
+                onClick={() => onProfile(person.userId)}
+              >
+                <Avatar />
+              </button>
               <span>
-                <strong>{person.nickname}</strong>
+                <button
+                  type="button"
+                  className="text-left"
+                  onClick={() => onProfile(person.userId)}
+                >
+                  <strong>{person.nickname}</strong>
+                </button>
                 <small>{participantRole(short, person.userId)}</small>
               </span>
             </li>
@@ -157,9 +172,18 @@ export function ShortParticipants({
       <ul className={sharedStyles.participantList}>
         {owners.map((owner) => (
           <li key={owner.userId}>
-            <Avatar src={owner.profileImageUrl} />
+            <button
+              type="button"
+              className="shrink-0 rounded-full"
+              aria-label={`${owner.nickname} 프로필 보기`}
+              onClick={() => onProfile(owner.userId)}
+            >
+              <Avatar src={owner.profileImageUrl} />
+            </button>
             <span>
-              <strong>{owner.nickname}</strong>
+              <button type="button" className="text-left" onClick={() => onProfile(owner.userId)}>
+                <strong>{owner.nickname}</strong>
+              </button>
               <small>{owner.detail}</small>
             </span>
             <input

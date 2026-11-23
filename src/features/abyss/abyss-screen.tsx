@@ -211,6 +211,9 @@ export function useAbyss({
 
   const current: ShortItemDto | undefined = shorts[index];
   const openProfile = (userId: number) => {
+    // Profiles need sign-in: prompt before remembering the short, whose URL replacement would
+    // otherwise clear the router's login blocker and drop this tap.
+    if (!requireLogin(`/users/${userId}`)) return;
     if (current) onRememberShort?.(current.shortId);
     onProfile(userId);
   };
@@ -781,6 +784,7 @@ function AbyssView({ abyss }: { abyss: AbyssState }) {
               playback={playback}
               onClose={abyss.closeParticipants}
               onListenAll={abyss.listenAll}
+              onProfile={abyss.openProfile}
             />
           </FigmaSheet>
         )}

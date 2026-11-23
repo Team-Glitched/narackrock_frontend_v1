@@ -6,6 +6,7 @@ import {
   type InfiniteData,
 } from "@tanstack/react-query";
 import { CanvasDialog } from "@/components/canvas-dialog";
+import { FilePicker } from "@/components/file-picker";
 import { SignInRequired } from "@/features/auth/sign-in-required";
 import { useCurrentUserId } from "@/features/auth/use-current-user";
 import { validatePostImage } from "@/features/community/post-image";
@@ -457,19 +458,15 @@ function PublicationListManager({ onOpen }: { onOpen: (id: number) => void }) {
                   새 이미지로 변경
                 </span>
               </label>
-              <label>
-                새 썸네일 이미지 (JPG, PNG, WEBP, GIF · 최대 100MB)
-                <input
-                  type="file"
+              <div className="flex min-w-0 flex-col gap-2">
+                <span>새 썸네일 이미지 (JPG, PNG, WEBP, GIF · 최대 100MB)</span>
+                <FilePicker
                   accept="image/jpeg,image/png,image/webp,image/gif"
-                  className="w-full min-w-0 text-body"
-                  onChange={(event) => {
-                    const file = event.target.files?.[0];
-                    event.target.value = "";
-                    if (file) pickThumbnail(file);
-                  }}
+                  label="새 썸네일 이미지 파일 선택"
+                  disabled={busy !== null}
+                  onSelect={pickThumbnail}
                 />
-              </label>
+              </div>
               {editor.file && <p>선택한 이미지: {editor.file.name}</p>}
               <label>
                 <span>
