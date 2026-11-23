@@ -16,6 +16,7 @@ import {
   recordOpenSourceView,
   type OpenSourcePlayback,
 } from "@/lib/api/open-sources";
+import { nativeApp } from "@/lib/native-app";
 import { sourceKeys } from "./source-queries";
 
 function playbackError(cause: unknown) {
@@ -65,6 +66,26 @@ export function useSourcePlayback(
       player?.pause();
     };
   }, [canPreview]);
+
+  // The browser follows the media clock every frame; the app's hidden page keeps the time updates (the
+  // native screen interpolates between them).
+  useEffect(() => {
+    if (!playing || nativeApp()) return;
+    let rafId = 0;
+    const tick = () => {
+      const player = audio.current;
+      if (!player || player.paused || player.ended) return;
+      const next = player.currentTime;
+      setPosition((prev) => (prev === next ? prev : next));
+      if (Number.isFinite(player.duration) && player.duration > 0) {
+        const nextDuration = player.duration;
+        setDuration((prev) => (prev === nextDuration ? prev : nextDuration));
+      }
+      rafId = window.requestAnimationFrame(tick);
+    };
+    rafId = window.requestAnimationFrame(tick);
+    return () => window.cancelAnimationFrame(rafId);
+  }, [playing]);
 
   async function toggle() {
     const player = audio.current;
@@ -131,11 +152,22 @@ export function useSourcePlayback(
         if (Number.isFinite(event.currentTarget.duration))
           setDuration(event.currentTarget.duration);
       },
+      onDurationChange: (event: SyntheticEvent<HTMLAudioElement>) => {
+        if (Number.isFinite(event.currentTarget.duration))
+          setDuration(event.currentTarget.duration);
+      },
       onTimeUpdate: (event: SyntheticEvent<HTMLAudioElement>) =>
         setPosition(event.currentTarget.currentTime),
-      onPlay: () => setPlaying(true),
+      onPlay: (event: SyntheticEvent<HTMLAudioElement>) => {
+        setPosition(event.currentTarget.currentTime);
+        setPlaying(true);
+      },
       onPause: () => setPlaying(false),
-      onEnded: () => setPlaying(false),
+      onEnded: (event: SyntheticEvent<HTMLAudioElement>) => {
+        const element = event.currentTarget;
+        setPosition(Number.isFinite(element.duration) ? element.duration : element.currentTime);
+        setPlaying(false);
+      },
       onError: () => {
         setPlaying(false);
         const current = playback.current;

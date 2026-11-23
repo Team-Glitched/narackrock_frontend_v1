@@ -24,6 +24,7 @@ import { Asset } from "@/components/asset";
 import { PostActions } from "@/features/posts/post-actions";
 import { canonicalShareLink } from "@/lib/api/content-link";
 import { publicWebOrigin } from "@/lib/public-web-origin";
+import { keyboardSeekMs } from "@/lib/playback-progress";
 import { initialShortIndex } from "@/features/abyss/initial-short";
 import { useShareLink } from "@/hooks/use-share-link";
 import { ApiError } from "@/lib/api/client";
@@ -691,12 +692,18 @@ function AbyssView({ abyss }: { abyss: AbyssState }) {
             type="range"
             min={0}
             max={playback.totalMs / 1000 || 1}
-            step="0.1"
+            step="any"
             value={Math.min(playback.positionMs / 1000, playback.totalMs / 1000 || 1)}
             style={{
               background: `linear-gradient(to right, #f2f4f6 ${progress}%, #303030 ${progress}%)`,
             }}
             onChange={(event) => playback.seek(Number(event.target.value) * 1000)}
+            onKeyDown={(event) => {
+              const next = keyboardSeekMs(event.key, playback.positionMs, playback.totalMs);
+              if (next === null || playback.totalMs === 0) return;
+              event.preventDefault();
+              playback.seek(next);
+            }}
             aria-label="재생 위치"
             disabled={playback.totalMs === 0}
           />

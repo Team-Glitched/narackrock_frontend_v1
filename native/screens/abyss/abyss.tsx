@@ -37,6 +37,7 @@ import { Comments } from "../../ui/comments";
 import { AppHeader } from "../../ui/header";
 import { Touchable } from "../../ui/kit";
 import { useScreen } from "../../ui/screen-context";
+import { useSmoothPlaybackMs } from "../../ui/smooth-playback";
 import { colors, fontFamily } from "../../ui/theme";
 import type { ScreenProps } from "../types";
 import { Participants } from "./participants";
@@ -211,6 +212,7 @@ function Short({ model, px }: { model: NativeAbyssReady; px: Px }) {
         <View style={[styles.player, { gap: px(20) }]}>
           <Progress
             px={px}
+            progressing={playback.progressing}
             positionMs={playback.positionMs}
             totalMs={playback.totalMs}
             onSeek={(ms) => act({ type: "abyss-seek", ms })}
@@ -615,11 +617,13 @@ function Icon({ px, icon: Glyph }: { px: Px; icon: FC<SvgProps> }) {
 /** The web's range input: a 5px bar filled to the position and a 13px thumb. */
 function Progress({
   px,
+  progressing,
   positionMs,
   totalMs,
   onSeek,
 }: {
   px: Px;
+  progressing: boolean;
   positionMs: number;
   totalMs: number;
   onSeek: (ms: number) => void;
@@ -628,6 +632,11 @@ function Progress({
   const [dragging, setDragging] = useState<number | null>(null);
   const latest = useRef({ width, totalMs, onSeek });
   latest.current = { width, totalMs, onSeek };
+  const smoothMs = useSmoothPlaybackMs(
+    positionMs,
+    totalMs > 0 ? totalMs : null,
+    progressing && dragging === null,
+  );
   const fractionAt = (x: number) => Math.min(1, Math.max(0, x / (latest.current.width || 1)));
   const gesture = useMemo(
     () =>
@@ -646,7 +655,7 @@ function Progress({
       }),
     [],
   );
-  const fraction = dragging ?? (totalMs > 0 ? Math.min(1, positionMs / totalMs) : 0);
+  const fraction = dragging ?? (totalMs > 0 ? Math.min(1, smoothMs / totalMs) : 0);
   const thumb = px(13);
   const touch = px(12);
   return (

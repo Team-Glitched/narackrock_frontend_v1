@@ -35,8 +35,8 @@ export type NativeSourceCard = {
   player: NativePlayback | null;
 };
 
-/** A swipeable rail of the 탐색 tab ("인기 샘플", "추천 샘플"). */
-export type NativeSourceRail = {
+/** A vertical discovery section of the 탐색 tab ("인기 샘플", "추천 샘플"). */
+export type NativeSourceSection = {
   title: string;
   /** Null while loading ("샘플을 불러오는 중...") or failed (`error` with "다시 시도"). */
   items: NativeSourceCard[] | null;
@@ -48,17 +48,21 @@ export type NativeSourceFeed =
   | { state: "signed-out" }
   | {
       state: "ready";
-      popular: NativeSourceRail;
-      recommended: NativeSourceRail;
+      popular: NativeSourceSection;
+      recommended: NativeSourceSection;
       /** "전체 샘플". */
       all: {
         loading: boolean;
+        /** A failure with no cards shown ("다시 시도" resets the list). */
         error: string | null;
         /** "아직 공개된 샘플이 없습니다." */
         empty: boolean;
         items: NativeSourceCard[];
-        /** The "더보기" button. */
-        more: { busy: boolean } | null;
+        /**
+         * The rail's end tile: "더보기", or `error` with "다시 시도" when a load failed after cards were
+         * shown (the cards stay). Both dispatch `more`.
+         */
+        more: { busy: boolean; error: string | null } | null;
       };
     };
 
@@ -135,7 +139,7 @@ export type NativeSourcesAction =
   | { type: "sources-create" }
   | { type: "sources-open"; openSourceId: number; comments?: boolean }
   | { type: "sources-profile"; userId: number }
-  | { type: "sources-rail-retry"; rail: "popular" | "recommended" }
+  | { type: "sources-section-retry"; section: "popular" | "recommended" }
   | { type: "sources-save"; key: string }
   | { type: "sources-play"; key: string }
   | { type: "sources-seek"; key: string; ms: number }

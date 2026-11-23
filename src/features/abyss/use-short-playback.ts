@@ -5,6 +5,7 @@ import { useCompositionPlayback, type PlaybackComposition } from "@/features/com
 import { ApiError, apiOrigin } from "@/lib/api/client";
 import type { ShortItemDto } from "@/lib/api/contracts";
 import { toggleShortPlayback, type ShortParticipantTracks } from "@/lib/api/shorts";
+import { nativeApp } from "@/lib/native-app";
 import { shortParticipantTracksQuery } from "./abyss-queries";
 import {
   listenerDurationMs,
@@ -37,7 +38,10 @@ export type ShortPlayback = {
   listenAll: () => void;
   stems: StemsState;
   retryStems: () => void;
+  /** Play intent; an owner-subset start may still wait for its stems. */
   playing: boolean;
+  /** The position actually moves: the audio plays (not a subset start still loading). */
+  progressing: boolean;
   canPlay: boolean;
   positionMs: number;
   totalMs: number;
@@ -47,6 +51,7 @@ export type ShortPlayback = {
   error: string | null;
   nativeHandlers: {
     onLoadedMetadata: (event: NativeEvent) => void;
+    onDurationChange: (event: NativeEvent) => void;
     onTimeUpdate: (event: NativeEvent) => void;
     onPlay: (event: NativeEvent) => void;
     onPause: () => void;
@@ -148,6 +153,30 @@ export function useShortPlayback({
     if (!mediaUrl) return;
     void audioRef.current?.play().catch(() => {});
   }, [audioRef, key, mediaUrl]);
+
+  // The browser follows the media clock every frame; the app's hidden page keeps the time updates (the
+  // native screen interpolates between them).
+  useEffect(() => {
+    if (selection !== null || !native.playing || nativeApp()) return;
+    let rafId = 0;
+    const tick = () => {
+      const audio = audioRef.current;
+      if (!audio || audio.paused || audio.ended) return;
+      const timeMs = audio.currentTime * 1000;
+      const duration = audio.duration;
+      setNativeState((state) => {
+        const base =
+          state.key === key ? state : { key, playing: true, timeMs: 0, durationMs: 0 };
+        const durationMs =
+          Number.isFinite(duration) && duration > 0 ? duration * 1000 : base.durationMs;
+        if (base.timeMs === timeMs && base.durationMs === durationMs) return state;
+        return { ...base, timeMs, durationMs };
+      });
+      rafId = window.requestAnimationFrame(tick);
+    };
+    rafId = window.requestAnimationFrame(tick);
+    return () => window.cancelAnimationFrame(rafId);
+  }, [audioRef, key, native.playing, selection]);
 
   // A requested subset start waits for its stems and the filtered composition.
   useEffect(() => {
@@ -284,12 +313,16 @@ export function useShortPlayback({
     }
   }
 
+  const updateNative = (patch: Partial<NativeState>) =>
+    setNativeState((state) => ({ ...(state.key === key ? state : emptyNative), ...patch }));
+
   // The native `ended` and the engine's `onEnded` both land here; a short repeats until the listener moves on.
   function handleEnded() {
     if (selection === null) {
       const audio = audioRef.current;
       if (!audio) return;
       audio.currentTime = 0;
+      updateNative({ timeMs: 0 });
       void audio.play().catch(() => {});
       return;
     }
@@ -303,9 +336,6 @@ export function useShortPlayback({
   useLayoutEffect(() => {
     handleEndedRef.current = handleEnded;
   });
-
-  const updateNative = (patch: Partial<NativeState>) =>
-    setNativeState((state) => ({ ...(state.key === key ? state : emptyNative), ...patch }));
 
   let error: string | null = message;
   if (selection !== null) error = stems.status === "error" ? stems.error : engine.error ?? message;
@@ -328,6 +358,7 @@ export function useShortPlayback({
     stems,
     retryStems: ensureStems,
     playing: selection === null ? native.playing : intent && !failed,
+    progressing: selection === null ? native.playing : engine.playing && !failed,
     canPlay: selection === null ? Boolean(mediaUrl)
       : selection.size > 0 && !failed && (composition !== null || stems.status !== "ready"),
     positionMs: selection === null ? native.timeMs : engine.positionMs,
@@ -341,11 +372,15 @@ export function useShortPlayback({
         const duration = event.currentTarget.duration;
         updateNative({ durationMs: Number.isFinite(duration) ? duration * 1000 : 0 });
       },
+      onDurationChange: (event) => {
+        const duration = event.currentTarget.duration;
+        if (Number.isFinite(duration) && duration > 0) updateNative({ durationMs: duration * 1000 });
+      },
       onTimeUpdate: (event) => updateNative({ timeMs: event.currentTarget.currentTime * 1000 }),
       onPlay: (event) => {
         // Media keys or a late autoplay must not start the original under an owner subset.
         if (selection !== null) event.currentTarget.pause();
-        else updateNative({ playing: true });
+        else updateNative({ playing: true, timeMs: event.currentTarget.currentTime * 1000 });
       },
       onPause: () => updateNative({ playing: false }),
       onEnded: () => {
