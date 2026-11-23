@@ -167,6 +167,12 @@ function Studio({ model }: { model: NativeStudio }) {
               ? () => act({ type: "studio-change-instrument" })
               : undefined
           }
+          emptyMidi={model.trackSettings.emptyMidi.map(({ clipId, label }) => ({
+            clipId,
+            label,
+            open: () =>
+              act({ type: "studio-clip", trackId: model.trackSettings!.trackId, clipId, edit: true }),
+          }))}
         />
       )}
       <InstrumentSheet picker={model.instrument} />
@@ -318,26 +324,6 @@ function TrackPerson({ track }: { track: NativeStudioTrack }) {
           <SoundIcon width={22} height={18.6} />
         )}
       </Touchable>
-      {/* Note-free MIDI has no timeline range; its editor opens from the header, off the clip lane. */}
-      {track.clips.some((clip) => clip.emptyMidi) && (
-        <View style={styles.emptyMidi}>
-          {track.clips
-            .filter((clip) => clip.emptyMidi)
-            .map((clip) => (
-              <Touchable
-                key={clip.clipId}
-                accessibilityRole="button"
-                accessibilityLabel={`${track.name} 빈 MIDI 편집`}
-                style={styles.emptyMidiButton}
-                onPress={() =>
-                  act({ type: "studio-clip", trackId: track.trackId, clipId: clip.clipId, edit: true })
-                }
-              >
-                <Text style={styles.emptyMidiText}>+ 노트</Text>
-              </Touchable>
-            ))}
-        </View>
-      )}
       {track.highlighted && (
         <>
           <View pointerEvents="none" style={styles.highlight} />
@@ -900,16 +886,6 @@ const styles = StyleSheet.create({
     fontSize: 9,
     lineHeight: 12,
   },
-  emptyMidi: { position: "absolute", left: 4, bottom: 0, zIndex: 3, flexDirection: "row", gap: 2 },
-  emptyMidiButton: {
-    borderRadius: 4,
-    borderWidth: 1,
-    borderStyle: "dashed",
-    borderColor: colors["primary-soft"],
-    paddingHorizontal: 4,
-    backgroundColor: colors.bg,
-  },
-  emptyMidiText: { color: colors["primary-soft"], fontSize: 9, lineHeight: 12 },
   ruler: {
     height: rulerHeight,
     backgroundColor: colors.panel,

@@ -44,7 +44,7 @@ import { signatureGrid, musicalGridBackground } from "@/features/composition/tim
 import { MusicalRuler } from "@/features/composition/musical-ruler";
 import { TimelineClip } from "@/features/composition/timeline-clip";
 import { canMoveClip, overlapsClip } from "@/features/composition/timeline-move";
-import { isEmptyMidi } from "@/features/composition/midi-content";
+import { emptyMidiChoices, isEmptyMidi } from "@/features/composition/midi-content";
 import type { ProjectTiming } from "@/features/composition/project-timing";
 import {
   createAudioClip,
@@ -1055,6 +1055,13 @@ export function StudioScreen({ studio, portrait = true }: { studio: Studio; port
               ? () => studio.changeInstrument(trackSettings.track.trackId)
               : undefined
           }
+          emptyMidi={emptyMidiChoices(trackSettings.track.clips, project.ppq, playback.signature).map(
+            ({ clipId, label }) => ({
+              clipId,
+              label,
+              open: () => onEditTrack(trackSettings.track.trackId, clipId > 0 ? clipId : null),
+            }),
+          )}
         />
       )}
       {studio.instrumentChoice && (
@@ -1182,22 +1189,6 @@ export function StudioScreen({ studio, portrait = true }: { studio: Studio; port
                     }
                   />
                 </button>
-                {/* Note-free MIDI has no timeline range; its editor opens from the header, off the clip lane. */}
-                {track.clips.some(isEmptyMidi) && (
-                  <span className="absolute bottom-0 left-1 z-[3] flex gap-0.5">
-                    {track.clips.filter(isEmptyMidi).map((clip) => (
-                      <button
-                        key={clip.clipId}
-                        type="button"
-                        className="rounded border border-dashed border-app-primary-soft bg-app-bg px-1 text-[9px] leading-3 text-app-primary-soft"
-                        aria-label={`${track.name} 빈 MIDI 편집`}
-                        onClick={() => onEditTrack(track.trackId, clip.clipId > 0 ? clip.clipId : null)}
-                      >
-                        + 노트
-                      </button>
-                    ))}
-                  </span>
-                )}
               </div>
               <div
                 className={studioStyles.studioTrackClips}

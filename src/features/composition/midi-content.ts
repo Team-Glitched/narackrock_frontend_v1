@@ -1,10 +1,29 @@
 import type { ClipDto } from "../../lib/api/composition.ts";
+import type { TimeSignature } from "./time-signature.ts";
 
-type Timing = { bpm: number; ppq: number; maxTick: number };
+type MidiShape = { clipType?: ClipDto["clipType"]; midiNotes?: readonly unknown[] };
 
 /** Note-free MIDI is kept for editing but is neither drawn on nor occupies the timeline. */
-export function isEmptyMidi(clip: Partial<Pick<ClipDto, "clipType" | "midiNotes">>) {
+export function isEmptyMidi(clip: MidiShape) {
   return clip.clipType === "MIDI" && clip.midiNotes?.length === 0;
+}
+
+/**
+ * Track-settings entries reopening a track's note-free MIDI; with several, each names its start
+ * position ("n마디 m박") so they stay distinguishable.
+ */
+export function emptyMidiChoices(
+  clips: readonly (MidiShape & Pick<ClipDto, "clipId" | "startTick">)[],
+  ppq: number,
+  signature: TimeSignature,
+) {
+  const empty = clips.filter(isEmptyMidi);
+  const beatTick = (ppq * 4) / signature.denominator;
+  return empty.map(({ clipId, startTick }) => {
+    const beats = Math.floor(startTick / beatTick);
+    const position = `${Math.floor(beats / signature.numerator) + 1}마디 ${(beats % signature.numerator) + 1}박`;
+    return { clipId, label: empty.length === 1 ? "빈 MIDI 이어서 편집" : `${position} 빈 MIDI 편집` };
+  });
 }
 
 /**
@@ -22,10 +41,12 @@ export function emptyMidiRange(startTick: number, ppq: number, maxTick: number) 
 export function midiContent<T extends { startTick: number; durationTick: number }>(
   startTick: number,
   midiNotes: T[],
-  { bpm, ppq, maxTick }: Timing,
+  { ppq, maxTick }: { ppq: number; maxTick: number },
 ) {
   if (!midiNotes.length) return { ...emptyMidiRange(startTick, ppq, maxTick), midiNotes };
-  const end = midiNotes.reduce((last, note) => Math.max(last, note.startTick + note.durationTick), 0);
-  // The backend floors tick→ms; a span under one millisecond would render as an empty clip.
-  return { startTick, durationTick: Math.max(end, Math.ceil((bpm * ppq) / 60000)), midiNotes };
+  const durationTick = midiNotes.reduce(
+    (end, note) => Math.max(end, note.startTick + note.durationTick),
+    0,
+  );
+  return { startTick, durationTick, midiNotes };
 }

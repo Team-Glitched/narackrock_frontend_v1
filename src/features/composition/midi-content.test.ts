@@ -1,8 +1,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { emptyMidiRange, isEmptyMidi, midiContent } from "./midi-content.ts";
+import { emptyMidiChoices, emptyMidiRange, isEmptyMidi, midiContent } from "./midi-content.ts";
 
-const timing = { bpm: 120, ppq: 480, maxTick: Infinity };
+const timing = { ppq: 480, maxTick: Infinity };
 
 test("deleting the last notes shrinks the content and clearing preserves its position for undo", () => {
   assert.deepEqual(midiContent(960, [], timing), { startTick: 960, durationTick: 120, midiNotes: [] });
@@ -32,18 +32,43 @@ test("an old empty range outside the current BPM remains editable", () => {
   assert.equal(midiContent(40_000, [{ startTick: 0, durationTick: 480 }], limited).startTick, 40_000);
 });
 
-test("a tiny clip spans at least one whole millisecond after the backend floors it", () => {
-  const fast = { bpm: 150, ppq: 480, maxTick: 28_800 };
-  const { durationTick } = midiContent(0, [{ startTick: 0, durationTick: 1 }], fast);
-  assert.equal(durationTick, 2);
-  assert.equal(Math.floor((durationTick * 60_000) / (fast.bpm * fast.ppq)), 1);
-  // Longer notes are not padded.
-  assert.equal(midiContent(0, [{ startTick: 0, durationTick: 3 }], fast).durationTick, 3);
-  assert.equal(midiContent(0, [{ startTick: 0, durationTick: 1 }], { ...fast, bpm: 60 }).durationTick, 1);
+test("a one-tick note at the limit keeps its exact end so import and undo still fit", () => {
+  const limited = { ...timing, maxTick: 28_800 };
+  const note = [{ startTick: 0, durationTick: 1 }];
+  assert.deepEqual(midiContent(28_799, note, limited), {
+    startTick: 28_799,
+    durationTick: 1,
+    midiNotes: note,
+  });
 });
 
 test("only note-free MIDI counts as empty", () => {
   assert.equal(isEmptyMidi({ clipType: "MIDI", midiNotes: [] }), true);
   assert.equal(isEmptyMidi({ clipType: "AUDIO", midiNotes: [] }), false);
   assert.equal(isEmptyMidi({ clipType: "MIDI" }), false);
+});
+
+test("track settings reopen one empty clip directly and name several by position", () => {
+  const clip = (clipId: number, startTick: number, notes = 0) => ({
+    clipId,
+    clipType: "MIDI" as const,
+    startTick,
+    midiNotes: Array.from({ length: notes }, () => ({ startTick: 0, durationTick: 1 })),
+  });
+  const four = { numerator: 4, denominator: 4 };
+  assert.deepEqual(emptyMidiChoices([clip(1, 0, 2), clip(2, 4_320)], 480, four), [
+    { clipId: 2, label: "빈 MIDI 이어서 편집" },
+  ]);
+  assert.deepEqual(
+    emptyMidiChoices([clip(2, 4_320), clip(3, 0), { ...clip(4, 0), clipType: "AUDIO" as const }], 480, four),
+    [
+      { clipId: 2, label: "3마디 2박 빈 MIDI 편집" },
+      { clipId: 3, label: "1마디 1박 빈 MIDI 편집" },
+    ],
+  );
+  // 6/8: a beat is an eighth (240 ticks), six per bar.
+  assert.deepEqual(emptyMidiChoices([clip(5, 1_680), clip(6, 0)], 480, { numerator: 6, denominator: 8 })[0], {
+    clipId: 5,
+    label: "2마디 2박 빈 MIDI 편집",
+  });
 });

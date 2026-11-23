@@ -13,7 +13,7 @@ import { isNativeAudioTrimAction } from "@/lib/native-screens/creation";
 import { useNativeAudioTrim } from "./native-audio-trim";
 import { useNativeInstrumentPicker } from "./instrument-dialog";
 import { partLabel } from "./instrument-parts";
-import { isEmptyMidi } from "./midi-content";
+import { emptyMidiChoices, isEmptyMidi } from "./midi-content";
 import { midiPreviewHeight, midiPreviewNotes } from "./midi-preview-notes";
 import { useNativeSourcePicker } from "./studio-source-dialog";
 import { errorText } from "./studio-helpers";
@@ -225,6 +225,7 @@ export function NativeStudioBridge({ studio }: { studio: Studio }) {
               : "오디오",
             volume: studio.trackSettings.volume,
             canChangeInstrument: studio.trackSettings.roleEditable,
+            emptyMidi: emptyMidiChoices(studio.trackSettings.track.clips, project.ppq, signature),
           },
           instrument: instrument.model,
           timing: timing.model,
