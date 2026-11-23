@@ -26,10 +26,12 @@ export function snappedClipStart(
 export function overlapsClip(
   clip: Pick<ClipDto, "clipId" | "durationTick">,
   startTick: number,
-  siblings: readonly Pick<ClipDto, "clipId" | "startTick" | "durationTick">[],
+  siblings: readonly (Pick<ClipDto, "clipId" | "startTick" | "durationTick"> &
+    Partial<Pick<ClipDto, "clipType" | "midiNotes">>)[],
 ) {
   return siblings.some(
     (other) =>
+      !(other.clipType === "MIDI" && other.midiNotes?.length === 0) &&
       other.clipId !== clip.clipId &&
       startTick < other.startTick + other.durationTick &&
       startTick + clip.durationTick > other.startTick,
