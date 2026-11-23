@@ -6,7 +6,9 @@ import { cn } from "@/lib/utils";
 import {
   useCallback,
   useMemo,
+  useRef,
   useState,
+  type PointerEvent,
   type ReactNode,
 } from "react";
 import {
@@ -54,6 +56,7 @@ import {
   openSourceQuery,
   patchSource,
   popularOpenSourcesQuery,
+  sourceDiscoverySize,
   sourceKeys,
   useSourceSaveMutation,
 } from "./source-queries";
@@ -212,8 +215,6 @@ export function useOpenSourceList(keyword: string, enabled: boolean) {
   };
 }
 
-const sourceDiscoverySectionLimit = 3;
-
 function recommendSources(items: OpenSourceSummary[], viewerId: number | null) {
   const others = items.filter((item) => item.writer.userId !== viewerId);
   const authors = new Set<number>();
@@ -228,7 +229,7 @@ function recommendSources(items: OpenSourceSummary[], viewerId: number | null) {
       first.push(item);
     }
   }
-  return [...first, ...rest].slice(0, sourceDiscoverySectionLimit);
+  return [...first, ...rest].slice(0, sourceDiscoverySize);
 }
 
 /**
@@ -238,9 +239,19 @@ function recommendSources(items: OpenSourceSummary[], viewerId: number | null) {
 export function useOpensourceFeed() {
   const list = useOpenSourceList("", true);
   const popular = useQuery({ ...popularOpenSourcesQuery(list.userId), enabled: list.signedIn });
-  const popularItems = popular.data?.items.slice(0, sourceDiscoverySectionLimit);
+  const popularItems = popular.data?.items;
   const recommended = list.firstPage && recommendSources(list.firstPage, list.userId);
   return { list, popular, popularItems, recommended };
+}
+
+function discoveryCardStep(track: HTMLDivElement) {
+  const first = track.children[0];
+  const second = track.children[1];
+  if (first instanceof HTMLElement && second instanceof HTMLElement) {
+    const delta = second.offsetLeft - first.offsetLeft;
+    if (delta > 0) return delta;
+  }
+  return track.clientWidth;
 }
 
 function SourceDiscoverySection({
@@ -258,6 +269,76 @@ function SourceDiscoverySection({
   onOpen: (id: number, comments?: boolean) => void;
   onProfile: (id: number) => void;
 }) {
+  const rail = useRef<HTMLDivElement>(null);
+  const drag = useRef<{
+    pointerId: number;
+    x: number;
+    left: number;
+    scale: number;
+    startTime: number;
+    active: boolean;
+  } | null>(null);
+  const suppressClick = useRef(false);
+  const count = items?.length ?? 0;
+
+  function startDrag(event: PointerEvent<HTMLDivElement>) {
+    suppressClick.current = false;
+    if (count < 2 || event.pointerType !== "mouse" || event.button !== 0) return;
+    if (event.target instanceof Element && event.target.closest("input")) return;
+    const track = event.currentTarget;
+    drag.current = {
+      pointerId: event.pointerId,
+      x: event.clientX,
+      left: track.scrollLeft,
+      scale: track.getBoundingClientRect().width / track.clientWidth || 1,
+      startTime: performance.now(),
+      active: false,
+    };
+  }
+
+  function updateDrag(event: PointerEvent<HTMLDivElement>) {
+    const start = drag.current;
+    if (!start || start.pointerId !== event.pointerId) return;
+    const distance = (start.x - event.clientX) / start.scale;
+    const track = event.currentTarget;
+    if (!start.active) {
+      if (Math.abs(distance) < 6) return;
+      start.active = true;
+      suppressClick.current = true;
+      track.setPointerCapture(event.pointerId);
+      track.dataset.dragging = "true";
+    }
+    track.scrollTo({ left: start.left + distance, behavior: "instant" });
+  }
+
+  function finishDrag(event: PointerEvent<HTMLDivElement>) {
+    const start = drag.current;
+    if (!start || start.pointerId !== event.pointerId) return;
+    drag.current = null;
+    if (!start.active) return;
+    const track = event.currentTarget;
+    const step = discoveryCardStep(track);
+    const initial = Math.round(start.left / step);
+    const distance = (start.x - event.clientX) / start.scale;
+    const elapsed = Math.max(1, performance.now() - start.startTime);
+    const velocity = Math.abs(distance) / elapsed;
+    let target: number;
+    if (
+      event.type === "pointerup" &&
+      ((velocity >= 0.35 && Math.abs(distance) >= 18) || Math.abs(distance) >= 36)
+    ) {
+      target = initial + Math.sign(distance);
+    } else {
+      target = Math.round(track.scrollLeft / step);
+    }
+    const next = Math.max(
+      Math.max(0, initial - 1),
+      Math.min(Math.min(count - 1, initial + 1), target),
+    );
+    delete track.dataset.dragging;
+    track.scrollTo({ left: next * step, behavior: "smooth" });
+  }
+
   return (
     <section aria-label={title}>
       <SectionTitle className="mb-0! px-0">{title}</SectionTitle>
@@ -284,7 +365,26 @@ function SourceDiscoverySection({
         <p className={sourceStyles.osDiscoveryEmpty}>표시할 샘플이 없습니다.</p>
       )}
       {!!items?.length && (
-        <div className={sourceStyles.osDiscoveryList}>
+        <div
+          ref={rail}
+          className={sourceStyles.osDiscoveryRail}
+          data-paged={count > 1}
+          onPointerDown={startDrag}
+          onPointerMove={updateDrag}
+          onPointerUp={finishDrag}
+          onPointerCancel={finishDrag}
+          onLostPointerCapture={finishDrag}
+          onPointerLeave={(event) => {
+            if (drag.current?.pointerId === event.pointerId && !drag.current.active)
+              drag.current = null;
+          }}
+          onClickCapture={(event) => {
+            if (!suppressClick.current || event.detail === 0) return;
+            suppressClick.current = false;
+            event.preventDefault();
+            event.stopPropagation();
+          }}
+        >
           {items.map((source) => (
             <OpenSourceCard
               key={source.openSourceId}

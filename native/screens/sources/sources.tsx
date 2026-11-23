@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Text, TextInput, View } from "react-native";
+import { ScrollView, Text, TextInput, View, useWindowDimensions } from "react-native";
 import type {
   NativeSourceCard,
   NativeSourcePublications,
@@ -12,7 +12,7 @@ import { AppHeader } from "../../ui/header";
 import { Button, ErrorRetry, Status, Tabs, Touchable } from "../../ui/kit";
 import { ScreenScroll } from "../../ui/screen";
 import { useScreen } from "../../ui/screen-context";
-import { type } from "../../ui/theme";
+import { gutter, type } from "../../ui/theme";
 import type { ScreenProps } from "../types";
 import { SavedSources } from "../workspace/library";
 import { Card, Notice, Page, Pill } from "../workspace/parts";
@@ -85,6 +85,9 @@ function SourceSection({
   kind: "popular" | "recommended";
 }) {
   const { act } = useScreen();
+  const innerWidth = Math.max(1, useWindowDimensions().width - gutter * 2);
+  const count = section.items?.length ?? 0;
+  const cardWidth = count > 1 ? Math.max(240, innerWidth - 50) : innerWidth;
   return (
     <View style={{ gap: 12 }}>
       <Text accessibilityRole="header" style={type.title}>
@@ -101,11 +104,22 @@ function SourceSection({
         ))}
       {section.items?.length === 0 && <Status>표시할 샘플이 없습니다.</Status>}
       {!!section.items?.length && (
-        <View style={{ gap: 16 }}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          snapToInterval={cardWidth + 12}
+          snapToAlignment="start"
+          decelerationRate="fast"
+          disableIntervalMomentum
+          style={{ marginHorizontal: -gutter }}
+          contentContainerStyle={{ paddingHorizontal: gutter, gap: 12 }}
+        >
           {section.items.map((source) => (
-            <SourceCard key={source.key} source={source} />
+            <View key={source.key} style={{ width: cardWidth }}>
+              <SourceCard source={source} />
+            </View>
           ))}
-        </View>
+        </ScrollView>
       )}
     </View>
   );

@@ -16,6 +16,9 @@ export const sourceStyles = {
   ].join(" "),
   osCard: [
     "os-card",
+    "[.os-discovery-rail>&]:w-full [.os-discovery-rail>&]:min-w-0 [.os-discovery-rail>&]:flex-none",
+    "[.os-discovery-rail[data-paged=true]>&]:w-[calc(100%_-_50px)]",
+    "[.os-discovery-rail>&]:snap-start [.os-discovery-rail>&]:snap-always",
     "rounded-[12px] p-4 bg-transparent bg-none flex flex-col gap-3 border border-solid border-app-border",
     "[.design-canvas_&]:p-4 [.design-canvas_&]:bg-transparent [.design-canvas_&]:bg-none [.design-canvas_&]:gap-3",
     "[.design-canvas_&]:rounded-[12px] [.design-canvas_&]:h-auto [.design-canvas_&]:border [.design-canvas_&]:border-solid",
@@ -23,6 +26,12 @@ export const sourceStyles = {
     "[&_.os-author_strong]:line-clamp-2 [&_.os-author_strong]:[overflow-wrap:anywhere]",
     "[&_.os-body]:line-clamp-2 [&_.os-body]:[overflow-wrap:anywhere]",
     "[&_.os-foot-author]:min-w-0 [&_.os-foot-author>span:last-child]:truncate",
+  ].join(" "),
+  osDiscoveryRail: [
+    "os-discovery-rail",
+    "-mx-5 px-5 scroll-px-5 relative flex gap-3 snap-x snap-mandatory overflow-x-auto overscroll-x-contain motion-safe:scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+    "data-[paged=true]:cursor-grab data-[paged=true]:select-none data-[dragging=true]:cursor-grabbing data-[dragging=true]:snap-none",
+    "data-[paged=true]:after:w-2 data-[paged=true]:after:flex-none data-[paged=true]:after:content-['']",
   ].join(" "),
   osDiscoveryList: ["os-discovery-list", "flex flex-col gap-3"].join(" "),
   osDiscoveryEmpty: [
