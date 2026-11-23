@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { clearPendingPublication, getPendingSourceAudioId, getSourceDraftRevision, hasPendingPublication, publishSource, withSourcePublicationLock } from "./publish-source.ts";
+import { clearPendingPublication, getPendingSourceAudioId, getPendingSourceInstrument, getSourceDraftRevision, hasPendingPublication, publishSource, withSourcePublicationLock } from "./publish-source.ts";
 
 function memoryStorage() {
   const values = new Map();
@@ -248,6 +248,37 @@ test("a lost creation response reconciles the server instrument before a retry c
   assert.deepEqual(updates, [[70, "vocal"]]);
   assert.equal(server.calls.filter(call => call === "create").length, 1);
   assert.equal(server.calls.filter(call => call === "upload:AUDIO").length, 1);
+});
+
+test("another tab continuing a failed upload publishes the instrument chosen for that audio", async () => {
+  const storage = memoryStorage();
+  const server = backend({ failVisibility: 1 });
+  const deps = server.deps(storage);
+  const requests = [];
+  const create = deps.createOpenSource;
+  deps.createOpenSource = async body => {
+    requests.push(body.instrument);
+    return { ...await create(body), instrument: body.instrument };
+  };
+  await assert.rejects(publishSource({ ...input, instrument: "violin" }, deps), /503/);
+  assert.equal(getPendingSourceInstrument(input, storage), "violin");
+
+  const otherTab = { ...input, audio: new File(["b"], "b.wav"), instrument: "vocal", expectedPendingAudioId: 11 };
+  assert.equal(await publishSource(otherTab, deps), 70);
+  assert.deepEqual(requests, ["violin"]);
+  assert.equal(server.calls.includes("update"), false);
+  assert.equal(getPendingSourceInstrument(input, storage), null);
+});
+
+test("another tab recovering a lost create reconciles to the uploaded audio's instrument, not its own", async () => {
+  const server = backend({ loseCreateResponse: true });
+  const deps = server.deps(memoryStorage());
+  const updates = [];
+  deps.updateOpenSource = async (id, patch) => updates.push([id, patch.instrument]);
+  await assert.rejects(publishSource({ ...input, instrument: "violin" }, deps), /network lost/);
+  await publishSource({ ...input, audio: null, instrument: null, expectedPendingAudioId: 11 }, deps);
+  assert.deepEqual(updates, [[70, "violin"]]);
+  assert.equal(server.calls.filter(call => call === "create").length, 1);
 });
 
 test("legacy drafts register an unknown instrument as null", async () => {

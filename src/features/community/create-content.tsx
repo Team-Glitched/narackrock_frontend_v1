@@ -25,6 +25,7 @@ import { prepareAudioFile, type AudioSelection } from "@/features/composition/pr
 import {
   useCallback,
   useEffect,
+  useEffectEvent,
   useMemo,
   useRef,
   useState,
@@ -49,6 +50,7 @@ import type { GalleryListItem } from "@/lib/api/contracts";
 import {
   clearPendingPublication,
   getPendingSourceAudioId,
+  getPendingSourceInstrument,
   getSourceDraftRevision,
   hasPendingPublication,
   publishSource,
@@ -201,6 +203,13 @@ export function useSocialCreate({
   const readSourceAudioId = () =>
     kind === "source" && userId !== null ? getPendingSourceAudioId({ userId, draftKey }) : null;
   const pendingAudioId = useSyncExternalStore(subscribeSourceDraft, readSourceAudioId, () => null);
+  // An uploaded audio keeps the instrument it was uploaded with, even when another tab uploaded it.
+  const pendingInstrument = useSyncExternalStore(
+    subscribeSourceDraft,
+    () =>
+      kind === "source" && userId !== null ? getPendingSourceInstrument({ userId, draftKey }) : null,
+    () => null,
+  );
   const currentRevision = useSyncExternalStore(
     subscribeSourceDraft,
     readSourceRevision,
@@ -310,11 +319,26 @@ export function useSocialCreate({
     return () => window.removeEventListener("beforeunload", preventLoss);
   }, [draftSaving]);
   const setAudioStage = (stage: AudioStage) => onAudioStage?.(stage);
+  // A pre-upgrade piano-roll draft has no instrument; its `stage=note` link continues at the choice step.
+  const leaveNoteWithoutInstrument = useEffectEvent(() => setAudioStage("choose"));
+  useEffect(() => {
+    if (!restoring && audioStage === "note" && !supportsMidi(pianoInstrument))
+      leaveNoteWithoutInstrument();
+  }, [restoring, audioStage, pianoInstrument]);
+  // An instrument request belongs to the audio step that asked for it. Leaving that step (or the page)
+  // closes the chooser and discards its answer, even while the audio is still being prepared.
+  const audioStep = useRef<object>({});
+  const cancelInstrument = instrumentPrompt.cancel;
+  useEffect(() => {
+    audioStep.current = {};
+    return cancelInstrument;
+  }, [audioStage, cancelInstrument]);
   async function chooseAudioMethod(method: "upload" | "record" | "note") {
     if (method !== "note") return setAudioStage(method);
+    const step = audioStep.current;
     try {
       const id = await instrumentPrompt.ask({ mode: "midi" });
-      if (readSourceAudioId() !== null) return;
+      if (audioStep.current !== step || readSourceAudioId() !== null) return;
       setPianoInstrument(id);
       setAudioStage("note");
     } catch (cause) {
@@ -330,10 +354,13 @@ export function useSocialCreate({
     setAudioStage("details");
   }
   async function selectAudio(file: File, selection?: AudioSelection) {
+    const step = audioStep.current;
     setRestoreError("");
     const { wav } = await prepareAudioFile(file, selection);
+    if (audioStep.current !== step) throw new InstrumentPromptCancelled();
     const prepared = new File([wav], "opensource.wav", { type: "audio/wav" });
     const id = await instrumentPrompt.ask({ mode: "audio", audio: { file: prepared } });
+    if (audioStep.current !== step) throw new InstrumentPromptCancelled();
     if (readSourceAudioId() !== null) return;
     setAudio(prepared);
     setSourceInstrument(id);
@@ -466,7 +493,7 @@ export function useSocialCreate({
     pickImage,
     removeImage: () => setImage(null),
     audio,
-    sourceInstrument,
+    sourceInstrument: sourceAudioLocked ? pendingInstrument : sourceInstrument,
     pianoInstrument,
     setPianoInstrument,
     instrumentPrompt,

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { compositionQuery } from "./composition-queries";
 import {
@@ -49,7 +49,7 @@ export function useInstrumentPrompt(projectId: number | null, options?: { standa
       mounted.current = false;
     };
   }, []);
-  const close = () => setRequest(null);
+  const close = useCallback(() => setRequest(null), []);
   const next = request?.next;
   const choice: InstrumentChoice | null =
     request === null || next === undefined
@@ -74,6 +74,8 @@ export function useInstrumentPrompt(projectId: number | null, options?: { standa
   return {
     dialog,
     native,
+    /** Closes the open chooser; its caller's `ask` rejects with `InstrumentPromptCancelled`. */
+    cancel: close,
     async ask(next: InstrumentPromptRequest) {
       if (projectId === null && !options?.standalone) throw new Error("대상 프로젝트를 먼저 선택해주세요.");
       // Read current project access and team usage from the server before showing the chooser.
@@ -83,9 +85,8 @@ export function useInstrumentPrompt(projectId: number | null, options?: { standa
       });
       if (!mounted.current) throw new InstrumentPromptCancelled();
       setTracks(composition?.tracks ?? []);
-      const { promise, resolve, reject } = Promise.withResolvers<string>();
-      setRequest({ next, resolve, reject });
-      return promise;
+      // Executor form instead of Promise.withResolvers: older iOS WebViews (< 17.4) lack it.
+      return new Promise<string>((resolve, reject) => setRequest({ next, resolve, reject }));
     },
   };
 }

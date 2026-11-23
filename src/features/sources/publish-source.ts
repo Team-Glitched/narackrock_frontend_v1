@@ -18,7 +18,10 @@ type PendingPublication = {
   openSourceId: number | null;
   title: string;
   description: string | null;
+  /** The instrument chosen for the uploaded audio; every tab that continues this upload publishes it. */
   instrument?: string | null;
+  /** The instrument the server reported for the created publication. */
+  publishedInstrument?: string | null;
 };
 
 export type PublishSourceInput = {
@@ -101,6 +104,14 @@ export function getPendingSourceAudioId(
   return readPending(storage, pendingKey(input))?.mediaFileId ?? null;
 }
 
+/** The instrument bound to the pending uploaded audio; it is published with that audio. */
+export function getPendingSourceInstrument(
+  input: Pick<PublishSourceInput, "userId" | "draftKey">,
+  storage: PublishSourceDeps["storage"] = localStorage,
+) {
+  return readPending(storage, pendingKey(input))?.instrument ?? null;
+}
+
 export function subscribeSourcePublication(
   input: Pick<PublishSourceInput, "userId" | "draftKey">,
   onChange: () => void,
@@ -137,7 +148,6 @@ async function findCreated(deps: PublishSourceDeps, mediaFileId: number) {
  * Failed attempts keep progress so retry continues from the failed step without duplicating a publication.
  */
 export async function publishSource(input: PublishSourceInput, deps: PublishSourceDeps = browserDeps()): Promise<number> {
-  const instrument = input.instrument ?? null;
   const key = pendingKey(input);
   const save = (value: PendingPublication) => deps.storage.setItem(key, JSON.stringify(value));
   // Rendering the same crop produces a new File on each submit. Compare its bytes instead.
@@ -155,9 +165,11 @@ export async function publishSource(input: PublishSourceInput, deps: PublishSour
     if (!input.audio) throw new Error("오디오를 먼저 선택해주세요.");
     const mediaFileId = await deps.uploadMedia(input.audio, "AUDIO");
     const thumbnailMediaFileId = input.image ? await deps.uploadMedia(input.image, "IMAGE") : null;
-    pending = { mediaFileId, thumbnailMediaFileId, thumbnailDigest, openSourceId: null, title: input.title, description: input.description, instrument };
+    pending = { mediaFileId, thumbnailMediaFileId, thumbnailDigest, openSourceId: null, title: input.title, description: input.description, instrument: input.instrument ?? null };
     save(pending);
   }
+  // The instrument belongs to the uploaded audio, not to whichever tab continues its publication.
+  const instrument = pending.instrument ?? null;
   if (pending.openSourceId === null) {
     // A previous create may have succeeded without a response; reuse it instead of creating another.
     const existing = await findCreated(deps, pending.mediaFileId);
@@ -172,14 +184,15 @@ export async function publishSource(input: PublishSourceInput, deps: PublishSour
           instrument,
         })
       );
-    pending = { ...pending, openSourceId: created.openSourceId, instrument: created.instrument ?? null, title: existing === null ? input.title : pending.title, description: existing === null ? input.description : pending.description };
+    pending = { ...pending, openSourceId: created.openSourceId, publishedInstrument: created.instrument ?? null, title: existing === null ? input.title : pending.title, description: existing === null ? input.description : pending.description };
     save(pending);
   }
   const openSourceId = pending.openSourceId as number;
   const thumbnailChanged = pending.thumbnailDigest !== thumbnailDigest;
-  if (thumbnailChanged || pending.title !== input.title || pending.description !== input.description || (pending.instrument ?? null) !== instrument) {
+  const instrumentChanged = (pending.publishedInstrument ?? null) !== instrument;
+  if (thumbnailChanged || pending.title !== input.title || pending.description !== input.description || instrumentChanged) {
     const patch: Parameters<typeof updateOpenSource>[1] = { title: input.title, description: input.description };
-    if ((pending.instrument ?? null) !== instrument) patch.instrument = instrument;
+    if (instrumentChanged) patch.instrument = instrument;
     if (thumbnailChanged) {
       patch.thumbnailMediaFileId = input.image ? await deps.uploadMedia(input.image, "IMAGE") : null;
       // If the patch response is lost, reconcile on retry even if the user reverts to the old crop.
@@ -190,7 +203,7 @@ export async function publishSource(input: PublishSourceInput, deps: PublishSour
       ...pending,
       title: input.title,
       description: input.description,
-      instrument,
+      publishedInstrument: instrument,
       thumbnailMediaFileId: patch.thumbnailMediaFileId === undefined ? pending.thumbnailMediaFileId : patch.thumbnailMediaFileId,
       thumbnailDigest,
     };
