@@ -152,6 +152,7 @@ export function nativeSavedSources(
         item.availability === "AVAILABLE" && item.source
           ? {
               title: item.source.title,
+              thumbnailUrl: item.source.thumbnailUrl,
               description: item.source.description || null,
               writer: item.source.writer.nickname,
               canPreview: item.source.canPreview ?? true,
