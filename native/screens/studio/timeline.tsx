@@ -83,28 +83,31 @@ function Studio({ model }: { model: NativeStudio }) {
         onBack={() => act({ type: "studio-exit" })}
         onSample={model.canImportSource ? () => act({ type: "source-open" }) : undefined}
       >
-        <View style={styles.toolbarActions}>
-          {model.privateSave && (
-            <ToolbarTextButton
-              label="임시 저장"
-              disabled={model.privateSave.disabled}
-              onPress={() => act({ type: "studio-private-save" })}
-            />
-          )}
-          {primary.kind !== "add" ? (
-            <ToolbarTextButton
-              label={primary.kind === "submit" ? "제출하기" : "공개하기"}
-              disabled={primary.disabled}
-              onPress={() => act({ type: "studio-primary" })}
-            />
-          ) : (
-            <AddButton
-              label="레이어 추가"
-              disabled={primary.disabled}
-              onPress={() => act({ type: "studio-primary" })}
-            />
-          )}
-        </View>
+        {model.privateSave || primary ? (
+          <View style={styles.toolbarActions}>
+            {model.privateSave && (
+              <ToolbarTextButton
+                label="임시 저장"
+                disabled={model.privateSave.disabled}
+                onPress={() => act({ type: "studio-private-save" })}
+              />
+            )}
+            {primary &&
+              (primary.kind !== "add" ? (
+                <ToolbarTextButton
+                  label={primary.kind === "submit" ? "제출하기" : "공개하기"}
+                  disabled={primary.disabled}
+                  onPress={() => act({ type: "studio-primary" })}
+                />
+              ) : (
+                <AddButton
+                  label="레이어 추가"
+                  disabled={primary.disabled}
+                  onPress={() => act({ type: "studio-primary" })}
+                />
+              ))}
+          </View>
+        ) : null}
       </StudioToolbar>
       {model.selectMidiLayer && (
         <Text style={styles.notice}>피아노롤에서 열 MIDI 레이어를 선택하세요.</Text>
@@ -325,12 +328,7 @@ function TrackPerson({ track }: { track: NativeStudioTrack }) {
           <SoundIcon width={22} height={18.6} />
         )}
       </Touchable>
-      {track.highlighted && (
-        <>
-          <View pointerEvents="none" style={styles.highlight} />
-          <Text style={styles.badge}>추가 트랙</Text>
-        </>
-      )}
+      {track.highlighted && <View pointerEvents="none" style={styles.highlight} />}
     </View>
   );
 }
@@ -875,19 +873,8 @@ const styles = StyleSheet.create({
     zIndex: 3,
     borderRadius: 6,
     borderWidth: 2,
-    borderColor: colors["primary-soft"],
-  },
-  badge: {
-    position: "absolute",
-    right: 4,
-    bottom: 0,
-    zIndex: 3,
-    borderRadius: 4,
-    paddingHorizontal: 4,
-    backgroundColor: colors.primary,
-    color: "#ffffff",
-    fontSize: 9,
-    lineHeight: 12,
+    borderColor: colors.primary,
+    backgroundColor: "rgba(76, 0, 229, 0.15)",
   },
   ruler: {
     height: rulerHeight,

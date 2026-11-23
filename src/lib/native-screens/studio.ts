@@ -223,7 +223,7 @@ export type NativeStudio = {
   timingEditable: boolean;
   /** "+ 샘플" is shown. */
   canImportSource: boolean;
-  primary: NativeStudioPrimary;
+  primary: NativeStudioPrimary | null;
   privateSave: { disabled: boolean } | null;
   maxTick: number;
   maxDurationMs: number;

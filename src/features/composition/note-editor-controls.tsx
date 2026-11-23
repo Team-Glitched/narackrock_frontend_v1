@@ -120,7 +120,7 @@ export function NoteEditorControls({ editor, positionTick = 0, onChord, onSettin
       <Group label="선택한 노트">
         <output
           className={cn("min-w-9 shrink-0 rounded-[8px] px-1.5 py-1 text-center tabular-nums",
-            selection.length ? "bg-app-primary/25 font-bold text-app-fg" : "text-app-muted")}
+            selection.length ? "bg-app-primary font-bold text-white" : "text-app-muted")}
           aria-live="polite"
           aria-label={`${selection.length}개 선택`}
           title={`${selection.length}개 선택`}
@@ -145,7 +145,7 @@ export function NoteEditorControls({ editor, positionTick = 0, onChord, onSettin
         // A pressed toggle like the tools: filled while all 47 pads are shown. Hidden notes stay saved and playable.
         <button
           type="button"
-          className={cn(pill, "text-app-fg aria-pressed:bg-app-primary aria-pressed:font-bold")}
+          className={cn(pill, "text-app-fg aria-pressed:border-app-primary aria-pressed:bg-app-primary aria-pressed:font-bold aria-pressed:text-white")}
           aria-pressed={view.expandedDrums}
           aria-label={`전체 키트${hidden ? `, 숨은 노트 ${hidden}개` : ""}`}
           title={view.expandedDrums ? "기본 11패드로 돌아가기" : `전체 47패드 보기${hidden ? ` (숨은 노트 ${hidden}개)` : ""}`}

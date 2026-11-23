@@ -466,7 +466,7 @@ export function CompositionRecordScreen({
           className={cn(
             "relative flex flex-col items-center rounded-[24px] p-3 transition-transform duration-100",
             metronomeOn
-              ? "bg-app-primary/15 ring-2 ring-app-primary/70"
+              ? "bg-[#23232a] ring-2 ring-app-primary"
               : "opacity-65 hover:opacity-90",
             metronomeOn && activeBeat !== null && (isAccent ? "scale-105" : "scale-[1.02]"),
           )}
@@ -479,11 +479,16 @@ export function CompositionRecordScreen({
             )}
           />
         </button>
-        <div className="flex items-center gap-2 rounded-full border border-[#32323d] bg-[#1e1e26] px-3 py-1 text-caption">
-          <span className="font-semibold tabular-nums text-app-fg">
+        <div
+          className={cn(
+            "flex items-center gap-2 rounded-full border px-3 py-1 text-caption transition-colors",
+            metronomeOn ? "border-app-primary bg-app-primary text-white" : "border-[#32323d] bg-[#1e1e26]",
+          )}
+        >
+          <span className={cn("font-semibold tabular-nums", metronomeOn ? "text-white" : "text-app-fg")}>
             {bpm} BPM · {timeSignature}
           </span>
-          <span className={metronomeOn ? "font-semibold text-[#c4b5fd]" : "text-app-muted"}>
+          <span className={metronomeOn ? "font-semibold text-white" : "text-app-muted"}>
             {metronomeOn ? "메트로놈 켜짐" : "메트로놈 눌러 켜기"}
           </span>
           {metronomeOn && (
@@ -496,8 +501,8 @@ export function CompositionRecordScreen({
                     activeBeat === index
                       ? index === 0
                         ? "bg-white"
-                        : "bg-[#a78bfa]"
-                      : "bg-[#3f3e4a]",
+                        : "bg-white/80"
+                      : "bg-white/30",
                   )}
                 />
               ))}

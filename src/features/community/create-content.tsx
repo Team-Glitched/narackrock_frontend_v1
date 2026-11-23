@@ -372,6 +372,7 @@ export function useSocialCreate({
     if (readSourceAudioId() !== null) return;
     setAudio(prepared);
     setSourceInstrument(id);
+    setPianoNotes([]);
     setAudioStage("details");
   }
   function pickImage(file: File) {
@@ -439,6 +440,18 @@ export function useSocialCreate({
             const thumbnail = image ? await renderThumbnail(image.file, imageCrop) : null;
             await publishSource({
               instrument: sourceInstrument,
+              ...(pianoNotes.length > 0
+                ? {
+                    midiPpq: 480,
+                    midiBpm: pianoBpm,
+                    midiNotes: pianoNotes.map(({ pitch, startTick, durationTick, velocity }) => ({
+                      pitch,
+                      startTick,
+                      durationTick,
+                      velocity,
+                    })),
+                  }
+                : {}),
               userId,
               draftKey,
               title: cleanTitle,

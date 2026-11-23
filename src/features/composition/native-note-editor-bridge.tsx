@@ -61,6 +61,7 @@ export function NativeNoteEditorBridge({ screen, onBack }: {
   );
   const sources = useNativeSourcePicker({
     open: screen.showSources && editor.editable,
+    midiOnly: true,
     onOpen: () => screen.openSources?.(),
     onClose: () => screen.setShowSources(false),
     onResource: screen.importResource,

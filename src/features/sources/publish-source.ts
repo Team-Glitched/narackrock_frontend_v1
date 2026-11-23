@@ -5,6 +5,7 @@ import {
   listMyOpenSourcePublications,
   setOpenSourceVisibility,
   updateOpenSource,
+  type OpenSourceMidiNote,
 } from "../../lib/api/open-sources.ts";
 
 /**
@@ -22,10 +23,16 @@ type PendingPublication = {
   instrument?: string | null;
   /** The instrument the server reported for the created publication. */
   publishedInstrument?: string | null;
+  midiPpq?: number | null;
+  midiBpm?: number | null;
+  midiNotes?: OpenSourceMidiNote[] | null;
 };
 
 export type PublishSourceInput = {
   instrument?: string | null;
+  midiPpq?: number | null;
+  midiBpm?: number | null;
+  midiNotes?: OpenSourceMidiNote[] | null;
   userId: number;
   draftKey: string;
   title: string;
@@ -165,7 +172,22 @@ export async function publishSource(input: PublishSourceInput, deps: PublishSour
     if (!input.audio) throw new Error("오디오를 먼저 선택해주세요.");
     const mediaFileId = await deps.uploadMedia(input.audio, "AUDIO");
     const thumbnailMediaFileId = input.image ? await deps.uploadMedia(input.image, "IMAGE") : null;
-    pending = { mediaFileId, thumbnailMediaFileId, thumbnailDigest, openSourceId: null, title: input.title, description: input.description, instrument: input.instrument ?? null };
+    pending = {
+      mediaFileId,
+      thumbnailMediaFileId,
+      thumbnailDigest,
+      openSourceId: null,
+      title: input.title,
+      description: input.description,
+      instrument: input.instrument ?? null,
+      ...(input.midiNotes?.length
+        ? {
+            midiPpq: input.midiPpq ?? 480,
+            midiBpm: input.midiBpm ?? null,
+            midiNotes: input.midiNotes,
+          }
+        : {}),
+    };
     save(pending);
   }
   // The instrument belongs to the uploaded audio, not to whichever tab continues its publication.
@@ -182,6 +204,13 @@ export async function publishSource(input: PublishSourceInput, deps: PublishSour
           mediaFileId: pending.mediaFileId,
           thumbnailMediaFileId: pending.thumbnailMediaFileId,
           instrument,
+          ...(pending.midiNotes?.length
+            ? {
+                midiPpq: pending.midiPpq ?? 480,
+                midiBpm: pending.midiBpm ?? null,
+                midiNotes: pending.midiNotes,
+              }
+            : {}),
         })
       );
     pending = { ...pending, openSourceId: created.openSourceId, publishedInstrument: created.instrument ?? null, title: existing === null ? input.title : pending.title, description: existing === null ? input.description : pending.description };

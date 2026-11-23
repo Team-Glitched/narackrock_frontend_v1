@@ -60,6 +60,7 @@ export function NoteEditorScreen({
       composition={load.composition}
       trackId={load.track.trackId}
       requestedClipId={clipId}
+      readOnly={typeof view !== "string"}
       onBack={onBack}
       onOpenLayers={onOpenLayers}
       portrait={portrait}
@@ -72,6 +73,7 @@ function LoadedNoteEditor({
   composition,
   trackId,
   requestedClipId,
+  readOnly,
   onBack,
   onOpenLayers,
   portrait,
@@ -81,6 +83,7 @@ function LoadedNoteEditor({
   composition: CompositionDto;
   trackId: number;
   requestedClipId: number | null;
+  readOnly: boolean;
   onBack: () => void;
   onOpenLayers: () => void;
   portrait: boolean;
@@ -90,6 +93,7 @@ function LoadedNoteEditor({
     composition,
     trackId,
     requestedClipId,
+    readOnly,
     onBack,
     onOpenLayers,
     portrait,
@@ -158,7 +162,7 @@ function LoadedNoteEditor({
             <button
               type="button"
               key={choice.name}
-              className="rounded-[8px] border border-[#32323d] bg-[#23232a] px-2.5 font-semibold text-app-fg transition-colors aria-pressed:border-[#5b00ff] aria-pressed:bg-app-primary aria-pressed:text-white"
+              className="rounded-[8px] border border-[#32323d] bg-[#23232a] px-2.5 font-semibold text-app-fg transition-colors aria-pressed:border-app-primary aria-pressed:bg-app-primary aria-pressed:text-white"
               aria-pressed={choice === suggestion}
               onClick={() => recommendation.select(index)}
             >
@@ -174,7 +178,7 @@ function LoadedNoteEditor({
           </button>
           <button
             type="button"
-            className="rounded-[8px] border border-[#5b00ff] bg-app-primary px-3 font-semibold text-white transition-opacity disabled:opacity-45"
+            className="rounded-[8px] border border-app-primary bg-app-primary px-3 font-semibold text-white transition-opacity disabled:opacity-45"
             onClick={recommendation.apply}
             disabled={editor.gestureActive}
           >
@@ -192,7 +196,7 @@ function LoadedNoteEditor({
       {recommendation.available && (
         <button
           type="button"
-          className="h-7 shrink-0 whitespace-nowrap rounded-[8px] border border-[#32323d] bg-[#23232a] px-2.5 text-app-muted transition-colors aria-pressed:border-[#5b00ff]/60 aria-pressed:bg-[#5b00ff]/20 aria-pressed:text-[#d8c7ff]"
+          className="h-7 shrink-0 whitespace-nowrap rounded-[8px] border border-[#32323d] bg-[#23232a] px-2.5 text-app-muted transition-colors aria-pressed:border-app-primary aria-pressed:bg-app-primary aria-pressed:text-white"
           aria-pressed={recommendation.enabled}
           onClick={() => recommendation.setEnabled(!recommendation.enabled)}
         >
@@ -306,6 +310,7 @@ function LoadedNoteEditor({
       {!editable && <p>내 MIDI 레이어만 수정할 수 있습니다.</p>}
       {screen.showSources && editor.editable && (
         <StudioSourceDialog
+          midiOnly
           localFileImport={
             <JsonNoteImportControl
               editor={editor}

@@ -705,7 +705,7 @@ function SourceDetail({
           durationMs={source.durationMs}
         />
         <p className={cn(sourceStyles.osDiscoveryEmpty, "my-3!")}>
-          보관한 뒤 피아노롤의 ‘+ 샘플’에서 내 레이어에 오디오로 넣을 수 있습니다.
+          보관한 뒤 스튜디오의 ‘+ 샘플’에서 레이어에 추가할 수 있습니다. MIDI 샘플은 피아노롤에서도 음표로 불러올 수 있습니다.
         </p>
         <PostActions
           likeCount={source.likeCount}

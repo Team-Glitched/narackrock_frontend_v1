@@ -139,8 +139,8 @@ export function CreationRecordScreen({ model, header }: ScreenProps<"creation-re
               height={landscape ? 78 : compact ? 104 : 156}
             />
           </Touchable>
-          <View style={styles.metronomeMeta}>
-            <Text style={styles.metronomeTempo}>
+          <View style={[styles.metronomeMeta, metronomeOn && styles.metronomeMetaActive]}>
+            <Text style={[styles.metronomeTempo, metronomeOn && styles.metronomeStateOn]}>
               {bpm} BPM · {timeSignature}
             </Text>
             <Text style={[styles.metronomeState, metronomeOn && styles.metronomeStateOn]}>
@@ -153,7 +153,11 @@ export function CreationRecordScreen({ model, header }: ScreenProps<"creation-re
                     key={index}
                     style={[
                       styles.beatDot,
-                      activeBeat === index && (index === 0 ? styles.beatDotAccent : styles.beatDotOn),
+                      activeBeat === index
+                        ? index === 0
+                          ? styles.beatDotAccent
+                          : styles.beatDotOn
+                        : styles.beatDotInactiveOn,
                     ]}
                   />
                 ))}
@@ -369,9 +373,9 @@ const styles = StyleSheet.create({
   },
   metronomeActive: {
     opacity: 1,
-    backgroundColor: "rgba(91, 0, 255, 0.16)",
+    backgroundColor: "rgba(76, 0, 229, 0.16)",
     borderWidth: 1.5,
-    borderColor: "rgba(91, 0, 255, 0.7)",
+    borderColor: colors.primary,
   },
   metronomeAccentPulse: {
     transform: [{ scale: 1.04 }],
@@ -387,12 +391,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 5,
   },
+  metronomeMetaActive: {
+    borderColor: colors.primary,
+    backgroundColor: colors.primary,
+  },
   metronomeTempo: { color: colors.fg, fontSize: 12, fontWeight: "600", fontVariant: ["tabular-nums"] },
   metronomeState: { color: colors.muted, fontSize: 12 },
-  metronomeStateOn: { color: "#c4b5fd", fontWeight: "600" },
+  metronomeStateOn: { color: "#ffffff", fontWeight: "600" },
   beatRow: { flexDirection: "row", alignItems: "center", gap: 4 },
   beatDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: "#3f3e4a" },
-  beatDotOn: { backgroundColor: "#a78bfa" },
+  beatDotInactiveOn: { backgroundColor: "rgba(255, 255, 255, 0.35)" },
+  beatDotOn: { backgroundColor: "rgba(255, 255, 255, 0.8)" },
   beatDotAccent: { backgroundColor: "#ffffff" },
   output: {
     position: "absolute",
@@ -428,9 +437,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  convertOptionSelected: { borderColor: colors.accent, backgroundColor: "rgba(153, 102, 255, 0.16)" },
+  convertOptionSelected: { borderColor: colors.primary, backgroundColor: colors.primary },
   convertText: { color: colors.fg, fontSize: 13, fontWeight: "500" },
-  convertTextSelected: { color: colors.accent, fontWeight: "700" },
+  convertTextSelected: { color: "#ffffff", fontWeight: "700" },
   actions: {
     alignSelf: "stretch",
     flexDirection: "row",
