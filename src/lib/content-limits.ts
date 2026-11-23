@@ -33,7 +33,7 @@ const COMBINING_MARK_RE = (() => {
   try {
     return new RegExp("^\\p{Mark}$", "u");
   } catch {
-    return /^[\u0300-\u036F\u1AB0-\u1AFF\u1DC0-\u1DFF\u20D0-\u20FF\uFE20-\uFE2F]$/u;
+    return null;
   }
 })();
 
@@ -111,7 +111,14 @@ function isTagChar(cp: number): boolean {
 
 function isCombiningMark(cp: number): boolean {
   if (cp < 0x0300) return false;
-  return COMBINING_MARK_RE.test(String.fromCodePoint(cp));
+  if (COMBINING_MARK_RE) return COMBINING_MARK_RE.test(String.fromCodePoint(cp));
+  return (
+    (cp >= 0x0300 && cp <= 0x036f) ||
+    (cp >= 0x1ab0 && cp <= 0x1aff) ||
+    (cp >= 0x1dc0 && cp <= 0x1dff) ||
+    (cp >= 0x20d0 && cp <= 0x20ff) ||
+    (cp >= 0xfe20 && cp <= 0xfe2f)
+  );
 }
 
 function isEmojiAnchor(cp: number): boolean {

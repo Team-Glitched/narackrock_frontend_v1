@@ -187,7 +187,7 @@ const styles = StyleSheet.create({
   padded: { marginHorizontal: gutter },
   footer: { gap: 20, marginTop: 4 },
   pill: { borderRadius: 999 },
-  caption: { color: colors.muted, fontSize: 14, lineHeight: 22, marginTop: 8 },
+  caption: { color: colors.muted, fontSize: 12, lineHeight: 18, marginTop: 8 },
   rowWrap: { paddingHorizontal: gutter },
   row: { flexDirection: "row", alignItems: "center", gap: 8 },
   rowMain: { flex: 1, flexDirection: "row", alignItems: "center", gap: 12 },

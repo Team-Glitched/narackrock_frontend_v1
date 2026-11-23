@@ -276,7 +276,7 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   picker: { width: "100%", maxWidth: 520, gap: 12 },
   loading: { flexDirection: "row", alignItems: "center", gap: 8 },
-  caption: { color: colors.fg, fontSize: 14, lineHeight: 20 },
+  caption: { color: colors.fg, fontSize: 12, lineHeight: 18 },
   error: { color: "#ff9ca8", fontSize: 14, lineHeight: 20 },
   summary: {
     flexDirection: "row",

@@ -62,7 +62,6 @@ export function StudioToolbar({
   transport,
   title,
   timingEditable,
-  piano = false,
   onBack,
   onRewind,
   onSample,

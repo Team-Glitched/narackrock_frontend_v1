@@ -21,12 +21,12 @@ export const studioStyles = {
   studioSourceRow: [
     "studio-source-row",
     "flex items-center justify-between gap-4",
-    "[&>span]:flex [&>span]:min-w-0 [&>span]:flex-col [&>span]:gap-2",
-    "[&_strong]:font-semibold [&_strong]:text-label [&_strong]:font-sans [&_strong]:[overflow-wrap:anywhere] [&_strong]:leading-[20px]",
+    "[&>span]:flex [&>span]:min-w-0 [&>span]:flex-col [&>span]:gap-1",
+    "[&_strong]:font-semibold [&_strong]:text-body [&_strong]:font-sans [&_strong]:[overflow-wrap:anywhere] [&_strong]:leading-[20px]",
     "[&_small]:font-normal [&_small]:text-caption [&_small]:font-sans [&_small]:text-app-muted [&_small]:[overflow-wrap:anywhere] [&_small]:m-0",
-    "[&_small]:leading-[18px]",
-    "[&>button]:shrink-0 [&>button]:font-medium [&>button]:text-label [&>button]:font-sans [&>button]:h-10 [&>button]:p-[0_16px]",
-    "[&>button]:leading-[20px]",
+    "[&_small]:leading-[16px]",
+    "[&>button]:shrink-0 [&>button]:font-medium [&>button]:text-body [&>button]:font-sans [&>button]:h-9 [&>button]:p-[0_14px]",
+    "[&>button]:leading-[18px]",
   ].join(" "),
   midiImportTrigger: [
     "midi-import-trigger",

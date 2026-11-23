@@ -178,7 +178,7 @@ export function WorkspaceScreen({
               <button
                 className={cn(
                   workspaceStyles.workspacePrimary,
-                  "min-h-10 shrink-0 rounded-[20px] px-4 py-2 text-label font-medium leading-5 text-app-fg",
+                  "min-h-9 shrink-0 rounded-[20px] px-4 py-1.5 text-body font-medium leading-[18px] text-app-fg",
                 )}
                 onClick={() => onResume(work.id, work.shortId)}
               >

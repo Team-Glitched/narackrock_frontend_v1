@@ -39,7 +39,7 @@ function Article({ model }: { model: Extract<NativeSourceDetail, { state: "ready
         <View style={styles.row}>
           <Cover url={source.thumbnailUrl} size={44} />
           <View style={styles.title}>
-            <Text style={type.title}>{source.title}</Text>
+            <Text style={type.label}>{source.title}</Text>
             {source.usage && <Text style={type.caption}>{source.usage}</Text>}
           </View>
           <Pill

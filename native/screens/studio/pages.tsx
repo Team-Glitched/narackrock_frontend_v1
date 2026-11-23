@@ -152,7 +152,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     gap: 12,
   },
-  label: { color: colors.fg, fontSize: 20, lineHeight: 26, fontWeight: "700" },
+  label: { color: colors.fg, fontSize: 16, lineHeight: 22, fontWeight: "700" },
   suggest: { minHeight: 36, borderRadius: 8, paddingHorizontal: 10, justifyContent: "center" },
   suggestText: { color: colors.muted, fontSize: 14, fontWeight: "500" },
   input: {

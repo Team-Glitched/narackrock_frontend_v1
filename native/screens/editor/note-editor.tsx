@@ -303,18 +303,18 @@ function Readout({
 }) {
   const body = (
     <>
-      <Text style={plain ? styles.readoutPlus : styles.readoutSmall}>{small}</Text>
-      <Text style={styles.readoutValue} numberOfLines={1}>
+      <Text style={plain ? [styles.readoutPlus, styles.readoutPlusCompact] : [styles.readoutSmall, styles.readoutSmallCompact]}>{small}</Text>
+      <Text style={[styles.readoutValue, styles.readoutValueCompact]} numberOfLines={1}>
         {value}
       </Text>
     </>
   );
   return onPress ? (
-    <Touchable accessibilityRole="button" accessibilityLabel={label} style={styles.readout} onPress={onPress}>
+    <Touchable accessibilityRole="button" accessibilityLabel={label} style={[styles.readout, styles.readoutCompact]} onPress={onPress}>
       {body}
     </Touchable>
   ) : (
-    <View style={styles.readout}>{body}</View>
+    <View style={[styles.readout, styles.readoutCompact]}>{body}</View>
   );
 }
 
@@ -520,15 +520,15 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
-    paddingHorizontal: 10,
+    paddingHorizontal: 12,
     borderRadius: 10,
     borderWidth: 1,
     borderColor: "#32323d",
     backgroundColor: "#23232a",
   },
-  readoutSmall: { color: colors.muted, fontSize: 12, lineHeight: 16 },
-  readoutPlus: { color: colors.fg, fontSize: 14, lineHeight: 18, fontWeight: "600" },
-  readoutValue: { color: colors.fg, fontSize: 14, lineHeight: 18, fontVariant: ["tabular-nums"] },
+  readoutSmall: { color: colors.muted, fontSize: 14, lineHeight: 20 },
+  readoutPlus: { color: colors.fg, fontSize: 14, lineHeight: 20 },
+  readoutValue: { color: colors.fg, fontSize: 14, lineHeight: 20, fontVariant: ["tabular-nums"] },
   portraitRoll: { flex: 1, minHeight: 0 },
   portraitBottom: { marginHorizontal: 16, marginTop: 12, marginBottom: 24, gap: 16 },
   transport: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 32 },
@@ -616,4 +616,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   exitDangerText: { color: "#fda4af", fontSize: 14, fontWeight: "600" },
+  readoutCompact: { paddingHorizontal: 10 },
+  readoutSmallCompact: { fontSize: 12, lineHeight: 16 },
+  readoutPlusCompact: { fontSize: 14, lineHeight: 18, fontWeight: "600" },
+  readoutValueCompact: { lineHeight: 18 },
 });

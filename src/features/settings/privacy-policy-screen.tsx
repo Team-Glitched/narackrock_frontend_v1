@@ -4,7 +4,7 @@ import { privacyPolicy } from "./privacy-policy";
 export function PrivacyPolicyScreen() {
   return (
     <main className="scrollbar-none h-full overflow-x-hidden overflow-y-auto px-5 pt-6 pb-8 text-app-fg">
-      <article className="text-label leading-7 break-words [&_a]:text-app-accent [&_a]:underline [&_li]:mb-2 [&_ul]:list-disc [&_ul]:pl-5">
+      <article className="text-body leading-6 break-words [&_a]:text-app-accent [&_a]:underline [&_li]:mb-2 [&_ul]:list-disc [&_ul]:pl-5">
         <header className="mb-8">
           <Link to="/" aria-label="Narackrock 홈으로 이동">Narackrock</Link>
           <p className="mt-6 text-caption text-app-muted">{privacyPolicy.eyebrow}</p>

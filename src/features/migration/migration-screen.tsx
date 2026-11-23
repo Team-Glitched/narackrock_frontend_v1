@@ -11,6 +11,8 @@ import type { CompositionDto } from "@/lib/api/composition";
 import { collectLegacyItems, type LegacyItem } from "./legacy-items";
 import { migrateItem, migrationEntry, legacyAudio } from "./migrate-item";
 import { sharedStyles } from "@/styles/shared.styles";
+import { buttonVariants } from "@/styles/variants";
+import { cn } from "@/lib/utils";
 import { nativeApp, saveFile } from "@/lib/native-app";
 import { NativeDialog } from "@/components/native-dialog";
 
@@ -253,109 +255,164 @@ function AccountMigrationScreen({ userId }: { userId: number | null }) {
     );
   }
   return (
-    <section className={sharedStyles.scrollContent}>
-      <h1>이 브라우저 데이터 이관·복구</h1>
-      <p>대상 서버: {apiOrigin()}</p>
-      <p>현재 계정: {userId === null ? "로그인 필요" : `#${userId}`}</p>
-      <p>
-        원본 {items.length}건. 항목별 선택은 해당 원본의 귀속과 대상 환경을 확인했다는 동의입니다.
-        숫자 ID가 같아도 같은 자료라고 간주하지 않습니다. 원본은 성공 후에도 삭제하지 않으며 자동
-        공개하지 않습니다.
-      </p>
-      <p>
-        이 브라우저에서는 계정·서버별 Web Lock으로 직렬 실행합니다. 다른 기기의 동시 저장까지
-        원자적으로 보장하지 않습니다. 업로드·등록 응답 유실은 서버 확인이 필요할 수 있습니다.
-      </p>
-      <label>
-        MIDI 대상 프로젝트 ID
-        <input
-          type="number"
-          min="1"
-          value={targetProject}
-          onChange={(event) => setTargetProject(event.target.value)}
-        />
-      </label>
-      <label>
-        내 MIDI 트랙 ID
-        <input
-          type="number"
-          min="1"
-          value={targetTrack}
-          onChange={(event) => setTargetTrack(event.target.value)}
-        />
-      </label>
-      {!items.length && <p>이관할 이전 브라우저 자료가 없습니다.</p>}
-      {items.map((item) => (
-        <article key={item.key}>
-          <h2>{item.title}</h2>
-          <p>
-            {item.kind} · 원본 scope: {item.originalScope} · {item.author ?? "작성자 미확인"}
-          </p>
-          <p>{reasons[item.kind]}</p>
-          {item.kind === "draft-pointer" && userId !== null && (
-            <DraftPointerRecovery item={item} userId={userId} />
-          )}
-          {item.kind !== "recovery" && item.kind !== "draft-pointer" && (
-            <label>
-              <input
-                type="checkbox"
-                disabled={busy !== null || userId === null}
-                checked={selected.has(item.key)}
-                onChange={(event) =>
-                  setSelected((old) => {
-                    const next = new Set(old);
-                    if (event.target.checked) next.add(item.key);
-                    else next.delete(item.key);
-                    return next;
-                  })
-                }
-              />
-              이 원본의 귀속·대상 환경을 확인했으며 이 항목의 이관에 동의합니다.
-            </label>
-          )}
-          {item.kind === "audio" && (
-            <label>
-              <input
-                type="checkbox"
-                disabled={busy !== null}
-                checked={ownership.has(item.key)}
-                onChange={(event) =>
-                  setOwnership((old) => {
-                    const next = new Set(old);
-                    if (event.target.checked) next.add(item.key);
-                    else next.delete(item.key);
-                    return next;
-                  })
-                }
-              />
-              이 오디오를 직접 작성·소유하며 비공개 업로드에 동의합니다.
-            </label>
-          )}
-          <div>
-            <button onClick={() => void exportOriginal(item)}>원본 JSON 내보내기</button>
-            {(item.mediaKey || item.storageKey.includes("creation-draft")) && (
-              <button onClick={() => void exportAudio(item)}>원본 오디오 내보내기</button>
+    <section
+      className={cn(
+        sharedStyles.scrollContent,
+        "flex flex-col gap-5 px-5 pt-6 pb-10 text-app-fg",
+      )}
+    >
+      <div className="flex items-center justify-between gap-3">
+        <h1 className="m-0 text-title leading-7 font-bold text-app-fg">
+          이 브라우저 데이터 이관·복구
+        </h1>
+        <button
+          type="button"
+          className={buttonVariants({ tone: "secondary", size: "compact" })}
+          onClick={() => navigate("/settings", { replace: true })}
+        >
+          설정으로 돌아가기
+        </button>
+      </div>
+      <div className="flex flex-col gap-2 rounded-[12px] border border-solid border-app-border bg-app-surface p-4 text-body leading-5">
+        <div className="flex flex-wrap items-center justify-between gap-2 text-caption text-app-muted">
+          <span>대상 서버: {apiOrigin()}</span>
+          <span>현재 계정: {userId === null ? "로그인 필요" : `#${userId}`}</span>
+        </div>
+        <p className="m-0 text-caption leading-[18px] text-app-muted">
+          원본 {items.length}건. 항목별 선택은 해당 원본의 귀속과 대상 환경을 확인했다는
+          동의입니다. 숫자 ID가 같아도 같은 자료라고 간주하지 않으며 원본은 삭제하거나 자동
+          공개하지 않습니다.
+        </p>
+        <p className="m-0 text-caption leading-[18px] text-app-muted">
+          이 브라우저에서는 계정·서버별 Web Lock으로 직렬 실행합니다. 다른 기기의 동시 저장까지
+          원자적으로 보장하지 않습니다. 업로드·등록 응답 유실은 서버 확인이 필요할 수 있습니다.
+        </p>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <label className="flex flex-col gap-1.5 text-caption font-medium text-app-muted">
+          MIDI 대상 프로젝트 ID
+          <input
+            type="number"
+            min="1"
+            value={targetProject}
+            onChange={(event) => setTargetProject(event.target.value)}
+            className="h-10 rounded-[10px] border border-solid border-app-border bg-app-panel px-3 text-body text-app-fg outline-none focus:border-app-primary"
+          />
+        </label>
+        <label className="flex flex-col gap-1.5 text-caption font-medium text-app-muted">
+          내 MIDI 트랙 ID
+          <input
+            type="number"
+            min="1"
+            value={targetTrack}
+            onChange={(event) => setTargetTrack(event.target.value)}
+            className="h-10 rounded-[10px] border border-solid border-app-border bg-app-panel px-3 text-body text-app-fg outline-none focus:border-app-primary"
+          />
+        </label>
+      </div>
+      {!items.length && (
+        <p className="m-0 rounded-[12px] border border-solid border-app-border bg-app-panel p-5 text-center text-body text-app-muted">
+          이관할 이전 브라우저 자료가 없습니다.
+        </p>
+      )}
+      <div className="flex flex-col gap-3">
+        {items.map((item) => (
+          <article
+            key={item.key}
+            className="flex flex-col gap-3 rounded-[12px] border border-solid border-app-border bg-app-panel p-4"
+          >
+            <div className="flex flex-col gap-1">
+              <h2 className="m-0 text-label leading-[22px] font-semibold text-app-fg [overflow-wrap:anywhere]">
+                {item.title}
+              </h2>
+              <p className="m-0 text-caption leading-[18px] text-app-muted">
+                {item.kind} · 원본 scope: {item.originalScope} · {item.author ?? "작성자 미확인"}
+              </p>
+              <p className="m-0 text-caption leading-[18px] text-app-muted">{reasons[item.kind]}</p>
+            </div>
+            {item.kind === "draft-pointer" && userId !== null && (
+              <DraftPointerRecovery item={item} userId={userId} />
             )}
             {item.kind !== "recovery" && item.kind !== "draft-pointer" && (
-              <button
-                disabled={
-                  busy !== null ||
-                  !selected.has(item.key) ||
-                  userId === null ||
-                  (item.kind === "audio" && !ownership.has(item.key))
-                }
-                onClick={() => void migrate(item)}
-              >
-                {busy === item.key ? "확인·이관 중…" : "선택한 이 항목만 확인·이관"}
-              </button>
+              <label className="flex items-start gap-2.5 text-caption leading-[18px] text-app-fg">
+                <input
+                  type="checkbox"
+                  className="mt-0.5 size-4 shrink-0 accent-app-primary"
+                  disabled={busy !== null || userId === null}
+                  checked={selected.has(item.key)}
+                  onChange={(event) =>
+                    setSelected((old) => {
+                      const next = new Set(old);
+                      if (event.target.checked) next.add(item.key);
+                      else next.delete(item.key);
+                      return next;
+                    })
+                  }
+                />
+                <span>이 원본의 귀속·대상 환경을 확인했으며 이 항목의 이관에 동의합니다.</span>
+              </label>
             )}
-          </div>
-          <p role="status">
-            {results[item.key] ??
-              (userId === null ? "로그인 후 가능" : migrationEntry(item, userId)?.message)}
-          </p>
-        </article>
-      ))}
+            {item.kind === "audio" && (
+              <label className="flex items-start gap-2.5 text-caption leading-[18px] text-app-fg">
+                <input
+                  type="checkbox"
+                  className="mt-0.5 size-4 shrink-0 accent-app-primary"
+                  disabled={busy !== null}
+                  checked={ownership.has(item.key)}
+                  onChange={(event) =>
+                    setOwnership((old) => {
+                      const next = new Set(old);
+                      if (event.target.checked) next.add(item.key);
+                      else next.delete(item.key);
+                      return next;
+                    })
+                  }
+                />
+                <span>이 오디오를 직접 작성·소유하며 비공개 업로드에 동의합니다.</span>
+              </label>
+            )}
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                className={buttonVariants({ tone: "secondary", size: "compact" })}
+                onClick={() => void exportOriginal(item)}
+              >
+                원본 JSON 내보내기
+              </button>
+              {(item.mediaKey || item.storageKey.includes("creation-draft")) && (
+                <button
+                  type="button"
+                  className={buttonVariants({ tone: "secondary", size: "compact" })}
+                  onClick={() => void exportAudio(item)}
+                >
+                  원본 오디오 내보내기
+                </button>
+              )}
+              {item.kind !== "recovery" && item.kind !== "draft-pointer" && (
+                <button
+                  type="button"
+                  className={buttonVariants({ tone: "primary", size: "compact" })}
+                  disabled={
+                    busy !== null ||
+                    !selected.has(item.key) ||
+                    userId === null ||
+                    (item.kind === "audio" && !ownership.has(item.key))
+                  }
+                  onClick={() => void migrate(item)}
+                >
+                  {busy === item.key ? "확인·이관 중…" : "선택한 이 항목만 확인·이관"}
+                </button>
+              )}
+            </div>
+            {(results[item.key] || userId === null || migrationEntry(item, userId)?.message) && (
+              <p role="status" className="m-0 text-caption leading-[18px] text-app-primary-soft">
+                {results[item.key] ??
+                  (userId === null ? "로그인 후 가능" : migrationEntry(item, userId)?.message)}
+              </p>
+            )}
+          </article>
+        ))}
+      </div>
     </section>
   );
 }
@@ -516,53 +573,66 @@ function DraftPointerRecovery({
     );
   }
   return (
-    <section aria-label="이전 작업 이어하기 연결">
-      <button type="button" disabled={busy} onClick={() => void checkProject()}>
+    <section
+      aria-label="이전 작업 이어하기 연결"
+      className="flex flex-col gap-3 rounded-[10px] border border-solid border-app-border bg-app-surface p-3"
+    >
+      <button
+        type="button"
+        className={buttonVariants({ tone: "secondary", size: "compact" })}
+        disabled={busy}
+        onClick={() => void checkProject()}
+      >
         현재 서버에서 프로젝트 확인
       </button>
       {preview && (
         <>
-          <dl>
-            <dt>대상 서버</dt>
-            <dd>{origin}</dd>
-            <dt>대상 계정</dt>
-            <dd>#{userId}</dd>
-            <dt>프로젝트</dt>
-            <dd>
+          <dl className="m-0 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-caption leading-[18px]">
+            <dt className="text-app-muted">대상 서버</dt>
+            <dd className="m-0 text-app-fg [overflow-wrap:anywhere]">{origin}</dd>
+            <dt className="text-app-muted">대상 계정</dt>
+            <dd className="m-0 text-app-fg">#{userId}</dd>
+            <dt className="text-app-muted">프로젝트</dt>
+            <dd className="m-0 text-app-fg [overflow-wrap:anywhere]">
               #{preview.projectId} · {preview.title}
             </dd>
-            <dt>소유자</dt>
-            <dd>#{preview.ownerId}</dd>
-            <dt>상태</dt>
-            <dd>{preview.status}</dd>
+            <dt className="text-app-muted">소유자</dt>
+            <dd className="m-0 text-app-fg">#{preview.ownerId}</dd>
+            <dt className="text-app-muted">상태</dt>
+            <dd className="m-0 text-app-fg">{preview.status}</dd>
           </dl>
-          <p>
+          <p className="m-0 text-caption leading-[18px] text-app-muted">
             원본 global 포인터에는 서버·계정 출처가 없습니다. 이 프로젝트가 이어갈 작업인지 직접
             확인해주세요. 원본은 삭제하거나 수정하지 않습니다.
           </p>
-          <label>
+          <label className="flex items-start gap-2 text-caption leading-[18px] text-app-fg">
             <input
               type="checkbox"
+              className="mt-0.5 size-4 shrink-0 accent-app-primary"
               checked={consent}
               disabled={busy}
               onChange={(event) => setConsent(event.target.checked)}
             />
-            위 서버·계정·프로젝트를 확인했으며 이 항목의 이어하기 연결에 동의합니다.
+            <span>위 서버·계정·프로젝트를 확인했으며 이 항목의 이어하기 연결에 동의합니다.</span>
           </label>
           {replacing && (
-            <label>
+            <label className="flex items-start gap-2 text-caption leading-[18px] text-app-fg">
               <input
                 type="checkbox"
+                className="mt-0.5 size-4 shrink-0 accent-app-primary"
                 checked={replaceExisting}
                 disabled={busy}
                 onChange={(event) => setReplaceExisting(event.target.checked)}
               />
-              현재 이어하기 프로젝트 #{savedId}를 #{preview.projectId}로 교체하는 데 별도로
-              동의합니다.
+              <span>
+                현재 이어하기 프로젝트 #{savedId}를 #{preview.projectId}로 교체하는 데 별도로
+                동의합니다.
+              </span>
             </label>
           )}
           <button
             type="button"
+            className={buttonVariants({ tone: "primary", size: "compact" })}
             disabled={busy || !consent || (replacing && !replaceExisting)}
             onClick={() => void connectProject()}
           >
@@ -570,8 +640,19 @@ function DraftPointerRecovery({
           </button>
         </>
       )}
-      <p role="status">{message}</p>
-      {savedId === item.id && <Link to={`/studio/${item.id}`}>연결한 프로젝트 열기</Link>}
+      {message && (
+        <p role="status" className="m-0 text-caption leading-[18px] text-app-primary-soft">
+          {message}
+        </p>
+      )}
+      {savedId === item.id && (
+        <Link
+          className="text-body font-medium text-app-primary-soft underline"
+          to={`/studio/${item.id}`}
+        >
+          연결한 프로젝트 열기
+        </Link>
+      )}
     </section>
   );
 }

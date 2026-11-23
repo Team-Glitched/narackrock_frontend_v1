@@ -25,7 +25,7 @@ export const designTokens = {
   fontFamily: 'Pretendard,"Pretendard Variable",sans-serif',
   fontSize: {
     navigation: "10px",
-    caption: "14px",
+    caption: "12px",
     body: "14px",
     label: "16px",
     title: "20px",
