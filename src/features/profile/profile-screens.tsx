@@ -27,6 +27,12 @@ import { useImageCrop } from "@/features/images/use-image-crop";
 import { InstrumentDialog } from "@/features/composition/instrument-dialog";
 import { partIdForValue, partLabel } from "@/features/composition/instrument-parts";
 import { ChevronDown } from "lucide-react";
+import {
+  NICKNAME_MAX_LENGTH,
+  PROFILE_BIO_MAX_LENGTH,
+  clampCodePoints,
+  codePointLength,
+} from "@/lib/content-limits";
 
 export function profileErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : "프로필을 불러오지 못했습니다.";
@@ -517,6 +523,14 @@ export function useProfileForm(onSubmit: (draft: ProfileDraft) => Promise<void>)
       setError("이름을 입력해 주세요.");
       return;
     }
+    if (codePointLength(nickname.trim()) > NICKNAME_MAX_LENGTH) {
+      setError(`이름은 ${NICKNAME_MAX_LENGTH}자 이내로 입력해 주세요.`);
+      return;
+    }
+    if (codePointLength(explanation.trim()) > PROFILE_BIO_MAX_LENGTH) {
+      setError(`설명은 ${PROFILE_BIO_MAX_LENGTH}자 이내로 입력해 주세요.`);
+      return;
+    }
 
     setSaving(true);
     setError(null);
@@ -628,10 +642,12 @@ export function ProfileForm({
         <strong>이름</strong>
         <input
           value={nickname}
-          onChange={(event) => setNickname(event.target.value)}
-          maxLength={30}
+          onChange={(event) => setNickname(clampCodePoints(event.target.value, NICKNAME_MAX_LENGTH))}
           disabled={saving}
         />
+        <small className="text-right text-caption text-app-muted tabular-nums">
+          {codePointLength(nickname)}/{NICKNAME_MAX_LENGTH}자
+        </small>
       </label>
 
       <label>
@@ -674,9 +690,14 @@ export function ProfileForm({
         <strong>설명</strong>
         <textarea
           value={explanation}
-          onChange={(event) => setExplanation(event.target.value)}
+          onChange={(event) =>
+            setExplanation(clampCodePoints(event.target.value, PROFILE_BIO_MAX_LENGTH))
+          }
           disabled={saving}
         />
+        <small className="text-right text-caption text-app-muted tabular-nums">
+          {codePointLength(explanation)}/{PROFILE_BIO_MAX_LENGTH}자
+        </small>
       </label>
 
       {error && (

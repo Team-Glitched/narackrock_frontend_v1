@@ -13,6 +13,7 @@ import { Asset } from "@/components/asset";
 import { toggleResource, useWorkspace, type Resource, type Work } from "./workspace-store";
 import { useVisitedWorks } from "./use-visited-works";
 import { apiOrigin } from "@/lib/api/client";
+import { SEARCH_QUERY_MAX_LENGTH, clampCodePoints } from "@/lib/content-limits";
 function Page({
   title,
   subtitle,
@@ -353,7 +354,7 @@ export function SourceLibraryScreen({
           aria-label="보관함 검색"
           placeholder="리소스 검색"
           value={query}
-          onChange={(e) => setQuery(e.target.value)}
+          onChange={(e) => setQuery(clampCodePoints(e.target.value, SEARCH_QUERY_MAX_LENGTH))}
         />
       </label>
       <div className={workspaceStyles.workspaceTabs}>

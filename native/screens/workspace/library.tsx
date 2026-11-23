@@ -13,6 +13,7 @@ import { Touchable } from "../../ui/kit";
 import { ScreenScroll } from "../../ui/screen";
 import { useScreen } from "../../ui/screen-context";
 import { colors } from "../../ui/theme";
+import { SEARCH_QUERY_MAX_LENGTH, clampCodePoints } from "../../../src/lib/content-limits";
 import type { ScreenProps } from "../types";
 import { Card, Empty, Notice, Page, Pill, styles as parts, text, Wide } from "./parts";
 import { PlaybackBar } from "./playback-bar";
@@ -150,7 +151,7 @@ function SearchField({ query }: { query: string }) {
         placeholderTextColor="#9692a6"
         selectionColor={colors.accent}
         value={value}
-        onChangeText={setValue}
+        onChangeText={(text) => setValue(clampCodePoints(text, SEARCH_QUERY_MAX_LENGTH))}
         returnKeyType="search"
         style={styles.searchInput}
       />

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 
 import { parseBanDays } from "../../../src/features/admin/ban-days";
+import { MODERATION_REASON_MAX_LENGTH, clampCodePoints } from "../../../src/lib/content-limits";
 import type {
   NativeAdminProposal,
   NativeAdminReport,
@@ -88,9 +89,8 @@ function ProposalCard({ proposal }: { proposal: NativeAdminProposal }) {
       <TextField
         accessibilityLabel={`${proposal.name} 반려 사유`}
         placeholder="반려 사유"
-        maxLength={500}
         value={reason}
-        onChangeText={setReason}
+        onChangeText={(value) => setReason(clampCodePoints(value, MODERATION_REASON_MAX_LENGTH))}
       />
       {error !== "" && (
         <Text accessibilityRole="alert" style={styles.error}>
@@ -153,9 +153,8 @@ function ReportCard({ report }: { report: NativeAdminReport }) {
       <TextField
         accessibilityLabel="처리 사유"
         placeholder="처리 사유"
-        maxLength={500}
         value={reason}
-        onChangeText={setReason}
+        onChangeText={(value) => setReason(clampCodePoints(value, MODERATION_REASON_MAX_LENGTH))}
       />
       {error !== "" && (
         <Text accessibilityRole="alert" style={styles.error}>

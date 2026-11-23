@@ -13,6 +13,7 @@ import { useHiddenPosts } from "@/features/community/hidden-posts";
 import { PostUserActionsMenu } from "@/features/posts/post-user-actions-menu";
 import { FigmaSheet } from "@/components/figma-sheet";
 import { ReportReasons } from "@/features/comments/report-reasons";
+import { MODERATION_REASON_MAX_LENGTH, clampCodePoints } from "@/lib/content-limits";
 import { formatDistanceToNow } from "date-fns";
 import { ko } from "date-fns/locale";
 import { Asset } from "@/components/asset";
@@ -391,9 +392,12 @@ function PostCommentsView({
                       <input
                         aria-label="운영 삭제 사유"
                         placeholder="삭제 사유"
-                        maxLength={500}
                         value={moderationReason}
-                        onChange={(event) => setModerationReason(event.target.value)}
+                        onChange={(event) =>
+                          setModerationReason(
+                            clampCodePoints(event.target.value, MODERATION_REASON_MAX_LENGTH),
+                          )
+                        }
                       />
                       <button
                         className={buttonVariants({

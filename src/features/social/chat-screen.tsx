@@ -18,6 +18,7 @@ import { canSendChatTo } from "@/features/social/chat-access";
 import { useChatSend, useConversation } from "@/features/social/use-conversation";
 import type { UserProfile } from "@/lib/api/contracts";
 import { CHAT_MESSAGE_MAX_LENGTH, chatMessageContent } from "@/features/social/chat-messages";
+import { SEARCH_QUERY_MAX_LENGTH, clampCodePoints } from "@/lib/content-limits";
 
 const headerControl =
   "grid size-11 shrink-0 place-items-center rounded-full p-[10px] hover:bg-white/5 [&>img]:h-auto [&>img]:w-auto [&>img]:max-h-none [&>img]:max-w-none [&>img]:shrink-0";
@@ -59,7 +60,9 @@ function Inbox({
           placeholder="대화 상대 검색"
           value={searchText}
           className="min-w-0 flex-1 border-0 bg-transparent text-label leading-[22px] text-app-fg outline-none placeholder:text-app-muted focus-visible:outline-none! [&::-webkit-search-cancel-button]:appearance-none"
-          onChange={(event) => setSearchText(event.target.value)}
+          onChange={(event) =>
+            setSearchText(clampCodePoints(event.target.value, SEARCH_QUERY_MAX_LENGTH))
+          }
         />
         {searchText && (
           <button

@@ -8,6 +8,12 @@ import {
   partLabel,
 } from "../../../src/features/composition/instrument-parts";
 import type { NativeEditProfile } from "../../../src/lib/native-screens";
+import {
+  NICKNAME_MAX_LENGTH,
+  PROFILE_BIO_MAX_LENGTH,
+  clampCodePoints,
+  codePointLength,
+} from "../../../src/lib/content-limits";
 import { AppHeader } from "../../ui/header";
 import { Avatar, Touchable } from "../../ui/kit";
 import { ScreenScroll } from "../../ui/screen";
@@ -94,13 +100,15 @@ function Form({
         <Field label="이름">
           <TextInput
             value={nickname}
-            onChangeText={setNickname}
-            maxLength={30}
+            onChangeText={(value) => setNickname(clampCodePoints(value, NICKNAME_MAX_LENGTH))}
             editable={!saving}
             accessibilityLabel="이름"
             selectionColor={colors.accent}
             style={styles.input}
           />
+          <Text style={[type.caption, { textAlign: "right" }]}>
+            {codePointLength(nickname)}/{NICKNAME_MAX_LENGTH}자
+          </Text>
         </Field>
         <Field label="악기">
           <Touchable
@@ -180,13 +188,16 @@ function Form({
         <Field label="설명">
           <TextInput
             value={explanation}
-            onChangeText={setExplanation}
+            onChangeText={(value) => setExplanation(clampCodePoints(value, PROFILE_BIO_MAX_LENGTH))}
             editable={!saving}
             multiline
             accessibilityLabel="설명"
             selectionColor={colors.accent}
             style={[styles.input, styles.textarea]}
           />
+          <Text style={[type.caption, { textAlign: "right" }]}>
+            {codePointLength(explanation)}/{PROFILE_BIO_MAX_LENGTH}자
+          </Text>
         </Field>
         {model.error && (
           <Text accessibilityRole="alert" style={styles.error}>

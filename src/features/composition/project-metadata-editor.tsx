@@ -6,6 +6,7 @@ import { useCurrentUserId } from "@/features/auth/use-current-user";
 import { buttonVariants } from "@/styles/variants";
 import { errorText } from "./studio-helpers";
 import { ImageCropInput } from "@/features/images/image-crop-input";
+import { SONG_TITLE_MAX_LENGTH, clampCodePoints, codePointLength } from "@/lib/content-limits";
 
 /** Edits only the song's title/cover; saving never publishes audio or commits personal notes. */
 export function ProjectMetadataEditor({
@@ -34,12 +35,17 @@ export function ProjectMetadataEditor({
       onSubmit={async (event) => {
         event.preventDefault();
         if (busy || !title.trim()) return;
+        const trimmed = title.trim();
+        if (codePointLength(trimmed) > SONG_TITLE_MAX_LENGTH) {
+          setError(`곡 제목은 ${SONG_TITLE_MAX_LENGTH}자 이내로 입력해 주세요.`);
+          return;
+        }
         setBusy(true);
         onBusyChange?.(true);
         setError(null);
         try {
           const imageId = image ? await uploadMedia(image, "IMAGE") : null;
-          await updateProjectMetadata(projectId, title.trim(), imageId);
+          await updateProjectMetadata(projectId, trimmed, imageId);
           // Detail, feed, profile and song lists all carry copies of the title and cover.
           void queryClient.invalidateQueries({
             queryKey: queryScope(userId),
@@ -65,11 +71,13 @@ export function ProjectMetadataEditor({
           autoFocus
           className="w-full rounded border border-app-panel bg-app-surface p-2"
           value={title}
-          maxLength={100}
           required
           disabled={busy}
-          onChange={(event) => setTitle(event.target.value)}
+          onChange={(event) => setTitle(clampCodePoints(event.target.value, SONG_TITLE_MAX_LENGTH))}
         />
+        <small className="text-right text-caption text-app-muted tabular-nums">
+          {codePointLength(title)}/{SONG_TITLE_MAX_LENGTH}자
+        </small>
       </label>
       {!image && albumImageUrl && (
         <img

@@ -13,6 +13,7 @@ import CloseIcon from "../../public/figma/search-close.svg";
 import SearchIcon from "../../public/figma/search-input.svg";
 import { Touchable } from "./kit";
 import { colors } from "./theme";
+import { SEARCH_QUERY_MAX_LENGTH, clampCodePoints } from "../../src/lib/content-limits";
 
 /**
  * The web's search pill (chat inbox, /search, community picker; socialStyles.searchFocus). The border
@@ -41,7 +42,7 @@ export function SearchPill({
         {...input}
         ref={ref}
         value={value}
-        onChangeText={onChangeText}
+        onChangeText={(text) => onChangeText(clampCodePoints(text, SEARCH_QUERY_MAX_LENGTH))}
         onFocus={() => setFocused(true)}
         onBlur={() => setFocused(false)}
         placeholderTextColor={colors.muted}

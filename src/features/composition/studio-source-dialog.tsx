@@ -14,6 +14,7 @@ import type {
 } from "@/lib/native-screens";
 import { jsonNoteFormat } from "./json-note-import";
 import { errorText } from "./studio-helpers";
+import { SEARCH_QUERY_MAX_LENGTH, clampCodePoints } from "@/lib/content-limits";
 
 type Tab = "saved" | "local" | "upload";
 
@@ -306,7 +307,9 @@ export function StudioSourceDialog({
               aria-label="샘플 검색"
               placeholder={pickerText[tab].placeholder}
               value={picker.query}
-              onChange={(event) => picker.setQuery(event.target.value)}
+              onChange={(event) =>
+                picker.setQuery(clampCodePoints(event.target.value, SEARCH_QUERY_MAX_LENGTH))
+              }
             />
           </label>
           <div className={studioStyles.studioSourceResults}>

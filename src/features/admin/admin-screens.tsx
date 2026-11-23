@@ -2,6 +2,13 @@ import { CommunityImagesEditor } from "@/features/community/community-images-edi
 import { Dropdown } from "@/components/dropdown";
 import { sharedStyles } from "@/styles/shared.styles";
 import { cn } from "@/lib/utils";
+import {
+  COMMUNITY_DESCRIPTION_MAX_LENGTH,
+  MODERATION_REASON_MAX_LENGTH,
+  SEARCH_QUERY_MAX_LENGTH,
+  clampCodePoints,
+  codePointLength,
+} from "@/lib/content-limits";
 import { communityStyles } from "@/styles/community.styles";
 import { workspaceStyles } from "@/styles/workspace.styles";
 import { badgeVariants, buttonVariants } from "@/styles/variants";
@@ -210,9 +217,10 @@ function ProposalCard({
       <input
         aria-label={`${proposal.name} 반려 사유`}
         placeholder="반려 사유"
-        maxLength={500}
         value={reason}
-        onChange={(event) => setReason(event.target.value)}
+        onChange={(event) =>
+          setReason(clampCodePoints(event.target.value, MODERATION_REASON_MAX_LENGTH))
+        }
       />
       {error && <p role="alert">{error}</p>}
       <div className={workspaceStyles.workspaceActions}>
@@ -310,9 +318,10 @@ function ReportCard({
       <input
         aria-label="처리 사유"
         placeholder="처리 사유"
-        maxLength={500}
         value={reason}
-        onChange={(event) => setReason(event.target.value)}
+        onChange={(event) =>
+          setReason(clampCodePoints(event.target.value, MODERATION_REASON_MAX_LENGTH))
+        }
       />
       {error && <p role="alert">{error}</p>}
       <div className={workspaceStyles.workspaceActions}>
@@ -793,7 +802,9 @@ function CommunityManagers({ community }: { community: Community }) {
             aria-label="닉네임으로 사용자 검색"
             placeholder="닉네임으로 사용자 검색"
             value={keyword}
-            onChange={(event) => setKeyword(event.target.value)}
+            onChange={(event) =>
+              setKeyword(clampCodePoints(event.target.value, SEARCH_QUERY_MAX_LENGTH))
+            }
           />
           <button aria-label="검색">
             <Asset name="search-input.svg" />
@@ -835,8 +846,6 @@ function CommunityManagers({ community }: { community: Community }) {
   );
 }
 
-const DESCRIPTION_LIMIT = 1000;
-
 function CommunityMembers({ community, onBack }: { community: Community; onBack: () => void }) {
   const [description, setDescription] = useState(community.description ?? "");
   const { notice, bans, logs, saving, save, lifting, lift } = useCommunityModeration(community);
@@ -868,13 +877,14 @@ function CommunityMembers({ community, onBack }: { community: Community; onBack:
               className={communityStyles.communityManageTextarea}
               aria-label="커뮤니티 설명"
               placeholder="커뮤니티를 소개해 주세요."
-              maxLength={DESCRIPTION_LIMIT}
               value={description}
-              onChange={(event) => setDescription(event.target.value)}
+              onChange={(event) =>
+                setDescription(clampCodePoints(event.target.value, COMMUNITY_DESCRIPTION_MAX_LENGTH))
+              }
             />
             <div className={communityStyles.communityManageFooter}>
               <small>
-                {description.length}/{DESCRIPTION_LIMIT}
+                {codePointLength(description)}/{COMMUNITY_DESCRIPTION_MAX_LENGTH}
               </small>
               <button className={buttonVariants({ tone: "primary" })} disabled={saving}>
                 {saving ? "저장 중..." : "저장"}

@@ -22,6 +22,7 @@ import {
   timingDenominators,
   timingProblem,
 } from "../../../src/features/composition/project-timing";
+import { SEARCH_QUERY_MAX_LENGTH, clampCodePoints } from "../../../src/lib/content-limits";
 import type {
   NativeInstrumentPicker,
   NativeSourcePicker,
@@ -547,8 +548,9 @@ function SourceList({
         selectionColor={colors.accent}
         value={query}
         onChangeText={(text) => {
-          onQuery(text);
-          act({ type: "source-query", query: text });
+          const clamped = clampCodePoints(text, SEARCH_QUERY_MAX_LENGTH);
+          onQuery(clamped);
+          act({ type: "source-query", query: clamped });
         }}
         style={styles.search}
       />

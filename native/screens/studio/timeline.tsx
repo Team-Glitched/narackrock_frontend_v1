@@ -12,6 +12,7 @@ import {
 import Svg, { Path, Rect } from "react-native-svg";
 
 import {
+  CONTRIBUTION_COMMENT_MAX_LENGTH,
   SONG_TITLE_MAX_LENGTH,
   clampCodePoints,
   codePointLength,
@@ -676,8 +677,7 @@ function SubmitForm({
         <TextInput
           accessibilityLabel="한 줄 코멘트"
           value={comment}
-          onChangeText={onComment}
-          maxLength={120}
+          onChangeText={(value) => onComment(clampCodePoints(value, CONTRIBUTION_COMMENT_MAX_LENGTH))}
           placeholder="어떤 작업을 추가했나요?"
           placeholderTextColor="#9692a6"
           selectionColor={colors.accent}
@@ -686,6 +686,9 @@ function SubmitForm({
           onSubmitEditing={send}
           style={styles.formInput}
         />
+        <Text style={{ color: "#9692a6", fontSize: 12, textAlign: "right" }}>
+          {codePointLength(comment)}/{CONTRIBUTION_COMMENT_MAX_LENGTH}자
+        </Text>
       </View>
       {submit.error && (
         <Text accessibilityRole="alert" style={styles.formError}>

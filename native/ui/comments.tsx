@@ -23,6 +23,13 @@ import {
 } from "react-native";
 import type { SvgProps } from "react-native-svg";
 
+import {
+  COMMENT_MAX_LENGTH,
+  MODERATION_REASON_MAX_LENGTH,
+  clampCodePoints,
+  codePointLength,
+} from "../../src/lib/content-limits";
+
 import HideIcon from "../../public/figma/post-hide.svg";
 import ModerateIcon from "../../public/figma/admin-suspend.svg";
 import ReplyIcon from "../../public/figma/comment-reply.svg";
@@ -339,9 +346,12 @@ function CommentCard({
             multiline
             accessibilityLabel="댓글 내용 수정"
             value={draft}
-            onChangeText={setDraft}
+            onChangeText={(value) => setDraft(clampCodePoints(value, COMMENT_MAX_LENGTH))}
             style={styles.editInput}
           />
+          <Text style={[type.caption, { textAlign: "right" }]}>
+            {codePointLength(draft)}/{COMMENT_MAX_LENGTH}자
+          </Text>
           <View style={styles.inlineButtons}>
             <TextButton label="취소" small onPress={() => setEditing(false)} />
             <TextButton
@@ -397,9 +407,10 @@ function CommentCard({
           <TextField
             accessibilityLabel="운영 삭제 사유"
             placeholder="삭제 사유"
-            maxLength={500}
             value={reason}
-            onChangeText={setReason}
+            onChangeText={(value) =>
+              setReason(clampCodePoints(value, MODERATION_REASON_MAX_LENGTH))
+            }
           />
           <View style={styles.inlineButtons}>
             <TextButton label="취소" small onPress={() => setModerating(false)} />
@@ -511,6 +522,11 @@ function Composer({
           {composer.hideError}
         </Text>
       )}
+      {signedIn && draft.length > 0 && (
+        <Text style={[type.caption, { textAlign: "right" }]}>
+          {codePointLength(draft)}/{COMMENT_MAX_LENGTH}자
+        </Text>
+      )}
       <View style={styles.inputRow}>
         {signedIn ? (
           // Enter adds a line, as on the web's touch keyboards; the button sends.
@@ -522,7 +538,7 @@ function Composer({
             placeholderTextColor="#9692a6"
             selectionColor={colors.accent}
             value={draft}
-            onChangeText={onDraft}
+            onChangeText={(value) => onDraft(clampCodePoints(value, COMMENT_MAX_LENGTH))}
             editable={!composer.busy && composer.writable}
             style={styles.input}
           />

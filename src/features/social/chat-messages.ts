@@ -1,6 +1,7 @@
 import type { ChatMessage } from "../../lib/api/social.ts";
+import { CHAT_MESSAGE_MAX_LENGTH } from "../../lib/content-limits.ts";
 
-export const CHAT_MESSAGE_MAX_LENGTH = 2000;
+export { CHAT_MESSAGE_MAX_LENGTH };
 
 /** Java String.length and HTML maxlength both count UTF-16 code units. */
 export function chatMessageContent(draft: string): string | null {

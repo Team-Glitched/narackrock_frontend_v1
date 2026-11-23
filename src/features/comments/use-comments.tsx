@@ -17,6 +17,7 @@ import { useCurrentUserId } from "@/features/auth/use-current-user";
 import { useLoginPrompt } from "@/features/auth/login-prompt";
 import { readId } from "@/features/navigation/paths";
 import { apiOrigin } from "@/lib/api/client";
+import { COMMENT_MAX_LENGTH, codePointLength } from "@/lib/content-limits";
 import { useHiddenIds } from "@/lib/browser/hidden-ids";
 import type { CommentAdapter, CommentItem } from "./comment-model";
 import {
@@ -226,6 +227,13 @@ function useCommentWrites(
     edit(item: CommentItem, text: string) {
       if (!can(item).edit || !text.trim()) return Promise.resolve(false);
       const trimmed = text.trim();
+      if (codePointLength(trimmed) > COMMENT_MAX_LENGTH) {
+        update(item.id, () => ({
+          busy: false,
+          error: `댓글은 ${COMMENT_MAX_LENGTH}자 이내로 입력해 주세요.`,
+        }));
+        return Promise.resolve(false);
+      }
       return change(
         item.id,
         () => adapter.update?.(item.id, trimmed),
@@ -336,7 +344,12 @@ export function useComments({
     if (linkedParent) setExpanded((old) => new Set([...old, linkedParent]));
   }
   const [reply, setReply] = useState<ReplyTarget | null>(null);
-  const [draft, setDraft] = useState("");
+  const [draft, setDraftState] = useState("");
+  const [validationError, setValidationError] = useState<string | null>(null);
+  const setDraft = (value: string) => {
+    setDraftState(value);
+    if (validationError) setValidationError(null);
+  };
   // Moves whenever the draft is cleared, so a draft kept outside (the app's) follows.
   const [cleared, setCleared] = useState(0);
   const [replyFocus, setReplyFocus] = useState(0);
@@ -444,7 +457,8 @@ export function useComments({
     /** Moves when a reply starts; the input should take focus. */
     replyFocus,
     busy,
-    error: create.isError ? errorText(create.error, "댓글을 등록하지 못했습니다.") : null,
+    error:
+      validationError ?? (create.isError ? errorText(create.error, "댓글을 등록하지 못했습니다.") : null),
     hiding: hideOnServer.isPending,
     hideError: hideOnServer.isError
       ? errorText(hideOnServer.error, "댓글을 숨기지 못했습니다.")
@@ -453,7 +467,13 @@ export function useComments({
     /** Sends `text` as a comment, or as a reply to the current target. */
     send(text: string) {
       if (!requireLogin() || busy || hideOnServer.isPending || !writable || !text.trim()) return;
-      create.mutate({ text: text.trim(), parentId: reply?.threadId ?? null });
+      const trimmed = text.trim();
+      if (codePointLength(trimmed) > COMMENT_MAX_LENGTH) {
+        setValidationError(`댓글은 ${COMMENT_MAX_LENGTH}자 이내로 입력해 주세요.`);
+        return;
+      }
+      setValidationError(null);
+      create.mutate({ text: trimmed, parentId: reply?.threadId ?? null });
     },
     /** Opens or collapses replies; clears the reply target only if collapsing the active thread. */
     toggleReplies(item: CommentItem, open: boolean) {

@@ -7,6 +7,13 @@ import { profileErrorMessage } from "@/features/profile/profile-screens";
 import { ApiError } from "@/lib/api/client";
 import { updateProfile } from "@/lib/api/profile";
 import { profileStyles } from "@/styles/profile.styles";
+import {
+  INSTRUMENT_MAX_LENGTH,
+  NICKNAME_MAX_LENGTH,
+  PROFILE_BIO_MAX_LENGTH,
+  clampCodePoints,
+  codePointLength,
+} from "@/lib/content-limits";
 
 const setupFields = ["nickname", "instrument", "explanation"] as const;
 
@@ -20,7 +27,7 @@ export type ProfileSetupValues = Record<(typeof setupFields)[number], string>;
 export function useInitialProfileSetup(suggestedNickname: string, onSaved: () => void) {
   const [step, setStep] = useState<ProfileSetupStep>(0);
   const [values, setValues] = useState<ProfileSetupValues>({
-    nickname: suggestedNickname,
+    nickname: clampCodePoints(suggestedNickname, NICKNAME_MAX_LENGTH),
     instrument: "",
     explanation: "",
   });
@@ -29,7 +36,15 @@ export function useInitialProfileSetup(suggestedNickname: string, onSaved: () =>
   const field = setupFields[step];
 
   function change(value: string) {
-    setValues((current) => ({ ...current, [field]: value }));
+    const clamped =
+      field === "nickname"
+        ? clampCodePoints(value, NICKNAME_MAX_LENGTH)
+        : field === "instrument"
+          ? clampCodePoints(value, INSTRUMENT_MAX_LENGTH)
+          : field === "explanation"
+            ? clampCodePoints(value, PROFILE_BIO_MAX_LENGTH)
+            : value;
+    setValues((current) => ({ ...current, [field]: clamped }));
   }
 
   /** Validates the current step's field (`value`, default: the typed one), then moves on or saves. */
@@ -43,6 +58,10 @@ export function useInitialProfileSetup(suggestedNickname: string, onSaved: () =>
         setError("이름을 입력해 주세요.");
         return;
       }
+      if (codePointLength(next.nickname.trim()) > NICKNAME_MAX_LENGTH) {
+        setError(`이름은 ${NICKNAME_MAX_LENGTH}자 이내로 입력해 주세요.`);
+        return;
+      }
 
       setStep(1);
       return;
@@ -53,6 +72,10 @@ export function useInitialProfileSetup(suggestedNickname: string, onSaved: () =>
         setError("주 악기를 입력해 주세요.");
         return;
       }
+      if (codePointLength(next.instrument.trim()) > INSTRUMENT_MAX_LENGTH) {
+        setError(`주 악기는 ${INSTRUMENT_MAX_LENGTH}자 이내로 입력해 주세요.`);
+        return;
+      }
 
       setStep(2);
       return;
@@ -60,6 +83,10 @@ export function useInitialProfileSetup(suggestedNickname: string, onSaved: () =>
 
     if (!next.explanation.trim()) {
       setError("설명을 입력해 주세요.");
+      return;
+    }
+    if (codePointLength(next.explanation.trim()) > PROFILE_BIO_MAX_LENGTH) {
+      setError(`설명은 ${PROFILE_BIO_MAX_LENGTH}자 이내로 입력해 주세요.`);
       return;
     }
 
@@ -127,10 +154,12 @@ export function InitialProfileSetupScreen({
               <input
                 value={values.nickname}
                 onChange={(event) => change(event.target.value)}
-                maxLength={30}
                 autoFocus
                 disabled={saving}
               />
+              <small className="text-right text-caption text-app-muted tabular-nums">
+                {codePointLength(values.nickname)}/{NICKNAME_MAX_LENGTH}자
+              </small>
             </label>
           </>
         )}
@@ -189,6 +218,9 @@ export function InitialProfileSetupScreen({
                 autoFocus
                 disabled={saving}
               />
+              <small className="text-right text-caption text-app-muted tabular-nums">
+                {codePointLength(values.explanation)}/{PROFILE_BIO_MAX_LENGTH}자
+              </small>
             </label>
           </>
         )}

@@ -20,6 +20,13 @@ import { useCurrentUserId } from "@/features/auth/use-current-user";
 import { applyPostEdit, applyPostRemoval, postDetailQuery } from "@/features/posts/post-queries";
 import { postError, relativeTime } from "@/features/posts/post-utils";
 import { reportPost } from "@/lib/api/reports";
+import {
+  MODERATION_REASON_MAX_LENGTH,
+  POST_CONTENT_MAX_LENGTH,
+  POST_TITLE_MAX_LENGTH,
+  clampCodePoints,
+  codePointLength,
+} from "@/lib/content-limits";
 
 type CommunityPostProps = {
   moderation?: ModerationScope;
@@ -148,6 +155,14 @@ export function useCommunityPostCard({
       setActionError("제목과 내용을 모두 입력해주세요.");
       return;
     }
+    if (codePointLength(edit.title.trim()) > POST_TITLE_MAX_LENGTH) {
+      setActionError(`제목은 ${POST_TITLE_MAX_LENGTH}자 이내로 입력해주세요.`);
+      return;
+    }
+    if (codePointLength(edit.content.trim()) > POST_CONTENT_MAX_LENGTH) {
+      setActionError(`본문은 ${POST_CONTENT_MAX_LENGTH}자 이내로 입력해주세요.`);
+      return;
+    }
     if (submitting) return;
     setActionError(null);
     saving.mutate(edit);
@@ -156,6 +171,10 @@ export function useCommunityPostCard({
   function remove(moderationReason: string) {
     if (moderating && !moderationReason.trim()) {
       setActionError("운영 삭제 사유를 입력해주세요.");
+      return;
+    }
+    if (moderating && codePointLength(moderationReason.trim()) > MODERATION_REASON_MAX_LENGTH) {
+      setActionError(`운영 삭제 사유는 ${MODERATION_REASON_MAX_LENGTH}자 이내로 입력해주세요.`);
       return;
     }
     if (submitting) return;
@@ -282,17 +301,23 @@ function ScopedCommunityPost({
           <input
             aria-label="게시글 제목 수정"
             value={title}
-            onChange={(e) => setTitle(e.target.value)}
+            onChange={(e) => setTitle(clampCodePoints(e.target.value, POST_TITLE_MAX_LENGTH))}
             placeholder="제목"
             disabled={submitting}
           />
+          <small className="text-right text-caption text-app-muted tabular-nums">
+            {codePointLength(title)}/{POST_TITLE_MAX_LENGTH}자
+          </small>
           <textarea
             aria-label="게시글 내용 수정"
             value={content}
-            onChange={(e) => setContent(e.target.value)}
+            onChange={(e) => setContent(clampCodePoints(e.target.value, POST_CONTENT_MAX_LENGTH))}
             placeholder="내용을 입력하세요"
             disabled={submitting}
           />
+          <small className="text-right text-caption text-app-muted tabular-nums">
+            {codePointLength(content)}/{POST_CONTENT_MAX_LENGTH}자
+          </small>
           {error && <p className={communityStyles.postFormError}>{error}</p>}
           <div className={communityStyles.postFormActions}>
             <button
@@ -462,9 +487,12 @@ function ScopedCommunityPost({
             <input
               aria-label="운영 삭제 사유"
               placeholder="삭제 사유"
-              maxLength={500}
               value={moderationReason}
-              onChange={(event) => setModerationReason(event.target.value)}
+              onChange={(event) =>
+                setModerationReason(
+                  clampCodePoints(event.target.value, MODERATION_REASON_MAX_LENGTH),
+                )
+              }
             />
           )}
           <button

@@ -9,6 +9,7 @@ import { ApiError } from "@/lib/api/client";
 import { profileQuery } from "@/features/profile/profile-queries";
 import type { ContributionDto } from "@/lib/api/composition";
 import { badgeVariants, buttonVariants } from "@/styles/variants";
+import { MODERATION_REASON_MAX_LENGTH, clampCodePoints } from "@/lib/content-limits";
 import {
   ContributionRequestCard,
   ContributionReviewActions,
@@ -396,11 +397,12 @@ export function SubmissionDetailScreen({
             </span>
             <textarea
               className="box-border min-h-20 w-full resize-y rounded-xl border border-app-border bg-app-surface p-3 text-body text-app-fg"
-              maxLength={500}
               placeholder="거절할 때 참여자에게 보여줄 사유를 적어 주세요."
               value={reason}
               disabled={review.isPending}
-              onChange={(event) => setReason(event.target.value)}
+              onChange={(event) =>
+                setReason(clampCodePoints(event.target.value, MODERATION_REASON_MAX_LENGTH))
+              }
             />
           </label>
           <ContributionReviewActions

@@ -3,6 +3,12 @@ import { Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 
 import Svg, { Path } from "react-native-svg";
 
 import CloseIcon from "../../../public/figma/search-close.svg";
+import {
+  POST_CONTENT_MAX_LENGTH,
+  POST_TITLE_MAX_LENGTH,
+  clampCodePoints,
+  codePointLength,
+} from "../../../src/lib/content-limits";
 import type { NativePostCreate } from "../../../src/lib/native-screens";
 import { AppHeader } from "../../ui/header";
 import { Avatar, Button, Status, Touchable } from "../../ui/kit";
@@ -65,15 +71,18 @@ function PostForm({ model }: { model: NativePostCreate }) {
             accessibilityLabel="게시글 제목"
             editable={!model.busy}
             value={title}
-            maxLength={100}
             onChangeText={(value) => {
-              setTitle(value);
-              act({ type: "post-create-title", value });
+              const clamped = clampCodePoints(value, POST_TITLE_MAX_LENGTH);
+              setTitle(clamped);
+              act({ type: "post-create-title", value: clamped });
             }}
             placeholderTextColor="#9692a6"
             selectionColor={colors.accent}
             style={styles.input}
           />
+          <Text style={[type.caption, { textAlign: "right" }]}>
+            {codePointLength(title)}/{POST_TITLE_MAX_LENGTH}자
+          </Text>
         </View>
         <View style={styles.field}>
           <Text style={type.title}>본문</Text>
@@ -83,13 +92,17 @@ function PostForm({ model }: { model: NativePostCreate }) {
             multiline
             value={content}
             onChangeText={(value) => {
-              setContent(value);
-              act({ type: "post-create-content", value });
+              const clamped = clampCodePoints(value, POST_CONTENT_MAX_LENGTH);
+              setContent(clamped);
+              act({ type: "post-create-content", value: clamped });
             }}
             placeholderTextColor="#9692a6"
             selectionColor={colors.accent}
             style={[styles.input, styles.textarea]}
           />
+          <Text style={[type.caption, { textAlign: "right" }]}>
+            {codePointLength(content)}/{POST_CONTENT_MAX_LENGTH}자
+          </Text>
         </View>
         <View style={styles.field}>
           <Text style={type.title}>사진</Text>

@@ -5,6 +5,11 @@ import { useId, useState } from "react";
 import { CanvasDialog } from "@/components/canvas-dialog";
 import { NativeDialog } from "@/components/native-dialog";
 import { nativeApp } from "@/lib/native-app";
+import {
+  MODERATION_REASON_MAX_LENGTH,
+  clampCodePoints,
+  codePointLength,
+} from "@/lib/content-limits";
 export function MemberActionDialog({
   member,
   action,
@@ -29,6 +34,8 @@ export function MemberActionDialog({
     try {
       if (action === "suspend" && !validDays)
         throw new Error("이용정지 기간은 1일부터 365일까지 입력해주세요.");
+      if (codePointLength(reason.trim()) > MODERATION_REASON_MAX_LENGTH)
+        throw new Error(`사유는 ${MODERATION_REASON_MAX_LENGTH}자 이내로 입력해주세요.`);
       await onConfirm(reason.trim(), Number(days));
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "처리하지 못했습니다.");
@@ -69,7 +76,7 @@ export function MemberActionDialog({
         }}
         onChange={(field, value) => {
           if (field === "days") setDays(value);
-          if (field === "reason") setReason(value.slice(0, 500));
+          if (field === "reason") setReason(clampCodePoints(value, MODERATION_REASON_MAX_LENGTH));
         }}
         onAction={(id) => {
           if (id === "confirm") void confirm();
@@ -123,12 +130,14 @@ export function MemberActionDialog({
           사유
           <input
             autoFocus
-            maxLength={500}
             required
             value={reason}
-            onChange={(event) => setReason(event.target.value)}
+            onChange={(event) => setReason(clampCodePoints(event.target.value, MODERATION_REASON_MAX_LENGTH))}
             placeholder="사유를 입력하세요"
           />
+          <small className="block text-right text-caption text-app-muted tabular-nums">
+            {codePointLength(reason)}/{MODERATION_REASON_MAX_LENGTH}자
+          </small>
         </label>
         {error && <p role="alert">{error}</p>}
       </form>

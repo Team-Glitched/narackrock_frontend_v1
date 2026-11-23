@@ -7,6 +7,7 @@ import { Asset } from "@/components/asset";
 import { Avatar } from "@/components/avatar";
 import { FigmaSheet } from "@/components/figma-sheet";
 import type { GalleriesState } from "@/features/community/use-galleries";
+import { SEARCH_QUERY_MAX_LENGTH, clampCodePoints } from "@/lib/content-limits";
 
 export function PostCommunityPicker({
   galleries,
@@ -71,7 +72,9 @@ export function PostCommunityPicker({
                 aria-label="게시할 커뮤니티 검색"
                 placeholder="커뮤니티 검색"
                 value={query}
-                onChange={(event) => setQuery(event.target.value)}
+                onChange={(event) =>
+                  setQuery(clampCodePoints(event.target.value, SEARCH_QUERY_MAX_LENGTH))
+                }
               />
               {query && (
                 <button

@@ -3,6 +3,12 @@ import { StyleSheet, Text, View } from "react-native";
 
 import BackIcon from "../../../public/figma/search-back.svg";
 import SearchIcon from "../../../public/figma/search-input.svg";
+import {
+  COMMUNITY_DESCRIPTION_MAX_LENGTH,
+  SEARCH_QUERY_MAX_LENGTH,
+  clampCodePoints,
+  codePointLength,
+} from "../../../src/lib/content-limits";
 import type { NativeAdminMembers } from "../../../src/lib/native-screens";
 import { AppHeader } from "../../ui/header";
 import { Avatar, Button, TextField, Touchable } from "../../ui/kit";
@@ -197,7 +203,7 @@ function Members({ members }: { members: NativeAdminMembers }) {
               accessibilityLabel="닉네임으로 사용자 검색"
               placeholder="닉네임으로 사용자 검색"
               value={keyword}
-              onChangeText={setKeyword}
+              onChangeText={(value) => setKeyword(clampCodePoints(value, SEARCH_QUERY_MAX_LENGTH))}
               returnKeyType="search"
               onSubmitEditing={search}
               style={styles.searchInput}
@@ -251,14 +257,15 @@ function Members({ members }: { members: NativeAdminMembers }) {
             accessibilityLabel="커뮤니티 설명"
             placeholder="커뮤니티를 소개해 주세요."
             multiline
-            maxLength={DESCRIPTION_LIMIT}
             value={description}
-            onChangeText={setDescription}
+            onChangeText={(value) =>
+              setDescription(clampCodePoints(value, COMMUNITY_DESCRIPTION_MAX_LENGTH))
+            }
             style={styles.textarea}
           />
           <View style={styles.footer}>
             <Text style={type.muted}>
-              {description.length}/{DESCRIPTION_LIMIT}
+              {codePointLength(description)}/{COMMUNITY_DESCRIPTION_MAX_LENGTH}
             </Text>
             <CardButton
               label={members.saving ? "저장 중..." : "저장"}
@@ -319,8 +326,6 @@ function Members({ members }: { members: NativeAdminMembers }) {
     </View>
   );
 }
-
-const DESCRIPTION_LIMIT = 1000;
 
 const styles = StyleSheet.create({
   status: {

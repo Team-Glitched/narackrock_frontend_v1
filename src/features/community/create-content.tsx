@@ -3,6 +3,11 @@ import { communityStyles } from "@/styles/community.styles";
 import { cn } from "@/lib/utils";
 import { buttonVariants } from "@/styles/variants";
 import {
+  COMMUNITY_DESCRIPTION_MAX_LENGTH,
+  COMMUNITY_NAME_MAX_LENGTH,
+  COMMUNITY_NAME_MIN_LENGTH,
+  POST_CONTENT_MAX_LENGTH,
+  POST_TITLE_MAX_LENGTH,
   SOURCE_DESCRIPTION_MAX_LENGTH,
   SOURCE_TITLE_MAX_LENGTH,
   clampCodePoints,
@@ -399,6 +404,13 @@ export function useSocialCreate({
     setError(null);
     try {
       if (kind === "post") {
+        if (
+          codePointLength(title.trim()) > POST_TITLE_MAX_LENGTH ||
+          codePointLength(content.trim()) > POST_CONTENT_MAX_LENGTH
+        )
+          throw new Error(
+            `제목은 ${POST_TITLE_MAX_LENGTH}자, 본문은 ${POST_CONTENT_MAX_LENGTH}자 이내로 입력해주세요.`,
+          );
         const imageId = image ? await uploadMedia(image.file, "IMAGE") : null;
         await createPost(galleryId, title.trim(), content.trim(), imageId);
         setDiscarding(true);
@@ -445,7 +457,20 @@ export function useSocialCreate({
       } else if (kind === "community") {
         if (getCurrentUserId() === null)
           throw new Error("로그인 후 커뮤니티 개설을 신청할 수 있습니다.");
-        await proposeGallery(title.trim(), content.trim());
+        const trimmedName = title.trim();
+        const trimmedDesc = content.trim();
+        if (
+          codePointLength(trimmedName) < COMMUNITY_NAME_MIN_LENGTH ||
+          codePointLength(trimmedName) > COMMUNITY_NAME_MAX_LENGTH
+        )
+          throw new Error(
+            `커뮤니티 이름은 ${COMMUNITY_NAME_MIN_LENGTH}자 이상 ${COMMUNITY_NAME_MAX_LENGTH}자 이내로 입력해주세요.`,
+          );
+        if (codePointLength(trimmedDesc) > COMMUNITY_DESCRIPTION_MAX_LENGTH)
+          throw new Error(
+            `설명은 ${COMMUNITY_DESCRIPTION_MAX_LENGTH}자 이내로 입력해주세요.`,
+          );
+        await proposeGallery(trimmedName, trimmedDesc);
         setDiscarding(true);
         clearCreationDraft(draftKey);
         onCreated();
@@ -678,6 +703,18 @@ function SocialCreateFormContent({ form }: { form: SocialCreateState }) {
         )}
       </div>
     );
+  const titleLimit =
+    kind === "post"
+      ? POST_TITLE_MAX_LENGTH
+      : kind === "community"
+        ? COMMUNITY_NAME_MAX_LENGTH
+        : SOURCE_TITLE_MAX_LENGTH;
+  const contentLimit =
+    kind === "post"
+      ? POST_CONTENT_MAX_LENGTH
+      : kind === "community"
+        ? COMMUNITY_DESCRIPTION_MAX_LENGTH
+        : SOURCE_DESCRIPTION_MAX_LENGTH;
   return (
     <form
       className={cn(communityStyles.socialCreateView, sharedStyles.scrollContent)}
@@ -698,21 +735,12 @@ function SocialCreateFormContent({ form }: { form: SocialCreateState }) {
             }
             disabled={busy}
             value={title}
-            onChange={(event) =>
-              setTitle(
-                kind === "source"
-                  ? clampCodePoints(event.target.value, SOURCE_TITLE_MAX_LENGTH)
-                  : event.target.value,
-              )
-            }
-            maxLength={kind === "source" ? undefined : 100}
+            onChange={(event) => setTitle(clampCodePoints(event.target.value, titleLimit))}
             required
           />
-          {kind === "source" && (
-            <small className="text-right text-caption text-app-muted tabular-nums">
-              {codePointLength(title)}/{SOURCE_TITLE_MAX_LENGTH}자
-            </small>
-          )}
+          <small className="text-right text-caption text-app-muted tabular-nums">
+            {codePointLength(title)}/{titleLimit}자
+          </small>
         </label>
         <label>
           {kind === "post" ? "본문" : "설명"}
@@ -720,21 +748,13 @@ function SocialCreateFormContent({ form }: { form: SocialCreateState }) {
             aria-label={kind === "post" ? "게시글 내용" : "설명"}
             disabled={busy}
             value={content}
-            onChange={(event) =>
-              setContent(
-                kind === "source"
-                  ? clampCodePoints(event.target.value, SOURCE_DESCRIPTION_MAX_LENGTH)
-                  : event.target.value,
-              )
-            }
+            onChange={(event) => setContent(clampCodePoints(event.target.value, contentLimit))}
             required={kind !== "source"}
             rows={1}
           />
-          {kind === "source" && (
-            <small className="text-right text-caption text-app-muted tabular-nums">
-              {codePointLength(content)}/{SOURCE_DESCRIPTION_MAX_LENGTH}자
-            </small>
-          )}
+          <small className="text-right text-caption text-app-muted tabular-nums">
+            {codePointLength(content)}/{contentLimit}자
+          </small>
         </label>
         {kind === "source" && (
           <label>

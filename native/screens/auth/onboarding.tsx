@@ -3,9 +3,16 @@ import { ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 
 import Logo from "../../../public/figma/auth-logo.svg";
 import type { NativeOnboarding } from "../../../src/lib/native-screens";
+import {
+  INSTRUMENT_MAX_LENGTH,
+  NICKNAME_MAX_LENGTH,
+  PROFILE_BIO_MAX_LENGTH,
+  clampCodePoints,
+  codePointLength,
+} from "../../../src/lib/content-limits";
 import { Touchable } from "../../ui/kit";
 import { useScreen } from "../../ui/screen-context";
-import { colors, gutter } from "../../ui/theme";
+import { colors, gutter, type } from "../../ui/theme";
 import type { ScreenProps } from "../types";
 import { authStyles, errorColor } from "./styles";
 
@@ -16,7 +23,7 @@ const steps = [
     hint: "이름을 알려주세요",
     label: "이름",
     placeholder: undefined,
-    maxLength: 30,
+    limit: NICKNAME_MAX_LENGTH,
   },
   {
     field: "instrument",
@@ -24,7 +31,7 @@ const steps = [
     hint: "악기를 알려주세요",
     label: "악기",
     placeholder: "피아노, 기타",
-    maxLength: undefined,
+    limit: INSTRUMENT_MAX_LENGTH,
   },
   {
     field: "explanation",
@@ -32,7 +39,7 @@ const steps = [
     hint: "당신은 어떤 사람인가요?",
     label: "설명",
     placeholder: undefined,
-    maxLength: undefined,
+    limit: PROFILE_BIO_MAX_LENGTH,
   },
 ] as const;
 
@@ -73,11 +80,10 @@ function Step({ model }: { model: NativeOnboarding }) {
         <Text style={styles.label}>{step.label}</Text>
         <TextInput
           value={text}
-          onChangeText={setText}
+          onChangeText={(value) => setText(clampCodePoints(value, step.limit))}
           onSubmitEditing={submit}
           submitBehavior="submit"
           returnKeyType={model.step === 2 ? "done" : "next"}
-          maxLength={step.maxLength}
           placeholder={step.placeholder}
           placeholderTextColor="rgba(170, 182, 194, 0.7)"
           selectionColor={colors.accent}
@@ -86,6 +92,9 @@ function Step({ model }: { model: NativeOnboarding }) {
           accessibilityLabel={step.label}
           style={styles.input}
         />
+        <Text style={[type.caption, { textAlign: "right", marginTop: 4 }]}>
+          {codePointLength(text)}/{step.limit}자
+        </Text>
       </View>
       {model.error && (
         <Text accessibilityRole="alert" style={styles.error}>

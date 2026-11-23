@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 import { sharedStyles } from "@/styles/shared.styles";
 import { buttonVariants } from "@/styles/variants";
 import {
+  CONTRIBUTION_COMMENT_MAX_LENGTH,
   SONG_TITLE_MAX_LENGTH,
   clampCodePoints,
   codePointLength,
@@ -945,12 +946,16 @@ export function StudioScreen({ studio, portrait = true }: { studio: Studio; port
             한 줄 코멘트
             <input
               value={submitComment}
-              onChange={(event) => setSubmitComment(event.target.value)}
-              maxLength={120}
+              onChange={(event) =>
+                setSubmitComment(clampCodePoints(event.target.value, CONTRIBUTION_COMMENT_MAX_LENGTH))
+              }
               required
               placeholder="어떤 작업을 추가했나요?"
               autoFocus
             />
+            <small className="text-right text-caption text-app-muted tabular-nums">
+              {codePointLength(submitComment)}/{CONTRIBUTION_COMMENT_MAX_LENGTH}자
+            </small>
           </label>
           {error && <p role="alert">{error}</p>}
           <div>
