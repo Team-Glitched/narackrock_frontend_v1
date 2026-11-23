@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   FlatList,
   Platform,
+  Pressable,
   StyleSheet,
   Text,
   TextInput,
@@ -16,23 +17,30 @@ import type {
   NativeChatMessage,
   NativeChatThread,
 } from "../../../src/lib/native-screens";
+import { MenuSheet } from "../../ui/comments";
 import { HeaderButton } from "../../ui/header";
+import { Avatar, Button, Touchable } from "../../ui/kit";
+import { KeyboardAvoiding } from "../../ui/keyboard-avoiding";
+import { useScreen } from "../../ui/screen-context";
+import { ScreenModal } from "../../ui/screen-modal";
+import { colors, gutter, type } from "../../ui/theme";
 import {
   clampCodePoints,
   codePointLength,
   hasVisibleText,
   sanitizeMultiline,
 } from "../../../src/lib/content-limits";
-import { Avatar, Button, Touchable } from "../../ui/kit";
-import { KeyboardAvoiding } from "../../ui/keyboard-avoiding";
-import { useScreen } from "../../ui/screen-context";
-import { colors, gutter, type } from "../../ui/theme";
 import { SignInRequired } from "../social/friends";
 import type { ScreenProps } from "../types";
 import { ChatHeaderActions, chatBarStyle } from "./parts";
 
 /** /chat?userId=: the web's conversation (src/features/social/chat-screen.tsx Conversation). */
 export function ChatConversationScreen({ model }: ScreenProps<"chat-conversation">) {
+  const { act } = useScreen();
+  const [menuTarget, setMenuTarget] = useState<NativeChatMessage | null>(null);
+  const [editing, setEditing] = useState<{ id: number; original: string } | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<NativeChatMessage | null>(null);
+
   return (
     <KeyboardAvoiding style={styles.flex}>
       <TopBar model={model} />
@@ -46,8 +54,78 @@ export function ChatConversationScreen({ model }: ScreenProps<"chat-conversation
         </Text>
       ) : model.thread ? (
         <>
-          <Messages thread={model.thread} partnerImage={model.partner?.profileImageUrl ?? null} />
-          <Composer composer={model.thread.composer} />
+          <Messages
+            thread={model.thread}
+            partnerImage={model.partner?.profileImageUrl ?? null}
+            onLongPressOwn={setMenuTarget}
+          />
+          <Composer
+            composer={model.thread.composer}
+            editing={editing}
+            onCancelEdit={() => setEditing(null)}
+          />
+          <MenuSheet
+            label="메시지 옵션"
+            visible={menuTarget !== null}
+            onClose={() => setMenuTarget(null)}
+            items={
+              menuTarget
+                ? [
+                    {
+                      label: "수정",
+                      onPress: () =>
+                        setEditing({ id: menuTarget.id, original: menuTarget.content }),
+                    },
+                    {
+                      label: "삭제",
+                      onPress: () => setDeleteTarget(menuTarget),
+                    },
+                  ]
+                : []
+            }
+          />
+          <ScreenModal
+            visible={deleteTarget !== null}
+            transparent
+            animationType="fade"
+            statusBarTranslucent
+            onRequestClose={() => setDeleteTarget(null)}
+          >
+            <View style={styles.modalBackdrop}>
+              <Pressable
+                style={StyleSheet.absoluteFill}
+                accessibilityRole="button"
+                accessibilityLabel="닫기"
+                onPress={() => setDeleteTarget(null)}
+              />
+              <View style={styles.confirmCard} accessibilityViewIsModal>
+                <Text style={styles.confirmTitle} accessibilityRole="header">
+                  메시지를 삭제할까요?
+                </Text>
+                <Text style={type.muted}>
+                  삭제한 메시지는 대화에서 &ldquo;삭제된 메시지입니다.&rdquo;로 표시됩니다.
+                </Text>
+                <View style={styles.confirmActions}>
+                  <Button
+                    label="취소"
+                    tone="secondary"
+                    style={styles.compact}
+                    onPress={() => setDeleteTarget(null)}
+                  />
+                  <Button
+                    label="삭제"
+                    style={styles.compact}
+                    onPress={() => {
+                      if (!deleteTarget) return;
+                      if (editing?.id === deleteTarget.id) setEditing(null);
+                      act({ type: "chat-delete", messageId: deleteTarget.id });
+                      setDeleteTarget(null);
+                    }}
+                  />
+                </View>
+              </View>
+            </View>
+          </ScreenModal>
         </>
       ) : null}
     </KeyboardAvoiding>
@@ -125,9 +203,11 @@ function messageRows(messages: NativeChatMessage[]): MessageRow[] {
 function Messages({
   thread,
   partnerImage,
+  onLongPressOwn,
 }: {
   thread: NativeChatThread;
   partnerImage: string | null;
+  onLongPressOwn: (message: NativeChatMessage) => void;
 }) {
   const { uri } = useScreen();
   const list = useRef<FlatListInstance>(null);
@@ -154,7 +234,12 @@ function Messages({
       renderItem={({ item }) => (
         <View style={item.grouped ? styles.groupedRow : styles.messageRow}>
           {item.date !== null && <Text style={styles.date}>{item.date}</Text>}
-          <Bubble message={item.message} avatar={avatar} showAvatar={item.showAvatar} />
+          <Bubble
+            message={item.message}
+            avatar={avatar}
+            showAvatar={item.showAvatar}
+            onLongPressOwn={onLongPressOwn}
+          />
         </View>
       )}
     />
@@ -199,26 +284,46 @@ function Bubble({
   message,
   avatar,
   showAvatar,
+  onLongPressOwn,
 }: {
   message: NativeChatMessage;
   avatar: string | null;
   showAvatar: boolean;
+  onLongPressOwn: (message: NativeChatMessage) => void;
 }) {
-  if (message.outgoing)
+  const deleted = Boolean(message.deleted);
+  if (message.outgoing) {
+    if (deleted) {
+      return (
+        <View style={[styles.bubble, styles.outgoing, styles.deletedBubble]}>
+          <Text style={[type.body, styles.outgoingText, styles.deletedText]}>
+            삭제된 메시지입니다.
+          </Text>
+        </View>
+      );
+    }
     return (
-      <View style={[styles.bubble, styles.outgoing]}>
-        <Text selectable style={[type.body, styles.outgoingText]}>
-          {message.content}
-        </Text>
-      </View>
+      <Touchable
+        accessibilityRole="button"
+        accessibilityLabel={`${message.content}, 길게 눌러 수정 또는 삭제`}
+        delayLongPress={400}
+        onLongPress={() => onLongPressOwn(message)}
+        style={[styles.bubble, styles.outgoing]}
+      >
+        {/* Omit `selectable` here so OS text selection does not hijack long-press actions. */}
+        <Text style={[type.body, styles.outgoingText]}>{message.content}</Text>
+        {message.editedAt ? <Text style={styles.editedOutgoing}>(수정됨)</Text> : null}
+      </Touchable>
     );
+  }
   return (
     <View style={styles.incoming}>
       {showAvatar ? <Avatar uri={avatar} size={32} /> : <View style={styles.avatarGap} />}
-      <View style={[styles.bubble, styles.incomingBubble]}>
-        <Text selectable style={[type.body, styles.incomingText]}>
-          {message.content}
+      <View style={[styles.bubble, styles.incomingBubble, deleted && styles.deletedBubble]}>
+        <Text selectable={!deleted} style={[type.body, styles.incomingText, deleted && styles.deletedText]}>
+          {deleted ? "삭제된 메시지입니다." : message.content}
         </Text>
+        {!deleted && message.editedAt ? <Text style={styles.editedIncoming}>(수정됨)</Text> : null}
       </View>
     </View>
   );
@@ -235,10 +340,26 @@ function useOnChange(value: number, run: () => void) {
 }
 
 /** Draft in native state; the button sends it, the page clears it through `sent` once delivered. */
-function Composer({ composer }: { composer: NativeChatThread["composer"] }) {
+function Composer({
+  composer,
+  editing,
+  onCancelEdit,
+}: {
+  composer: NativeChatThread["composer"];
+  editing: { id: number; original: string } | null;
+  onCancelEdit: () => void;
+}) {
   const { act } = useScreen();
   const [draft, setDraft] = useState("");
-  useOnChange(composer.sent, () => setDraft(""));
+  const [syncedEditId, setSyncedEditId] = useState<number | null>(null);
+  if ((editing?.id ?? null) !== syncedEditId) {
+    setSyncedEditId(editing?.id ?? null);
+    setDraft(editing ? editing.original : "");
+  }
+  useOnChange(composer.sent, () => {
+    setDraft("");
+    onCancelEdit();
+  });
   const content = sanitizeMultiline(draft);
   const sendDisabled =
     !hasVisibleText(content) ||
@@ -247,6 +368,20 @@ function Composer({ composer }: { composer: NativeChatThread["composer"] }) {
     !composer.enabled;
   return (
     <View style={styles.composer}>
+      {editing && (
+        <View style={styles.editBanner}>
+          <Text style={styles.editBannerText}>메시지 수정 중</Text>
+          <Touchable
+            accessibilityRole="button"
+            onPress={() => {
+              setDraft("");
+              onCancelEdit();
+            }}
+          >
+            <Text style={styles.editCancelText}>취소</Text>
+          </Touchable>
+        </View>
+      )}
       {composer.notice !== null && (
         <Text accessibilityRole="alert" style={styles.notice}>
           {composer.notice}
@@ -256,7 +391,7 @@ function Composer({ composer }: { composer: NativeChatThread["composer"] }) {
         {/* Enter adds a line, as in the web's textarea; the button sends. */}
         <TextInput
           multiline
-          accessibilityLabel="메시지"
+          accessibilityLabel={editing ? "메시지 수정 내용" : "메시지"}
           placeholder="입력"
           placeholderTextColor="#9692a6"
           selectionColor={colors.accent}
@@ -267,11 +402,17 @@ function Composer({ composer }: { composer: NativeChatThread["composer"] }) {
         />
         <Touchable
           accessibilityRole="button"
-          accessibilityLabel="메시지 보내기"
+          accessibilityLabel={editing ? "수정 완료" : "메시지 보내기"}
           accessibilityState={{ disabled: sendDisabled, busy: composer.busy }}
           disabled={sendDisabled}
           style={styles.send}
-          onPress={() => act({ type: "chat-send", text: content })}
+          onPress={() =>
+            act(
+              editing
+                ? { type: "chat-edit", messageId: editing.id, text: content }
+                : { type: "chat-send", text: content },
+            )
+          }
         >
           <SendIcon width={22} height={22} />
         </Touchable>
@@ -354,4 +495,37 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     backgroundColor: colors.primary,
   },
+  deletedBubble: { opacity: 0.7 },
+  deletedText: { fontStyle: "italic" },
+  editedOutgoing: { marginTop: 4, textAlign: "right", color: "rgba(255,255,255,0.75)", fontSize: 11 },
+  editedIncoming: { marginTop: 4, textAlign: "right", color: "rgba(18,19,21,0.65)", fontSize: 11 },
+  editBanner: {
+    marginBottom: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    backgroundColor: colors.surface,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  editBannerText: { color: colors.fg, fontSize: 12, fontWeight: "600" },
+  editCancelText: { color: colors.muted, fontSize: 12, textDecorationLine: "underline" },
+  modalBackdrop: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+    backgroundColor: "rgba(0,0,0,0.6)",
+  },
+  confirmCard: {
+    width: 320,
+    maxWidth: "100%",
+    borderRadius: 20,
+    padding: 20,
+    gap: 12,
+    backgroundColor: colors.bg,
+  },
+  confirmTitle: { color: colors.fg, fontSize: 16, lineHeight: 22, fontWeight: "700" },
+  confirmActions: { flexDirection: "row", justifyContent: "flex-end", gap: 8, marginTop: 4 },
 });

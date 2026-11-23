@@ -14,6 +14,12 @@ export function chatMessageContent(draft: string): string | null {
   if (!content || !hasVisibleText(content)) return null;
   return codePointLength(content) <= CHAT_MESSAGE_MAX_LENGTH ? content : null;
 }
+export function isChatMessageDeleted(
+  message: Pick<ChatMessage, "deleted" | "isDeleted">,
+): boolean {
+  return Boolean(message.deleted ?? message.isDeleted);
+}
+
 /**
  * Merges REST pages, send responses and STOMP deliveries for one conversation. The same message arrives through
  * several paths (send response + socket, reconnect backfill, polling), so messages are keyed by server ID and kept
@@ -25,12 +31,19 @@ export function mergeChatMessages(
   me: number,
   friendId: number,
 ): ChatMessage[] {
-  const byId = new Map(current.map((message) => [message.id, message]));
+  const byId = new Map(
+    current.map((message) => [
+      message.id,
+      { ...message, deleted: isChatMessageDeleted(message) },
+    ]),
+  );
   for (const message of incoming) {
     const inConversation =
       (message.senderId === me && message.recipientId === friendId) ||
       (message.senderId === friendId && message.recipientId === me);
-    if (inConversation) byId.set(message.id, message);
+    if (inConversation) {
+      byId.set(message.id, { ...message, deleted: isChatMessageDeleted(message) });
+    }
   }
   return [...byId.values()].sort((a, b) => a.id - b.id);
 }

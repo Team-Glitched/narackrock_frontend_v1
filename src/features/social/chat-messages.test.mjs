@@ -14,3 +14,17 @@ test("a message delivered by send response, socket and backfill appears once in 
 test("socket deliveries for other conversations are not shown in this one", () => {
   assert.deepEqual(mergeChatMessages([], [message(5, 3, 1), message(6, 1, 3), message(7, 2, 3)], 1, 2), []);
 });
+
+test("realtime edit and soft-delete events overwrite existing messages by server ID", () => {
+  const initial = [message(1, 1, 2), message(2, 2, 1)];
+  const edited = { ...initial[0], content: "updated", editedAt: "2026-11-24T01:00:00" };
+  const afterEdit = mergeChatMessages(initial, [edited], 1, 2);
+  assert.equal(afterEdit[0].content, "updated");
+  assert.equal(afterEdit[0].editedAt, "2026-11-24T01:00:00");
+  assert.equal(afterEdit[0].deleted, false);
+
+  const softDeleted = { ...edited, content: "", deleted: true };
+  const afterDelete = mergeChatMessages(afterEdit, [softDeleted], 1, 2);
+  assert.equal(afterDelete[0].deleted, true);
+  assert.equal(afterDelete[0].content, "");
+});

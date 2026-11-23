@@ -5,19 +5,27 @@ import { communityStyles } from "@/styles/community.styles";
 import { buttonVariants } from "@/styles/variants";
 import { cn } from "@/lib/utils";
 import { relativeTime } from "@/features/posts/post-utils";
-import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { shouldSubmitOnEnter, usesTouchKeyboard } from "@/features/comments/submit-on-enter";
+import { AnchoredActionsMenu } from "@/components/anchored-actions-menu";
 import { Asset } from "@/components/asset";
 import { Avatar } from "@/components/avatar";
+import { CanvasDialog } from "@/components/canvas-dialog";
 import { useAuthSession } from "@/features/auth/auth-session";
 import { SignInRequired } from "@/features/auth/sign-in-required";
+import { relationError } from "@/features/profile/profile-relations";
 import { useChatPartner } from "@/features/social/use-chat-partner";
 import { filterChatInbox } from "@/features/social/chat-inbox";
 import { useChatInbox } from "@/features/social/use-chat-inbox";
 import { canSendChatTo } from "@/features/social/chat-access";
 import { useChatSend, useConversation } from "@/features/social/use-conversation";
 import type { UserProfile } from "@/lib/api/contracts";
-import { CHAT_MESSAGE_MAX_LENGTH, chatMessageContent } from "@/features/social/chat-messages";
+import type { ChatMessage } from "@/lib/api/social";
+import {
+  CHAT_MESSAGE_MAX_LENGTH,
+  chatMessageContent,
+  isChatMessageDeleted,
+} from "@/features/social/chat-messages";
 import { SEARCH_QUERY_MAX_LENGTH, clampCodePoints } from "@/lib/content-limits";
 
 const headerControl =
@@ -192,11 +200,28 @@ function Inbox({
 function Conversation({ me, friend }: { me: number; friend: UserProfile }) {
   const chat = useConversation(me, friend.userId);
   const [draft, setDraft] = useState("");
+  const [editing, setEditing] = useState<{ id: number; original: string } | null>(null);
+  const [menuTarget, setMenuTarget] = useState<ChatMessage | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
+  const [actionBusy, setActionBusy] = useState(false);
+  const [actionError, setActionError] = useState("");
+  const menuAnchorRef = useRef<HTMLElement | null>(null);
+  const longPressTimerRef = useRef<number | null>(null);
+  const longPressStartRef = useRef<{ x: number; y: number } | null>(null);
+  const deleteDialogTitleId = useId();
   const messagesRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const canSend = canSendChatTo(friend);
   const { busy, error: sendError, submit } = useChatSend(chat.send, canSend);
   const lastId = chat.messages.at(-1)?.id;
+  const clearLongPress = () => {
+    if (longPressTimerRef.current !== null) {
+      window.clearTimeout(longPressTimerRef.current);
+      longPressTimerRef.current = null;
+    }
+    longPressStartRef.current = null;
+  };
+  useEffect(() => clearLongPress, []);
   useEffect(() => {
     const messages = messagesRef.current;
     if (messages) messages.scrollTop = messages.scrollHeight;
@@ -213,12 +238,65 @@ function Conversation({ me, friend }: { me: number; friend: UserProfile }) {
     // Keep the latest message visible as the composer grows, without moving a reader of older messages.
     if (messages && atBottom) messages.scrollTop = messages.scrollHeight;
   }, [draft]);
-  const sendDraft = async () => {
+
+  const openBubbleMenu = (message: ChatMessage, anchor: HTMLElement | null) => {
+    menuAnchorRef.current = anchor;
+    setActionError("");
+    setMenuTarget(message);
+  };
+
+  const cancelEdit = () => {
+    setEditing(null);
+    setDraft("");
+    setActionError("");
+  };
+
+  const submitComposer = async () => {
+    if (editing) {
+      const content = chatMessageContent(draft);
+      if (!content || actionBusy) return;
+      setActionBusy(true);
+      setActionError("");
+      try {
+        await chat.editMessage(editing.id, content);
+        setEditing(null);
+        setDraft("");
+      } catch (cause) {
+        setActionError(relationError(cause, "메시지를 수정하지 못했습니다."));
+      } finally {
+        setActionBusy(false);
+      }
+      return;
+    }
     if (await submit(draft)) {
       // A slow response must not discard edits made since this send started.
       setDraft((current) => (current === draft ? "" : current));
     }
   };
+
+  const confirmDelete = async () => {
+    if (confirmDeleteId === null || actionBusy) return;
+    setActionBusy(true);
+    setActionError("");
+    try {
+      await chat.deleteMessage(confirmDeleteId);
+      if (editing?.id === confirmDeleteId) {
+        setEditing(null);
+        setDraft("");
+      }
+      setConfirmDeleteId(null);
+    } catch (cause) {
+      setActionError(relationError(cause, "메시지를 삭제하지 못했습니다."));
+    } finally {
+      setActionBusy(false);
+    }
+  };
+
+  const noticeText =
+    actionError ||
+    sendError ||
+    (!canSend ? "비공개 계정에는 맞팔로우한 뒤 메시지를 보낼 수 있습니다." : "");
+
   return (
     <>
       <div
@@ -251,67 +329,221 @@ function Conversation({ me, friend }: { me: number; friend: UserProfile }) {
           </button>
         )}
         {!chat.loaded && <p role="status">대화를 불러오는 중...</p>}
-        {chat.messages.map((message) =>
-          message.senderId === me ? (
-            <p
-              className={cn(
-                socialStyles.chatBubble,
-                sharedStyles.outgoing,
-                "whitespace-pre-wrap break-words",
-              )}
-              key={message.id}
-              data-message-id={message.id}
-            >
-              {message.content}
-            </p>
-          ) : (
+        {chat.messages.map((message) => {
+          const deleted = isChatMessageDeleted(message);
+          if (message.senderId === me) {
+            if (deleted) {
+              return (
+                <div
+                  key={message.id}
+                  data-message-id={message.id}
+                  className="flex max-w-full flex-col items-end self-end"
+                >
+                  <p
+                    className={cn(
+                      socialStyles.chatBubble,
+                      sharedStyles.outgoing,
+                      "italic opacity-70",
+                    )}
+                  >
+                    삭제된 메시지입니다.
+                  </p>
+                </div>
+              );
+            }
+            return (
+              <div
+                key={message.id}
+                data-message-id={message.id}
+                className="group relative flex max-w-full items-end gap-1 self-end"
+              >
+                <button
+                  type="button"
+                  className="grid size-7 shrink-0 place-items-center rounded-full text-app-muted opacity-0 transition-opacity hover:bg-white/10 hover:text-app-fg focus-visible:opacity-100 group-hover:opacity-100"
+                  aria-label="메시지 옵션"
+                  onClick={(event) => openBubbleMenu(message, event.currentTarget)}
+                >
+                  <Asset name="post-more.svg" />
+                </button>
+                <div
+                  className={cn(
+                    socialStyles.chatBubble,
+                    sharedStyles.outgoing,
+                    "touch-manipulation select-none",
+                  )}
+                  onContextMenu={(event) => {
+                    event.preventDefault();
+                    openBubbleMenu(message, event.currentTarget);
+                  }}
+                  onPointerDown={(event) => {
+                    if (event.pointerType === "mouse" && event.button !== 0) return;
+                    const targetEl = event.currentTarget;
+                    longPressStartRef.current = { x: event.clientX, y: event.clientY };
+                    clearLongPress();
+                    longPressTimerRef.current = window.setTimeout(() => {
+                      longPressTimerRef.current = null;
+                      openBubbleMenu(message, targetEl);
+                    }, 450);
+                  }}
+                  onPointerMove={(event) => {
+                    const start = longPressStartRef.current;
+                    if (!start) return;
+                    if (Math.hypot(event.clientX - start.x, event.clientY - start.y) > 10) {
+                      clearLongPress();
+                    }
+                  }}
+                  onPointerUp={clearLongPress}
+                  onPointerCancel={clearLongPress}
+                >
+                  <p className="m-0 whitespace-pre-wrap break-words">{message.content}</p>
+                  {message.editedAt && (
+                    <span className="mt-1 block text-right text-[11px] leading-[14px] text-white/75">
+                      (수정됨)
+                    </span>
+                  )}
+                </div>
+              </div>
+            );
+          }
+          return (
             <div
               className={socialStyles.chatIncoming}
               key={message.id}
               data-message-id={message.id}
             >
               <Avatar src={friend.profileImageUrl} />
-              <p className={cn(socialStyles.chatBubble, "whitespace-pre-wrap break-words")}>
-                {message.content}
-              </p>
+              <div className={cn(socialStyles.chatBubble, deleted && "italic opacity-70")}>
+                <p className="m-0 whitespace-pre-wrap break-words">
+                  {deleted ? "삭제된 메시지입니다." : message.content}
+                </p>
+                {!deleted && message.editedAt && (
+                  <span className="mt-1 block text-right text-[11px] leading-[14px] text-app-bg/65">
+                    (수정됨)
+                  </span>
+                )}
+              </div>
             </div>
-          ),
-        )}
+          );
+        })}
       </div>
+      {menuTarget && (
+        <AnchoredActionsMenu
+          className={communityStyles.postUserActionsMenu}
+          anchorRef={menuAnchorRef}
+          onClose={() => setMenuTarget(null)}
+          label="메시지 옵션"
+          width={180}
+          height={84}
+        >
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => {
+              const target = menuTarget;
+              setMenuTarget(null);
+              setEditing({ id: target.id, original: target.content });
+              setDraft(target.content);
+              setActionError("");
+              requestAnimationFrame(() => textareaRef.current?.focus());
+            }}
+          >
+            수정
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => {
+              const target = menuTarget;
+              setMenuTarget(null);
+              setActionError("");
+              setConfirmDeleteId(target.id);
+            }}
+          >
+            삭제
+          </button>
+        </AnchoredActionsMenu>
+      )}
+      {confirmDeleteId !== null && (
+        <CanvasDialog
+          className="flex w-[320px] max-w-[calc(100vw-40px)] flex-col gap-3 rounded-[20px] bg-app-bg p-5 text-app-fg shadow-xl"
+          titleId={deleteDialogTitleId}
+          onClose={() => {
+            if (!actionBusy) setConfirmDeleteId(null);
+          }}
+        >
+          <h2 id={deleteDialogTitleId} className="m-0 text-label font-bold">
+            메시지를 삭제할까요?
+          </h2>
+          <p className="m-0 text-body leading-5 text-app-muted">
+            삭제한 메시지는 대화에서 &ldquo;삭제된 메시지입니다.&rdquo;로 표시됩니다.
+          </p>
+          {actionError && (
+            <p role="alert" className="m-0 text-caption text-[#ff8d8d]">
+              {actionError}
+            </p>
+          )}
+          <div className="flex justify-end gap-2 pt-1">
+            <button
+              type="button"
+              className={buttonVariants({ tone: "secondary", size: "compact" })}
+              disabled={actionBusy}
+              onClick={() => setConfirmDeleteId(null)}
+            >
+              취소
+            </button>
+            <button
+              type="button"
+              className={buttonVariants({ tone: "primary", size: "compact" })}
+              disabled={actionBusy}
+              onClick={() => void confirmDelete()}
+            >
+              {actionBusy ? "삭제 중..." : "삭제"}
+            </button>
+          </div>
+        </CanvasDialog>
+      )}
       <form
         className={socialStyles.chatComposer}
         onSubmit={async (event) => {
           event.preventDefault();
-          await sendDraft();
+          await submitComposer();
         }}
       >
-        {(sendError || !canSend) && (
-          <p role="alert">
-            {sendError || "비공개 계정에는 맞팔로우한 뒤 메시지를 보낼 수 있습니다."}
-          </p>
+        {editing && (
+          <div className="mb-2 flex items-center justify-between gap-2 rounded-lg bg-app-surface px-3 py-1.5 text-caption text-app-muted">
+            <span className="truncate font-medium text-app-fg">메시지 수정 중</span>
+            <button
+              type="button"
+              className="shrink-0 font-medium text-app-muted underline hover:text-app-fg"
+              onClick={cancelEdit}
+            >
+              취소
+            </button>
+          </div>
         )}
+        {noticeText && <p role="alert">{noticeText}</p>}
         <div className={socialStyles.chatInputRow}>
           <textarea
             ref={textareaRef}
             rows={1}
-            aria-label="메시지"
+            aria-label={editing ? "메시지 수정 내용" : "메시지"}
             placeholder="입력"
             value={draft}
             maxLength={CHAT_MESSAGE_MAX_LENGTH}
-            disabled={!canSend}
+            disabled={!canSend || actionBusy}
             onChange={(event) =>
               setDraft(clampCodePoints(event.target.value, CHAT_MESSAGE_MAX_LENGTH))
             }
             onKeyDown={async (event) => {
               if (!shouldSubmitOnEnter(event.nativeEvent, usesTouchKeyboard())) return;
               event.preventDefault();
-              await sendDraft();
+              await submitComposer();
             }}
           />
           <button
             type="submit"
-            aria-label="메시지 보내기"
-            disabled={!chatMessageContent(draft) || busy || !canSend}
+            aria-label={editing ? "수정 완료" : "메시지 보내기"}
+            disabled={!chatMessageContent(draft) || busy || actionBusy || !canSend}
           >
             <Asset name="comment-send.svg" />
           </button>
