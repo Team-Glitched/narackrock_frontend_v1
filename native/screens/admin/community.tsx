@@ -373,13 +373,13 @@ const styles = StyleSheet.create({
   // badgeVariants({ status: "resource" }).
   badge: {
     minHeight: 24,
-    paddingHorizontal: 9,
+    paddingHorizontal: 12,
     paddingVertical: 3,
-    borderRadius: 12,
+    borderRadius: 999,
     borderWidth: 1,
-    borderColor: "#57358a",
-    backgroundColor: colors.surface,
+    borderColor: "#7c3aed",
+    backgroundColor: "#7c3aed",
     justifyContent: "center",
   },
-  badgeText: { color: colors["primary-soft"], fontSize: 14, lineHeight: 16, fontWeight: "500" },
+  badgeText: { color: "#ffffff", fontSize: 13, lineHeight: 16, fontWeight: "600" },
 });

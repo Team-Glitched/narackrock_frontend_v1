@@ -1,9 +1,9 @@
-import { useRef, useState, type ComponentRef } from "react";
-import { ScrollView, Text, TextInput, View, useWindowDimensions } from "react-native";
+import { useState } from "react";
+import { ScrollView, Text, TextInput, View } from "react-native";
 import type {
   NativeSourceCard,
   NativeSourcePublications,
-  NativeSourceRail,
+  NativeSourceSection,
   NativeSources,
 } from "../../../src/lib/native-screens";
 import { Cover } from "../../ui/cards";
@@ -12,12 +12,18 @@ import { AppHeader } from "../../ui/header";
 import { Button, ErrorRetry, Status, Tabs, Touchable } from "../../ui/kit";
 import { ScreenScroll } from "../../ui/screen";
 import { useScreen } from "../../ui/screen-context";
-import { type } from "../../ui/theme";
+import { gutter, type } from "../../ui/theme";
 import type { ScreenProps } from "../types";
 import { SavedSources } from "../workspace/library";
 import { Card, Notice, Page, Pill } from "../workspace/parts";
 import { Sheet } from "../profile/parts";
 import { SourceActions, SourceAuthor, SourceLogin, SourcePlayer, styles } from "./parts";
+import {
+  SOURCE_DESCRIPTION_MAX_LENGTH,
+  SOURCE_TITLE_MAX_LENGTH,
+  clampCodePoints,
+  codePointLength,
+} from "../../../src/lib/content-limits";
 
 const tabs: { value: NativeSources["tab"]; label: string }[] = [
   { value: "feed", label: "탐색" },
@@ -37,32 +43,19 @@ export function SourcesScreen({ model, header }: ScreenProps<"sources">) {
             <SourceLogin>샘플은 로그인 후 볼 수 있습니다.</SourceLogin>
           ) : (
             <View style={styles.column}>
-              <Rail rail={model.feed.popular} section="popular" />
-              <Rail rail={model.feed.recommended} section="recommended" />
-              <View style={{ gap: 16 }}>
-                <Text accessibilityRole="header" style={type.title}>
-                  전체 샘플
-                </Text>
-                {model.feed.all.loading && <Status>샘플을 불러오는 중...</Status>}
-                {model.feed.all.error && (
-                  <ErrorRetry
-                    message={model.feed.all.error}
-                    onRetry={() => act({ type: "sources-rail-retry", rail: "recommended" })}
-                  />
-                )}
-                {model.feed.all.empty && <Status>아직 공개된 샘플이 없습니다.</Status>}
-                {model.feed.all.items.map((source) => (
-                  <SourceCard key={source.key} source={source} />
-                ))}
-                {model.feed.all.more && (
-                  <Button
-                    tone="secondary"
-                    label={model.feed.all.more.busy ? "불러오는 중..." : "더보기"}
-                    disabled={model.feed.all.more.busy}
-                    onPress={() => act({ type: "more" })}
-                  />
-                )}
-              </View>
+              <SourceSection section={model.feed.popular} kind="popular" />
+              <SourceSection section={model.feed.recommended} kind="recommended" />
+              <SourceSection
+                section={{
+                  title: "전체 샘플",
+                  items: model.feed.all.loading || model.feed.all.error ? null : model.feed.all.items,
+                  error: model.feed.all.error,
+                }}
+                kind="recommended"
+                emptyMessage="아직 공개된 샘플이 없습니다."
+                more={model.feed.all.more}
+                onMore={() => act({ type: "more" })}
+              />
             </View>
           ))}
         {model.saved && (
@@ -77,67 +70,92 @@ export function SourcesScreen({ model, header }: ScreenProps<"sources">) {
   );
 }
 
-function Rail({ rail, section }: { rail: NativeSourceRail; section: "popular" | "recommended" }) {
+function SourceSection({
+  section,
+  kind,
+  emptyMessage = "표시할 샘플이 없습니다.",
+  more = null,
+  onMore,
+}: {
+  section: NativeSourceSection;
+  kind: "popular" | "recommended";
+  emptyMessage?: string;
+  more?: { busy: boolean; error: string | null } | null;
+  onMore?: () => void;
+}) {
   const { act } = useScreen();
-  const scroll = useRef<ComponentRef<typeof ScrollView>>(null);
-  const width = Math.max(1, useWindowDimensions().width - 40);
-  const [page, setPage] = useState(0);
-  const count = rail.items?.length ?? 0;
-  const index = Math.max(0, Math.min(page, count - 1));
+  // The rail's own width inside the screen padding and safe area; cards render once it is measured.
+  const [innerWidth, setInnerWidth] = useState(0);
+  const count = section.items?.length ?? 0;
+  const paged = count > 1 || Boolean(more && onMore);
+  const cardWidth = paged ? Math.max(240, innerWidth - 16) : innerWidth;
+  // Room after the last card so it can reach its start snap like the others.
+  const endSpace = count > 1 ? Math.max(0, innerWidth - cardWidth) : 0;
   return (
-    <View style={{ gap: 12 }}>
-      <View style={[styles.row, { justifyContent: "space-between" }]}>
-        <Text accessibilityRole="header" style={type.title}>
-          {rail.title}
-        </Text>
-        {count > 1 && (
-          <View style={styles.row}>
-            <Text style={type.caption}>
-              {index + 1} / {count}
-            </Text>
-            <Pill
-              label="‹"
-              accessibilityLabel={`${rail.title} 이전 카드`}
-              disabled={index === 0}
-              onPress={() => scroll.current?.scrollTo({ x: (index - 1) * (width + 12) })}
-            />
-            <Pill
-              label="›"
-              accessibilityLabel={`${rail.title} 다음 카드`}
-              disabled={index === count - 1}
-              onPress={() => scroll.current?.scrollTo({ x: (index + 1) * (width + 12) })}
-            />
-          </View>
-        )}
-      </View>
-      {!rail.items &&
-        (rail.error ? (
+    <View
+      style={{ gap: 12 }}
+      onLayout={(event) => setInnerWidth(event.nativeEvent.layout.width)}
+    >
+      <Text accessibilityRole="header" style={type.title}>
+        {section.title}
+      </Text>
+      {!section.items &&
+        (section.error ? (
           <ErrorRetry
-            message={rail.error}
-            onRetry={() => act({ type: "sources-rail-retry", rail: section })}
+            message={section.error}
+            onRetry={() => act({ type: "sources-section-retry", section: kind })}
           />
         ) : (
           <Status>샘플을 불러오는 중...</Status>
         ))}
-      {rail.items?.length === 0 && <Status>표시할 샘플이 없습니다.</Status>}
-      {!!rail.items?.length && (
+      {section.items?.length === 0 && <Status>{emptyMessage}</Status>}
+      {!!section.items?.length && innerWidth > 0 && (
         <ScrollView
-          ref={scroll}
           horizontal
           showsHorizontalScrollIndicator={false}
-          snapToInterval={width + 12}
+          snapToInterval={cardWidth + 16}
+          snapToAlignment="start"
           decelerationRate="fast"
-          contentContainerStyle={{ gap: 12 }}
-          onScroll={({ nativeEvent }) =>
-            setPage(Math.round(nativeEvent.contentOffset.x / (width + 12)))
-          }
-          scrollEventThrottle={100}
+          disableIntervalMomentum
+          scrollEventThrottle={120}
+          onScroll={(event) => {
+            if (!more || more.busy || more.error || !onMore) return;
+            const { contentOffset, layoutMeasurement, contentSize } = event.nativeEvent;
+            if (
+              contentOffset.x + layoutMeasurement.width >=
+              contentSize.width - (cardWidth + 16) * 1.5
+            ) {
+              onMore();
+            }
+          }}
+          style={{ marginHorizontal: -gutter }}
+          contentContainerStyle={{
+            paddingLeft: gutter,
+            paddingRight: gutter + endSpace,
+            gap: 16,
+          }}
         >
-          {rail.items.map((source) => (
-            <View key={source.key} style={{ width }}>
+          {section.items.map((source) => (
+            <View key={source.key} style={{ width: cardWidth }}>
               <SourceCard source={source} />
             </View>
           ))}
+          {more &&
+            onMore &&
+            (more.error && !more.busy ? (
+              <View style={{ width: 200, justifyContent: "center" }}>
+                <ErrorRetry message={more.error} onRetry={onMore} />
+              </View>
+            ) : (
+              <View style={{ width: 124, justifyContent: "center" }}>
+                <Button
+                  tone="secondary"
+                  label={more.busy ? "불러오는 중..." : "더보기"}
+                  disabled={more.busy}
+                  onPress={onMore}
+                />
+              </View>
+            ))}
         </ScrollView>
       )}
     </View>
@@ -288,11 +306,14 @@ function PublicationEditor({
             style={styles.input}
             value={title}
             onChangeText={(value) => {
-              setTitle(value);
-              act({ type: "sources-editor-title", value });
+              const clamped = clampCodePoints(value, SOURCE_TITLE_MAX_LENGTH);
+              setTitle(clamped);
+              act({ type: "sources-editor-title", value: clamped });
             }}
           />
-          <Text style={type.caption}>{Array.from(title.trim()).length}/100자 · 필수</Text>
+          <Text style={type.caption}>
+            {codePointLength(title.trim())}/{SOURCE_TITLE_MAX_LENGTH}자 · 필수
+          </Text>
         </View>
         <View style={styles.field}>
           <Text style={type.body}>설명 (선택)</Text>
@@ -303,11 +324,14 @@ function PublicationEditor({
             style={[styles.input, { minHeight: 100, textAlignVertical: "top" }]}
             value={description}
             onChangeText={(value) => {
-              setDescription(value);
-              act({ type: "sources-editor-description", value });
+              const clamped = clampCodePoints(value, SOURCE_DESCRIPTION_MAX_LENGTH);
+              setDescription(clamped);
+              act({ type: "sources-editor-description", value: clamped });
             }}
           />
-          <Text style={type.caption}>{Array.from(description).length}/2000자</Text>
+          <Text style={type.caption}>
+            {codePointLength(description)}/{SOURCE_DESCRIPTION_MAX_LENGTH}자
+          </Text>
         </View>
         <Text style={type.body}>썸네일</Text>
         {(

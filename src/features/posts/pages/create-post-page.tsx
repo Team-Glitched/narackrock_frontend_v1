@@ -94,6 +94,7 @@ export default function CreatePostPage() {
     <DesignViewport>
       <div className={sharedStyles.phoneFrame}>
         <Header
+          minimal
           onBack={() => back(backFallback)}
           onSearch={search}
           communitySelector={

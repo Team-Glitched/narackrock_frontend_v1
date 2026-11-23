@@ -301,9 +301,10 @@ export function parseRequest(data: string): BridgeRequest | null {
         !Array.isArray(parsed.notes) ||
         !("bpm" in parsed) ||
         typeof parsed.bpm !== "number" ||
-        !("instrument" in parsed) ||
-        typeof parsed.instrument !== "string" ||
-        !(parsed.bpm > 0)
+        !(parsed.bpm > 0) ||
+        ("instrumentId" in parsed &&
+          parsed.instrumentId !== undefined &&
+          typeof parsed.instrumentId !== "string")
       )
         return null;
       return {
@@ -312,7 +313,10 @@ export function parseRequest(data: string): BridgeRequest | null {
         type: parsed.type,
         notes: parsed.notes as MidiNoteDto[],
         bpm: parsed.bpm,
-        instrument: parsed.instrument,
+        instrumentId:
+          "instrumentId" in parsed && typeof parsed.instrumentId === "string"
+            ? parsed.instrumentId
+            : undefined,
       };
     case "audio-record":
       if (!("op" in parsed) || !recordOps.includes(parsed.op)) return null;
@@ -373,7 +377,9 @@ async function run(
       await runAudioCommand(host.origin, request.engine, request.command);
       return null;
     case "audio-render-notes":
-      return { audio: await renderNotes(host.origin, request.notes, request.bpm, request.instrument) };
+      return {
+        audio: await renderNotes(host.origin, request.notes, request.bpm, request.instrumentId),
+      };
     case "audio-record":
       return { audio: await record(request.op) };
   }

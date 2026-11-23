@@ -20,7 +20,7 @@ import { isNativeInstrumentAction } from "@/lib/native-screens/studio";
 import { partLabel, supportsMidi } from "@/features/composition/instrument-parts";
 
 type Navigation = { onBack: () => void; onSearch: () => void };
-const header = { left: "back", actions: ["notifications", "search", "account"] } as const;
+const header = { left: "back", actions: [] } as const;
 
 /**
  * Browser-owned source form, draft and publication; the details and the audio steps (choose,
@@ -270,6 +270,7 @@ function SourceRecordStep({ form, onBack, onSearch }: StepProps) {
 function SourcePianoStep({ form }: { form: SocialCreateState }) {
   const piano = useNativeSourcePiano({
     instrument: form.pianoInstrument!,
+    onInstrument: form.setPianoInstrument,
     notes: form.pianoNotes,
     setNotes: form.setPianoNotes,
     bpm: form.pianoBpm,

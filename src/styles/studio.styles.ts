@@ -32,8 +32,9 @@ export const studioStyles = {
     "midi-import-trigger",
     "[.design-canvas_.studio-readouts_&]:ml-0 [.design-canvas_.studio-readouts_&]:flex [.design-canvas_.studio-readouts_&]:h-[30px]",
     "[.design-canvas_.studio-readouts_&]:w-auto [.design-canvas_.studio-readouts_&]:min-w-20 [.design-canvas_.studio-readouts_&]:shrink-0",
-    "[.design-canvas_.studio-readouts_&]:place-items-center [.design-canvas_.studio-readouts_&]:p-[0_9px]",
-    "[.design-canvas_.studio-readouts_&]:bg-app-surface [.design-canvas_.studio-readouts_&]:bg-none",
+    "[.design-canvas_.studio-readouts_&]:place-items-center [.design-canvas_.studio-readouts_&]:gap-1 [.design-canvas_.studio-readouts_&]:px-2.5",
+    "[.design-canvas_.studio-readouts_&]:bg-[#23232a] [.design-canvas_.studio-readouts_&]:bg-none",
+    "[.design-canvas_.studio-readouts_&]:border [.design-canvas_.studio-readouts_&]:border-solid [.design-canvas_.studio-readouts_&]:border-[#32323d]",
     "[.design-canvas_.studio-readouts_&]:rounded-[8px] [.design-canvas_.studio-readouts_&]:items-center",
     "[.design-canvas_.studio-readouts_&]:justify-center [.design-canvas_.studio-readouts_&]:gap-[5px]",
     "[.design-canvas_.studio-readouts_&]:font-medium [.design-canvas_.studio-readouts_&]:text-caption",
@@ -214,11 +215,12 @@ export const studioStyles = {
   ].join(" "),
   studioAdd: [
     "studio-add",
-    "[&_i]:absolute [&_i]:h-[2px] [&_i]:w-5 [&_i]:rounded-[2px] [&_i]:bg-[#d7dce2] [&_i]:bg-none [&_i]:top-[14px] [&_i]:left-5",
+    "[&_i]:absolute [&_i]:top-1/2 [&_i]:left-1/2 [&_i]:-translate-x-1/2 [&_i]:-translate-y-1/2",
+    "[&_i]:h-[2px] [&_i]:w-5 [&_i]:rounded-[2px] [&_i]:bg-[#d7dce2] [&_i]:bg-none",
     "[&_i::after]:[content:''] [&_i::after]:absolute [&_i::after]:inset-0 [&_i::after]:transform-[rotate(90deg)] [&_i::after]:[background:inherit]",
     "[&_i::after]:rounded-[inherit]",
     "[.studio-toolbar_&]:ml-auto [.studio-toolbar_&]:h-[30px] [.studio-toolbar_&]:w-15 [.studio-toolbar_&]:rounded-[12px]",
-    "[.studio-toolbar_&]:bg-app-surface [.studio-toolbar_&]:bg-none [.studio-toolbar_&]:relative [.studio-toolbar_&]:flex-[0_0_45px]",
+    "[.studio-toolbar_&]:bg-app-surface [.studio-toolbar_&]:bg-none [.studio-toolbar_&]:relative [.studio-toolbar_&]:flex-[0_0_60px]",
     "[.design-canvas_.studio-toolbar_&]:ml-0 [.design-canvas_.studio-toolbar_&]:grid [.design-canvas_.studio-toolbar_&]:w-15",
     "[.design-canvas_.studio-toolbar_.studio-submit+&]:ml-2",
     "[.design-canvas_.studio-toolbar_&]:place-items-center [.design-canvas_.studio-toolbar_&]:h-[30px]",
@@ -238,17 +240,14 @@ export const studioStyles = {
     "[.design-canvas_.phone-frame--source-piano_&]:bg-app-bg [.design-canvas_.phone-frame--source-piano_&]:bg-none",
     "[.design-canvas_.phone-frame--source-piano_&]:rounded-none",
   ].join(" "),
-  /** Portrait rows: playback/actions, volume, then timing and samples. */
+  /** Portrait rows: playback/actions on row 1, timing and samples on row 2. */
   studioUpright: [
     "studio-upright",
     "[.design-canvas_&_.studio-toolbar]:grid [.design-canvas_&_.studio-toolbar]:grid-cols-[auto_minmax(0,1fr)_auto]",
     "[.design-canvas_&_.studio-toolbar]:h-auto! [.design-canvas_&_.studio-toolbar]:flex-none! [.design-canvas_&_.studio-toolbar]:gap-2 [.design-canvas_&_.studio-toolbar]:p-2",
-    "[.design-canvas_&_.studio-readouts]:row-start-3 [.design-canvas_&_.studio-readouts]:col-span-3 [.design-canvas_&_.studio-readouts]:m-0",
+    "[.design-canvas_&_.studio-readouts]:row-start-2 [.design-canvas_&_.studio-readouts]:col-span-3 [.design-canvas_&_.studio-readouts]:m-0",
     "[.design-canvas_&_.studio-readouts]:min-w-0 [.design-canvas_&_.studio-readouts]:overflow-x-auto [.design-canvas_&_.studio-readouts]:py-1",
-    "[.design-canvas_&_.studio-volume]:row-start-2 [.design-canvas_&_.studio-volume]:col-start-1 [.design-canvas_&_.studio-volume]:col-span-3",
-    "[.design-canvas_&_.studio-volume]:m-0 [.design-canvas_&_.studio-volume]:w-full [.design-canvas_&_.studio-volume]:max-w-[280px]! [.design-canvas_&_.studio-volume]:min-w-0! [.design-canvas_&_.studio-volume]:pl-0",
-    "[.design-canvas_&_.studio-volume_input]:w-full [.design-canvas_&_.studio-volume_input]:min-w-0 [.design-canvas_&_.studio-volume_input]:flex-1",
-    "[.design-canvas_&_.studio-toolbar-actions]:col-start-3 [.design-canvas_&_.studio-toolbar-actions]:row-start-1",
+    "[.design-canvas_&_.studio-toolbar-actions]:col-start-3 [.design-canvas_&_.studio-toolbar-actions]:row-start-1 [.design-canvas_&_.studio-toolbar-actions]:ml-0",
     "[&_.piano-key.black_span]:invisible",
     "[.design-canvas_&_.note-editor-controls]:flex-wrap [.design-canvas_&_.note-editor-controls]:shrink-0",
     "[.design-canvas_&_.studio-publish-form]:inset-0 [.design-canvas_&_.studio-publish-form]:overflow-y-auto [.design-canvas_&_.studio-publish-form]:p-5",
@@ -333,7 +332,7 @@ export const studioStyles = {
     "[.design-canvas_.team-note-workspace_&]:min-h-[30px] [.design-canvas_.team-note-workspace_&]:w-[87px]",
     "[.design-canvas_.team-note-workspace_&]:bg-app-key-white [.design-canvas_.team-note-workspace_&]:text-app-key-black",
     "[&:focus-visible]:outline [&:focus-visible]:outline-2 [&:focus-visible]:outline-app-accent [&:focus-visible]:outline-offset-[-2px]",
-    "[&.drum-key]:flex [&.drum-key]:items-center [&.drum-key]:justify-center [&.drum-key]:px-1 [&.drum-key_svg]:h-6 [&.drum-key_svg]:w-6 [&.drum-key_svg]:shrink-0",
+    "[&.drum-key]:flex [&.drum-key]:items-center [&.drum-key]:justify-center [&.drum-key]:gap-1.5 [&.drum-key]:bg-[#23232a]! [&.drum-key]:px-1.5 [&.drum-key]:text-app-fg! [&.drum-key]:border-b! [&.drum-key]:border-solid! [&.drum-key]:border-b-[#32323d]! [&.drum-key]:hover:bg-[#2c2c37]! [&.drum-key_svg]:h-5 [&.drum-key_svg]:w-5 [&.drum-key_svg]:shrink-0",
     "[.design-canvas_.team-note-workspace_&]:border-0 [.design-canvas_.team-note-workspace_&]:border-none",
     "[.design-canvas_.team-note-workspace_&_span]:top-[10px] [.design-canvas_.team-note-workspace_&_span]:text-caption",
     "[.design-canvas_.team-note-workspace_&_span]:text-app-key-black",
@@ -356,15 +355,6 @@ export const studioStyles = {
     "[.team-note-workspace_&]:bg-app-raised [.team-note-workspace_&]:bg-none",
     "[.design-canvas_.team-note-workspace_&]:bg-none [.design-canvas_.team-note-workspace_&]:h-[30px]",
     "[.design-canvas_.team-note-workspace_&]:min-h-[30px] [.design-canvas_.team-note-workspace_&]:bg-app-grid-row",
-  ].join(" "),
-  studioMasterVolume: [
-    "studio-master-volume",
-    "w-25 min-w-[55px] accent-app-primary",
-    "[&:disabled]:opacity-[.55]",
-    "[.design-canvas_&]:h-[5px] [.design-canvas_&]:w-full [.design-canvas_&]:min-w-0 [.design-canvas_&]:accent-app-fg",
-    "[.design-canvas_&]:appearance-none [.design-canvas_&]:bg-app-line [.design-canvas_&]:bg-none [.design-canvas_&]:rounded-[10px]",
-    "[&::-webkit-slider-thumb]:h-[9px] [&::-webkit-slider-thumb]:w-[9px] [&::-webkit-slider-thumb]:appearance-none",
-    "[&::-webkit-slider-thumb]:rounded-[50%] [&::-webkit-slider-thumb]:bg-app-fg [&::-webkit-slider-thumb]:bg-none",
   ].join(" "),
   studioState: [
     "studio-state",
@@ -435,13 +425,21 @@ export const studioStyles = {
   ].join(" "),
   recordOutput: [
     "record-output",
-    "flex flex-1 flex-col [justify-content:end] w-full items-center gap-4 text-center text-body",
+    "flex flex-1 flex-col [justify-content:end] w-full items-center gap-5 text-center text-body",
     "[.design-canvas_&]:absolute [.design-canvas_&]:top-[345px] [.design-canvas_&]:w-[350px]",
     "[.design-canvas_&>[role=status]]:text-caption [.design-canvas_&>[role=status]]:text-app-muted",
   ].join(" "),
-  recordActions: ["record-actions", "flex flex-wrap items-center justify-center gap-[10px]"].join(
-    " ",
-  ),
+  /** A finished take: the compact metronome above frees room for the preview, mode and actions. */
+  recordOutputRecorded: "[.design-canvas_&]:top-[256px]! [.design-canvas_&]:w-[326px]!",
+  recordConvert: [
+    "record-convert",
+    "flex w-full items-center justify-between gap-3 rounded-xl bg-app-surface py-2 pr-2 pl-4 text-label",
+  ].join(" "),
+  recordActions: [
+    "record-actions",
+    "flex w-full flex-wrap items-center justify-center gap-[10px]",
+    "[&>button]:h-11 [&>button]:min-w-0 [&>button]:flex-1",
+  ].join(" "),
   recordButton: [
     "record-button",
     "h-[82px] w-[82px] rounded-[50%] bg-[white] bg-none grid shrink-0 place-items-center text-[length:28px] text-app-bg",
@@ -506,7 +504,7 @@ export const studioStyles = {
   ].join(" "),
   notePlayheadHandle: [
     "note-playhead-handle",
-    "[.team-note-workspace_&]:absolute [.team-note-workspace_&]:top-0 [.team-note-workspace_&]:left-[-10px] [.team-note-workspace_&]:h-[26px]",
+    "[.team-note-workspace_&]:absolute [.team-note-workspace_&]:top-0 [.team-note-workspace_&]:left-[-10px] [.team-note-workspace_&]:h-[28px]",
     "[.team-note-workspace_&]:w-[22px] [.team-note-workspace_&]:rounded-[0_0_8px_8px] [.team-note-workspace_&]:bg-[#fff]",
     "[.team-note-workspace_&]:bg-none [.team-note-workspace_&]:touch-none [.team-note-workspace_&]:[cursor:ew-resize]",
     "[.team-note-workspace_&]:z-[8] [.team-note-workspace_&]:border-0 [.team-note-workspace_&]:border-none [.team-note-workspace_&]:border-current",
@@ -557,9 +555,13 @@ export const studioStyles = {
   ].join(" "),
   studioMetronome: [
     "studio-metronome",
-    "grid h-11 w-11 place-items-center",
-    "[.design-canvas_&[aria-pressed=true]]:bg-app-surface [.design-canvas_&[aria-pressed=true]]:bg-none",
-    "[.design-canvas_&[aria-pressed=true]]:rounded-[8px]",
+    "grid h-11 w-11 place-items-center rounded-[10px] text-[#F2F4F6] transition-colors",
+    "[&[aria-pressed=true]]:bg-transparent [&[aria-pressed=true]]:text-[#9966ff]",
+  ].join(" "),
+  studioPianoMetronome: [
+    "studio-metronome",
+    "grid h-11 w-11 place-items-center rounded-[10px] text-[#F2F4F6] transition-colors",
+    "[&[aria-pressed=true]]:bg-app-primary [&[aria-pressed=true]]:text-white [&[aria-pressed=true]]:ring-1 [&[aria-pressed=true]]:ring-[#9966ff]",
   ].join(" "),
   studioVolumeTrigger: [
     "studio-volume-trigger",
@@ -606,8 +608,9 @@ export const studioStyles = {
   ].join(" "),
   studioTiming: [
     "studio-timing",
-    "[.studio-readouts>&]:flex [.studio-readouts>&]:h-[30px] [.studio-readouts>&]:items-center [.studio-readouts>&]:gap-[3px]",
-    "[.studio-readouts>&]:rounded-[8px] [.studio-readouts>&]:p-[2px_4px] [.studio-readouts>&]:bg-app-surface [.studio-readouts>&]:bg-none",
+    "[.studio-readouts>&]:flex [.studio-readouts>&]:h-[30px] [.studio-readouts>&]:items-center [.studio-readouts>&]:gap-1.5",
+    "[.studio-readouts>&]:rounded-[8px] [.studio-readouts>&]:border [.studio-readouts>&]:border-solid [.studio-readouts>&]:border-[#32323d]",
+    "[.studio-readouts>&]:px-2.5 [.studio-readouts>&]:py-0.5 [.studio-readouts>&]:bg-[#23232a] [.studio-readouts>&]:bg-none",
     "[.studio-readouts>&]:text-label [.studio-readouts>&]:font-normal [.studio-readouts>&]:text-app-fg",
   ].join(" "),
 } as const;

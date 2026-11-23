@@ -51,7 +51,18 @@ export function HomeScreen({ model: home, header }: ScreenProps<"home">) {
         </Section>
         {home.mine && (
           <Section title="내 음악" onAll={() => act({ type: "show-songs", kind: "mine" })}>
-            <SongRail list={home.mine} onOpen={open} />
+            {home.featuredNotice && (
+              <Text accessibilityRole="alert" style={styles.featuredNotice}>
+                {home.featuredNotice}
+              </Text>
+            )}
+            <SongRail
+              list={home.mine}
+              onOpen={open}
+              pinnedIds={home.minePinnedIds}
+              starBusy={Boolean(home.starBusy)}
+              onToggleStar={(shortId) => act({ type: "toggle-featured", shortId })}
+            />
           </Section>
         )}
       </ScreenScroll>
@@ -182,4 +193,16 @@ const styles = StyleSheet.create({
   },
   workTop: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   preview: { borderRadius: 6, overflow: "hidden" },
+  featuredNotice: {
+    marginHorizontal: gutter,
+    marginBottom: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    color: colors.error,
+    fontSize: 14,
+    lineHeight: 20,
+  },
 });

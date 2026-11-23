@@ -7,6 +7,7 @@ import MutedIcon from "../../../public/figma/sound-muted.svg";
 import SoundIcon from "../../../public/figma/sound.svg";
 import type { NativePlayback } from "../../../src/lib/native-screens";
 import { Touchable } from "../../ui/kit";
+import { useSmoothPlaybackMs } from "../../ui/smooth-playback";
 import { colors } from "../../ui/theme";
 
 function clock(ms: number) {
@@ -31,9 +32,11 @@ export function PlaybackBar({
 }) {
   const [width, setWidth] = useState(0);
   const { durationMs, label } = player;
-  const position = Math.max(
-    0,
-    durationMs === null ? player.positionMs : Math.min(player.positionMs, durationMs),
+  // The clamped display position; it moves only while the audio actually plays (not while loading).
+  const position = useSmoothPlaybackMs(
+    player.positionMs,
+    durationMs,
+    player.playing && !player.loading,
   );
   const elapsed = clock(position);
   const total = durationMs === null ? "‒:‒" : clock(durationMs);
@@ -119,7 +122,7 @@ const styles = StyleSheet.create({
   },
   toggle: { width: 24, height: "100%", alignItems: "center", justifyContent: "center" },
   disabled: { opacity: 0.5 },
-  time: { color: colors.fg, fontSize: 14, lineHeight: 20 },
+  time: { color: colors.fg, fontSize: 14, lineHeight: 20, fontVariant: ["tabular-nums"] },
   track: { flex: 1, height: "100%", justifyContent: "center" },
   rail: { height: 4, borderRadius: 2, overflow: "hidden", backgroundColor: colors.line },
   fill: { height: 4, backgroundColor: colors.primary },

@@ -29,7 +29,7 @@ export function NativePostsBridge({
     },
   };
   return useNativeScreen("posts", model, {
-    header: { left: "back", actions: ["notifications", "search", "account"] },
+    header: { left: "back", actions: ["notifications", "chat", "search", "account"] },
     onBack,
     onSearch,
     onAction: (action) => {

@@ -9,6 +9,7 @@ import {
   unlink,
   writeFile,
 } from "@dr.pogodin/react-native-fs";
+import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -68,6 +69,13 @@ const WEBROOT = "webroot";
 // Written by scripts/build-native-web.mjs next to index.html.
 const MANIFEST_FILE = "native-build.json";
 const BACKGROUND = designTokens.colors.bg;
+// The launch splash stays up until the first native screen (or the start error) replaces it, so
+// no blank frame or spinner shows in between. A page that never reports a screen still gets the
+// loading view after this long.
+const SPLASH_MAX_MS = 8000;
+
+void SplashScreen.preventAutoHideAsync();
+SplashScreen.setOptions({ duration: 200, fade: true });
 
 type WebBuildManifest = { buildId: string; apiOrigin: string };
 
@@ -166,6 +174,14 @@ function WebShell() {
   // The screen on display; hardware Back goes to its page like the header's back button.
   const shownScreen = useRef<string | null>(null);
   shownScreen.current = overlayStack.current ?? stack.current;
+  const launched = stack.current !== null || error !== null;
+  useEffect(() => {
+    if (launched) SplashScreen.hide();
+  }, [launched]);
+  useEffect(() => {
+    const timer = setTimeout(() => SplashScreen.hide(), SPLASH_MAX_MS);
+    return () => clearTimeout(timer);
+  }, []);
   // A restarted page reports its native views again once mounted.
   const reload = useCallback(() => {
     setFooter(null);

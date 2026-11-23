@@ -64,7 +64,7 @@ export default function StudioNewPage() {
   return (
     <DesignViewport>
       <div className={sharedStyles.phoneFrame}>
-        <Header onSearch={search} onBack={() => back("/")} />
+        <Header minimal onSearch={search} onBack={() => back("/")} />
         <div className={sharedStyles.screenBody}>{form}</div>
         <NotificationsOverlay />
       </div>

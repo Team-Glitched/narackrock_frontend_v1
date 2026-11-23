@@ -18,9 +18,7 @@ export class InstrumentPromptCancelled extends Error {
   }
 }
 
-export type InstrumentPromptRequest = ({ mode: "midi" } | { mode: "audio"; audio: AudioAudition }) & {
-  validate?: (id: string) => void;
-};
+export type InstrumentPromptRequest = { mode: "midi" } | { mode: "audio"; audio: AudioAudition };
 
 /**
  * No layer is created until the caller receives an explicitly confirmed choice. Browsers render
@@ -66,7 +64,6 @@ export function useInstrumentPrompt(projectId: number | null, options?: { standa
               : preview.previewInstrument,
           onStopPreview: preview.stopPreview,
           onConfirm: async (id) => {
-            next.validate?.(id);
             request.resolve(id);
             setRequest(null);
           },

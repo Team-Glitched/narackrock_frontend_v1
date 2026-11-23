@@ -2,10 +2,8 @@ import type { ReactNode } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 
 import type { NativeNoteEditor, NativeTransport } from "../../../src/lib/native-screens";
-import MetronomeIcon from "../../../public/figma/metronome.svg";
 import PlayIcon from "../../../public/figma/play.svg";
 import ReturnIcon from "../../../public/figma/return.svg";
-import SoundIcon from "../../../public/figma/sound.svg";
 import { Touchable } from "../../ui/kit";
 import { useScreen } from "../../ui/screen-context";
 import { useDevicePortrait } from "../../ui/use-device-portrait";
@@ -16,11 +14,10 @@ import {
   DialogButton,
   InstrumentSheet,
   StudioCanvas,
-  Slider,
   SourceSheet,
   TimingSheet,
 } from "../studio/parts";
-import { AddButton, StudioToolbar, useTransport } from "../studio/toolbar";
+import { AddButton, MetronomeGlyph, RewindIcon, StudioToolbar, useTransport } from "../studio/toolbar";
 import type { ScreenProps } from "../types";
 import { NoteControls, NoteRoll, NoteRollSheets, NoteTools } from "./roll";
 
@@ -53,6 +50,7 @@ export function NoteEditorScreen({ model }: ScreenProps<"editor-notes">) {
           transport={model.transport}
           title={model.title}
           timingEditable={model.timingEditable}
+          piano
           onBack={() => act({ type: "back" })}
           onRewind={() => act({ type: "editor-rewind" })}
           onSample={model.canImportSource ? () => act({ type: "source-open" }) : undefined}
@@ -93,18 +91,49 @@ function Portrait({ model }: { model: Ready }) {
         >
           <ReturnIcon width={22.5} height={22.5} />
         </Touchable>
-        <View style={styles.portraitVolume}>
-          <SoundIcon width={20} height={17} />
-          <Slider
-            value={transport.volume}
-            min={0}
-            max={100}
-            label="마스터 볼륨"
-            valueText={`${transport.volume}%`}
-            onChange={(value) => act({ type: "transport-volume", value })}
-            style={styles.flex}
-          />
-        </View>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.portraitTopCenter}
+          contentContainerStyle={styles.portraitQuickActions}
+        >
+          {model.instrument && (
+            <Touchable
+              accessibilityRole="button"
+              accessibilityLabel="악기 선택"
+              style={styles.portraitChip}
+              onPress={() => act({ type: "editor-instrument-open" })}
+            >
+              <Text style={styles.readoutSmall}>악기</Text>
+              <Text style={styles.portraitChipText} numberOfLines={1}>
+                {model.instrument.label}
+              </Text>
+            </Touchable>
+          )}
+          {model.editable && model.roll.canChord && (
+            <Touchable
+              accessibilityRole="button"
+              accessibilityLabel="코드 입력"
+              style={styles.portraitChip}
+              onPress={() => act({ type: "roll-chords-open" })}
+            >
+              <Text style={styles.portraitChipText}>코드 입력</Text>
+            </Touchable>
+          )}
+          {model.editable && model.roll.drum && (
+            <Touchable
+              accessibilityRole="button"
+              accessibilityLabel={`전체 키트${model.roll.hidden ? `, 숨은 노트 ${model.roll.hidden}개` : ""}`}
+              accessibilityState={{ selected: model.roll.expandedDrums }}
+              style={[styles.portraitChip, model.roll.expandedDrums && styles.portraitChipActive]}
+              onPress={() => act({ type: "roll-drums", expanded: !model.roll.expandedDrums })}
+            >
+              <Text style={[styles.portraitChipText, model.roll.expandedDrums && styles.portraitChipTextActive]}>
+                전체 키트{model.roll.hidden > 0 ? ` +${model.roll.hidden}` : ""}
+              </Text>
+            </Touchable>
+          )}
+        </ScrollView>
         <Touchable
           accessibilityRole="button"
           accessibilityLabel="레이어 목록"
@@ -137,16 +166,8 @@ function Portrait({ model }: { model: Ready }) {
         {model.canImportSource && (
           <Readout small="+" value="샘플" label="샘플 추가" onPress={() => act({ type: "source-open" })} plain />
         )}
-        {model.instrument && (
-          <Readout
-            small="악기"
-            value={model.instrument.label}
-            label="악기 선택"
-            onPress={() => act({ type: "editor-instrument-open" })}
-          />
-        )}
       </ScrollView>
-      {model.editable && <NoteControls roll={model.roll} tools={false} />}
+      {model.editable && <NoteControls roll={model.roll} tools={false} showModeAction={false} />}
       <StatusRow model={model} />
       <Notices model={model} />
       <View style={styles.portraitRoll}>
@@ -170,30 +191,47 @@ function Recommendation({ model }: { model: Ready }) {
     <View style={[styles.recommendation, panel && styles.flex]}>
       {panel && (
         <>
-          <Touchable accessibilityRole="button" accessibilityLabel="추천 노트 위치로 이동"
-            onPress={() => act({ type: "editor-chord-reveal" })}>
+          <Touchable
+            accessibilityRole="button"
+            accessibilityLabel="추천 노트 위치로 이동"
+            style={styles.recChip}
+            onPress={() => act({ type: "editor-chord-reveal" })}
+          >
             <Text style={styles.recommendationText}>◎</Text>
           </Touchable>
           {panel.names.map((name, index) => (
-            <Touchable key={name} accessibilityRole="button" accessibilityState={{ selected: index === panel.index }}
-              onPress={() => act({ type: "editor-chord-select", index })}>
-              <Text style={[styles.recommendationText, index === panel.index && styles.recommendationSelected]}>{name}</Text>
+            <Touchable
+              key={name}
+              accessibilityRole="button"
+              accessibilityState={{ selected: index === panel.index }}
+              style={[styles.recChip, index === panel.index && styles.recChipActive]}
+              onPress={() => act({ type: "editor-chord-select", index })}
+            >
+              <Text style={[styles.recommendationText, index === panel.index && styles.recTextActive]}>
+                {name}
+              </Text>
             </Touchable>
           ))}
-          <Touchable onPress={() => act({ type: "editor-chord-listen" })}>
+          <Touchable style={styles.recChip} onPress={() => act({ type: "editor-chord-listen" })}>
             <Text style={styles.recommendationText}>{panel.playing ? "미리듣기 정지" : "미리듣기"}</Text>
           </Touchable>
-          <Touchable onPress={() => act({ type: "editor-chord-apply" })}>
-            <Text style={[styles.recommendationText, styles.recommendationSelected]}>추천 코드 넣기</Text>
+          <Touchable style={[styles.recChip, styles.recChipActive]} onPress={() => act({ type: "editor-chord-apply" })}>
+            <Text style={[styles.recommendationText, styles.recTextActive]}>추천 코드 넣기</Text>
           </Touchable>
-          <Touchable onPress={() => act({ type: "editor-chord-dismiss" })}>
-            <Text style={styles.recommendationText}>건너뛰기</Text>
+          <Touchable style={styles.recDismiss} onPress={() => act({ type: "editor-chord-dismiss" })}>
+            <Text style={styles.recDismissText}>건너뛰기</Text>
           </Touchable>
         </>
       )}
-      <Touchable onPress={() => act({ type: "editor-chord-toggle" })}
-        accessibilityRole="button" accessibilityState={{ checked: recommendation.enabled }}>
-        <Text style={styles.recommendationText}>코드 추천 {recommendation.enabled ? "켜짐" : "꺼짐"}</Text>
+      <Touchable
+        style={[styles.recChip, recommendation.enabled && styles.recToggleOn]}
+        onPress={() => act({ type: "editor-chord-toggle" })}
+        accessibilityRole="button"
+        accessibilityState={{ checked: recommendation.enabled }}
+      >
+        <Text style={[styles.recommendationText, recommendation.enabled && styles.recToggleText]}>
+          코드 추천 {recommendation.enabled ? "켜짐" : "꺼짐"}
+        </Text>
       </Touchable>
     </View>
   );
@@ -210,7 +248,7 @@ function PortraitTransport({ transport }: { transport: NativeTransport }) {
         style={styles.round}
         onPress={() => act({ type: "editor-rewind" })}
       >
-        <Text style={styles.rewind}>|&lt;</Text>
+        <RewindIcon size={20} />
       </Touchable>
       <Touchable
         accessibilityRole="button"
@@ -234,7 +272,7 @@ function PortraitTransport({ transport }: { transport: NativeTransport }) {
         style={[styles.round, transport.metronome && styles.roundPressed]}
         onPress={() => act({ type: "transport-metronome" })}
       >
-        <MetronomeIcon width={15} height={22} />
+        <MetronomeGlyph active={false} size={22} />
       </Touchable>
     </View>
   );
@@ -374,26 +412,33 @@ function Overlays({ model }: { model: Ready }) {
               disabled={model.exit.keepDisabled}
               onPress={() => act({ type: "editor-exit-keep" })}
             />
-            <DialogButton
-              label="버리기"
-              wide
-              tone="secondary"
+            <View style={styles.exitRow}>
+              <Touchable
+                accessibilityRole="button"
+                style={styles.exitSubButton}
+                onPress={() => act({ type: "editor-export" })}
+              >
+                <Text style={styles.exitSubText}>복구본 내보내기</Text>
+              </Touchable>
+              <Touchable
+                accessibilityRole="button"
+                accessibilityState={{ disabled: model.exit.busy }}
+                disabled={model.exit.busy}
+                style={[styles.exitSubButton, model.exit.busy && styles.disabled]}
+                onPress={() => act({ type: "editor-exit-cancel" })}
+              >
+                <Text style={styles.exitSubText}>계속 편집</Text>
+              </Touchable>
+            </View>
+            <Touchable
+              accessibilityRole="button"
+              accessibilityState={{ disabled: model.exit.busy }}
               disabled={model.exit.busy}
+              style={[styles.exitDangerButton, model.exit.busy && styles.disabled]}
               onPress={() => act({ type: "editor-exit-discard" })}
-            />
-            <DialogButton
-              label="복구본 내보내기"
-              wide
-              tone="secondary"
-              onPress={() => act({ type: "editor-export" })}
-            />
-            <DialogButton
-              label="계속 편집"
-              wide
-              tone="secondary"
-              disabled={model.exit.busy}
-              onPress={() => act({ type: "editor-exit-cancel" })}
-            />
+            >
+              <Text style={styles.exitDangerText}>버리기</Text>
+            </Touchable>
           </View>
         </Dialog>
       )}
@@ -407,17 +452,57 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     flexWrap: "wrap",
     alignItems: "center",
-    columnGap: 12,
-    rowGap: 2,
+    gap: 6,
   },
-  recommendationText: { color: colors.fg, fontSize: 12, lineHeight: 20, paddingVertical: 2 },
-  recommendationSelected: { color: colors.accent, fontWeight: "700" },
+  recommendationText: { color: colors.fg, fontSize: 12, lineHeight: 16, fontWeight: "500" },
+  recChip: {
+    height: 28,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#32323d",
+    backgroundColor: "#23232a",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  recChipActive: { borderColor: colors.primary, backgroundColor: colors.primary },
+  recTextActive: { color: "#ffffff", fontWeight: "700" },
+  recDismiss: {
+    height: 28,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#32323d",
+    backgroundColor: "#1c1c23",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  recDismissText: { color: colors.muted, fontSize: 12, lineHeight: 16, fontWeight: "500" },
+  recToggleOn: { borderColor: colors.primary, backgroundColor: "rgba(91, 0, 255, 0.22)" },
+  recToggleText: { color: "#d8c7ff", fontWeight: "600" },
   flex: { flex: 1 },
+  disabled: { opacity: 0.45 },
   page: { flex: 1, backgroundColor: colors.bg },
   srOnly: { position: "absolute", width: 1, height: 1, opacity: 0 },
-  portraitTop: { height: 56, flexDirection: "row", alignItems: "center", gap: 12, paddingHorizontal: 16 },
+  portraitTop: { height: 56, flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 16 },
   portraitIcon: { width: 36, height: 36, alignItems: "center", justifyContent: "center", borderRadius: 10 },
-  portraitVolume: { flex: 1, flexDirection: "row", alignItems: "center", gap: 8 },
+  portraitTopCenter: { flex: 1, minWidth: 0 },
+  portraitQuickActions: { alignItems: "center", gap: 8 },
+  portraitChip: {
+    height: 36,
+    maxWidth: 140,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#32323d",
+    backgroundColor: "#23232a",
+  },
+  portraitChipText: { color: colors.fg, fontSize: 13, lineHeight: 18, fontWeight: "600", flexShrink: 1 },
+  portraitChipActive: { borderColor: colors.primary, backgroundColor: colors.primary },
+  portraitChipTextActive: { color: "#ffffff" },
   portraitAdd: {
     width: 56,
     height: 36,
@@ -437,7 +522,9 @@ const styles = StyleSheet.create({
     gap: 6,
     paddingHorizontal: 12,
     borderRadius: 10,
-    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: "#32323d",
+    backgroundColor: "#23232a",
   },
   readoutSmall: { color: colors.muted, fontSize: 14, lineHeight: 20 },
   readoutPlus: { color: colors.fg, fontSize: 14, lineHeight: 20 },
@@ -449,12 +536,13 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     borderRadius: 24,
+    borderWidth: 1,
+    borderColor: "#32323d",
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: colors.surface,
+    backgroundColor: "#23232a",
   },
-  roundPressed: { backgroundColor: colors.primary },
-  rewind: { color: colors.fg, fontSize: 20, lineHeight: 26, fontWeight: "700" },
+  roundPressed: { backgroundColor: colors.primary, borderColor: "#9966ff" },
   play: {
     width: 64,
     height: 64,
@@ -466,15 +554,19 @@ const styles = StyleSheet.create({
   pause: { flexDirection: "row", gap: 6 },
   pauseBar: { width: 6, height: 24, borderRadius: 2, backgroundColor: colors.fg },
   status: {
-    minHeight: 32,
+    minHeight: 36,
     flexShrink: 0,
     flexDirection: "row",
+    flexWrap: "wrap",
     alignItems: "center",
     gap: 8,
     paddingHorizontal: 12,
-    paddingVertical: 2,
+    paddingVertical: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: "#2b2b34",
+    backgroundColor: "#19191f",
   },
-  statusText: { flex: 1, minWidth: 0, color: colors.muted, fontSize: 14, lineHeight: 16 },
+  statusText: { flex: 1, minWidth: 0, color: colors.muted, fontSize: 13, lineHeight: 16 },
   notices: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -499,5 +591,29 @@ const styles = StyleSheet.create({
   },
   dialogTitle: { color: colors.fg, fontSize: 20, lineHeight: 26, fontWeight: "700" },
   dialogText: { color: colors.muted, fontSize: 14, lineHeight: 20 },
-  exitActions: { gap: 8, paddingTop: 8 },
+  exitActions: { gap: 10, paddingTop: 10 },
+  exitRow: { flexDirection: "row", gap: 8 },
+  exitSubButton: {
+    flex: 1,
+    height: 40,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: "#2e2e38",
+    backgroundColor: "#16161b",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 12,
+  },
+  exitSubText: { color: colors.muted, fontSize: 13, fontWeight: "500" },
+  exitDangerButton: {
+    height: 40,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: "rgba(225, 29, 72, 0.4)",
+    backgroundColor: "rgba(225, 29, 72, 0.16)",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 16,
+  },
+  exitDangerText: { color: "#fda4af", fontSize: 14, fontWeight: "600" },
 });

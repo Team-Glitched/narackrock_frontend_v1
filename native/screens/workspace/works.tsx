@@ -4,7 +4,7 @@ import { AppHeader } from "../../ui/header";
 import { ScreenScroll } from "../../ui/screen";
 import { useScreen } from "../../ui/screen-context";
 import type { ScreenProps } from "../types";
-import { Card, Empty, Notice, Page, Pill, styles as parts, text, Wide, WorkPreview } from "./parts";
+import { Card, Empty, Notice, Page, Pill, text, Wide, WorkPreview } from "./parts";
 
 /** The web's visited works page (src/features/workspace/workspace-screens.tsx WorkspaceScreen). */
 export function WorkspaceWorksScreen({ model, header }: ScreenProps<"workspace-works">) {
@@ -35,13 +35,17 @@ export function WorkspaceWorksScreen({ model, header }: ScreenProps<"workspace-w
               )
             : model.items.map((work) => (
                 <Card key={work.id} style={styles.card}>
-                  <Text style={text.bodyMuted}>{work.label}</Text>
                   <WorkPreview tracks={work.preview} />
-                  <Text style={[text.labelStrong, styles.title]}>{work.title}</Text>
-                  <Text style={text.bodyMuted}>
-                    {work.layerCount}개 레이어 · {work.bpm} BPM
-                  </Text>
-                  <View style={parts.actions}>
+                  <View style={styles.row}>
+                    <View style={styles.info}>
+                      <Text style={text.bodyMuted}>{work.label}</Text>
+                      <Text style={text.labelStrong} numberOfLines={1}>
+                        {work.title}
+                      </Text>
+                      <Text style={text.bodyMuted}>
+                        {work.layerCount}개 레이어 · {work.bpm} BPM
+                      </Text>
+                    </View>
                     <Pill
                       label="이어하기"
                       primary
@@ -69,6 +73,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
   },
-  card: { gap: 6 },
-  title: { marginTop: 4 },
+  card: { gap: 10 },
+  row: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  info: { flex: 1, minWidth: 0, gap: 4 },
 });

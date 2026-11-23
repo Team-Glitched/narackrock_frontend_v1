@@ -2,55 +2,77 @@ import type { MidiNoteDto } from "@/lib/api/composition";
 import { nativeApp, nativeAudioToFile, requestNative } from "@/lib/native-app";
 import { audioBufferToWav } from "./prepare-audio-file";
 import {
-  sourceRenderPlan,
-  sourceRenderSampleRate,
-  sourceReleaseSeconds,
-} from "./source-render-plan";
+  instrumentSampleUrl,
+  instrumentVoice,
+  pianoFallbackLevel,
+  pianoRenderLength,
+  pianoRenderSampleRate,
+  pianoSampleLevel,
+  requiredSamplePitches,
+  resolveSampleInstrument,
+  scheduleMidiEnvelope,
+} from "./piano-render-plan";
 
-/** Renders the selected composition instrument to the sample's actual audio attachment. */
-export async function renderSourceAudio(
+/** Render authored notes with the chosen sampled instrument to the WAV attachment; no MIDI upload. */
+export async function renderPianoAudio(
   notes: MidiNoteDto[],
   bpm: number,
-  instrument: string,
+  instrumentId = "piano",
 ): Promise<File> {
-  const plan = sourceRenderPlan(notes, bpm, instrument);
+  const { tickSeconds, durationSeconds } = pianoRenderLength(notes, bpm);
+  // The app renders with its native engine (same samples and plan).
   if (nativeApp()) {
-    const { audio } = await requestNative("audio-render-notes", {
-      notes,
-      bpm,
-      instrument: plan.instrument.id,
-    });
+    const { audio } = await requestNative("audio-render-notes", { notes, bpm, instrumentId });
     return nativeAudioToFile(audio);
   }
+  const instrument = resolveSampleInstrument(instrumentId);
+  const sampleKeys = requiredSamplePitches(instrument, notes);
   const context = new OfflineAudioContext(
     2,
-    Math.ceil(plan.durationSeconds * sourceRenderSampleRate),
-    sourceRenderSampleRate,
+    Math.ceil(durationSeconds * pianoRenderSampleRate),
+    pianoRenderSampleRate,
   );
-  const samples = new Map(
-    await Promise.all(
-      [...new Set(plan.voices.map((voice) => voice.url))].map(async (url) => {
-        const response = await fetch(url);
-        if (!response.ok)
-          throw new Error(
-            `${plan.instrument.label} 샘플을 불러오지 못했습니다. 다시 시도해주세요.`,
-          );
-        return [url, await context.decodeAudioData(await response.arrayBuffer())] as const;
-      }),
-    ),
-  );
-  for (const voice of plan.voices) {
+  let samples = new Map<number, AudioBuffer>();
+  try {
+    samples = new Map(
+      await Promise.all(
+        sampleKeys.map(async (pitch) => {
+          const response = await fetch(instrumentSampleUrl(instrument, pitch));
+          if (!response.ok) throw new Error(`${instrument.label} 샘플을 불러오지 못했습니다.`);
+          return [pitch, await context.decodeAudioData(await response.arrayBuffer())] as const;
+        }),
+      ),
+    );
+  } catch {
+    /* Use the same triangle fallback as composition playback. */
+  }
+  for (const note of notes) {
+    const voice = instrumentVoice(instrument, note, tickSeconds);
+    const buffer = samples.get(voice.sample);
     const gain = context.createGain();
     gain.connect(context.destination);
-    gain.gain.setValueAtTime(voice.velocity, voice.start);
-    gain.gain.setValueAtTime(voice.velocity, voice.end);
-    gain.gain.linearRampToValueAtTime(0, voice.end + sourceReleaseSeconds);
-    const source = context.createBufferSource();
-    source.buffer = samples.get(voice.url)!;
-    source.playbackRate.value = voice.playbackRate;
-    source.connect(gain);
-    source.start(voice.start);
-    source.stop(voice.end + sourceReleaseSeconds);
+    scheduleMidiEnvelope(
+      gain.gain,
+      voice.start,
+      voice.end,
+      voice.velocity * (buffer ? pianoSampleLevel : pianoFallbackLevel),
+    );
+    if (buffer) {
+      // One-shot like the preview's Tone.Sampler: a note longer than its sample ends in silence.
+      const source = context.createBufferSource();
+      source.buffer = buffer;
+      source.playbackRate.value = voice.playbackRate;
+      source.connect(gain);
+      source.start(voice.start);
+      source.stop(voice.end);
+    } else {
+      const source = context.createOscillator();
+      source.type = "triangle";
+      source.frequency.value = voice.frequency;
+      source.connect(gain);
+      source.start(voice.start);
+      source.stop(voice.end);
+    }
   }
-  return audioBufferToWav(await context.startRendering(), `${plan.instrument.id}.wav`);
+  return audioBufferToWav(await context.startRendering(), `${instrument.id}.wav`);
 }

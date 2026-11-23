@@ -16,6 +16,15 @@ export const instrumentParts = [...instruments, ...recordedParts];
 export function partFor(value: string | null | undefined) {
   return instrumentParts.find((part) => part.id === canonicalInstrumentId(value));
 }
+export function partIdForValue(value: string | null | undefined): string | null {
+  const trimmed = value?.trim() ?? "";
+  if (!trimmed) return null;
+  const canonical = canonicalInstrumentId(trimmed);
+  const direct = instrumentParts.find((part) => part.id === canonical);
+  if (direct) return direct.id;
+  const normalized = trimmed.toLowerCase();
+  return instrumentParts.find((part) => part.label.toLowerCase() === normalized)?.id ?? null;
+}
 export function partLabel(value: string | null | undefined) {
   return partFor(value)?.label ?? value ?? "악기 선택";
 }

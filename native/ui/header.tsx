@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { StyleSheet, Text, View } from "react-native";
 
-import ChatIcon from "../../public/figma/abyss-comment.svg";
+import ChatIcon from "../../public/figma/v3-chat.svg";
 import Logo from "../../public/figma/auth-logo.svg";
 import BackIcon from "../../public/figma/return.svg";
 import SettingsIcon from "../../public/figma/settings.svg";
@@ -61,7 +61,7 @@ export function AppHeader({ header, onLogo }: { header: NativeHeader; onLogo?: (
                   count={session.unreadChats}
                   onPress={() => act({ type: "chat" })}
                 >
-                  <ChatIcon width={20} height={20} />
+                  <ChatIcon width={24} height={24} />
                 </HeaderButton>
               ) : null;
             case "search":

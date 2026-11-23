@@ -1,6 +1,11 @@
 import { useState } from "react";
 import { Image, StyleSheet, Text, TextInput, View } from "react-native";
 
+import {
+  SONG_TITLE_MAX_LENGTH,
+  clampCodePoints,
+  codePointLength,
+} from "../../../src/lib/content-limits";
 import { Button, Touchable } from "../../ui/kit";
 import { ScreenScroll } from "../../ui/screen";
 import { useScreen } from "../../ui/screen-context";
@@ -43,8 +48,7 @@ export function StudioNewScreen({ model }: ScreenProps<"studio-new">) {
           <TextInput
             accessibilityLabel="음악명"
             value={title}
-            onChangeText={setTitle}
-            maxLength={100}
+            onChangeText={(value) => setTitle(clampCodePoints(value, SONG_TITLE_MAX_LENGTH))}
             selectTextOnFocus={selectOnFocus}
             onFocus={() => setSelectOnFocus(false)}
             selectionColor={colors.accent}
@@ -52,6 +56,9 @@ export function StudioNewScreen({ model }: ScreenProps<"studio-new">) {
             onSubmitEditing={start}
             style={styles.input}
           />
+          <Text style={styles.counter}>
+            {codePointLength(title)}/{SONG_TITLE_MAX_LENGTH}자
+          </Text>
         </View>
         <View style={styles.field}>
           <Text style={styles.label}>앨범</Text>
@@ -166,6 +173,7 @@ const styles = StyleSheet.create({
   },
   artworkTitle: { color: colors.fg, fontSize: 16, fontWeight: "500" },
   artworkHint: { color: colors.muted, fontSize: 14 },
+  counter: { color: colors.muted, fontSize: 12, textAlign: "right" },
   error: { color: "#ff9494", fontSize: 14, lineHeight: 20 },
   actions: { alignItems: "center", gap: 10 },
   submit: { alignSelf: "stretch" },

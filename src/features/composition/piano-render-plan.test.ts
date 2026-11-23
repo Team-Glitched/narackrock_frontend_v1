@@ -2,10 +2,15 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import type { MidiNoteDto } from "../../lib/api/composition.ts";
 import {
+  instrumentSampleUrl,
+  instrumentVoice,
+  nearestInstrumentSample,
   nearestPianoSample,
   pianoRenderLength,
   pianoSampleName,
   pianoVoice,
+  requiredSamplePitches,
+  resolveSampleInstrument,
   scheduleMidiEnvelope,
 } from "./piano-render-plan.ts";
 
@@ -59,4 +64,31 @@ test("piano envelope ramps in over 10 ms and out over 80 ms", () => {
     ["set", 0.5, 1.92],
     ["ramp", 0, 2],
   ]);
+});
+
+test("multi-instrument sample rendering resolves pitched, drum-kit, and fallback URLs", () => {
+  const guitar = resolveSampleInstrument("acoustic-guitar");
+  assert.equal(guitar.id, "acoustic-guitar");
+  const { sample, playbackRate } = nearestInstrumentSample(guitar, 62);
+  assert.ok(sample > 0);
+  assert.ok(playbackRate > 0);
+  assert.equal(
+    instrumentSampleUrl(guitar, sample),
+    `/audio/instruments/acoustic-guitar/${sample}.mp3`,
+  );
+
+  const drum = resolveSampleInstrument("drum-kit");
+  assert.equal(drum.kind, "drum");
+  assert.deepEqual(nearestInstrumentSample(drum, 36), { sample: 36, playbackRate: 1 });
+  assert.deepEqual(nearestInstrumentSample(drum, 10), { sample: 35, playbackRate: 1 });
+  assert.deepEqual(nearestInstrumentSample(drum, 100), { sample: 81, playbackRate: 1 });
+
+  const needed = requiredSamplePitches(drum, [note(36, 0, 240), note(38, 240, 240), note(36, 480, 240)]);
+  assert.deepEqual(needed, [36, 38]);
+
+  const voice = instrumentVoice(drum, note(38, 480, 240, 127), 0.5 / 480);
+  assert.equal(voice.sample, 38);
+  assert.equal(voice.playbackRate, 1);
+
+  assert.equal(resolveSampleInstrument("unknown-inst").id, "piano");
 });

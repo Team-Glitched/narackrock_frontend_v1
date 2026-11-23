@@ -32,3 +32,16 @@ test("the same accumulated pages classify against the current viewer", () => {
   assert.deepEqual(songsForTab(items, 7, "authored").map((item) => item.shortId), [1]);
   assert.deepEqual(songsForTab(items, 9, "authored").map((item) => item.shortId), [2]);
 });
+
+test("both authored and participated tabs include in-progress songs so all published works can be featured", () => {
+  const inProgressOwned = { ...song(10, 7), completionStatus: "IN_PROGRESS" as const };
+  const inProgressJoined = { ...song(11, 9), completionStatus: "IN_PROGRESS" as const };
+  assert.deepEqual(
+    songsForTab([inProgressOwned, inProgressJoined], 7, "authored").map((item) => item.shortId),
+    [10],
+  );
+  assert.deepEqual(
+    songsForTab([inProgressOwned, inProgressJoined], 7, "participated").map((item) => item.shortId),
+    [11],
+  );
+});

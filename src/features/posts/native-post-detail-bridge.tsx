@@ -5,7 +5,7 @@ import type { NativeHeader, NativePostDetail } from "@/lib/native-screens";
 import { time, type PostDetailState } from "./post-comments";
 
 /** The web post page's Header: back, notifications, search, account. */
-const header: NativeHeader = { left: "back", actions: ["notifications", "search", "account"] };
+const header: NativeHeader = { left: "back", actions: ["notifications", "chat", "search", "account"] };
 
 /** In the app the post page (PostCommentsScreen) is drawn natively (native/screens/post/post-detail.tsx). */
 export function NativePostDetailBridge({

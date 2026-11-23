@@ -1,5 +1,8 @@
 import { useState } from "react";
+import { ChevronDown } from "lucide-react";
 import { Asset } from "@/components/asset";
+import { InstrumentDialog } from "@/features/composition/instrument-dialog";
+import { partIdForValue, partLabel } from "@/features/composition/instrument-parts";
 import { profileErrorMessage } from "@/features/profile/profile-screens";
 import { ApiError } from "@/lib/api/client";
 import { updateProfile } from "@/lib/api/profile";
@@ -96,6 +99,11 @@ export function InitialProfileSetupScreen({
     suggestedNickname,
     onSaved,
   );
+  const [instrumentOpen, setInstrumentOpen] = useState(false);
+  const selectedInstrumentId = partIdForValue(values.instrument);
+  const instrumentDisplay = selectedInstrumentId
+    ? partLabel(selectedInstrumentId)
+    : values.instrument;
 
   return (
     <form
@@ -133,14 +141,39 @@ export function InitialProfileSetupScreen({
             <p>악기를 알려주세요</p>
             <label>
               악기
-              <input
-                value={values.instrument}
-                onChange={(event) => change(event.target.value)}
-                placeholder="피아노, 기타"
-                autoFocus
+              <button
+                type="button"
+                className="flex h-11 w-full items-center justify-between gap-2 rounded-[10px] border border-app-border bg-app-surface px-3 text-left text-body text-app-fg disabled:opacity-50"
                 disabled={saving}
-              />
+                aria-haspopup="dialog"
+                aria-expanded={instrumentOpen}
+                onClick={() => setInstrumentOpen(true)}
+              >
+                <span className={instrumentDisplay ? "truncate text-app-fg" : "text-app-muted"}>
+                  {instrumentDisplay || "악기를 선택하세요"}
+                </span>
+                <ChevronDown size={16} className="shrink-0 text-app-muted" aria-hidden="true" />
+              </button>
             </label>
+            {instrumentOpen && (
+              <InstrumentDialog
+                subtitle="프로필에 표시할 주 악기나 보컬 파트를 선택하세요."
+                hidePreview
+                allowSameConfirm
+                onClear={() => change("")}
+                choice={{
+                  value: selectedInstrumentId,
+                  mode: "audio",
+                  tracks: [],
+                  onPreview: async () => {},
+                  onStopPreview: () => {},
+                  onConfirm: async (id) => {
+                    change(partLabel(id));
+                  },
+                }}
+                onClose={() => setInstrumentOpen(false)}
+              />
+            )}
           </>
         )}
 
