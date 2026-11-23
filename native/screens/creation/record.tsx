@@ -227,12 +227,6 @@ export function CreationRecordScreen({ model, header }: ScreenProps<"creation-re
           )}
           {model.recorded && (
             <View style={styles.actions}>
-              <Button
-                label={model.saveLabel}
-                disabled={model.pending}
-                style={styles.actionButton}
-                onPress={() => act({ type: "creation-record-save" })}
-              />
               {model.transform && (
                 <Button
                   tone="secondary"
@@ -242,6 +236,12 @@ export function CreationRecordScreen({ model, header }: ScreenProps<"creation-re
                   onPress={() => act({ type: "creation-record-transform" })}
                 />
               )}
+              <Button
+                label={model.saveLabel}
+                disabled={model.pending}
+                style={styles.actionButton}
+                onPress={() => act({ type: "creation-record-save" })}
+              />
             </View>
           )}
         </View>
@@ -399,7 +399,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 20,
   },
-  outputPortrait: { top: 345, width: "100%", maxWidth: 390, paddingHorizontal: 20 },
+  outputPortrait: { top: 345, width: "100%", maxWidth: 390, paddingHorizontal: 32 },
   outputRecorded: { top: 250 },
   outputLandscape: { top: 16, left: 220, right: 156 },
   text: { color: colors.fg, fontSize: 14, lineHeight: 20, textAlign: "center" },

@@ -538,17 +538,6 @@ export function CompositionRecordScreen({
         )}
         {file && (
           <div className={studioStyles.recordActions}>
-            <button
-              className={buttonVariants({
-                tone: "primary",
-              })}
-              disabled={pending}
-              onClick={() => {
-                void save();
-              }}
-            >
-              {saveLabel}
-            </button>
             {onTransform && (
               <button
                 className={buttonVariants({
@@ -562,6 +551,17 @@ export function CompositionRecordScreen({
                 MIDI로 변환
               </button>
             )}
+            <button
+              className={buttonVariants({
+                tone: "primary",
+              })}
+              disabled={pending}
+              onClick={() => {
+                void save();
+              }}
+            >
+              {saveLabel}
+            </button>
           </div>
         )}
       </div>

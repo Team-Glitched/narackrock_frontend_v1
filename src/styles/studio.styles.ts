@@ -430,7 +430,7 @@ export const studioStyles = {
     "[.design-canvas_&>[role=status]]:text-caption [.design-canvas_&>[role=status]]:text-app-muted",
   ].join(" "),
   /** A finished take: the compact metronome above frees room for the preview, mode and actions. */
-  recordOutputRecorded: "[.design-canvas_&]:top-[256px]!",
+  recordOutputRecorded: "[.design-canvas_&]:top-[256px]! [.design-canvas_&]:w-[326px]!",
   recordConvert: [
     "record-convert",
     "flex w-full items-center justify-between gap-3 rounded-xl bg-app-surface py-2 pr-2 pl-4 text-label",
