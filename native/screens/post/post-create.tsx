@@ -3,12 +3,12 @@ import { Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 
 import Svg, { Path } from "react-native-svg";
 
 import CloseIcon from "../../../public/figma/search-close.svg";
-import SearchIcon from "../../../public/figma/search-input.svg";
 import type { NativePostCreate } from "../../../src/lib/native-screens";
 import { AppHeader } from "../../ui/header";
 import { Avatar, Button, Status, Touchable } from "../../ui/kit";
 import { useScreen } from "../../ui/screen-context";
 import { ScreenModal } from "../../ui/screen-modal";
+import { SearchPill } from "../../ui/search-pill";
 import { colors, gutter, type } from "../../ui/theme";
 import type { ScreenProps } from "../types";
 
@@ -246,28 +246,14 @@ function CommunityPicker({ communities }: { communities: NativePostCreate["commu
               </Touchable>
             </View>
             <Text style={styles.sheetText}>게시글을 올릴 커뮤니티를 선택하세요.</Text>
-            <View style={styles.search}>
-              <SearchIcon width={19} height={19} />
-              <TextInput
-                accessibilityLabel="게시할 커뮤니티 검색"
-                placeholder="커뮤니티 검색"
-                placeholderTextColor="#9692a6"
-                selectionColor={colors.accent}
-                value={query}
-                onChangeText={setQuery}
-                style={styles.searchInput}
-              />
-              {query !== "" && (
-                <Touchable
-                  accessibilityRole="button"
-                  accessibilityLabel="커뮤니티 검색어 지우기"
-                  style={styles.searchClear}
-                  onPress={() => setQuery("")}
-                >
-                  <CloseIcon width={13} height={13} />
-                </Touchable>
-              )}
-            </View>
+            <SearchPill
+              value={query}
+              onChangeText={setQuery}
+              onClear={() => setQuery("")}
+              clearLabel="커뮤니티 검색어 지우기"
+              placeholder="커뮤니티 검색"
+              accessibilityLabel="게시할 커뮤니티 검색"
+            />
             <ScrollView style={styles.sheetList} keyboardShouldPersistTaps="handled">
               {communities.status === "loading" && <Status>커뮤니티를 불러오는 중...</Status>}
               {communities.status === "error" && (
@@ -416,18 +402,6 @@ const styles = StyleSheet.create({
   sheetTitle: { color: colors.fg, fontSize: 16, lineHeight: 22, fontWeight: "700" },
   sheetClose: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
   sheetText: { marginTop: 12, marginBottom: 24, color: colors.muted, fontSize: 14, lineHeight: 21 },
-  search: {
-    height: 44,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    paddingLeft: 16,
-    paddingRight: 8,
-    borderRadius: 22,
-    backgroundColor: colors.surface,
-  },
-  searchInput: { flex: 1, minWidth: 0, color: colors.fg, fontSize: 15, paddingVertical: 0 },
-  searchClear: { width: 28, height: 36, alignItems: "center", justifyContent: "center" },
   sheetList: { marginTop: 20 },
   sheetError: { paddingTop: 20 },
   rows: { gap: 8 },

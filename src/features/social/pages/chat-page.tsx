@@ -14,7 +14,7 @@ export default function ChatPage() {
   const friendId = readId(query.get("userId"));
   const { openNotifications } = useNotificationsNavigation();
   const galleryId = readId(params.galleryId) ?? readId(query.get("galleryId"));
-  const scope = resolveSearchScope(query.get("scope"), "people", Boolean(galleryId));
+  const scope = resolveSearchScope(query.get("scope"), "songs", Boolean(galleryId));
   const chat = {
     friendId,
     query: query.get("q") ?? "",
@@ -25,7 +25,9 @@ export default function ChatPage() {
       to(`/chat${next.size ? `?${next}` : ""}`, { replace: true });
     },
     onBack: () => back(friendId === null ? "/friends" : "/chat"),
-    onSearch: () => to(withQuery("/search", { scope, galleryId })),
+    // The inbox looks for someone to talk to; a conversation keeps the page's search scope.
+    onSearch: () =>
+      to(friendId === null ? "/search?scope=people" : withQuery("/search", { scope, galleryId })),
     onSelect: (id: number) => {
       const next = new URLSearchParams(query);
       next.set("userId", String(id));

@@ -1,14 +1,13 @@
 import { useEffect, useRef, useState } from "react";
-import { StyleSheet, Text, TextInput, View, type TextInputInstance } from "react-native";
+import { StyleSheet, Text, View } from "react-native";
 
 import BackIcon from "../../../public/figma/return.svg";
-import CloseIcon from "../../../public/figma/search-close.svg";
-import SearchIcon from "../../../public/figma/search-input.svg";
 import type { NativeChatInbox, NativeChatInboxRow } from "../../../src/lib/native-screens";
 import { HeaderButton } from "../../ui/header";
 import { Avatar, Touchable } from "../../ui/kit";
 import { ScreenList } from "../../ui/screen";
 import { useScreen } from "../../ui/screen-context";
+import { SearchPill } from "../../ui/search-pill";
 import { colors, gutter, type } from "../../ui/theme";
 import { SignInRequired } from "../social/friends";
 import type { ScreenProps } from "../types";
@@ -52,7 +51,6 @@ export function ChatInboxScreen({ model: inbox }: ScreenProps<"chat-inbox">) {
 /** The inbox search; typing is sent to the page after a short pause, as on the web. */
 function SearchField({ query }: { query: string }) {
   const { act } = useScreen();
-  const input = useRef<TextInputInstance>(null);
   const [text, setText] = useState(query);
   // Follow the page's query (Back, a new URL) when it differs from what was last sent.
   const sent = useRef(query);
@@ -71,35 +69,20 @@ function SearchField({ query }: { query: string }) {
     return () => clearTimeout(timer);
   }, [text, act]);
   return (
-    <View style={styles.search}>
-      <SearchIcon width={19} height={19} />
-      <TextInput
-        ref={input}
-        value={text}
-        onChangeText={setText}
-        placeholder="대화 상대 검색"
-        placeholderTextColor={colors.muted}
-        selectionColor={colors.accent}
-        returnKeyType="search"
-        accessibilityLabel="대화 상대 검색"
-        style={styles.searchInput}
-      />
-      {text !== "" && (
-        <Touchable
-          accessibilityRole="button"
-          accessibilityLabel="검색어 지우기"
-          style={styles.clear}
-          onPress={() => {
-            setText("");
-            sent.current = "";
-            act({ type: "chat-query", value: "" });
-            input.current?.focus();
-          }}
-        >
-          <CloseIcon width={13} height={13} />
-        </Touchable>
-      )}
-    </View>
+    <SearchPill
+      value={text}
+      onChangeText={setText}
+      onClear={() => {
+        setText("");
+        sent.current = "";
+        act({ type: "chat-query", value: "" });
+      }}
+      clearLabel="검색어 지우기"
+      placeholder="대화 상대 검색"
+      returnKeyType="search"
+      accessibilityLabel="대화 상대 검색"
+      style={styles.search}
+    />
   );
 }
 
@@ -193,27 +176,7 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   bar: chatBarStyle,
   title: { flex: 1, paddingLeft: 4 },
-  search: {
-    height: 44,
-    marginHorizontal: gutter,
-    marginTop: 8,
-    marginBottom: 12,
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    paddingLeft: 16,
-    paddingRight: 8,
-    borderRadius: 22,
-    backgroundColor: colors.surface,
-  },
-  searchInput: { flex: 1, minWidth: 0, padding: 0, color: colors.fg, fontSize: 15 },
-  clear: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    alignItems: "center",
-    justifyContent: "center",
-  },
+  search: { marginHorizontal: gutter, marginTop: 8, marginBottom: 12 },
   list: { paddingHorizontal: 8 },
   box: {
     minHeight: 76,

@@ -227,7 +227,7 @@ export function ScopedSearch({
         <button onClick={onBack} aria-label="돌아가기" title="돌아가기">
           <Asset name="return.svg" />
         </button>
-        <label className="search-field focus-within:ring-2 focus-within:ring-app-primary">
+        <label className={cn("search-field", socialStyles.searchFocus)}>
           <Asset name="search-input.svg" />
           <input
             ref={inputRef}

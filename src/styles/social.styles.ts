@@ -1,5 +1,12 @@
+/**
+ * Keyboard focus of the search pills (chat inbox, /search, community picker): a solid accent outline,
+ * ≥3:1 against the dark page and kept by forced-colors mode, unlike a box-shadow ring.
+ */
+const searchFocus = "focus-within:outline-2 focus-within:outline-app-accent";
+
 /** Tailwind presets for social UI. Marker classes also support DOM queries and contextual states. */
 export const socialStyles = {
+  searchFocus,
   searchLine: [
     "search-line",
     "[.community-members-view_&]:shrink-0 [.community-members-view_&]:gap-1 [.community-members-view_&]:p-[0_16px_0_6px]",
@@ -104,7 +111,7 @@ export const socialStyles = {
   chatSearch: [
     "chat-search",
     "mx-5 mt-2 mb-3 flex h-11 shrink-0 items-center gap-2.5 rounded-full bg-app-surface pl-4 pr-2",
-    "focus-within:ring-2 focus-within:ring-app-primary",
+    searchFocus,
   ].join(" "),
   chatRecipient: [
     "chat-recipient",
