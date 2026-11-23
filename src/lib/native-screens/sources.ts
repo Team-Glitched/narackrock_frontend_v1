@@ -16,6 +16,7 @@ export type NativeSourceCard = {
   key: string;
   openSourceId: number;
   title: string;
+  instrumentLabel?: string | null;
   thumbnailUrl: string | null;
   /** "사용 수 1,234"; null when the server does not report it. */
   usage: string | null;
@@ -70,6 +71,7 @@ export type NativeSourceFeed =
 export type NativeSourcePublication = {
   openSourceId: number;
   title: string;
+  instrumentLabel?: string | null;
   description: string | null;
   public: boolean;
   /** "관리" is loading this sample's metadata ("불러오는 중..."). */
@@ -168,6 +170,7 @@ export type NativeSourceDetail =
       source: {
         openSourceId: number;
         title: string;
+        instrumentLabel?: string | null;
         thumbnailUrl: string | null;
         usage: string | null;
         description: string;
@@ -217,6 +220,7 @@ export type NativeSourceCreate =
       description: string;
       /** The "오디오" button: none ("오디오 추가"), chosen, or the uploaded audio of a retried publication. */
       audio: "none" | "selected" | "locked";
+      instrumentLabel: string | null;
       /**
        * The album picture: a downscaled preview for the crop editor (`failed` when it cannot be
        * decoded: "앨범 이미지를 미리 볼 수 없습니다...").

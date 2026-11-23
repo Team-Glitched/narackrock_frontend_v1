@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { compositionQuery } from "./composition-queries";
 import {
@@ -24,8 +24,9 @@ export type InstrumentPromptRequest = { mode: "midi" } | { mode: "audio"; audio:
  * No layer is created until the caller receives an explicitly confirmed choice. Browsers render
  * `dialog`; in the app it is null and the page's native screen shows `native.model`
  * (`InstrumentSheet`), forwarding `NativeInstrumentAction`s to `native.act`.
+ * Standalone sample creation uses the same chooser without loading a project or its tracks.
  */
-export function useInstrumentPrompt(projectId: number | null) {
+export function useInstrumentPrompt(projectId: number | null, options?: { standalone: boolean }) {
   const userId = useCurrentUserId();
   const queryClient = useQueryClient();
   const preview = useCompositionPlayback(null, {
@@ -48,7 +49,7 @@ export function useInstrumentPrompt(projectId: number | null) {
       mounted.current = false;
     };
   }, []);
-  const close = () => setRequest(null);
+  const close = useCallback(() => setRequest(null), []);
   const next = request?.next;
   const choice: InstrumentChoice | null =
     request === null || next === undefined
@@ -73,18 +74,19 @@ export function useInstrumentPrompt(projectId: number | null) {
   return {
     dialog,
     native,
+    /** Closes the open chooser; its caller's `ask` rejects with `InstrumentPromptCancelled`. */
+    cancel: close,
     async ask(next: InstrumentPromptRequest) {
-      if (projectId === null) throw new Error("대상 프로젝트를 먼저 선택해주세요.");
+      if (projectId === null && !options?.standalone) throw new Error("대상 프로젝트를 먼저 선택해주세요.");
       // Read current project access and team usage from the server before showing the chooser.
-      const composition = await queryClient.fetchQuery({
+      const composition = projectId === null ? null : await queryClient.fetchQuery({
         ...compositionQuery(userId, projectId),
         staleTime: 0,
       });
       if (!mounted.current) throw new InstrumentPromptCancelled();
-      setTracks(composition.tracks);
-      const { promise, resolve, reject } = Promise.withResolvers<string>();
-      setRequest({ next, resolve, reject });
-      return promise;
+      setTracks(composition?.tracks ?? []);
+      // Executor form instead of Promise.withResolvers: older iOS WebViews (< 17.4) lack it.
+      return new Promise<string>((resolve, reject) => setRequest({ next, resolve, reject }));
     },
   };
 }

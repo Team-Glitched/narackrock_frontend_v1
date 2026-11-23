@@ -1,3 +1,4 @@
+import { partLabel } from "@/features/composition/instrument-parts";
 import { sourceStyles } from "@/styles/source.styles";
 import { sharedStyles } from "@/styles/shared.styles";
 import { communityStyles } from "@/styles/community.styles";
@@ -136,6 +137,7 @@ function OpenSourceCard({
           />
           <span className="min-w-0 flex-1">
             <strong className="truncate">{source.title}</strong>
+            {source.instrument && <small>악기: {partLabel(source.instrument)}</small>}
             {source.usageCount != null && <small>{sourceUsage(source.usageCount)}</small>}
           </span>
         </button>
@@ -676,7 +678,8 @@ function SourceDetail({
             />
             <span className="min-w-0 flex-1">
               <strong className="break-words">{source.title}</strong>
-              {source.usageCount != null && <small>{sourceUsage(source.usageCount)}</small>}
+              {source.instrument && <small>악기: {partLabel(source.instrument)}</small>}
+            {source.usageCount != null && <small>{sourceUsage(source.usageCount)}</small>}
             </span>
           </div>
           <SaveButton save={save} />

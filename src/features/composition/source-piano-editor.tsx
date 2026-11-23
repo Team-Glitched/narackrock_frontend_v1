@@ -39,6 +39,9 @@ import {
 } from "@/lib/native-screens/studio";
 
 export type SourcePianoProps = {
+  /** The sample's MIDI instrument, owned by the caller (draft and registration); the toolbar picker edits it. */
+  instrument: string;
+  onInstrument: (id: string) => void;
   notes: MidiNoteDto[];
   setNotes: Dispatch<SetStateAction<MidiNoteDto[]>>;
   bpm: number;
@@ -51,11 +54,18 @@ export type SourcePianoProps = {
  * The sample registration piano sketch: playback, note editor, its dialogs, timing and rendering the
  * notes to the audio attachment. Shared by the web editor and the app's native screen.
  */
-export function useSourcePiano({ notes, setNotes, bpm, onBpm, onSave }: SourcePianoProps) {
+export function useSourcePiano({
+  instrument: instrumentId,
+  onInstrument,
+  notes,
+  setNotes,
+  bpm,
+  onBpm,
+  onSave,
+}: SourcePianoProps) {
   const maxTick = bpm * 480; // One minute, matching upload/record limits.
   // A source sketch is not a project; its time signature is only for this editor's grid.
   const [signature, setSignature] = useState(defaultSignature);
-  const [instrumentId, setInstrumentId] = useState("piano");
   const instrument = resolveSampleInstrument(instrumentId);
   const sourceScopeId = useId();
   const composition = useMemo<PlaybackComposition>(
@@ -131,12 +141,12 @@ export function useSourcePiano({ notes, setNotes, bpm, onBpm, onSave }: SourcePi
       onConfirm: async (id) => {
         player.pause();
         player.stopPreview();
-        setInstrumentId(id);
+        onInstrument(id);
       },
       // The renderer has captured the instrument; changing it now would not match the saved WAV.
       disabled: pending,
     }),
-    [instrument.id, player, pending],
+    [instrument.id, player, pending, onInstrument],
   );
   // Settings follow their note through accepted edits; both dialogs close while rendering.
   const dialogs = useNoteEditorDialogs(editor);
