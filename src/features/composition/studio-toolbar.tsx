@@ -20,12 +20,10 @@ export type TransportPlayback = {
   positionMs: number;
   signature: TimeSignature;
   metronome: boolean;
-  volume: number;
   error: string | null;
   play: () => Promise<void>;
   pause: () => void;
   seek: (positionMs: number) => void;
-  setVolume: (value: number) => void;
   setMetronome: (update: (value: boolean) => boolean) => void;
 };
 
@@ -39,7 +37,6 @@ export function nativeTransport(playback: TransportPlayback, bpm: number): Nativ
     numerator: playback.signature.numerator,
     denominator: playback.signature.denominator,
     metronome: playback.metronome,
-    volume: playback.volume,
     error: playback.error,
   };
 }
@@ -54,8 +51,6 @@ export function transportAction(playback: TransportPlayback, action: NativeTrans
       return playback.pause();
     case "transport-metronome":
       return playback.setMetronome((value) => !value);
-    case "transport-volume":
-      return playback.setVolume(action.value);
     case "transport-seek":
       return playback.seek(action.positionMs);
   }
@@ -100,8 +95,6 @@ export function StudioToolbar({
   metronome?: boolean;
   onMetronome?: () => void;
   piano?: boolean;
-  volume?: number;
-  onVolume?: (value: number) => void;
   onAdd?: () => void;
 }) {
   const [instrumentOpen, setInstrumentOpen] = useState(false);
@@ -178,8 +171,9 @@ export function StudioToolbar({
         )}
         {piano && instrument && (
           <button
-            className={studioStyles.studioTiming}
+            className={cn(studioStyles.studioTiming, "disabled:opacity-50")}
             aria-label="악기 선택"
+            disabled={instrument.disabled}
             onClick={() => setInstrumentOpen(true)}
           >
             <small>악기</small>

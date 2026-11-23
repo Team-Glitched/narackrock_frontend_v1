@@ -66,9 +66,8 @@ export type NativeAudioComposition = {
   tracks: TrackDto[];
 };
 
-/** Master and per-track levels (0–100), as the web hook keeps them. */
+/** Master mute and per-track levels (0–100), as the web hook keeps them; the master is otherwise at unity. */
 export type NativeAudioMix = {
-  volume: number;
   muted: boolean;
   trackVolumes: Record<number, number>;
   mutedTrackIds: number[];

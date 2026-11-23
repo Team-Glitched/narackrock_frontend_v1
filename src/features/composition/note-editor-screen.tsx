@@ -273,8 +273,6 @@ function LoadedNoteEditor({
             onRewind={screen.rewind}
             onBack={screen.requestBack}
             piano
-            volume={playback.volume}
-            onVolume={playback.setVolume}
             metronome={playback.metronome}
             onMetronome={screen.toggleMetronome}
             onImportSource={screen.openSources}

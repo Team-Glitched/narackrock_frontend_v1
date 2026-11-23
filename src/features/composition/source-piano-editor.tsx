@@ -133,8 +133,10 @@ export function useSourcePiano({ notes, setNotes, bpm, onBpm, onSave }: SourcePi
         player.stopPreview();
         setInstrumentId(id);
       },
+      // The renderer has captured the instrument; changing it now would not match the saved WAV.
+      disabled: pending,
     }),
-    [instrument.id, player],
+    [instrument.id, player, pending],
   );
   // Settings follow their note through accepted edits; both dialogs close while rendering.
   const dialogs = useNoteEditorDialogs(editor);

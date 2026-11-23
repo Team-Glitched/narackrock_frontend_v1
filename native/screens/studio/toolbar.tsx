@@ -77,7 +77,8 @@ export function StudioToolbar({
   onBack: () => void;
   onRewind?: () => void;
   onSample?: () => void;
-  instrument?: { label: string; onPress: () => void };
+  /** `disabled`: shown but not pressable while the page is busy (e.g. rendering audio). */
+  instrument?: { label: string; onPress: () => void; disabled?: boolean };
   /** The time readout counts from here (the note editor's clip-local time). */
   clipStartMs?: number;
   children?: ReactNode;
@@ -118,6 +119,7 @@ export function StudioToolbar({
           value={instrument.label}
           label="악기 선택"
           onPress={instrument.onPress}
+          disabled={instrument.disabled}
         />
       )}
     </View>
@@ -206,11 +208,13 @@ function Readout({
   value,
   label,
   onPress,
+  disabled = false,
 }: {
   small: string;
   value: string;
   label?: string;
   onPress?: () => void;
+  disabled?: boolean;
 }) {
   const body = (
     <>
@@ -224,7 +228,9 @@ function Readout({
     <Touchable
       accessibilityRole="button"
       accessibilityLabel={label}
-      style={styles.readout}
+      accessibilityState={{ disabled }}
+      disabled={disabled}
+      style={[styles.readout, disabled && styles.disabled]}
       onPress={onPress}
     >
       {body}

@@ -49,7 +49,6 @@ export function studioStateModel(message: string, failed: boolean): NativeStudio
       numerator: 4,
       denominator: 4,
       metronome: false,
-      volume: 0,
       error: null,
     },
     timingEditable: false,

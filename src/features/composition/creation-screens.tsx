@@ -560,6 +560,10 @@ export function CompositionRecordScreen({
         disabled={pending}
         aria-label={recording ? "녹음 종료" : "녹음 시작"}
         onClick={() => {
+          // A new take unmounts the preview <audio> before its pause/ended events can clear the flag
+          // that silences the metronome, so stop the preview here.
+          playback.current?.pause();
+          setPreviewPlaying(false);
           void toggle();
         }}
       >

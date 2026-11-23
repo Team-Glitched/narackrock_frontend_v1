@@ -58,12 +58,10 @@ export async function renderNotes(
       voice.velocity * (buffer ? pianoSampleLevel : pianoFallbackLevel),
     );
     if (buffer) {
+      // One-shot like the preview's sampler voices (graph.ts): a note longer than its sample ends in silence.
       const source = context.createBufferSource();
       source.buffer = buffer;
       source.playbackRate.value = voice.playbackRate;
-      source.loop =
-        instrument.kind !== "drum" &&
-        voice.end - voice.start > buffer.duration / voice.playbackRate;
       source.connect(gain);
       source.start(voice.start);
       source.stop(voice.end);

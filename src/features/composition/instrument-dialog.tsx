@@ -25,6 +25,8 @@ export type InstrumentChoice = {
   /** Stops only this chooser's preview. Called on candidate change, close, confirm and unmount. */
   onStopPreview: () => void;
   onConfirm: (id: string) => Promise<void>;
+  /** The owner is busy (e.g. rendering the audio): the trigger is disabled and nothing can be confirmed. */
+  disabled?: boolean;
 };
 
 function choiceError(cause: unknown) {
@@ -82,6 +84,7 @@ function useInstrumentChoice(choice: InstrumentChoice | null, onClose: () => voi
     error,
     canConfirm:
       choice !== null &&
+      !choice.disabled &&
       !busy &&
       selected !== null &&
       selected !== canonicalInstrumentId(choice.value),
@@ -95,7 +98,7 @@ function useInstrumentChoice(choice: InstrumentChoice | null, onClose: () => voi
       onClose();
     },
     async confirm() {
-      if (!choice || !selected) return;
+      if (!choice || !selected || choice.disabled) return;
       choice.onStopPreview();
       setBusy(true);
       setError(null);
@@ -170,7 +173,7 @@ export function InstrumentDialog({
   const state = useInstrumentChoice(choice, onClose);
   const { busy } = state;
   const canConfirm = allowSameConfirm
-    ? !busy && state.selected !== null
+    ? !busy && !choice.disabled && state.selected !== null
     : state.canConfirm;
   return (
     <CanvasDialog className={sharedStyles.instrumentDialog} titleId={titleId} onClose={state.close}>

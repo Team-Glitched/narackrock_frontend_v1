@@ -356,15 +356,6 @@ export const studioStyles = {
     "[.design-canvas_.team-note-workspace_&]:bg-none [.design-canvas_.team-note-workspace_&]:h-[30px]",
     "[.design-canvas_.team-note-workspace_&]:min-h-[30px] [.design-canvas_.team-note-workspace_&]:bg-app-grid-row",
   ].join(" "),
-  studioMasterVolume: [
-    "studio-master-volume",
-    "w-25 min-w-[55px] accent-app-primary",
-    "[&:disabled]:opacity-[.55]",
-    "[.design-canvas_&]:h-[5px] [.design-canvas_&]:w-full [.design-canvas_&]:min-w-0 [.design-canvas_&]:accent-app-fg",
-    "[.design-canvas_&]:appearance-none [.design-canvas_&]:bg-app-line [.design-canvas_&]:bg-none [.design-canvas_&]:rounded-[10px]",
-    "[&::-webkit-slider-thumb]:h-[9px] [&::-webkit-slider-thumb]:w-[9px] [&::-webkit-slider-thumb]:appearance-none",
-    "[&::-webkit-slider-thumb]:rounded-[50%] [&::-webkit-slider-thumb]:bg-app-fg [&::-webkit-slider-thumb]:bg-none",
-  ].join(" "),
   studioState: [
     "studio-state",
     "flex items-center justify-center gap-3 text-[#fff]",

@@ -25,6 +25,7 @@ export function CreationPianoScreen({ model }: ScreenProps<"creation-piano">) {
               ? {
                   label: model.instrumentLabel,
                   onPress: () => act({ type: "creation-piano-instrument-open" }),
+                  disabled: model.pending,
                 }
               : undefined
           }

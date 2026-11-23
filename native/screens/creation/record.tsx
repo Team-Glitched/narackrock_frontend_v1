@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Animated, AppState, StyleSheet, Text, View } from "react-native";
+import { Animated, AppState, StyleSheet, Text, View, useWindowDimensions } from "react-native";
 import Svg, { Circle, Defs, LinearGradient, Path, Rect, Stop } from "react-native-svg";
 
 import {
@@ -44,6 +44,10 @@ export function CreationRecordScreen({ model, header }: ScreenProps<"creation-re
   const [metronomeOn, setMetronomeOn] = useState(false);
   const [activeBeat, setActiveBeat] = useState<number | null>(null);
   const [appActive, setAppActive] = useState(AppState.currentState === "active");
+  const screenSize = useWindowDimensions();
+  // The portrait column (metronome above, record button at the bottom) overlaps on short landscape
+  // screens, so landscape puts the metronome, output and record button side by side.
+  const landscape = screenSize.width > screenSize.height;
   const bpm = model.bpm ?? 120;
   const timeSignature = model.timeSignature ?? "4/4";
   const beatsPerBar = beatsPerBarFromSignature(timeSignature);
@@ -107,7 +111,7 @@ export function CreationRecordScreen({ model, header }: ScreenProps<"creation-re
             {model.notice}
           </Text>
         )}
-        <View style={styles.symbolBox}>
+        <View style={[styles.symbolBox, landscape && styles.symbolBoxLandscape]}>
           <Touchable
             accessibilityRole="button"
             accessibilityLabel={metronomeOn ? "메트로놈 끄기" : "메트로놈 켜기"}
@@ -119,7 +123,7 @@ export function CreationRecordScreen({ model, header }: ScreenProps<"creation-re
             ]}
             onPress={() => setMetronomeOn((current) => !current)}
           >
-            <MetronomeIcon width={108} height={156} />
+            <MetronomeIcon width={landscape ? 54 : 108} height={landscape ? 78 : 156} />
           </Touchable>
           <View style={styles.metronomeMeta}>
             <Text style={styles.metronomeTempo}>
@@ -143,7 +147,7 @@ export function CreationRecordScreen({ model, header }: ScreenProps<"creation-re
             )}
           </View>
         </View>
-        <View style={styles.output}>
+        <View style={[styles.output, landscape ? styles.outputLandscape : styles.outputPortrait]}>
           {model.error && (
             <Text accessibilityRole="alert" style={styles.text}>
               {model.error}
@@ -199,7 +203,7 @@ export function CreationRecordScreen({ model, header }: ScreenProps<"creation-re
           disabled={model.pending}
           style={[
             styles.recordButton,
-            { bottom: bottomInset + 48 },
+            landscape ? styles.recordButtonLandscape : { bottom: bottomInset + 48 },
             model.pending && styles.disabled,
           ]}
           onPress={() => act({ type: "creation-record-toggle" })}
@@ -307,6 +311,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 10,
   },
+  symbolBoxLandscape: { top: 16, left: 24 },
   metronomeButton: {
     padding: 12,
     borderRadius: 24,
@@ -341,12 +346,11 @@ const styles = StyleSheet.create({
   beatDotAccent: { backgroundColor: "#ffffff" },
   output: {
     position: "absolute",
-    top: 345,
-    width: 350,
-    maxWidth: "100%",
     alignItems: "center",
     gap: 16,
   },
+  outputPortrait: { top: 345, width: 350, maxWidth: "100%" },
+  outputLandscape: { top: 16, left: 220, right: 156 },
   text: { color: colors.fg, fontSize: 14, lineHeight: 20, textAlign: "center" },
   status: { color: colors.muted, fontSize: 14, lineHeight: 20, textAlign: "center" },
   play: {
@@ -367,6 +371,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   recordButton: { position: "absolute", width: 82, height: 82 },
+  recordButtonLandscape: { right: 48, top: "50%", marginTop: -41 },
   disabled: { opacity: 0.5 },
   meter: { width: "100%", alignItems: "center", gap: 12 },
   elapsed: { flexDirection: "row", alignItems: "center", gap: 8 },

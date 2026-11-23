@@ -42,8 +42,6 @@ export function PortraitNoteEditor({
   onRewind: () => void;
   metronome: boolean;
   onMetronome: () => void;
-  volume?: number;
-  onVolume?: (value: number) => void;
   onBack: () => void;
   /** Shared top-right action: layer navigation for projects, audio completion for samples. */
   action: { label: string; onClick: () => void; disabled?: boolean };
@@ -72,6 +70,7 @@ export function PortraitNoteEditor({
               type="button"
               className={cn(topPill, "max-w-[140px]")}
               aria-label="악기 선택"
+              disabled={instrument.disabled}
               onClick={() => setInstrumentOpen(true)}
             >
               <span className="text-app-muted">악기</span>

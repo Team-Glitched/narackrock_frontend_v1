@@ -122,7 +122,6 @@ export function useShortPlayback({
     : listenerDurationMs(native.durationMs > 0 ? native.durationMs : null, maxDurationMs);
   const engine = useCompositionPlayback(composition, {
     scopeKey: key,
-    initialVolume: 100,
     muted,
     durationMs,
     onEnded: () => handleEndedRef.current(),
