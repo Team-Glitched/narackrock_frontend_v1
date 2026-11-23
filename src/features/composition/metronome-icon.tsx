@@ -1,10 +1,10 @@
 /** Inline SVG for the metronome transport icon so active states can tint the stroke/fill cleanly. */
-export function MetronomeIcon({ size = 20 }: { size?: number }) {
-  const height = Math.round((size * 22.0093) / 15.0893);
+export function MetronomeIcon({ size = 22 }: { size?: number }) {
+  const width = Math.round((size * 15.0893) / 22.0093);
   return (
     <svg
-      width={Math.round((size * 15.0893) / 22.0093)}
-      height={height}
+      width={width}
+      height={size}
       viewBox="0 0 15.0893 22.0093"
       fill="none"
       aria-hidden="true"

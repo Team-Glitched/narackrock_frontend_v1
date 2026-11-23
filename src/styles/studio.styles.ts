@@ -505,7 +505,7 @@ export const studioStyles = {
   ].join(" "),
   notePlayheadHandle: [
     "note-playhead-handle",
-    "[.team-note-workspace_&]:absolute [.team-note-workspace_&]:top-0 [.team-note-workspace_&]:left-[-10px] [.team-note-workspace_&]:h-[26px]",
+    "[.team-note-workspace_&]:absolute [.team-note-workspace_&]:top-0 [.team-note-workspace_&]:left-[-10px] [.team-note-workspace_&]:h-[28px]",
     "[.team-note-workspace_&]:w-[22px] [.team-note-workspace_&]:rounded-[0_0_8px_8px] [.team-note-workspace_&]:bg-[#fff]",
     "[.team-note-workspace_&]:bg-none [.team-note-workspace_&]:touch-none [.team-note-workspace_&]:[cursor:ew-resize]",
     "[.team-note-workspace_&]:z-[8] [.team-note-workspace_&]:border-0 [.team-note-workspace_&]:border-none [.team-note-workspace_&]:border-current",
@@ -557,7 +557,7 @@ export const studioStyles = {
   studioMetronome: [
     "studio-metronome",
     "grid h-11 w-11 place-items-center rounded-[10px] text-[#F2F4F6] transition-colors",
-    "[&[aria-pressed=true]]:bg-[#5b00ff]/20! [&[aria-pressed=true]]:text-[#a78bfa]! [&[aria-pressed=true]]:ring-1 [&[aria-pressed=true]]:ring-[#8b5cf6]",
+    "[&[aria-pressed=true]]:bg-[#4c00e5]/20! [&[aria-pressed=true]]:text-[#9966ff]! [&[aria-pressed=true]]:ring-1 [&[aria-pressed=true]]:ring-[#9966ff]/70",
   ].join(" "),
   studioVolumeTrigger: [
     "studio-volume-trigger",

@@ -221,7 +221,7 @@ export function InstrumentDialog({
       )}
       {state.error && <p role="alert">{state.error}</p>}
       <div className="flex shrink-0 gap-2">
-        {onClear && (
+        {onClear ? (
           <button
             type="button"
             className={cn(
@@ -236,6 +236,18 @@ export function InstrumentDialog({
             }}
           >
             선택 해제
+          </button>
+        ) : (
+          <button
+            type="button"
+            className={cn(
+              buttonVariants({ tone: "secondary", size: "compact" }),
+              "shrink-0 justify-center px-4",
+            )}
+            disabled={busy}
+            onClick={state.close}
+          >
+            취소
           </button>
         )}
         <button

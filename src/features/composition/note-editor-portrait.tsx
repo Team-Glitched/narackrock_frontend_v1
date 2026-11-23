@@ -117,12 +117,6 @@ export function PortraitNoteEditor({
             샘플
           </button>
         )}
-        {instrument && (
-          <button className={readout} aria-label="악기 선택" onClick={() => setInstrumentOpen(true)}>
-            <small>악기</small>
-            {findInstrument(instrument.value)?.label ?? "선택"}
-          </button>
-        )}
       </div>
       {controls}
       {status}
@@ -145,7 +139,7 @@ export function PortraitNoteEditor({
             {playing ? <span className={sharedStyles.pauseSymbol} /> : <Asset name="play.svg" />}
           </button>
           <button
-            className="grid size-12 place-items-center rounded-full border border-[#32323d] bg-[#23232a] text-[#F2F4F6] transition-colors aria-pressed:border-[#8b5cf6] aria-pressed:bg-[#5b00ff]/20 aria-pressed:text-[#a78bfa]"
+            className="grid size-12 place-items-center rounded-full border border-[#32323d] bg-[#23232a] text-[#F2F4F6] transition-colors aria-pressed:border-[#9966ff] aria-pressed:bg-[#4c00e5]/20 aria-pressed:text-[#9966ff]"
             aria-label="메트로놈"
             aria-pressed={metronome}
             onClick={onMetronome}

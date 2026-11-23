@@ -2,7 +2,6 @@ import type { ReactNode } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 
 import type { NativeNoteEditor, NativeTransport } from "../../../src/lib/native-screens";
-import MetronomeIcon from "../../../public/figma/metronome.svg";
 import PlayIcon from "../../../public/figma/play.svg";
 import ReturnIcon from "../../../public/figma/return.svg";
 import { Touchable } from "../../ui/kit";
@@ -18,7 +17,7 @@ import {
   SourceSheet,
   TimingSheet,
 } from "../studio/parts";
-import { AddButton, RewindIcon, StudioToolbar, useTransport } from "../studio/toolbar";
+import { AddButton, MetronomeGlyph, RewindIcon, StudioToolbar, useTransport } from "../studio/toolbar";
 import type { ScreenProps } from "../types";
 import { NoteControls, NoteRoll, NoteRollSheets, NoteTools } from "./roll";
 
@@ -267,7 +266,7 @@ function PortraitTransport({ transport }: { transport: NativeTransport }) {
         style={[styles.round, transport.metronome && styles.roundPressed]}
         onPress={() => act({ type: "transport-metronome" })}
       >
-        <MetronomeIcon width={15} height={22} />
+        <MetronomeGlyph active={transport.metronome} size={22} />
       </Touchable>
     </View>
   );
@@ -535,7 +534,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     backgroundColor: "#23232a",
   },
-  roundPressed: { backgroundColor: colors.primary, borderColor: "#8b5cf6" },
+  roundPressed: { backgroundColor: "rgba(76, 0, 229, 0.22)", borderColor: "#9966ff" },
   play: {
     width: 64,
     height: 64,
