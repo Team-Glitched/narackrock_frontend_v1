@@ -90,12 +90,16 @@ export function useNativeRecord({
   onTransform,
   instrument,
   notice = null,
+  bpm = 120,
+  timeSignature = "4/4",
 }: {
   saveLabel: string;
   onSave: (file: File) => Promise<void>;
   onTransform?: (file: File, soundKind?: AudioTranscriptionMode) => Promise<void>;
   instrument?: NativeInstrumentPrompt;
   notice?: string | null;
+  bpm?: number;
+  timeSignature?: string;
 }) {
   const scope = useId();
   const { previewAudio, stopPreview } = useCompositionPlayback(null, {
@@ -149,6 +153,8 @@ export function useNativeRecord({
     soundKind: recorder.soundKind,
     notice,
     instrument: instrument?.model ?? null,
+    bpm,
+    timeSignature,
   };
   function act(action: NativeCreationRecordAction) {
     if (isNativeInstrumentAction(action)) return instrument?.act(action);
@@ -213,6 +219,8 @@ export function NativeRecordBridge({
   onTransform,
   instrument,
   notice,
+  bpm,
+  timeSignature,
   onBack,
   onSearch,
 }: {
@@ -220,6 +228,8 @@ export function NativeRecordBridge({
   onTransform: (file: File, soundKind?: AudioTranscriptionMode) => Promise<void>;
   instrument: NativeInstrumentPrompt;
   notice: string | null;
+  bpm?: number;
+  timeSignature?: string;
 } & Navigation): ReactNode {
   const record = useNativeRecord({
     saveLabel: "레이어에 녹음 저장",
@@ -227,6 +237,8 @@ export function NativeRecordBridge({
     onTransform,
     instrument,
     notice,
+    bpm,
+    timeSignature,
   });
   return useNativeScreen("creation-record", record.model, {
     header: creationHeader,

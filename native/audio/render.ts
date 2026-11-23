@@ -4,25 +4,29 @@ import { OfflineAudioContext, type AudioBuffer } from "react-native-audio-api";
 import type { MidiNoteDto } from "../../src/lib/api/composition.ts";
 import type { NativeAudioFile } from "../../src/lib/native-bridge-protocol";
 import {
+  instrumentSampleUrl,
+  instrumentVoice,
   pianoFallbackLevel,
   pianoRenderLength,
   pianoRenderSampleRate,
   pianoSampleLevel,
-  pianoSampleName,
-  pianoSamplePitches,
-  pianoVoice,
+  requiredSamplePitches,
+  resolveSampleInstrument,
   scheduleMidiEnvelope,
 } from "../../src/features/composition/piano-render-plan.ts";
 import { wavBytes } from "../../src/features/composition/prepare-audio-file.ts";
 import { bytesToBase64 } from "./logic.ts";
 
-/** Renders authored notes with the piano samples (triangle fallback) to a stereo WAV. */
+/** Renders authored notes with the selected sampled instrument (triangle fallback) to a stereo WAV. */
 export async function renderNotes(
   origin: string,
   notes: MidiNoteDto[],
   bpm: number,
+  instrumentId = "piano",
 ): Promise<NativeAudioFile> {
   const { tickSeconds, durationSeconds } = pianoRenderLength(notes, bpm);
+  const instrument = resolveSampleInstrument(instrumentId);
+  const sampleKeys = requiredSamplePitches(instrument, notes);
   const context = new OfflineAudioContext(
     2,
     Math.ceil(durationSeconds * pianoRenderSampleRate),
@@ -32,9 +36,9 @@ export async function renderNotes(
   try {
     samples = new Map(
       await Promise.all(
-        pianoSamplePitches.map(async (pitch) => {
-          const response = await fetch(`${origin}/audio/piano/${pianoSampleName(pitch)}.mp3`);
-          if (!response.ok) throw new Error("피아노 샘플을 불러오지 못했습니다.");
+        sampleKeys.map(async (pitch) => {
+          const response = await fetch(`${origin}${instrumentSampleUrl(instrument, pitch)}`);
+          if (!response.ok) throw new Error(`${instrument.label} 샘플을 불러오지 못했습니다.`);
           return [pitch, await context.decodeAudioData(await response.arrayBuffer())] as const;
         }),
       ),
@@ -43,7 +47,7 @@ export async function renderNotes(
     /* Use the same triangle fallback as the web. */
   }
   for (const note of notes) {
-    const voice = pianoVoice(note, tickSeconds);
+    const voice = instrumentVoice(instrument, note, tickSeconds);
     const buffer = samples.get(voice.sample);
     const gain = context.createGain();
     gain.connect(context.destination);
@@ -54,10 +58,10 @@ export async function renderNotes(
       voice.velocity * (buffer ? pianoSampleLevel : pianoFallbackLevel),
     );
     if (buffer) {
+      // One-shot like the preview's sampler voices (graph.ts): a note longer than its sample ends in silence.
       const source = context.createBufferSource();
       source.buffer = buffer;
       source.playbackRate.value = voice.playbackRate;
-      source.loop = voice.end - voice.start > buffer.duration / voice.playbackRate;
       source.connect(gain);
       source.start(voice.start);
       source.stop(voice.end);
@@ -72,7 +76,7 @@ export async function renderNotes(
   }
   const rendered = await context.startRendering();
   return {
-    name: "piano.wav",
+    name: `${instrument.id}.wav`,
     type: "audio/wav",
     base64: bytesToBase64(new Uint8Array(wavBytes(rendered))),
   };

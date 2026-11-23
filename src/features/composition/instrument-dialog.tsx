@@ -25,6 +25,8 @@ export type InstrumentChoice = {
   /** Stops only this chooser's preview. Called on candidate change, close, confirm and unmount. */
   onStopPreview: () => void;
   onConfirm: (id: string) => Promise<void>;
+  /** The owner is busy (e.g. rendering the audio): the trigger is disabled and nothing can be confirmed. */
+  disabled?: boolean;
 };
 
 function choiceError(cause: unknown) {
@@ -82,6 +84,7 @@ function useInstrumentChoice(choice: InstrumentChoice | null, onClose: () => voi
     error,
     canConfirm:
       choice !== null &&
+      !choice.disabled &&
       !busy &&
       selected !== null &&
       selected !== canonicalInstrumentId(choice.value),
@@ -95,7 +98,7 @@ function useInstrumentChoice(choice: InstrumentChoice | null, onClose: () => voi
       onClose();
     },
     async confirm() {
-      if (!choice || !selected) return;
+      if (!choice || !selected || choice.disabled) return;
       choice.onStopPreview();
       setBusy(true);
       setError(null);
@@ -154,21 +157,32 @@ export function useNativeInstrumentPicker(
 export function InstrumentDialog({
   choice,
   onClose,
+  subtitle = "같은 악기나 보컬을 여러 명이 함께 선택할 수 있어요.",
+  hidePreview = false,
+  allowSameConfirm = false,
+  onClear,
 }: {
   choice: InstrumentChoice;
   onClose: () => void;
+  subtitle?: string;
+  hidePreview?: boolean;
+  allowSameConfirm?: boolean;
+  onClear?: () => void;
 }) {
   const titleId = useId();
   const state = useInstrumentChoice(choice, onClose);
   const { busy } = state;
+  const canConfirm = allowSameConfirm
+    ? !busy && !choice.disabled && state.selected !== null
+    : state.canConfirm;
   return (
     <CanvasDialog className={sharedStyles.instrumentDialog} titleId={titleId} onClose={state.close}>
       <h2 id={titleId}>악기 선택</h2>
-      <p>같은 악기나 보컬을 여러 명이 함께 선택할 수 있어요.</p>
+      <p>{subtitle}</p>
       <div
         role="radiogroup"
         aria-label="악기"
-        className="grid min-h-0 max-h-[320px] flex-1 gap-4 overflow-y-auto overscroll-contain"
+        className="scrollbar-dark grid min-h-0 max-h-[320px] flex-1 gap-4 overflow-y-auto overscroll-contain pr-1"
       >
         {choiceGroups(choice).map((group) => (
           <fieldset key={group.id} disabled={busy}>
@@ -189,7 +203,7 @@ export function InstrumentDialog({
           </fieldset>
         ))}
       </div>
-      {choice.mode === "audio" && (
+      {choice.mode === "audio" && !hidePreview && (
         <div className="flex shrink-0 gap-2">
           <button
             type="button"
@@ -209,16 +223,47 @@ export function InstrumentDialog({
         </div>
       )}
       {state.error && <p role="alert">{state.error}</p>}
-      <button
-        className={cn(
-          buttonVariants({ tone: "primary", size: "compact" }),
-          "w-full shrink-0 justify-center",
+      <div className="flex shrink-0 gap-2">
+        {onClear ? (
+          <button
+            type="button"
+            className={cn(
+              buttonVariants({ tone: "secondary", size: "compact" }),
+              "shrink-0 justify-center px-4",
+            )}
+            disabled={busy}
+            onClick={() => {
+              choice.onStopPreview();
+              onClear();
+              onClose();
+            }}
+          >
+            선택 해제
+          </button>
+        ) : (
+          <button
+            type="button"
+            className={cn(
+              buttonVariants({ tone: "secondary", size: "compact" }),
+              "shrink-0 justify-center px-4",
+            )}
+            disabled={busy}
+            onClick={state.close}
+          >
+            취소
+          </button>
         )}
-        disabled={!state.canConfirm}
-        onClick={() => void state.confirm()}
-      >
-        {busy ? "적용 중..." : "선택 완료"}
-      </button>
+        <button
+          className={cn(
+            buttonVariants({ tone: "primary", size: "compact" }),
+            "min-w-0 flex-1 justify-center",
+          )}
+          disabled={!canConfirm}
+          onClick={() => void state.confirm()}
+        >
+          {busy ? "적용 중..." : "선택 완료"}
+        </button>
+      </div>
     </CanvasDialog>
   );
 }

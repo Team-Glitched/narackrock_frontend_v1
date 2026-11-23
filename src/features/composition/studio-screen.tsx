@@ -839,8 +839,6 @@ export function StudioScreen({ studio, portrait = true }: { studio: Studio; port
           void playback.play();
         }}
         onPause={playback.pause}
-        volume={playback.volume}
-        onVolume={playback.setVolume}
         metronome={playback.metronome}
         onMetronome={() => playback.setMetronome((value) => !value)}
         onImportSource={

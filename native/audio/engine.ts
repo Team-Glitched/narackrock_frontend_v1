@@ -51,7 +51,6 @@ class Engine {
   private composition: NativeAudioComposition | null = null;
   private durationMs: number | undefined;
   private mix: NativeAudioMix = {
-    volume: 20,
     muted: false,
     trackVolumes: {},
     mutedTrackIds: [],

@@ -706,9 +706,9 @@ export const sharedStyles = {
     "[&_fieldset]:m-0 [&_fieldset]:min-w-0 [&_fieldset]:border-0 [&_fieldset]:p-0",
     "[&_legend]:mb-2 [&_legend]:p-0 [&_legend]:text-label [&_legend]:font-bold [&_legend]:leading-[22px] [&_legend]:text-app-muted",
     "[&_[role=radio]]:min-h-9 [&_[role=radio]]:rounded-[20px] [&_[role=radio]]:px-3 [&_[role=radio]]:py-2",
-    "[&_[role=radio]]:bg-app-surface [&_[role=radio]]:bg-none [&_[role=radio]]:text-body [&_[role=radio]]:font-medium",
+    "[&_[role=radio]]:border [&_[role=radio]]:border-solid [&_[role=radio]]:border-[#32323d] [&_[role=radio]]:bg-[#23232a] [&_[role=radio]]:bg-none [&_[role=radio]]:text-body [&_[role=radio]]:font-medium",
     "[&_[role=radio]]:leading-[20px] [&_[role=radio]]:text-app-fg",
-    "[&_[role=radio][aria-checked=true]]:bg-app-primary [&_[role=radio]:disabled]:opacity-50",
+    "[&_[role=radio][aria-checked=true]]:border-app-primary [&_[role=radio][aria-checked=true]]:bg-app-primary [&_[role=radio][aria-checked=true]]:text-white [&_[role=radio]:disabled]:opacity-50",
   ].join(" "),
   instrumentPickerTrigger: [
     "instrument-picker-trigger",

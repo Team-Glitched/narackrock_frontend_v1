@@ -46,7 +46,6 @@ export type PlaybackComposition = {
 export type CompositionPlaybackOptions = {
   scopeKey?: string;
   durationMs?: number;
-  initialVolume?: number;
   muted?: boolean;
   onEnded?: () => void;
 };
@@ -71,8 +70,6 @@ export type CompositionPlayback = {
   toggleTrackMute: (trackId: number) => void;
   playing: boolean;
   positionMs: number;
-  volume: number;
-  setVolume: (volume: number) => void;
   error: string | null;
   play: () => Promise<void>;
   pause: () => void;
@@ -103,8 +100,6 @@ function useToneCompositionPlayback(
   const trackVolumesRef = useRef<Record<number, number>>({});
   const [mutedTrackIds, setMutedTrackIds] = useState<Set<number>>(() => new Set());
   const mutedTrackIdsRef = useRef(new Set<number>());
-  const [volume, setVolumeState] = useState(level(options?.initialVolume ?? 20));
-  const volumeRef = useRef(volume);
   const optionsRef = useRef(options);
   const compositionRef = useRef(composition);
   const mounted = useRef(false);
@@ -130,7 +125,7 @@ function useToneCompositionPlayback(
       masterRef.current = context.createGain();
       masterRef.current.connect(context.destination);
     }
-    masterRef.current.gain.value = optionsRef.current?.muted ? 0 : volumeRef.current / 100;
+    masterRef.current.gain.value = optionsRef.current?.muted ? 0 : 1;
     return masterRef.current;
   }, []);
 
@@ -188,12 +183,6 @@ function useToneCompositionPlayback(
     setMutedTrackIds(next);
     updateMixer(trackId);
   }, [updateMixer]);
-
-  const setVolume = useCallback((next: number) => {
-    volumeRef.current = level(next);
-    setVolumeState(volumeRef.current);
-    if (masterRef.current) masterRef.current.gain.value = optionsRef.current?.muted ? 0 : volumeRef.current / 100;
-  }, []);
 
   const schedule = useCallback((generation: PlaybackGeneration, events: PlaybackEvent[], ended: () => void, update?: () => void,
     onTick?: (time: number) => void) => {
@@ -377,12 +366,10 @@ function useToneCompositionPlayback(
 
   useLayoutEffect(() => {
     mounted.current = true;
-    volumeRef.current = level(optionsRef.current?.initialVolume ?? 20);
-    setVolumeState(volumeRef.current);
     trackVolumesRef.current = {};
     mutedTrackIdsRef.current = new Set();
-    setTrackVolumes({});
-    setMutedTrackIds(new Set());
+    setTrackVolumes(trackVolumesRef.current);
+    setMutedTrackIds(mutedTrackIdsRef.current);
     positionRef.current = 0;
     setPositionMs(0);
     setError(null);
@@ -404,7 +391,7 @@ function useToneCompositionPlayback(
   }, [composition, options?.durationMs, pause, stopPreview]);
 
   useLayoutEffect(() => {
-    if (masterRef.current) masterRef.current.gain.value = options?.muted ? 0 : volumeRef.current / 100;
+    if (masterRef.current) masterRef.current.gain.value = options?.muted ? 0 : 1;
   }, [options?.muted]);
 
   // The native app pauses playback when it leaves the foreground (web playback is unaffected).
@@ -415,7 +402,7 @@ function useToneCompositionPlayback(
 
   return {
     signature, metronome, setMetronome, trackVolumes, setTrackVolume, mutedTrackIds, toggleTrackMute,
-    playing, positionMs, volume, setVolume, error, play, pause, seek, audition, previewInstrument,
+    playing, positionMs, error, play, pause, seek, audition, previewInstrument,
     previewAudio, stopPreview, nativeEngine: null,
   };
 }
@@ -489,7 +476,6 @@ function useNativeCompositionPlayback(
   const trackVolumesRef = useRef<Record<number, number>>({});
   const [mutedTrackIds, setMutedTrackIds] = useState<Set<number>>(() => new Set());
   const mutedTrackIdsRef = useRef(new Set<number>());
-  const [volume, setVolumeState] = useState(level(options?.initialVolume ?? 20));
   const optionsRef = useRef(options);
   const compositionRef = useRef(composition);
   useLayoutEffect(() => {
@@ -551,8 +537,6 @@ function useNativeCompositionPlayback(
     mutedTrackIdsRef.current = next;
     setMutedTrackIds(next);
   }, []);
-
-  const setVolume = useCallback((next: number) => setVolumeState(level(next)), []);
 
   const play = useCallback(async () => {
     const input = compositionRef.current;
@@ -629,11 +613,10 @@ function useNativeCompositionPlayback(
   // One engine per scope; its state resets with the scope, like the web path's resources.
   useLayoutEffect(() => {
     mounted.current = true;
-    setVolumeState(level(optionsRef.current?.initialVolume ?? 20));
     trackVolumesRef.current = {};
     mutedTrackIdsRef.current = new Set();
-    setTrackVolumes({});
-    setMutedTrackIds(new Set());
+    setTrackVolumes(trackVolumesRef.current);
+    setMutedTrackIds(mutedTrackIdsRef.current);
     positionRef.current = 0;
     setPositionMs(0);
     setError(null);
@@ -658,9 +641,9 @@ function useNativeCompositionPlayback(
   useLayoutEffect(() => {
     void send({
       type: "mix",
-      mix: { volume, muted, trackVolumes, mutedTrackIds: [...mutedTrackIds], metronome },
+      mix: { muted, trackVolumes, mutedTrackIds: [...mutedTrackIds], metronome },
     }).catch(() => {});
-  }, [metronome, muted, mutedTrackIds, send, trackVolumes, volume]);
+  }, [metronome, muted, mutedTrackIds, send, trackVolumes]);
 
   useEffect(() => onNativeAudioState((state) => {
     if (state.engine !== engine || !mounted.current) return;
@@ -686,7 +669,7 @@ function useNativeCompositionPlayback(
 
   return {
     signature, metronome, setMetronome, trackVolumes, setTrackVolume, mutedTrackIds, toggleTrackMute,
-    playing, positionMs, volume, setVolume, error, play, pause, seek, audition, previewInstrument,
+    playing, positionMs, error, play, pause, seek, audition, previewInstrument,
     previewAudio, stopPreview, nativeEngine: engine,
   };
 }

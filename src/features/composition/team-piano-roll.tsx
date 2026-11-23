@@ -467,12 +467,35 @@ export function TeamPianoRoll({
 
   return (
     <div className="note-roll-view flex min-h-0 w-full flex-1 flex-col overflow-hidden">
-      <div className="flex h-8 shrink-0 items-center justify-end gap-1 border-b border-app-line bg-app-panel px-2 text-caption text-app-muted" role="group" aria-label="피아노롤 확대·축소">
-        <button type="button" aria-label="피아노롤 축소" className="h-7 w-9 rounded bg-app-surface text-label disabled:opacity-35"
-          disabled={zoom <= MIN_ROLL_ZOOM} onClick={() => { cancel(); changeZoom(zoom / 1.25); }}>−</button>
-        <output className="w-12 text-center tabular-nums" aria-label="피아노롤 배율">{Math.round(zoom * 100)}%</output>
-        <button type="button" aria-label="피아노롤 확대" className="h-7 w-9 rounded bg-app-surface text-label disabled:opacity-35"
-          disabled={zoom >= MAX_ROLL_ZOOM} onClick={() => { cancel(); changeZoom(zoom * 1.25); }}>+</button>
+      <div
+        className="flex h-8 shrink-0 items-center justify-between gap-1.5 border-b border-[#2b2b34] bg-app-panel px-2.5 text-caption text-app-muted"
+        role="group"
+        aria-label="피아노롤 확대·축소"
+      >
+        <span className="text-caption font-medium text-app-muted">피아노롤</span>
+        <div className="flex items-center gap-1.5">
+          <button
+            type="button"
+            aria-label="피아노롤 축소"
+            className="grid h-6 w-7 place-items-center rounded-[7px] border border-[#32323d] bg-[#23232a] text-label text-app-fg disabled:opacity-35"
+            disabled={zoom <= MIN_ROLL_ZOOM}
+            onClick={() => { cancel(); changeZoom(zoom / 1.25); }}
+          >
+            −
+          </button>
+          <output className="w-11 text-center font-medium tabular-nums text-app-fg" aria-label="피아노롤 배율">
+            {Math.round(zoom * 100)}%
+          </output>
+          <button
+            type="button"
+            aria-label="피아노롤 확대"
+            className="grid h-6 w-7 place-items-center rounded-[7px] border border-[#32323d] bg-[#23232a] text-label text-app-fg disabled:opacity-35"
+            disabled={zoom >= MAX_ROLL_ZOOM}
+            onClick={() => { cancel(); changeZoom(zoom * 1.25); }}
+          >
+            +
+          </button>
+        </div>
       </div>
     <div
       className={cn(studioStyles.noteWorkspace, studioStyles.teamNoteWorkspace)}
@@ -513,9 +536,13 @@ export function TeamPianoRoll({
         }
       }}
     >
-      <div className={studioStyles.noteRulerCorner} style={{ gridColumn: 1, gridRow: 1 }} aria-hidden="true" />
       <div
-        className={studioStyles.noteRuler}
+        className={cn(studioStyles.noteRulerCorner, "border-b-2 border-solid border-app-border shadow-[0_-1px_0_var(--panel)]")}
+        style={{ gridColumn: 1, gridRow: 1 }}
+        aria-hidden="true"
+      />
+      <div
+        className={cn(studioStyles.noteRuler, "block! min-w-full")}
         style={{ width, gridColumn: 2, gridRow: 1 }}
         aria-label="피아노롤 눈금자"
         onPointerDown={(event) => {
@@ -581,7 +608,17 @@ export function TeamPianoRoll({
             style={{ height: rowHeight, minHeight: rowHeight, width: keyWidth }}
           >
             {drum ? (
-              <DrumPadIcon kind={drumPadFor(pitch)?.icon ?? "percussion"} />
+              <>
+                <DrumPadIcon kind={drumPadFor(pitch)?.icon ?? "percussion"} />
+                {keyWidth >= 70 && (
+                  <span
+                    className="min-w-0 flex-1 truncate text-left text-[11px] leading-tight text-app-fg!"
+                    style={{ position: "static", transform: "none" }}
+                  >
+                    {pitchLabel(pitch)}
+                  </span>
+                )}
+              </>
             ) : (
               <span style={{ display: "inline", position: "static", transform: "none", fontSize: 12 * zoom }}>{pitchLabel(pitch)}</span>
             )}

@@ -27,8 +27,6 @@ export type NativeTransport = {
   numerator: number;
   denominator: number;
   metronome: boolean;
-  /** Master volume 0–100. */
-  volume: number;
   error: string | null;
 };
 
@@ -36,14 +34,12 @@ export type NativeTransportAction =
   | { type: "transport-play" }
   | { type: "transport-pause" }
   | { type: "transport-metronome" }
-  | { type: "transport-volume"; value: number }
   | { type: "transport-seek"; positionMs: number };
 
 const transportActions: Record<NativeTransportAction["type"], true> = {
   "transport-play": true,
   "transport-pause": true,
   "transport-metronome": true,
-  "transport-volume": true,
   "transport-seek": true,
 };
 

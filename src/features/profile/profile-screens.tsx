@@ -24,6 +24,9 @@ import { useMySongs } from "@/features/home/use-my-songs";
 import { songsForTab } from "@/features/home/my-songs";
 import { profileKeys, profileQuery } from "./profile-queries";
 import { useImageCrop } from "@/features/images/use-image-crop";
+import { InstrumentDialog } from "@/features/composition/instrument-dialog";
+import { partIdForValue, partLabel } from "@/features/composition/instrument-parts";
+import { ChevronDown } from "lucide-react";
 
 export function profileErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : "프로필을 불러오지 못했습니다.";
@@ -553,8 +556,13 @@ export function ProfileForm({
 }) {
   const [nickname, setNickname] = useState(initial.nickname);
   const [instrument, setInstrument] = useState(initial.instrument);
+  const [instrumentOpen, setInstrumentOpen] = useState(false);
   const [explanation, setExplanation] = useState(initial.explanation);
   const { image, saving, error, pick, save } = useProfileForm(onSubmit);
+  const selectedInstrumentId = partIdForValue(instrument);
+  const instrumentDisplay = selectedInstrumentId
+    ? partLabel(selectedInstrumentId)
+    : instrument.trim();
   const crop = useImageCrop({
     file: image?.file ?? null,
     onApply: pick,
@@ -628,13 +636,39 @@ export function ProfileForm({
 
       <label>
         <strong>악기</strong>
-        <input
-          value={instrument}
-          onChange={(event) => setInstrument(event.target.value)}
+        <button
+          type="button"
+          className="flex h-11 w-full items-center justify-between gap-2 rounded-[10px] border border-app-border bg-app-surface px-3 text-left text-body text-app-fg disabled:opacity-50"
           disabled={saving}
-          placeholder="예: Guitar, Piano"
-        />
+          aria-haspopup="dialog"
+          aria-expanded={instrumentOpen}
+          onClick={() => setInstrumentOpen(true)}
+        >
+          <span className={instrumentDisplay ? "truncate text-app-fg" : "text-app-muted"}>
+            {instrumentDisplay || "악기를 선택하세요"}
+          </span>
+          <ChevronDown size={16} className="shrink-0 text-app-muted" aria-hidden="true" />
+        </button>
       </label>
+      {instrumentOpen && (
+        <InstrumentDialog
+          subtitle="프로필에 표시할 주 악기나 보컬 파트를 선택하세요."
+          hidePreview
+          allowSameConfirm
+          onClear={() => setInstrument("")}
+          choice={{
+            value: selectedInstrumentId,
+            mode: "audio",
+            tracks: [],
+            onPreview: async () => {},
+            onStopPreview: () => {},
+            onConfirm: async (id) => {
+              setInstrument(partLabel(id));
+            },
+          }}
+          onClose={() => setInstrumentOpen(false)}
+        />
+      )}
 
       <label>
         <strong>설명</strong>

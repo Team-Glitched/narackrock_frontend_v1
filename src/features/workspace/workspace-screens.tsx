@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 import { SavedOpenSources } from "@/features/sources/saved-open-sources";
 import { AudioPlaybackBar } from "@/components/audio-playback-bar";
 import { uiLabels } from "@/lib/ui-labels";
-import { useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { useEffect, useId, useState, type ReactNode } from "react";
 import type { CompositionDto } from "@/lib/api/composition";
 import { useCurrentUserId } from "@/features/auth/use-current-user";
 import { compositionDurationMs } from "@/features/composition/playback-duration";
@@ -36,6 +36,7 @@ function Empty({ children }: { children: ReactNode }) {
 /** A composition preview player (the web's ClipPlayer): one preview plays at a time. */
 export function useClipPlayer(composition: CompositionDto) {
   const userId = useCurrentUserId();
+  const [muted, setMuted] = useState(false);
   const player = useCompositionPlayback(composition, {
     scopeKey: JSON.stringify([
       apiOrigin(),
@@ -43,12 +44,12 @@ export function useClipPlayer(composition: CompositionDto) {
       composition?.project.projectId ?? null,
       "workspace",
     ]),
+    muted,
   });
   const id = useId();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const duration = compositionDurationMs(composition);
-  const previousVolume = useRef(70);
   const pause = player.pause;
   useEffect(() => {
     const stopOther = (event: Event) => {
@@ -76,7 +77,7 @@ export function useClipPlayer(composition: CompositionDto) {
   }
   return {
     playing: player.playing,
-    muted: player.volume === 0,
+    muted,
     positionMs: player.positionMs,
     durationMs: duration,
     disabled: duration === 0,
@@ -84,13 +85,7 @@ export function useClipPlayer(composition: CompositionDto) {
     error,
     toggle: () => void toggle(),
     seek: player.seek,
-    toggleMute: () => {
-      if (player.volume === 0) player.setVolume(previousVolume.current);
-      else {
-        previousVolume.current = player.volume;
-        player.setVolume(0);
-      }
-    },
+    toggleMute: () => setMuted((value) => !value),
   };
 }
 

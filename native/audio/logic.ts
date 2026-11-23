@@ -63,8 +63,8 @@ export function trackLevel(
     : (mix.trackVolumes[track.trackId] ?? track.volume);
 }
 
-export function masterGain(mix: Pick<NativeAudioMix, "volume" | "muted">): number {
-  return mix.muted ? 0 : Math.max(0, Math.min(100, mix.volume)) / 100;
+export function masterGain(mix: Pick<NativeAudioMix, "muted">): number {
+  return mix.muted ? 0 : 1;
 }
 
 /** The metronome click: 40 ms of 1 kHz sine at 0.15, fading out linearly. */
