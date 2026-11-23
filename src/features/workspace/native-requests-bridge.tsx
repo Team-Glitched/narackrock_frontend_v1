@@ -14,7 +14,7 @@ import {
   useSubmissions,
 } from "./contribution-requests";
 
-const header: NativeHeader = { left: "back", actions: ["notifications", "search", "account"] };
+const header: NativeHeader = { left: "back", actions: ["notifications", "chat", "search", "account"] };
 
 const status = (approval: keyof typeof requestStatus) => ({
   label: requestStatus[approval],

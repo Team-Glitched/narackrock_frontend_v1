@@ -11,7 +11,7 @@ type SavedBridgeProps = {
   onBack: () => void;
 };
 
-const header: NativeHeader = { left: "back", actions: ["notifications", "search", "account"] };
+const header: NativeHeader = { left: "back", actions: ["notifications", "chat", "search", "account"] };
 
 /** In the app /saved is drawn natively (native/screens/profile/saved.tsx). */
 export function NativeSavedBridge(props: SavedBridgeProps) {

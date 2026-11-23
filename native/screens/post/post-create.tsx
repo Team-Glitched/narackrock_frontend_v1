@@ -26,9 +26,7 @@ export function PostCreateScreen({ model }: ScreenProps<"post-create">) {
           <AppHeader
             header={{
               left: "back",
-              actions: signedIn
-                ? ["notifications", "search"]
-                : ["notifications", "search", "account"],
+              actions: [],
             }}
           />
         </View>
@@ -205,12 +203,9 @@ function CommunityPicker({ communities }: { communities: NativePostCreate["commu
           setOpen(true);
         }}
       >
-        <View style={styles.pickerButtonCopy}>
-          <Text style={styles.pickerSmall}>게시할 커뮤니티</Text>
-          <Text style={styles.pickerName} numberOfLines={1}>
-            {communities.selectedName ?? "커뮤니티 선택"}
-          </Text>
-        </View>
+        <Text style={styles.pickerName} numberOfLines={1}>
+          {communities.selectedName ?? "커뮤니티 선택"}
+        </Text>
         <Svg
           width={16}
           height={16}
@@ -389,21 +384,18 @@ const styles = StyleSheet.create({
   submitText: { color: colors.fg, fontSize: 16, lineHeight: 20, fontWeight: "500" },
   discard: { minHeight: 40, paddingVertical: 8, paddingHorizontal: 20, justifyContent: "center" },
   pickerButton: {
-    width: 154,
-    height: 44,
+    maxWidth: 168,
+    height: 40,
     marginRight: 8,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    gap: 10,
+    gap: 8,
     paddingHorizontal: 12,
-    paddingVertical: 6,
     borderRadius: 12,
     backgroundColor: colors.surface,
   },
-  pickerButtonCopy: { flex: 1, gap: 4 },
-  pickerSmall: { color: colors.muted, fontSize: 14, lineHeight: 18, fontWeight: "500" },
-  pickerName: { color: colors.fg, fontSize: 16, lineHeight: 20, fontWeight: "600" },
+  pickerName: { flexShrink: 1, color: colors.fg, fontSize: 16, lineHeight: 20, fontWeight: "600" },
   sheetRoot: { flex: 1, justifyContent: "flex-end" },
   backdrop: { ...StyleSheet.absoluteFill, backgroundColor: "rgba(0, 0, 0, 0.6)" },
   sheet: {

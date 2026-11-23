@@ -20,7 +20,8 @@ const headerControl =
 
 export function Header({
   onSearch,
-  showChat = false,
+  showChat = true,
+  minimal = false,
   abyss = false,
   muted = false,
   onToggleMute,
@@ -28,8 +29,9 @@ export function Header({
   onSettings,
   communitySelector,
 }: {
-  onSearch: () => void;
+  onSearch?: () => void;
   showChat?: boolean;
+  minimal?: boolean;
   abyss?: boolean;
   muted?: boolean;
   onToggleMute?: () => void;
@@ -76,34 +78,42 @@ export function Header({
         </button>
       )}
       <div className="flex h-11 items-center gap-1 overflow-hidden">
-        <NotificationBell className={headerControl} onClick={openNotifications} />
-        {showChat && currentUserId !== null && (
-          <ChatShortcut className={headerControl} onClick={() => to("/chat")} />
-        )}
-        <button className={headerControl} aria-label="검색" onClick={onSearch}>
-          <Asset name="v3-search.svg" />
-        </button>
-        {currentUserId === null ? (
-          <button
-            className={cn(buttonVariants({ tone: "primary", size: "compact" }), "mr-2 shrink-0")}
-            onClick={() => to("/login", { state: { returnTo: currentPath } })}
-          >
-            로그인
-          </button>
+        {minimal ? (
+          currentUserId !== null && communitySelector
         ) : (
-          (communitySelector ?? (
-            <button
-              aria-label={onSettings ? "설정" : "프로필"}
-              className={cn(headerControl, !onSettings && "p-1.5 [&_.avatar]:border-0")}
-              onClick={onSettings ?? (() => to("/profile"))}
-            >
-              {onSettings ? (
-                <Asset name="settings.svg" />
-              ) : (
-                <Avatar size="md" src={headerProfileImageUrl} />
-              )}
-            </button>
-          ))
+          <>
+            <NotificationBell className={headerControl} onClick={openNotifications} />
+            {showChat && currentUserId !== null && (
+              <ChatShortcut className={headerControl} onClick={() => to("/chat")} />
+            )}
+            {onSearch && (
+              <button className={headerControl} aria-label="검색" onClick={onSearch}>
+                <Asset name="v3-search.svg" />
+              </button>
+            )}
+            {currentUserId === null ? (
+              <button
+                className={cn(buttonVariants({ tone: "primary", size: "compact" }), "mr-2 shrink-0")}
+                onClick={() => to("/login", { state: { returnTo: currentPath } })}
+              >
+                로그인
+              </button>
+            ) : (
+              (communitySelector ?? (
+                <button
+                  aria-label={onSettings ? "설정" : "프로필"}
+                  className={cn(headerControl, !onSettings && "p-1.5 [&_.avatar]:border-0")}
+                  onClick={onSettings ?? (() => to("/profile"))}
+                >
+                  {onSettings ? (
+                    <Asset name="settings.svg" />
+                  ) : (
+                    <Avatar size="md" src={headerProfileImageUrl} />
+                  )}
+                </button>
+              ))
+            )}
+          </>
         )}
       </div>
     </header>

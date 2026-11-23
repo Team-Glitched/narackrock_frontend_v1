@@ -30,7 +30,7 @@ export function PostCommunityPicker({
     <>
       <button
         type="button"
-        className="flex h-11 w-[154px] items-center justify-between gap-[10px] rounded-xl border-0 bg-app-surface px-3 py-[6px] text-left [&>svg]:size-4 [&>svg]:shrink-0 [&>svg]:text-app-fg"
+        className="flex h-10 max-w-[168px] items-center justify-between gap-2 rounded-xl border-0 bg-app-surface px-3 text-left [&>svg]:size-4 [&>svg]:shrink-0 [&>svg]:text-app-fg"
         aria-label={`게시할 커뮤니티 선택${selected ? `: ${selected.name}` : ""}`}
         aria-haspopup="dialog"
         aria-expanded={open}
@@ -39,10 +39,9 @@ export function PostCommunityPicker({
           setOpen(true);
         }}
       >
-        <span className="flex min-w-0 flex-col gap-1 [&>small]:text-caption [&>small]:leading-[18px] [&>small]:font-medium [&>small]:text-app-muted [&>strong]:truncate [&>strong]:text-label [&>strong]:leading-[20px] [&>strong]:font-semibold [&>strong]:text-app-fg">
-          <small>게시할 커뮤니티</small>
-          <strong>{selected?.name ?? "커뮤니티 선택"}</strong>
-        </span>
+        <strong className="min-w-0 truncate text-label leading-5 font-semibold text-app-fg">
+          {selected?.name ?? "커뮤니티 선택"}
+        </strong>
         <ChevronDown aria-hidden="true" size={16} strokeWidth={1.5} />
       </button>
       {open && (

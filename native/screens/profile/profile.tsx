@@ -345,7 +345,7 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   disabled: { opacity: 0.5 },
   identity: { alignItems: "center", gap: 16, paddingHorizontal: gutter, paddingTop: 20 },
-  avatarRing: { borderRadius: 70, borderWidth: 2, borderColor: colors.fg },
+  avatarRing: { borderRadius: 70, overflow: "hidden" },
   nickname: {
     color: colors.fg,
     fontSize: 25,

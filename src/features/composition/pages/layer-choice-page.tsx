@@ -64,7 +64,7 @@ export default function LayerChoicePage() {
   return (
     <DesignViewport>
       <div className={sharedStyles.phoneFrame}>
-        <Header onSearch={search} onBack={() => back(route.studioUrl)} />
+        <Header minimal onSearch={search} onBack={() => back(route.studioUrl)} />
         <div className={sharedStyles.screenBody}>
           {route.projectId === null ? (
             <PageState error>올바르지 않은 페이지 주소입니다.</PageState>

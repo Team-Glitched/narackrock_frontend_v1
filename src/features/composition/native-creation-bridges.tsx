@@ -27,7 +27,7 @@ export type NativeInstrumentPrompt = {
 /** Header of the creation pages and the sample registration audio steps (the web `Header` with back). */
 export const creationHeader: NativeHeader = {
   left: "back",
-  actions: ["notifications", "search", "account"],
+  actions: [],
 };
 
 type Navigation = { onBack: () => void; onSearch: () => void };

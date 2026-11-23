@@ -405,7 +405,7 @@ type FriendsListProps = {
   onSearch: () => void;
 };
 
-const listHeader: NativeHeader = { left: "back", actions: ["notifications", "search", "account"] };
+const listHeader: NativeHeader = { left: "back", actions: ["notifications", "chat", "search", "account"] };
 
 /** In the app /friends/:list (FriendsListScreen) is drawn natively; only that list's data is loaded. */
 export function NativeFriendsListBridge(props: FriendsListProps) {

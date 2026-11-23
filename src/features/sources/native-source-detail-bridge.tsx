@@ -7,7 +7,7 @@ import { SourcePlayerReporter, useNativePlayers } from "./native-source-players"
 import { sourceUsage, type SourceDetailState } from "./source-screens";
 
 /** The web sample page's Header: back, notifications, search, account. */
-const header: NativeHeader = { left: "back", actions: ["notifications", "search", "account"] };
+const header: NativeHeader = { left: "back", actions: ["notifications", "chat", "search", "account"] };
 
 /** The detail's player key. */
 const player = "detail";

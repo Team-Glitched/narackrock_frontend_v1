@@ -11,7 +11,7 @@ import type { CreationMethod } from "./creation-screens";
 import type { NewProjectState } from "./new-project-screen";
 import { errorText } from "./studio-helpers";
 
-const header: NativeHeader = { left: "back", actions: ["notifications", "search", "account"] };
+const header: NativeHeader = { left: "back", actions: [] };
 
 /** A small JPEG of the chosen album (the app cannot load the page's blob: URLs). */
 async function albumThumbnail(file: File) {
