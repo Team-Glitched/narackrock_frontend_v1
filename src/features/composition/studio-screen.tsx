@@ -617,6 +617,15 @@ export function useStudio({
     viewerPermission !== undefined &&
     project?.status !== "COMPLETED" &&
     (viewerPermission.canContribute || viewerPermission.canEdit);
+  const importedSourceIds = useMemo(
+    () =>
+      new Set(
+        tracks
+          .filter((track) => track.originOpenSourceId != null && track.approvalStatus !== "REJECTED")
+          .map((track) => track.originOpenSourceId!),
+      ),
+    [tracks],
+  );
   const trackEditorTarget = (track: TrackDto) =>
     !effectiveReadOnly && viewerPermission && project && (selectMidiLayer || track.clips.length === 0)
       ? layerEditorTarget(viewerPermission, project.status, track)
@@ -736,6 +745,9 @@ export function useStudio({
     if (!composition || effectiveReadOnly || busy) return;
     if (!viewerPermission?.canContribute && !(shortId === null && viewerPermission?.canEdit))
       throw new Error("이 곡에는 샘플을 추가할 수 없습니다.");
+    if (importedSourceIds.has(source.openSourceId)) {
+      throw new Error("이미 이 곡에 추가된 샘플입니다.");
+    }
     setBusy(true);
     setError(null);
     setStatus(null);
@@ -779,6 +791,7 @@ export function useStudio({
     retryContribution: () => void requestList.refetch(),
     primary,
     canImportSource,
+    importedSourceIds,
     onTiming,
     onExit,
     onAddLayer: () => (resumableLayer ? onEditTrack(resumableLayer.trackId, null) : onAddLayer()),
@@ -1149,6 +1162,7 @@ export function StudioScreen({ studio, portrait = true }: { studio: Studio; port
       )}
       {studio.showSources && (
         <StudioSourceDialog
+          importedSourceIds={studio.importedSourceIds}
           onOpenSource={studio.importOpenSource}
           onClose={() => studio.setShowSources(false)}
           onResource={studio.importResource}

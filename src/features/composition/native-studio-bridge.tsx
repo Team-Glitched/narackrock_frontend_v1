@@ -115,6 +115,7 @@ export function NativeStudioBridge({ studio }: { studio: Studio }) {
   const instrument = useNativeInstrumentPicker(studio.instrumentChoice, studio.closeInstrument);
   const sources = useNativeSourcePicker({
     open: studio.showSources,
+    importedSourceIds: studio.importedSourceIds,
     onOpen: () => {
       if (!studio.canImportSource) return;
       playback.pause();

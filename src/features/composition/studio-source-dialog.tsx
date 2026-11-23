@@ -30,6 +30,8 @@ type SourceHandlers = {
   onImportJson?: () => Promise<void>;
   /** True inside the piano roll: shows only MIDI-compatible samples and inserts notes directly. */
   midiOnly?: boolean;
+  /** Open-source IDs already imported as dedicated tracks in this project (blocked from duplicates). */
+  importedSourceIds?: ReadonlySet<number>;
 };
 
 /** Tab, search and the running import of one opening of the sample picker. */
@@ -82,6 +84,7 @@ function savedRows(
   keyword: string,
   busy: string | null,
   midiOnly = false,
+  importedSourceIds?: ReadonlySet<number>,
 ) {
   if (!state) return null;
   const sources = state.items.flatMap((item) =>
@@ -95,20 +98,24 @@ function savedRows(
   return {
     sources,
     rows: sources.map(
-      (source): NativeSourcePickerRow => ({
-        key: `saved:${source.openSourceId}`,
-        title: source.title,
-        subtitle: source.writer.nickname,
-        button:
-          busy === `saved:${source.openSourceId}`
-            ? midiOnly
-              ? "불러오는 중…"
-              : "넣는 중…"
-            : midiOnly
-              ? "노트 가져오기"
-              : "내 레이어에 넣기",
-        disabled: busy !== null,
-      }),
+      (source): NativeSourcePickerRow => {
+        const alreadyAdded = !midiOnly && Boolean(importedSourceIds?.has(source.openSourceId));
+        return {
+          key: `saved:${source.openSourceId}`,
+          title: source.title,
+          subtitle: source.writer.nickname,
+          button: alreadyAdded
+            ? "추가됨"
+            : busy === `saved:${source.openSourceId}`
+              ? midiOnly
+                ? "불러오는 중…"
+                : "추가 중…"
+              : midiOnly
+                ? "노트 가져오기"
+                : "새 트랙에 추가",
+          disabled: busy !== null || alreadyAdded,
+        };
+      },
     ),
     empty:
       !sources.length && state.next === null && !state.error
@@ -179,6 +186,7 @@ export function useNativeSourcePicker({
   onOpen,
   onClose,
   midiOnly = false,
+  importedSourceIds,
   ...handlers
 }: SourceHandlers & { open: boolean; onOpen: () => void; onClose: () => void }): {
   model: NativeSourcePicker | null;
@@ -191,7 +199,7 @@ export function useNativeSourcePicker({
     picker.tab === "upload"
       ? { rows: [], empty: null, failed: false, more: null }
       : picker.showSaved
-        ? savedRows(saved, picker.keyword, picker.busy, midiOnly)
+        ? savedRows(saved, picker.keyword, picker.busy, midiOnly, importedSourceIds)
         : { ...localRows(resources, picker.keyword, picker.busy), failed: false, more: null };
   const tabCopy =
     picker.tab === "saved" && midiOnly
@@ -248,10 +256,16 @@ export function useNativeSourcePicker({
         case "source-pick": {
           if (picker.busy !== null) return;
           if (picker.showSaved) {
-            const source = savedRows(saved, picker.keyword, null, midiOnly)?.sources.find(
-              (item) => `saved:${item.openSourceId}` === action.key,
-            );
-            if (source) void picker.pickSaved(source);
+            const source = savedRows(
+              saved,
+              picker.keyword,
+              null,
+              midiOnly,
+              importedSourceIds,
+            )?.sources.find((item) => `saved:${item.openSourceId}` === action.key);
+            if (source && (midiOnly || !importedSourceIds?.has(source.openSourceId))) {
+              void picker.pickSaved(source);
+            }
           } else {
             const resource = localRows(resources, picker.keyword, null).midi.find(
               (item) => `local:${item.id}` === action.key,
@@ -275,6 +289,7 @@ export function StudioSourceDialog({
   onClose,
   localFileImport,
   midiOnly = false,
+  importedSourceIds,
   ...handlers
 }: SourceHandlers & {
   onClose: () => void;
@@ -348,6 +363,7 @@ export function StudioSourceDialog({
                 keyword={picker.keyword}
                 busy={busy}
                 midiOnly={midiOnly}
+                importedSourceIds={importedSourceIds}
                 onPick={(source) => void picker.pickSaved(source)}
               />
             ) : (
@@ -369,15 +385,17 @@ function SavedSourceRows({
   keyword,
   busy,
   midiOnly,
+  importedSourceIds,
   onPick,
 }: {
   keyword: string;
   busy: string | null;
   midiOnly: boolean;
+  importedSourceIds?: ReadonlySet<number>;
   onPick: (source: OpenSourceSummary) => void;
 }) {
   const saved = useSavedSources(true);
-  const list = savedRows(saved, keyword, busy, midiOnly);
+  const list = savedRows(saved, keyword, busy, midiOnly, importedSourceIds);
   if (!list) return <p role="status">보관한 샘플을 불러오는 중...</p>;
   return (
     <>
