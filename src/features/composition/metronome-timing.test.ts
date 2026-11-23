@@ -14,6 +14,13 @@ test("beatIntervalMs converts BPM and clamps invalid or extreme values", () => {
   assert.equal(beatIntervalMs(900), 60_000 / 300);
 });
 
+test("beatIntervalMs spaces beats by the signature's denominator like the studio metronome", () => {
+  assert.equal(beatIntervalMs(120, "4/4"), 500);
+  assert.equal(beatIntervalMs(120, "6/8"), 250);
+  assert.equal(beatIntervalMs(120, "2/2"), 1000);
+  assert.equal(beatIntervalMs(120, "invalid"), 500);
+});
+
 test("beatsPerBarFromSignature parses valid time signatures and falls back to 4", () => {
   assert.equal(beatsPerBarFromSignature("4/4"), 4);
   assert.equal(beatsPerBarFromSignature("3/4"), 3);

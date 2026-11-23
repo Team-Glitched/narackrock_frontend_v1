@@ -313,7 +313,10 @@ export function parseRequest(data: string): BridgeRequest | null {
         type: parsed.type,
         notes: parsed.notes as MidiNoteDto[],
         bpm: parsed.bpm,
-        instrumentId: typeof parsed.instrumentId === "string" ? parsed.instrumentId : undefined,
+        instrumentId:
+          "instrumentId" in parsed && typeof parsed.instrumentId === "string"
+            ? parsed.instrumentId
+            : undefined,
       };
     case "audio-record":
       if (!("op" in parsed) || !recordOps.includes(parsed.op)) return null;

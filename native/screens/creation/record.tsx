@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Animated, StyleSheet, Text, View } from "react-native";
+import { Animated, AppState, StyleSheet, Text, View } from "react-native";
 import Svg, { Circle, Defs, LinearGradient, Path, Rect, Stop } from "react-native-svg";
 
 import {
@@ -40,18 +40,32 @@ function meterLevel(peak: number): number {
 
 /** The web's CompositionRecordScreen; the app records and draws the live meter. */
 export function CreationRecordScreen({ model, header }: ScreenProps<"creation-record">) {
-  const { act, bottomInset } = useScreen();
+  const { act, bottomInset, active } = useScreen();
   const [metronomeOn, setMetronomeOn] = useState(false);
   const [activeBeat, setActiveBeat] = useState<number | null>(null);
+  const [appActive, setAppActive] = useState(AppState.currentState === "active");
   const bpm = model.bpm ?? 120;
   const timeSignature = model.timeSignature ?? "4/4";
   const beatsPerBar = beatsPerBarFromSignature(timeSignature);
 
   useEffect(() => {
-    if (!metronomeOn || model.previewing) return;
+    const subscription = AppState.addEventListener("change", (state) =>
+      setAppActive(state === "active"),
+    );
+    return () => subscription.remove();
+  }, []);
+
+  // The screen stack keeps this screen mounted after leaving it; turn the click off as the web
+  // page does when it unmounts, so it never sounds behind another screen.
+  useEffect(() => {
+    if (!active) setMetronomeOn(false);
+  }, [active]);
+
+  useEffect(() => {
+    if (!metronomeOn || model.previewing || !active || !appActive) return;
     let cancelled = false;
     let beat = 0;
-    const intervalMs = beatIntervalMs(bpm);
+    const intervalMs = beatIntervalMs(bpm, timeSignature);
     const playBeat = () => {
       if (cancelled) return;
       const current = beat % beatsPerBar;
@@ -82,7 +96,7 @@ export function CreationRecordScreen({ model, header }: ScreenProps<"creation-re
       clearInterval(timer);
       setActiveBeat(null);
     };
-  }, [metronomeOn, model.previewing, bpm, beatsPerBar]);
+  }, [metronomeOn, model.previewing, active, appActive, bpm, timeSignature, beatsPerBar]);
 
   return (
     <>

@@ -43,7 +43,7 @@ export function useMetronome({
 }): { activeBeat: number | null; isAccent: boolean } {
   const [beat, setBeat] = useState<number | null>(null);
   const beatsPerBar = beatsPerBarFromSignature(timeSignature);
-  const intervalSeconds = beatIntervalMs(bpm) / 1000;
+  const intervalSeconds = beatIntervalMs(bpm, timeSignature) / 1000;
 
   useEffect(() => {
     if (!enabled) return;
