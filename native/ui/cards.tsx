@@ -6,6 +6,7 @@ import CommentIcon from "../../public/figma/post-comment.svg";
 import DislikeIcon from "../../public/figma/v3-post-dislike-off.svg";
 import LikeIcon from "../../public/figma/v3-post-like-off.svg";
 import defaultCover from "../../src/features/abyss/assets/shortform-default-cover.png";
+import defaultPostCover from "../../src/features/posts/assets/post-default-cover.png";
 import type { NativeList, NativePost, NativeSong } from "../../src/lib/native-screens";
 import { Avatar, MoreButton, Status, Touchable } from "./kit";
 import { useScreen } from "./screen-context";
@@ -269,7 +270,7 @@ export function PostRow({
   tall?: boolean;
 }) {
   const { uri, openMenu } = useScreen();
-  const image = uri(post.imageUrl);
+  const image = uri(post.imageUrl?.trim() || null);
   const thumb = tall ? 96 : 72;
   return (
     <View style={styles.postRow}>
@@ -280,11 +281,15 @@ export function PostRow({
         onPress={onOpen}
       >
         <View style={[styles.postThumb, { width: thumb, height: thumb }]}>
-          {image && <Image source={{ uri: image }} style={StyleSheet.absoluteFill} />}
+          <Image
+            source={image ? { uri: image } : defaultPostCover}
+            style={StyleSheet.absoluteFill}
+            accessibilityLabel={image ? "게시글 첨부 이미지" : "게시글 기본 이미지"}
+          />
         </View>
         <View style={styles.postCopy}>
-          <Text style={styles.postExcerpt} numberOfLines={2}>
-            {post.excerpt}
+          <Text style={styles.postTitle} numberOfLines={2}>
+            {post.title}
           </Text>
           <View style={styles.postAuthor}>
             <Avatar uri={uri(post.writer.profileImageUrl)} size={16} />
@@ -350,7 +355,7 @@ const styles = StyleSheet.create({
   postRow: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: gutter },
   postThumb: { borderRadius: 8, overflow: "hidden", backgroundColor: colors.surface },
   postCopy: { flex: 1, gap: 6 },
-  postExcerpt: { color: colors.fg, fontSize: 15, lineHeight: 20, fontWeight: "600" },
+  postTitle: { color: colors.fg, fontSize: 15, lineHeight: 20, fontWeight: "600" },
   postAuthor: { flexDirection: "row", alignItems: "center", gap: 6 },
   postStats: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8, paddingRight: 4 },
   postTime: { flexShrink: 1 },
