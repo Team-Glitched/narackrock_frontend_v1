@@ -23,6 +23,7 @@ import {
   SOURCE_TITLE_MAX_LENGTH,
   clampCodePoints,
   codePointLength,
+  sanitizeSingleLine,
 } from "../../../src/lib/content-limits";
 
 const tabs: { value: NativeSources["tab"]; label: string }[] = [
@@ -312,7 +313,7 @@ function PublicationEditor({
             }}
           />
           <Text style={type.caption}>
-            {codePointLength(title.trim())}/{SOURCE_TITLE_MAX_LENGTH}자 · 필수
+            {codePointLength(sanitizeSingleLine(title))}/{SOURCE_TITLE_MAX_LENGTH}자 · 필수
           </Text>
         </View>
         <View style={styles.field}>

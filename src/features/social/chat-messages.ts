@@ -1,12 +1,18 @@
 import type { ChatMessage } from "../../lib/api/social.ts";
-import { CHAT_MESSAGE_MAX_LENGTH } from "../../lib/content-limits.ts";
+import {
+  CHAT_MESSAGE_MAX_LENGTH,
+  codePointLength,
+  hasVisibleText,
+  sanitizeMultiline,
+} from "../../lib/content-limits.ts";
 
 export { CHAT_MESSAGE_MAX_LENGTH };
 
-/** Java String.length and HTML maxlength both count UTF-16 code units. */
+/** Normalizes line breaks, strips invisible characters, and checks the 2000-character limit. */
 export function chatMessageContent(draft: string): string | null {
-  const content = draft.trim();
-  return content.length > 0 && content.length <= CHAT_MESSAGE_MAX_LENGTH ? content : null;
+  const content = sanitizeMultiline(draft);
+  if (!content || !hasVisibleText(content)) return null;
+  return codePointLength(content) <= CHAT_MESSAGE_MAX_LENGTH ? content : null;
 }
 /**
  * Merges REST pages, send responses and STOMP deliveries for one conversation. The same message arrives through

@@ -299,7 +299,9 @@ function Conversation({ me, friend }: { me: number; friend: UserProfile }) {
             value={draft}
             maxLength={CHAT_MESSAGE_MAX_LENGTH}
             disabled={!canSend}
-            onChange={(event) => setDraft(event.target.value)}
+            onChange={(event) =>
+              setDraft(clampCodePoints(event.target.value, CHAT_MESSAGE_MAX_LENGTH))
+            }
             onKeyDown={async (event) => {
               if (!shouldSubmitOnEnter(event.nativeEvent, usesTouchKeyboard())) return;
               event.preventDefault();

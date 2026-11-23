@@ -8,6 +8,9 @@ import {
   SEARCH_QUERY_MAX_LENGTH,
   clampCodePoints,
   codePointLength,
+  hasVisibleText,
+  sanitizeMultiline,
+  sanitizeSingleLine,
 } from "@/lib/content-limits";
 import { communityStyles } from "@/styles/community.styles";
 import { workspaceStyles } from "@/styles/workspace.styles";
@@ -224,7 +227,10 @@ function ProposalCard({
       />
       {error && <p role="alert">{error}</p>}
       <div className={workspaceStyles.workspaceActions}>
-        <button disabled={busy || !reason.trim()} onClick={() => onReview(reason.trim())}>
+        <button
+          disabled={busy || !hasVisibleText(reason)}
+          onClick={() => onReview(sanitizeSingleLine(reason))}
+        >
           반려
         </button>
         <button
@@ -325,14 +331,20 @@ function ReportCard({
       />
       {error && <p role="alert">{error}</p>}
       <div className={workspaceStyles.workspaceActions}>
-        <button disabled={busy || !reason.trim()} onClick={() => onHandle(null, reason.trim())}>
+        <button
+          disabled={busy || !hasVisibleText(reason)}
+          onClick={() => onHandle(null, sanitizeSingleLine(reason))}
+        >
           신고 반려
         </button>
         <button
           className={workspaceStyles.workspacePrimary}
-          disabled={busy || !reason.trim() || (action === "BAN_USER" && !validDays)}
+          disabled={busy || !hasVisibleText(reason) || (action === "BAN_USER" && !validDays)}
           onClick={() =>
-            onHandle({ action, banDays: action === "BAN_USER" ? banDays : null }, reason.trim())
+            onHandle(
+              { action, banDays: action === "BAN_USER" ? banDays : null },
+              sanitizeSingleLine(reason),
+            )
           }
         >
           처리
@@ -530,7 +542,7 @@ export function useCommunityModeration(community: Community) {
     save: (description: string) => {
       if (saveDescription.isPending) return;
       setNotice("");
-      saveDescription.mutate(description.trim(), {
+      saveDescription.mutate(sanitizeMultiline(description), {
         onSuccess: () => setNotice("커뮤니티 설명을 저장했습니다."),
         onError: (cause) => setNotice(adminError(cause, "설명을 저장하지 못했습니다.")),
       });
@@ -597,7 +609,7 @@ export function useGalleryManagers(community: Community) {
     isManager: (targetId: number) => items.some((manager) => manager.userId === targetId),
     runSearch: (keyword: string) => {
       const run = ++searchRun.current;
-      const trimmed = keyword.trim();
+      const trimmed = sanitizeSingleLine(keyword);
       searchMeta.current = { keyword: trimmed, page: 0, totalCount: 0, loadingMore: false };
       if (!trimmed) return setSearch(IDLE_MANAGER_SEARCH);
       setSearch({ status: "loading", items: [], hasMore: false, loadingMore: false });

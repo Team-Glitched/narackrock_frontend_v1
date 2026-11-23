@@ -9,6 +9,8 @@ import {
   MODERATION_REASON_MAX_LENGTH,
   clampCodePoints,
   codePointLength,
+  hasVisibleText,
+  sanitizeSingleLine,
 } from "@/lib/content-limits";
 export function MemberActionDialog({
   member,
@@ -28,15 +30,16 @@ export function MemberActionDialog({
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   async function confirm() {
-    if (busy || !reason.trim()) return;
+    const cleanReason = sanitizeSingleLine(reason);
+    if (busy || !cleanReason || !hasVisibleText(cleanReason)) return;
     setBusy(true);
     setError("");
     try {
       if (action === "suspend" && !validDays)
         throw new Error("이용정지 기간은 1일부터 365일까지 입력해주세요.");
-      if (codePointLength(reason.trim()) > MODERATION_REASON_MAX_LENGTH)
+      if (codePointLength(cleanReason) > MODERATION_REASON_MAX_LENGTH)
         throw new Error(`사유는 ${MODERATION_REASON_MAX_LENGTH}자 이내로 입력해주세요.`);
-      await onConfirm(reason.trim(), Number(days));
+      await onConfirm(cleanReason, Number(days));
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "처리하지 못했습니다.");
     } finally {
@@ -70,7 +73,8 @@ export function MemberActionDialog({
               id: "confirm",
               label: "확인",
               destructive: true,
-              disabled: busy || !reason.trim() || (action === "suspend" && !validDays),
+              disabled:
+                busy || !hasVisibleText(reason) || (action === "suspend" && !validDays),
             },
           ],
         }}
@@ -100,7 +104,7 @@ export function MemberActionDialog({
               tone: "primary",
             })}
             type="submit"
-            disabled={busy || !reason.trim() || (action === "suspend" && !validDays)}
+            disabled={busy || !hasVisibleText(reason) || (action === "suspend" && !validDays)}
           >
             확인
           </button>

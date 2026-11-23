@@ -17,6 +17,12 @@ import type {
   NativeChatThread,
 } from "../../../src/lib/native-screens";
 import { HeaderButton } from "../../ui/header";
+import {
+  clampCodePoints,
+  codePointLength,
+  hasVisibleText,
+  sanitizeMultiline,
+} from "../../../src/lib/content-limits";
 import { Avatar, Button, Touchable } from "../../ui/kit";
 import { KeyboardAvoiding } from "../../ui/keyboard-avoiding";
 import { useScreen } from "../../ui/screen-context";
@@ -233,10 +239,10 @@ function Composer({ composer }: { composer: NativeChatThread["composer"] }) {
   const { act } = useScreen();
   const [draft, setDraft] = useState("");
   useOnChange(composer.sent, () => setDraft(""));
-  const content = draft.trim();
+  const content = sanitizeMultiline(draft);
   const sendDisabled =
-    content.length === 0 ||
-    content.length > composer.maxLength ||
+    !hasVisibleText(content) ||
+    codePointLength(content) > composer.maxLength ||
     composer.busy ||
     !composer.enabled;
   return (
@@ -255,8 +261,7 @@ function Composer({ composer }: { composer: NativeChatThread["composer"] }) {
           placeholderTextColor="#9692a6"
           selectionColor={colors.accent}
           value={draft}
-          onChangeText={setDraft}
-          maxLength={composer.maxLength}
+          onChangeText={(value) => setDraft(clampCodePoints(value, composer.maxLength))}
           editable={composer.enabled}
           style={[styles.input, !composer.enabled && styles.inputDisabled]}
         />
@@ -266,7 +271,7 @@ function Composer({ composer }: { composer: NativeChatThread["composer"] }) {
           accessibilityState={{ disabled: sendDisabled, busy: composer.busy }}
           disabled={sendDisabled}
           style={styles.send}
-          onPress={() => act({ type: "chat-send", text: draft })}
+          onPress={() => act({ type: "chat-send", text: content })}
         >
           <SendIcon width={22} height={22} />
         </Touchable>

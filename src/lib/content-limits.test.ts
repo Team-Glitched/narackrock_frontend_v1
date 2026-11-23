@@ -23,6 +23,10 @@ import {
   SOURCE_TITLE_MAX_LENGTH,
   clampCodePoints,
   codePointLength,
+  hasVisibleText,
+  sanitizeMultiline,
+  sanitizeSingleLine,
+  stripInvisibleChars,
 } from "./content-limits.ts";
 
 const repoRoot = path.resolve(fileURLToPath(new URL("../..", import.meta.url)));
@@ -30,7 +34,7 @@ const repoRoot = path.resolve(fileURLToPath(new URL("../..", import.meta.url)));
 test("all 17 content limit constants match backend ContentLimits validation", () => {
   assert.equal(NICKNAME_MAX_LENGTH, 20);
   assert.equal(PROFILE_BIO_MAX_LENGTH, 200);
-  assert.equal(INSTRUMENT_MAX_LENGTH, 50);
+  assert.equal(INSTRUMENT_MAX_LENGTH, 250);
   assert.equal(COMMUNITY_NAME_MIN_LENGTH, 2);
   assert.equal(COMMUNITY_NAME_MAX_LENGTH, 20);
   assert.equal(COMMUNITY_DESCRIPTION_MAX_LENGTH, 500);
@@ -106,4 +110,32 @@ test("profile, community, post, and metadata screens do not retain stale hardcod
       );
     }
   }
+});
+
+test("invisible character sanitizers strip fillers, bidi, and control chars while keeping Hangul, ZWJ emojis, and newlines", () => {
+  assert.equal(sanitizeSingleLine("\u3164\u115F\u1160\uFFA0\u2800"), "");
+  assert.equal(sanitizeSingleLine("\u200B\u200C\u200E\u200F\u2060\uFEFF\u00AD"), "");
+  assert.equal(sanitizeSingleLine("\u202A\u202E\u2066\u2069\u0000\u0007\u007F\u0085"), "");
+  assert.equal(sanitizeSingleLine("\u00A0\u3000"), "");
+  assert.equal(sanitizeSingleLine("\u200D\uFE0F"), "");
+
+  assert.equal(hasVisibleText("\u3164\u2800\u200B"), false);
+  assert.equal(hasVisibleText("   \n\t "), false);
+  assert.equal(hasVisibleText("가"), true);
+
+  assert.equal(sanitizeSingleLine("안\u3164녕\u00A0하\n세요\u200B"), "안녕 하 세요");
+  assert.equal(sanitizeMultiline("\u200B첫\u3000줄\r\n둘\u3164째\u202E줄\n\u2800"), "첫 줄\n둘째줄");
+
+  const family = "\u{1F468}\u200D\u{1F469}\u200D\u{1F467}\u200D\u{1F466}";
+  const rainbowFlag = "\u{1F3F3}\uFE0F\u200D\u{1F308}";
+  const heartOnFire = "\u2764\uFE0F\u200D\u{1F525}";
+  const validText = `안녕하세요 ${family} ${rainbowFlag} ${heartOnFire}`;
+  assert.equal(sanitizeSingleLine(validText), validText);
+
+  assert.equal(clampCodePoints("가\u3164나\u200B다", 10), "가나다");
+
+  // Large 100k-character paste does not trigger RangeError from spread call stack overflow
+  const huge = `${"가\u200B".repeat(50_000)}`;
+  const stripped = stripInvisibleChars(huge);
+  assert.equal(codePointLength(stripped), 50_000);
 });

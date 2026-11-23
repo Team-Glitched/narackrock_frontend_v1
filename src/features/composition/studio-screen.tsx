@@ -15,6 +15,8 @@ import {
   SONG_TITLE_MAX_LENGTH,
   clampCodePoints,
   codePointLength,
+  hasVisibleText,
+  sanitizeSingleLine,
 } from "@/lib/content-limits";
 import { useEffect, useMemo, useRef, useState, type PointerEvent } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -330,7 +332,8 @@ export function useStudio({
   }
 
   async function submitDrafts(comment: string) {
-    if (!composition || busy || !comment.trim()) return;
+    const cleanComment = sanitizeSingleLine(comment);
+    if (!composition || busy || !cleanComment || !hasVisibleText(cleanComment)) return;
     setBusy(true);
     setError(null);
     setStatus(null);
@@ -345,7 +348,7 @@ export function useStudio({
         id,
         drafts,
         composition.project.version,
-        comment.trim(),
+        cleanComment,
       );
       clearCommittedRecovery(browserDraftStorage(), drafts);
       // Drafts, tracks and contribution lists of this account all changed with the submission.
@@ -478,16 +481,17 @@ export function useStudio({
   }
 
   async function finishMetadata(title: string) {
-    if (!composition || !metadataAction || !title.trim() || busy) return;
+    const cleanTitle = sanitizeSingleLine(title);
+    if (!composition || !metadataAction || !cleanTitle || !hasVisibleText(cleanTitle) || busy) return;
     if (metadataAction === "save") {
-      await savePrivateDraft(title.trim());
+      await savePrivateDraft(cleanTitle);
       return;
     }
     setBusy(true);
     setError(null);
     try {
       const imageId = publishImage ? await uploadMedia(publishImage, "IMAGE") : null;
-      await updateProjectMetadata(composition.project.projectId, title.trim(), imageId);
+      await updateProjectMetadata(composition.project.projectId, cleanTitle, imageId);
       await refresh();
       setMetadataAction(null);
       setShowPublishConfirmation(true);
@@ -969,7 +973,7 @@ export function StudioScreen({ studio, portrait = true }: { studio: Studio; port
             >
               취소
             </button>
-            <button type="submit" disabled={busy || !submitComment.trim()}>
+            <button type="submit" disabled={busy || !hasVisibleText(submitComment)}>
               {busy ? "제출 중..." : "제출하기"}
             </button>
           </div>

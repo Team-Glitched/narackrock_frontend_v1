@@ -28,6 +28,7 @@ import {
   MODERATION_REASON_MAX_LENGTH,
   clampCodePoints,
   codePointLength,
+  hasVisibleText,
 } from "../../src/lib/content-limits";
 
 import HideIcon from "../../public/figma/post-hide.svg";
@@ -357,7 +358,7 @@ function CommentCard({
             <TextButton
               label="저장"
               small
-              disabled={comment.busy || !draft.trim()}
+              disabled={comment.busy || !hasVisibleText(draft)}
               onPress={() => act({ type: "comment-edit", id: comment.id, text: draft })}
             />
           </View>
@@ -417,7 +418,7 @@ function CommentCard({
             <TextButton
               label="삭제 확인"
               small
-              disabled={comment.busy || !reason.trim()}
+              disabled={comment.busy || !hasVisibleText(reason)}
               onPress={() => act({ type: "comment-moderate", id: comment.id, reason })}
             />
           </View>
@@ -462,6 +463,7 @@ function CommentCard({
           onPress={() => act({ type: "comment-vote", id: comment.id, vote: "dislike" })}
         >
           <DislikeIcon width={14} height={14} />
+          <Text style={styles.actionText}>{comment.dislikes}</Text>
         </Touchable>
         {reply && (
           <Touchable
@@ -496,7 +498,9 @@ function Composer({
   useOnChange(composer.focus, () => input.current?.focus());
   const signedIn = composer.signedOut === null;
   const sendDisabled =
-    composer.busy || composer.hiding || (signedIn && (!composer.writable || !draft.trim()));
+    composer.busy ||
+    composer.hiding ||
+    (signedIn && (!composer.writable || !hasVisibleText(draft)));
   return (
     <View style={styles.composer}>
       {composer.replyTo !== null && (

@@ -9,7 +9,11 @@ import { ApiError } from "@/lib/api/client";
 import { profileQuery } from "@/features/profile/profile-queries";
 import type { ContributionDto } from "@/lib/api/composition";
 import { badgeVariants, buttonVariants } from "@/styles/variants";
-import { MODERATION_REASON_MAX_LENGTH, clampCodePoints } from "@/lib/content-limits";
+import {
+  MODERATION_REASON_MAX_LENGTH,
+  clampCodePoints,
+  sanitizeSingleLine,
+} from "@/lib/content-limits";
 import {
   ContributionRequestCard,
   ContributionReviewActions,
@@ -282,7 +286,7 @@ export function useSubmissionDetail(id: number, projectId: number | null) {
         projectId,
         contributionId: id,
         status,
-        comment: status === "REJECTED" ? reason.trim() || null : null,
+        comment: status === "REJECTED" ? sanitizeSingleLine(reason) || null : null,
       },
       {
         onSuccess: (result) =>

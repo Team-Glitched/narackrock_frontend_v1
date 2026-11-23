@@ -17,7 +17,13 @@ import { useCurrentUserId } from "@/features/auth/use-current-user";
 import { useLoginPrompt } from "@/features/auth/login-prompt";
 import { readId } from "@/features/navigation/paths";
 import { apiOrigin } from "@/lib/api/client";
-import { COMMENT_MAX_LENGTH, codePointLength } from "@/lib/content-limits";
+import {
+  COMMENT_MAX_LENGTH,
+  codePointLength,
+  hasVisibleText,
+  sanitizeMultiline,
+  sanitizeSingleLine,
+} from "@/lib/content-limits";
 import { useHiddenIds } from "@/lib/browser/hidden-ids";
 import type { CommentAdapter, CommentItem } from "./comment-model";
 import {
@@ -212,6 +218,17 @@ function useCommentWrites(
       update(item.id, () => ({ reacting: true, error: null }));
       try {
         const result = await react(item.id, kind);
+        if (
+          !result ||
+          typeof result.isLiked !== "boolean" ||
+          typeof result.isDisliked !== "boolean" ||
+          typeof result.likeCount !== "number" ||
+          !Number.isFinite(result.likeCount) ||
+          typeof result.dislikeCount !== "number" ||
+          !Number.isFinite(result.dislikeCount)
+        ) {
+          throw new Error("반응 응답 형식이 올바르지 않습니다.");
+        }
         updateCachedReaction(queryClient, userId, adapter, item.id, result);
         update(item.id, () => ({ reacting: false }));
       } catch (cause) {
@@ -225,9 +242,10 @@ function useCommentWrites(
     },
     /** Resolves true once saved. */
     edit(item: CommentItem, text: string) {
-      if (!can(item).edit || !text.trim()) return Promise.resolve(false);
-      const trimmed = text.trim();
-      if (codePointLength(trimmed) > COMMENT_MAX_LENGTH) {
+      if (!can(item).edit) return Promise.resolve(false);
+      const sanitized = sanitizeMultiline(text);
+      if (!sanitized || !hasVisibleText(sanitized)) return Promise.resolve(false);
+      if (codePointLength(sanitized) > COMMENT_MAX_LENGTH) {
         update(item.id, () => ({
           busy: false,
           error: `댓글은 ${COMMENT_MAX_LENGTH}자 이내로 입력해 주세요.`,
@@ -236,7 +254,7 @@ function useCommentWrites(
       }
       return change(
         item.id,
-        () => adapter.update?.(item.id, trimmed),
+        () => adapter.update?.(item.id, sanitized),
         "댓글을 변경하지 못했습니다.",
       );
     },
@@ -246,9 +264,10 @@ function useCommentWrites(
     },
     moderate(item: CommentItem, reason: string) {
       const moderate = adapter.moderate;
-      if (!moderate || !can(item).moderate || !reason.trim()) return Promise.resolve(false);
-      const trimmed = reason.trim();
-      return change(item.id, () => moderate(item.id, trimmed), "댓글을 삭제하지 못했습니다.");
+      if (!moderate || !can(item).moderate) return Promise.resolve(false);
+      const sanitized = sanitizeSingleLine(reason);
+      if (!sanitized || !hasVisibleText(sanitized)) return Promise.resolve(false);
+      return change(item.id, () => moderate(item.id, sanitized), "댓글을 삭제하지 못했습니다.");
     },
   };
 }
@@ -466,14 +485,15 @@ export function useComments({
     writes,
     /** Sends `text` as a comment, or as a reply to the current target. */
     send(text: string) {
-      if (!requireLogin() || busy || hideOnServer.isPending || !writable || !text.trim()) return;
-      const trimmed = text.trim();
-      if (codePointLength(trimmed) > COMMENT_MAX_LENGTH) {
+      if (!requireLogin() || busy || hideOnServer.isPending || !writable) return;
+      const sanitized = sanitizeMultiline(text);
+      if (!sanitized || !hasVisibleText(sanitized)) return;
+      if (codePointLength(sanitized) > COMMENT_MAX_LENGTH) {
         setValidationError(`댓글은 ${COMMENT_MAX_LENGTH}자 이내로 입력해 주세요.`);
         return;
       }
       setValidationError(null);
-      create.mutate({ text: trimmed, parentId: reply?.threadId ?? null });
+      create.mutate({ text: sanitized, parentId: reply?.threadId ?? null });
     },
     /** Opens or collapses replies; clears the reply target only if collapsing the active thread. */
     toggleReplies(item: CommentItem, open: boolean) {

@@ -12,6 +12,9 @@ import {
   SOURCE_TITLE_MAX_LENGTH,
   clampCodePoints,
   codePointLength,
+  hasVisibleText,
+  sanitizeMultiline,
+  sanitizeSingleLine,
 } from "@/lib/content-limits";
 import type { PostTargetStatus } from "@/features/community/post-target";
 import { SourcePianoEditor } from "@/features/composition/source-piano-editor";
@@ -391,12 +394,15 @@ export function useSocialCreate({
     [image],
   );
   async function submit() {
+    const cleanTitle = sanitizeSingleLine(title);
+    const cleanContent = sanitizeMultiline(content);
     if (
       busy ||
       draftExpired ||
-      !title.trim() ||
+      !cleanTitle ||
+      !hasVisibleText(cleanTitle) ||
       imageRestoreFailed ||
-      (kind !== "source" && !content.trim()) ||
+      (kind !== "source" && (!cleanContent || !hasVisibleText(cleanContent))) ||
       (kind === "post" && postTargetStatus !== "ready")
     )
       return;
@@ -405,14 +411,14 @@ export function useSocialCreate({
     try {
       if (kind === "post") {
         if (
-          codePointLength(title.trim()) > POST_TITLE_MAX_LENGTH ||
-          codePointLength(content.trim()) > POST_CONTENT_MAX_LENGTH
+          codePointLength(cleanTitle) > POST_TITLE_MAX_LENGTH ||
+          codePointLength(cleanContent) > POST_CONTENT_MAX_LENGTH
         )
           throw new Error(
             `제목은 ${POST_TITLE_MAX_LENGTH}자, 본문은 ${POST_CONTENT_MAX_LENGTH}자 이내로 입력해주세요.`,
           );
         const imageId = image ? await uploadMedia(image.file, "IMAGE") : null;
-        await createPost(galleryId, title.trim(), content.trim(), imageId);
+        await createPost(galleryId, cleanTitle, cleanContent, imageId);
         setDiscarding(true);
         clearCreationDraft(draftKey);
         onCreated();
@@ -421,8 +427,8 @@ export function useSocialCreate({
         if (userId === null) throw new Error("로그인 후 샘플을 등록할 수 있습니다.");
         if (!audio && !sourceAudioLocked) throw new Error("오디오를 먼저 선택해주세요.");
         if (
-          codePointLength(title.trim()) > SOURCE_TITLE_MAX_LENGTH ||
-          codePointLength(content) > SOURCE_DESCRIPTION_MAX_LENGTH
+          codePointLength(cleanTitle) > SOURCE_TITLE_MAX_LENGTH ||
+          codePointLength(cleanContent) > SOURCE_DESCRIPTION_MAX_LENGTH
         )
           throw new Error(
             `샘플 이름은 ${SOURCE_TITLE_MAX_LENGTH}자, 설명은 ${SOURCE_DESCRIPTION_MAX_LENGTH}자 이내로 입력해주세요.`,
@@ -435,8 +441,8 @@ export function useSocialCreate({
               instrument: sourceInstrument,
               userId,
               draftKey,
-              title: title.trim(),
-              description: content.trim() || null,
+              title: cleanTitle,
+              description: cleanContent || null,
               audio,
               expectedPendingAudioId: pendingAudioId,
               image: thumbnail,
@@ -457,8 +463,8 @@ export function useSocialCreate({
       } else if (kind === "community") {
         if (getCurrentUserId() === null)
           throw new Error("로그인 후 커뮤니티 개설을 신청할 수 있습니다.");
-        const trimmedName = title.trim();
-        const trimmedDesc = content.trim();
+        const trimmedName = cleanTitle;
+        const trimmedDesc = cleanContent;
         if (
           codePointLength(trimmedName) < COMMUNITY_NAME_MIN_LENGTH ||
           codePointLength(trimmedName) > COMMUNITY_NAME_MAX_LENGTH
@@ -566,8 +572,8 @@ export function useSocialCreate({
       busy ||
       imageRestoreFailed ||
       (kind === "post" && postTargetStatus !== "ready") ||
-      !title.trim() ||
-      (kind !== "source" && !content.trim()) ||
+      !hasVisibleText(title) ||
+      (kind !== "source" && !hasVisibleText(content)) ||
       (kind === "source" && !audio && !sourceAudioLocked)
     ),
     submitLabel: busy

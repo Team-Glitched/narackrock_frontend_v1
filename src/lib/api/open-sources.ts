@@ -1,3 +1,4 @@
+import { sanitizeSingleLine } from "../content-limits.ts";
 import { apiRequest } from "./client.ts";
 import type { ApiResponse, ContentViewResponse } from "./contracts.ts";
 
@@ -113,7 +114,10 @@ export function listOpenSources(
   options: { keyword?: string; page?: number; size?: number },
   signal?: AbortSignal,
 ): Promise<OpenSourcePage<OpenSourceSummary>> {
-  return data(`/api/v1/sources${query({ keyword: options.keyword?.trim(), page: options.page ?? 0, size: options.size ?? 20 })}`, { signal });
+  return data(
+    `/api/v1/sources${query({ keyword: options.keyword ? sanitizeSingleLine(options.keyword) : undefined, page: options.page ?? 0, size: options.size ?? 20 })}`,
+    { signal },
+  );
 }
 
 export function getOpenSource(id: number, signal?: AbortSignal): Promise<OpenSourceDetail> {

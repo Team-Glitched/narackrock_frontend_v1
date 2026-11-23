@@ -9,6 +9,7 @@ import {
   MODERATION_REASON_MAX_LENGTH,
   clampCodePoints,
   codePointLength,
+  hasVisibleText,
 } from "@/lib/content-limits";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Asset } from "@/components/asset";
@@ -211,7 +212,9 @@ export function CommentsView({
             type="submit"
             aria-label="댓글 보내기"
             disabled={
-              busy || comments.hiding || (currentUserId !== null && (!writable || !draft.trim()))
+              busy ||
+              comments.hiding ||
+              (currentUserId !== null && (!writable || !hasVisibleText(draft)))
             }
           >
             <Asset name="comment-send.svg" />
@@ -433,7 +436,7 @@ function CommentCard({
           <button type="button" onClick={() => setEditing(false)}>
             취소
           </button>
-          <button disabled={busy || !draft.trim()}>저장</button>
+          <button disabled={busy || !hasVisibleText(draft)}>저장</button>
         </form>
       ) : (
         <>
@@ -477,7 +480,7 @@ function CommentCard({
           />
           <button onClick={() => setModerating(false)}>취소</button>
           <button
-            disabled={busy || !moderationReason.trim()}
+            disabled={busy || !hasVisibleText(moderationReason)}
             onClick={() => {
               if (!busy) void writes.moderate(item, moderationReason).then(done);
             }}
@@ -518,6 +521,7 @@ function CommentCard({
           <Asset
             name={item.isDisliked ? "v3-comment-dislike-on.svg" : "v3-comment-dislike-off.svg"}
           />
+          <span className="tabular-nums">{item.dislikes}</span>
         </button>
         {replyCount !== undefined && (
           <button

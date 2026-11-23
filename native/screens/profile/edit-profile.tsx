@@ -13,6 +13,8 @@ import {
   PROFILE_BIO_MAX_LENGTH,
   clampCodePoints,
   codePointLength,
+  sanitizeMultiline,
+  sanitizeSingleLine,
 } from "../../../src/lib/content-limits";
 import { AppHeader } from "../../ui/header";
 import { Avatar, Touchable } from "../../ui/kit";
@@ -209,7 +211,14 @@ function Form({
           accessibilityState={{ disabled: saving, busy: saving }}
           disabled={saving}
           style={[styles.save, saving && styles.saveDisabled]}
-          onPress={() => act({ type: "save", nickname, instrument, explanation })}
+          onPress={() =>
+            act({
+              type: "save",
+              nickname: sanitizeSingleLine(nickname),
+              instrument: sanitizeSingleLine(instrument),
+              explanation: sanitizeMultiline(explanation),
+            })
+          }
         >
           <Text style={styles.saveText}>{saving ? "저장 중..." : model.submitLabel}</Text>
         </Touchable>

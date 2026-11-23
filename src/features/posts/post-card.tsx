@@ -26,6 +26,9 @@ import {
   POST_TITLE_MAX_LENGTH,
   clampCodePoints,
   codePointLength,
+  hasVisibleText,
+  sanitizeMultiline,
+  sanitizeSingleLine,
 } from "@/lib/content-limits";
 
 type CommunityPostProps = {
@@ -151,38 +154,39 @@ export function useCommunityPostCard({
   }
 
   function saveEdit(edit: { title: string; content: string }) {
-    if (!edit.title.trim() || !edit.content.trim()) {
+    const cleanTitle = sanitizeSingleLine(edit.title);
+    const cleanContent = sanitizeMultiline(edit.content);
+    if (!cleanTitle || !hasVisibleText(cleanTitle) || !cleanContent || !hasVisibleText(cleanContent)) {
       setActionError("제목과 내용을 모두 입력해주세요.");
       return;
     }
-    if (codePointLength(edit.title.trim()) > POST_TITLE_MAX_LENGTH) {
+    if (codePointLength(cleanTitle) > POST_TITLE_MAX_LENGTH) {
       setActionError(`제목은 ${POST_TITLE_MAX_LENGTH}자 이내로 입력해주세요.`);
       return;
     }
-    if (codePointLength(edit.content.trim()) > POST_CONTENT_MAX_LENGTH) {
+    if (codePointLength(cleanContent) > POST_CONTENT_MAX_LENGTH) {
       setActionError(`본문은 ${POST_CONTENT_MAX_LENGTH}자 이내로 입력해주세요.`);
       return;
     }
     if (submitting) return;
     setActionError(null);
-    saving.mutate(edit);
+    saving.mutate({ title: cleanTitle, content: cleanContent });
   }
 
   function remove(moderationReason: string) {
-    if (moderating && !moderationReason.trim()) {
+    const cleanReason = sanitizeSingleLine(moderationReason);
+    if (moderating && (!cleanReason || !hasVisibleText(cleanReason))) {
       setActionError("운영 삭제 사유를 입력해주세요.");
       return;
     }
-    if (moderating && codePointLength(moderationReason.trim()) > MODERATION_REASON_MAX_LENGTH) {
+    if (moderating && codePointLength(cleanReason) > MODERATION_REASON_MAX_LENGTH) {
       setActionError(`운영 삭제 사유는 ${MODERATION_REASON_MAX_LENGTH}자 이내로 입력해주세요.`);
       return;
     }
     if (submitting) return;
     setActionError(null);
     removal.mutate(
-      moderating && moderation
-        ? { galleryId: moderation.galleryId, reason: moderationReason.trim() }
-        : null,
+      moderating && moderation ? { galleryId: moderation.galleryId, reason: cleanReason } : null,
     );
   }
 
@@ -508,7 +512,7 @@ function ScopedCommunityPost({
             className={buttonVariants({
               tone: "primary",
             })}
-            disabled={submitting || (moderating && !moderationReason.trim())}
+            disabled={submitting || (moderating && !hasVisibleText(moderationReason))}
             onClick={() => {
               setMenuOpen(false);
               remove(moderationReason);

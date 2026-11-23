@@ -27,6 +27,9 @@ import {
   POST_TITLE_MAX_LENGTH,
   clampCodePoints,
   codePointLength,
+  hasVisibleText,
+  sanitizeMultiline,
+  sanitizeSingleLine,
 } from "../../../src/lib/content-limits";
 import type {
   NativeFeed,
@@ -380,20 +383,32 @@ function EditForm({
           label={post.submitting ? "저장 중..." : "저장"}
           disabled={post.submitting}
           onPress={() => {
-            if (!title.trim() || !content.trim()) {
+            const cleanTitle = sanitizeSingleLine(title);
+            const cleanContent = sanitizeMultiline(content);
+            if (
+              !cleanTitle ||
+              !hasVisibleText(cleanTitle) ||
+              !cleanContent ||
+              !hasVisibleText(cleanContent)
+            ) {
               setLocalError("제목과 내용을 모두 입력해주세요.");
               return;
             }
-            if (codePointLength(title.trim()) > POST_TITLE_MAX_LENGTH) {
+            if (codePointLength(cleanTitle) > POST_TITLE_MAX_LENGTH) {
               setLocalError(`제목은 ${POST_TITLE_MAX_LENGTH}자 이내로 입력해주세요.`);
               return;
             }
-            if (codePointLength(content.trim()) > POST_CONTENT_MAX_LENGTH) {
+            if (codePointLength(cleanContent) > POST_CONTENT_MAX_LENGTH) {
               setLocalError(`본문은 ${POST_CONTENT_MAX_LENGTH}자 이내로 입력해주세요.`);
               return;
             }
             setLocalError(null);
-            act({ type: "post-edit-save", postId: post.postId, title, content });
+            act({
+              type: "post-edit-save",
+              postId: post.postId,
+              title: cleanTitle,
+              content: cleanContent,
+            });
           }}
         />
       </View>
@@ -426,8 +441,14 @@ function DeleteConfirm({ post, moderating }: { post: NativeFeedPost; moderating:
         />
         <Button
           label={post.submitting ? "삭제 중..." : "삭제 확인"}
-          disabled={post.submitting || (moderating && !reason.trim())}
-          onPress={() => act({ type: "post-delete", postId: post.postId, reason })}
+          disabled={post.submitting || (moderating && !hasVisibleText(reason))}
+          onPress={() =>
+            act({
+              type: "post-delete",
+              postId: post.postId,
+              reason: moderating ? sanitizeSingleLine(reason) : reason,
+            })
+          }
         />
       </View>
     </View>

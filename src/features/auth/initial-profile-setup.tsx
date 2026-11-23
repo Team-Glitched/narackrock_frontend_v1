@@ -13,6 +13,9 @@ import {
   PROFILE_BIO_MAX_LENGTH,
   clampCodePoints,
   codePointLength,
+  hasVisibleText,
+  sanitizeMultiline,
+  sanitizeSingleLine,
 } from "@/lib/content-limits";
 
 const setupFields = ["nickname", "instrument", "explanation"] as const;
@@ -54,38 +57,43 @@ export function useInitialProfileSetup(suggestedNickname: string, onSaved: () =>
     setError(null);
 
     if (step === 0) {
-      if (!next.nickname.trim()) {
+      const nickname = sanitizeSingleLine(next.nickname);
+      if (!nickname || !hasVisibleText(nickname)) {
         setError("이름을 입력해 주세요.");
         return;
       }
-      if (codePointLength(next.nickname.trim()) > NICKNAME_MAX_LENGTH) {
+      if (codePointLength(nickname) > NICKNAME_MAX_LENGTH) {
         setError(`이름은 ${NICKNAME_MAX_LENGTH}자 이내로 입력해 주세요.`);
         return;
       }
 
+      setValues((current) => ({ ...current, nickname }));
       setStep(1);
       return;
     }
 
     if (step === 1) {
-      if (!next.instrument.trim()) {
+      const instrument = sanitizeSingleLine(next.instrument);
+      if (!instrument || !hasVisibleText(instrument)) {
         setError("주 악기를 입력해 주세요.");
         return;
       }
-      if (codePointLength(next.instrument.trim()) > INSTRUMENT_MAX_LENGTH) {
+      if (codePointLength(instrument) > INSTRUMENT_MAX_LENGTH) {
         setError(`주 악기는 ${INSTRUMENT_MAX_LENGTH}자 이내로 입력해 주세요.`);
         return;
       }
 
+      setValues((current) => ({ ...current, instrument }));
       setStep(2);
       return;
     }
 
-    if (!next.explanation.trim()) {
+    const explanation = sanitizeMultiline(next.explanation);
+    if (!explanation || !hasVisibleText(explanation)) {
       setError("설명을 입력해 주세요.");
       return;
     }
-    if (codePointLength(next.explanation.trim()) > PROFILE_BIO_MAX_LENGTH) {
+    if (codePointLength(explanation) > PROFILE_BIO_MAX_LENGTH) {
       setError(`설명은 ${PROFILE_BIO_MAX_LENGTH}자 이내로 입력해 주세요.`);
       return;
     }
@@ -94,9 +102,9 @@ export function useInitialProfileSetup(suggestedNickname: string, onSaved: () =>
 
     try {
       await updateProfile({
-        nickname: next.nickname.trim(),
-        primaryInstrument: next.instrument.trim(),
-        explanation: next.explanation.trim(),
+        nickname: sanitizeSingleLine(next.nickname),
+        primaryInstrument: sanitizeSingleLine(next.instrument),
+        explanation,
       });
 
       onSaved();

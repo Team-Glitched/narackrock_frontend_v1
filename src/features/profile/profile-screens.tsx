@@ -28,10 +28,14 @@ import { InstrumentDialog } from "@/features/composition/instrument-dialog";
 import { partIdForValue, partLabel } from "@/features/composition/instrument-parts";
 import { ChevronDown } from "lucide-react";
 import {
+  INSTRUMENT_MAX_LENGTH,
   NICKNAME_MAX_LENGTH,
   PROFILE_BIO_MAX_LENGTH,
   clampCodePoints,
   codePointLength,
+  hasVisibleText,
+  sanitizeMultiline,
+  sanitizeSingleLine,
 } from "@/lib/content-limits";
 
 export function profileErrorMessage(error: unknown): string {
@@ -519,15 +523,22 @@ export function useProfileForm(onSubmit: (draft: ProfileDraft) => Promise<void>)
   }
 
   async function save({ nickname, instrument, explanation }: Omit<ProfileDraft, "image">) {
-    if (!nickname.trim()) {
+    const cleanNickname = sanitizeSingleLine(nickname);
+    const cleanInstrument = sanitizeSingleLine(instrument);
+    const cleanExplanation = sanitizeMultiline(explanation);
+    if (!cleanNickname || !hasVisibleText(cleanNickname)) {
       setError("이름을 입력해 주세요.");
       return;
     }
-    if (codePointLength(nickname.trim()) > NICKNAME_MAX_LENGTH) {
+    if (codePointLength(cleanNickname) > NICKNAME_MAX_LENGTH) {
       setError(`이름은 ${NICKNAME_MAX_LENGTH}자 이내로 입력해 주세요.`);
       return;
     }
-    if (codePointLength(explanation.trim()) > PROFILE_BIO_MAX_LENGTH) {
+    if (codePointLength(cleanInstrument) > INSTRUMENT_MAX_LENGTH) {
+      setError(`주 악기는 ${INSTRUMENT_MAX_LENGTH}자 이내로 입력해 주세요.`);
+      return;
+    }
+    if (codePointLength(cleanExplanation) > PROFILE_BIO_MAX_LENGTH) {
       setError(`설명은 ${PROFILE_BIO_MAX_LENGTH}자 이내로 입력해 주세요.`);
       return;
     }
@@ -537,9 +548,9 @@ export function useProfileForm(onSubmit: (draft: ProfileDraft) => Promise<void>)
 
     try {
       await onSubmit({
-        nickname: nickname.trim(),
-        instrument: instrument.trim(),
-        explanation: explanation.trim(),
+        nickname: cleanNickname,
+        instrument: cleanInstrument,
+        explanation: cleanExplanation,
         image: image?.file ?? null,
       });
     } catch (cause) {

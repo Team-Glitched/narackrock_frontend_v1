@@ -5,6 +5,8 @@ import {
   SONG_TITLE_MAX_LENGTH,
   clampCodePoints,
   codePointLength,
+  hasVisibleText,
+  sanitizeSingleLine,
 } from "../../../src/lib/content-limits";
 import { Button, Touchable } from "../../ui/kit";
 import { ScreenScroll } from "../../ui/screen";
@@ -27,7 +29,10 @@ export function StudioNewScreen({ model }: ScreenProps<"studio-new">) {
     setSelectOnFocus(true);
   }
   const start = () => {
-    if (!model.busy && title.trim()) act({ type: "studio-new-start", title });
+    const cleanTitle = sanitizeSingleLine(title);
+    if (!model.busy && cleanTitle && hasVisibleText(cleanTitle)) {
+      act({ type: "studio-new-start", title: cleanTitle });
+    }
   };
   return (
     <ScreenScroll>
@@ -93,7 +98,7 @@ export function StudioNewScreen({ model }: ScreenProps<"studio-new">) {
         <View style={styles.actions}>
           <Button
             label={model.busy ? "만드는 중…" : "입력 완료"}
-            disabled={model.busy || !title.trim()}
+            disabled={model.busy || !hasVisibleText(title)}
             style={styles.submit}
             onPress={start}
           />

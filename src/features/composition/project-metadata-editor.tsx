@@ -6,7 +6,13 @@ import { useCurrentUserId } from "@/features/auth/use-current-user";
 import { buttonVariants } from "@/styles/variants";
 import { errorText } from "./studio-helpers";
 import { ImageCropInput } from "@/features/images/image-crop-input";
-import { SONG_TITLE_MAX_LENGTH, clampCodePoints, codePointLength } from "@/lib/content-limits";
+import {
+  SONG_TITLE_MAX_LENGTH,
+  clampCodePoints,
+  codePointLength,
+  hasVisibleText,
+  sanitizeSingleLine,
+} from "@/lib/content-limits";
 
 /** Edits only the song's title/cover; saving never publishes audio or commits personal notes. */
 export function ProjectMetadataEditor({
@@ -34,8 +40,8 @@ export function ProjectMetadataEditor({
       className="flex w-full max-w-96 flex-col gap-4 p-4 text-body text-app-fg"
       onSubmit={async (event) => {
         event.preventDefault();
-        if (busy || !title.trim()) return;
-        const trimmed = title.trim();
+        const trimmed = sanitizeSingleLine(title);
+        if (busy || !trimmed || !hasVisibleText(trimmed)) return;
         if (codePointLength(trimmed) > SONG_TITLE_MAX_LENGTH) {
           setError(`곡 제목은 ${SONG_TITLE_MAX_LENGTH}자 이내로 입력해 주세요.`);
           return;
@@ -107,7 +113,7 @@ export function ProjectMetadataEditor({
         <button
           type="submit"
           className={buttonVariants({ size: "compact" })}
-          disabled={busy || !title.trim()}
+          disabled={busy || !hasVisibleText(title)}
         >
           {busy ? "저장 중..." : "저장"}
         </button>

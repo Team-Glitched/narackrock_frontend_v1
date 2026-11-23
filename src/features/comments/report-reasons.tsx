@@ -9,6 +9,8 @@ import {
   REPORT_DESCRIPTION_MAX_LENGTH,
   clampCodePoints,
   codePointLength,
+  hasVisibleText,
+  sanitizeMultiline,
 } from "@/lib/content-limits";
 
 const reasons = ["스팸", "욕설·괴롭힘", "부적절한 콘텐츠", "권리 침해", "기타"] as const;
@@ -35,18 +37,19 @@ export function ReportReasons({
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
   const needsDescription = selected === "기타";
-  const ready = selected !== null && (!needsDescription || description.trim().length > 0);
+  const ready = selected !== null && (!needsDescription || hasVisibleText(description));
   async function submit(event?: React.FormEvent) {
     event?.preventDefault();
     if (!ready || busy || done) return;
-    if (codePointLength(description.trim()) > REPORT_DESCRIPTION_MAX_LENGTH) {
+    const cleanDescription = sanitizeMultiline(description);
+    if (codePointLength(cleanDescription) > REPORT_DESCRIPTION_MAX_LENGTH) {
       setError(`신고 내용은 ${REPORT_DESCRIPTION_MAX_LENGTH}자 이내로 적어주세요.`);
       return;
     }
     setBusy(true);
     setError(null);
     try {
-      await onSubmit(selected, description.trim() || null);
+      await onSubmit(selected, cleanDescription || null);
       setDone(true);
     } catch (cause) {
       setError(reportError(cause));

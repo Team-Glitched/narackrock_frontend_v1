@@ -8,6 +8,7 @@ import {
   SEARCH_QUERY_MAX_LENGTH,
   clampCodePoints,
   codePointLength,
+  sanitizeMultiline,
 } from "../../../src/lib/content-limits";
 import type { NativeAdminMembers } from "../../../src/lib/native-screens";
 import { AppHeader } from "../../ui/header";
@@ -271,7 +272,9 @@ function Members({ members }: { members: NativeAdminMembers }) {
               label={members.saving ? "저장 중..." : "저장"}
               primary
               disabled={members.saving}
-              onPress={() => act({ type: "save-description", text: description })}
+              onPress={() =>
+                act({ type: "save-description", text: sanitizeMultiline(description) })
+              }
             />
           </View>
           {members.notice !== "" && <Line>{members.notice}</Line>}
