@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { ChevronDown } from "lucide-react";
 import { Asset } from "@/components/asset";
-import { InstrumentDialog } from "@/features/composition/instrument-dialog";
-import { partIdForValue, partLabel } from "@/features/composition/instrument-parts";
+import { ProfileInstrumentDialog } from "@/features/composition/instrument-dialog";
+import { profileInstrumentLabels } from "@/features/composition/instrument-parts";
 import { profileErrorMessage } from "@/features/profile/profile-screens";
 import { ApiError } from "@/lib/api/client";
 import { updateProfile } from "@/lib/api/profile";
@@ -135,10 +135,7 @@ export function InitialProfileSetupScreen({
     onSaved,
   );
   const [instrumentOpen, setInstrumentOpen] = useState(false);
-  const selectedInstrumentId = partIdForValue(values.instrument);
-  const instrumentDisplay = selectedInstrumentId
-    ? partLabel(selectedInstrumentId)
-    : values.instrument;
+  const instrumentDisplay = profileInstrumentLabels(values.instrument).join(", ");
 
   return (
     <form
@@ -193,21 +190,10 @@ export function InitialProfileSetupScreen({
               </button>
             </label>
             {instrumentOpen && (
-              <InstrumentDialog
-                subtitle="프로필에 표시할 주 악기나 보컬 파트를 선택하세요."
-                hidePreview
-                allowSameConfirm
-                onClear={() => change("")}
-                choice={{
-                  value: selectedInstrumentId,
-                  mode: "audio",
-                  tracks: [],
-                  onPreview: async () => {},
-                  onStopPreview: () => {},
-                  onConfirm: async (id) => {
-                    change(partLabel(id));
-                  },
-                }}
+              <ProfileInstrumentDialog
+                value={values.instrument}
+                allowEmpty={false}
+                onConfirm={(formatted) => change(formatted)}
                 onClose={() => setInstrumentOpen(false)}
               />
             )}

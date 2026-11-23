@@ -54,6 +54,7 @@ export function CanvasDialog({
       aria-labelledby={titleId}
     >
       <button
+        type="button"
         className={sharedStyles.canvasDialogBackdrop}
         aria-hidden="true"
         tabIndex={-1}

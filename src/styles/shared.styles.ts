@@ -296,6 +296,7 @@ export const sharedStyles = {
   purplePill: [
     "purple-pill",
     "     bg-app-primary bg-none",
+    "disabled:opacity-50 disabled:cursor-not-allowed",
     "[.community-card_&]:mt-2 [.community-card_&]:grid [.community-card_&]:h-8 [.community-card_&]:w-full [.community-card_&]:place-items-center",
     "[.community-card_&]:text-body",
     "[.os-head_&]:h-[34px] [.os-head_&]:flex-[0_0_auto] [.os-head_&]:p-[0_18px] [.os-head_&]:text-label",
@@ -709,6 +710,10 @@ export const sharedStyles = {
     "[&_[role=radio]]:border [&_[role=radio]]:border-solid [&_[role=radio]]:border-[#32323d] [&_[role=radio]]:bg-[#23232a] [&_[role=radio]]:bg-none [&_[role=radio]]:text-body [&_[role=radio]]:font-medium",
     "[&_[role=radio]]:leading-[20px] [&_[role=radio]]:text-app-fg",
     "[&_[role=radio][aria-checked=true]]:border-app-primary [&_[role=radio][aria-checked=true]]:bg-app-primary [&_[role=radio][aria-checked=true]]:text-white [&_[role=radio]:disabled]:opacity-50",
+    "[&_[role=checkbox]]:min-h-9 [&_[role=checkbox]]:rounded-[20px] [&_[role=checkbox]]:px-3 [&_[role=checkbox]]:py-2",
+    "[&_[role=checkbox]]:border [&_[role=checkbox]]:border-solid [&_[role=checkbox]]:border-[#32323d] [&_[role=checkbox]]:bg-[#23232a] [&_[role=checkbox]]:bg-none [&_[role=checkbox]]:text-body [&_[role=checkbox]]:font-medium",
+    "[&_[role=checkbox]]:leading-[20px] [&_[role=checkbox]]:text-app-fg",
+    "[&_[role=checkbox][aria-checked=true]]:border-app-primary [&_[role=checkbox][aria-checked=true]]:bg-app-primary [&_[role=checkbox][aria-checked=true]]:text-white [&_[role=checkbox]:disabled]:opacity-50",
   ].join(" "),
   instrumentPickerTrigger: [
     "instrument-picker-trigger",

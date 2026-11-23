@@ -24,8 +24,8 @@ import { useMySongs } from "@/features/home/use-my-songs";
 import { songsForTab } from "@/features/home/my-songs";
 import { profileKeys, profileQuery } from "./profile-queries";
 import { useImageCrop } from "@/features/images/use-image-crop";
-import { InstrumentDialog } from "@/features/composition/instrument-dialog";
-import { partIdForValue, partLabel } from "@/features/composition/instrument-parts";
+import { ProfileInstrumentDialog } from "@/features/composition/instrument-dialog";
+import { profileInstrumentLabels } from "@/features/composition/instrument-parts";
 import { ChevronDown } from "lucide-react";
 import {
   INSTRUMENT_MAX_LENGTH,
@@ -62,12 +62,7 @@ export function compactCount(count: number) {
 }
 
 export function profileInstruments(profile: UserProfile): string[] {
-  return (
-    profile.primaryInstrument
-      ?.split(",")
-      .map((item) => item.trim())
-      .filter(Boolean) ?? []
-  );
+  return profileInstrumentLabels(profile.primaryInstrument);
 }
 
 export function featuredSongs(profile: UserProfile) {
@@ -584,10 +579,7 @@ export function ProfileForm({
   const [instrumentOpen, setInstrumentOpen] = useState(false);
   const [explanation, setExplanation] = useState(initial.explanation);
   const { image, saving, error, pick, save } = useProfileForm(onSubmit);
-  const selectedInstrumentId = partIdForValue(instrument);
-  const instrumentDisplay = selectedInstrumentId
-    ? partLabel(selectedInstrumentId)
-    : instrument.trim();
+  const instrumentDisplay = profileInstrumentLabels(instrument).join(", ");
   const crop = useImageCrop({
     file: image?.file ?? null,
     onApply: pick,
@@ -678,21 +670,10 @@ export function ProfileForm({
         </button>
       </label>
       {instrumentOpen && (
-        <InstrumentDialog
-          subtitle="프로필에 표시할 주 악기나 보컬 파트를 선택하세요."
-          hidePreview
-          allowSameConfirm
-          onClear={() => setInstrument("")}
-          choice={{
-            value: selectedInstrumentId,
-            mode: "audio",
-            tracks: [],
-            onPreview: async () => {},
-            onStopPreview: () => {},
-            onConfirm: async (id) => {
-              setInstrument(partLabel(id));
-            },
-          }}
+        <ProfileInstrumentDialog
+          value={instrument}
+          allowEmpty
+          onConfirm={(formatted) => setInstrument(formatted)}
           onClose={() => setInstrumentOpen(false)}
         />
       )}
