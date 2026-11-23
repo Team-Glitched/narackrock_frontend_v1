@@ -17,6 +17,7 @@ import { uiLabels } from "@/lib/ui-labels";
 import { useLikedPosts } from "./liked-posts-screen";
 import { useProfileList, type ProfileListKind } from "./profile-lists";
 import { useProfilePrivacy, useProfileRelation } from "./profile-relations";
+import { useFeaturedMusic, type PinnedSongInput } from "./use-featured-music";
 import {
   compactCount,
   featuredChartPath,
@@ -76,14 +77,21 @@ function RelationModel({
   return null;
 }
 
-type WorksControls = { retry: () => void; paths: Record<string, string> };
+type WorksControls = {
+  retry: () => void;
+  paths: Record<string, string>;
+  findSong: (shortId: number) => PinnedSongInput | undefined;
+};
 
 function OwnWorksModel({
+  pinnedIds,
   lift,
 }: {
+  pinnedIds: Set<number>;
   lift: (model: NativeProfileWorks[] | null, controls: WorksControls | null) => void;
 }) {
   const { songs, sections } = useOwnWorks();
+  const pinnedKey = [...pinnedIds].sort((a, b) => a - b).join(",");
   useLift<NativeProfileWorks[], WorksControls>(
     sections.map((section) => ({
       key: section.tab,
@@ -94,6 +102,7 @@ function OwnWorksModel({
         shortId,
         title,
         albumImageUrl,
+        star: pinnedKey ? (pinnedIds.has(shortId) ? "pinned" : "unpinned") : "unpinned",
       })),
       // The web shows no message while signed out (the page itself asks to sign in).
       emptyMessage: songs.status === "ready" ? section.emptyMessage : "",
@@ -102,6 +111,8 @@ function OwnWorksModel({
     {
       retry: songs.retry,
       paths: Object.fromEntries(sections.map((section) => [section.tab, section.allPath])),
+      findSong: (shortId) =>
+        sections.flatMap((section) => section.items).find((item) => item.shortId === shortId),
     },
     lift,
   );
@@ -180,6 +191,7 @@ export function NativeProfileBridge({
   const { requireLogin } = useLoginPrompt();
   const own = userId === undefined || userId === currentUserId;
   const { profile, loading, error } = useOwnProfile(userId);
+  const featured = useFeaturedMusic(own);
   const [listKind, setListKind] = useState<ProfileListKind | null>(null);
   const relation = useLifted<NativeProfileRelation, RelationControls>();
   const works = useLifted<NativeProfileWorks[], WorksControls>();
@@ -189,15 +201,20 @@ export function NativeProfileBridge({
     ? [
         {
           key: "featured",
-          title: uiLabels.featuredMusic,
+          title: own
+            ? `${uiLabels.featuredMusic} (${featured.pinnedCount}/${featured.maxFeatured})`
+            : uiLabels.featuredMusic,
           status: "ready",
           error: null,
           songs: featuredSongs(profile).map(({ shortId, title, albumImageUrl }) => ({
             shortId,
             title,
             albumImageUrl,
+            star: own ? "pinned" : null,
           })),
-          emptyMessage: "아직 등록한 곡이 없습니다.",
+          emptyMessage: own
+            ? "아직 등록한 대표 음악이 없습니다. 아래 곡 카드 우상단의 별표를 눌러 최대 5개까지 설정해 보세요."
+            : "아직 등록한 곡이 없습니다.",
           all: "chart",
         },
         ...(own
@@ -231,6 +248,8 @@ export function NativeProfileBridge({
       explanation: profile.explanation || "아직 소개가 없습니다.",
     },
     relation: !own && profile ? relation.model : null,
+    starBusy: featured.savingId !== null,
+    featuredNotice: own ? featured.notice : null,
     sections,
     list: listKind && profile ? list.model : null,
   };
@@ -271,6 +290,14 @@ export function NativeProfileBridge({
           return;
         case "works-retry":
           return works.controls.current?.retry();
+        case "toggle-featured": {
+          if (!own || !profile) return;
+          const song =
+            profile.activities.pinnedShorts.find((item) => item.shortId === action.shortId) ??
+            works.controls.current?.findSong(action.shortId);
+          if (song) void featured.toggleFeatured(song);
+          return;
+        }
         case "open-short":
           return onOpenShort(action.shortId);
         case "open-post":
@@ -294,7 +321,7 @@ export function NativeProfileBridge({
           lift={relation.lift}
         />
       )}
-      {profile && own && <OwnWorksModel lift={works.lift} />}
+      {profile && own && <OwnWorksModel pinnedIds={featured.pinnedIds} lift={works.lift} />}
       {profile && listKind && (
         <ListModel key={listKind} kind={listKind} profile={profile} lift={list.lift} />
       )}

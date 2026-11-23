@@ -2,7 +2,6 @@ import { sharedStyles } from "@/styles/shared.styles";
 import { communityStyles } from "@/styles/community.styles";
 import { filterChip, filterChipRow } from "@/styles/variants";
 import { cn } from "@/lib/utils";
-import { Star } from "lucide-react";
 import { HomeWorkSection } from "@/features/workspace/home-work-section";
 import { uiLabels } from "@/lib/ui-labels";
 import { AlbumArtwork } from "@/components/music-card";
@@ -15,10 +14,10 @@ import { useMySongs } from "./use-my-songs";
 import { songsForTab, type MySongTab } from "./my-songs";
 import { useCurrentUserId } from "@/features/auth/use-current-user";
 import { PopularContentActions } from "@/features/posts/popular-content-actions";
-import { useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { updateFeaturedMusic } from "@/lib/api/profile";
-import { profileKeys, profileQuery } from "@/features/profile/profile-queries";
+import { useQuery } from "@tanstack/react-query";
+import { FeaturedStarButton } from "@/features/profile/featured-star-button";
+import { useFeaturedMusic, type PinnedSongInput } from "@/features/profile/use-featured-music";
+import { profileQuery } from "@/features/profile/profile-queries";
 import type { UserProfile } from "@/lib/api/contracts";
 
 export type MusicListTab = MySongTab | "featured";
@@ -58,6 +57,7 @@ export function HomeScreen({
   const songs = useHomeSongs();
   // Guests have no works or songs of their own, so their sections are not shown at all.
   const signedIn = useCurrentUserId() !== null;
+  const featured = useFeaturedMusic(signedIn);
   return (
     <div className={cn(sharedStyles.homeContent, sharedStyles.scrollContent)}>
       {signedIn && (
@@ -100,12 +100,32 @@ export function HomeScreen({
       {signedIn && (
         <section>
           <SectionTitle onAll={() => onShowSongs("mine")}>{uiLabels.myMusic}</SectionTitle>
+          {featured.notice && (
+            <p
+              role="alert"
+              className="mx-5 mb-3 rounded-[12px] border border-solid border-app-border px-4 py-3 text-body leading-[20px] text-[#ff8d8d]"
+            >
+              {featured.notice}
+            </p>
+          )}
           {songs.mine.status !== "ready" ? (
             <SongRailStatus state={songs.mine.status} />
           ) : songs.mine.items.length === 0 ? (
             <SongRailStatus state="empty" />
           ) : (
-            <SongRail songs={songs.mine.items} onOpen={onOpenShort} />
+            <SongRail
+              songs={songs.mine.items}
+              onOpen={onOpenShort}
+              renderCorner={(song) => (
+                <FeaturedStarButton
+                  variant="card"
+                  songTitle={song.title}
+                  pinned={featured.pinnedIds.has(song.shortId)}
+                  busy={!featured.profile.data || featured.savingId !== null}
+                  onToggle={() => void featured.toggleFeatured(song)}
+                />
+              )}
+            />
           )}
         </section>
       )}
@@ -127,42 +147,6 @@ export function ChartsScreen({
     : <RankedSongsChart kind={kind} onOpenShort={onOpenShort} />;
 }
 
-type PinnedSongInput = {
-  shortId: number;
-  title: string;
-  albumImageUrl: string | null;
-  mediaUrl: string | null;
-};
-
-function FeaturedStarButton({
-  songTitle,
-  pinned,
-  busy,
-  onToggle,
-}: {
-  songTitle: string;
-  pinned: boolean;
-  busy: boolean;
-  onToggle: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      className={cn(
-        "mt-1 ml-2 grid size-9 shrink-0 place-items-center self-start rounded-full p-2 transition-colors",
-        "hover:bg-app-surface disabled:opacity-50",
-        pinned ? "text-amber-400" : "text-app-muted",
-      )}
-      aria-pressed={pinned}
-      aria-label={pinned ? `${songTitle} 대표 음악 해제` : `${songTitle} 대표 음악 설정`}
-      disabled={busy}
-      onClick={onToggle}
-    >
-      <Star size={18} strokeWidth={1.75} className={pinned ? "fill-amber-400" : undefined} aria-hidden="true" />
-    </button>
-  );
-}
-
 /** State of the "내 음악" chart, shared by the web chart and the app's native chart. */
 export function useMyMusic(tab: MusicListTab, featuredUserId?: number) {
   const userId = useCurrentUserId();
@@ -170,47 +154,17 @@ export function useMyMusic(tab: MusicListTab, featuredUserId?: number) {
   const otherFeatured = featuredUserId !== undefined && featuredUserId !== userId;
   const activeTab: MusicListTab = otherFeatured ? "featured" : tab;
   const canManageFeatured = userId !== null && targetUserId === userId;
-  const queryClient = useQueryClient();
-  const profile = useQuery({
+  const targetProfile = useQuery({
     ...profileQuery(userId, targetUserId ?? 0),
-    enabled: targetUserId !== null,
+    enabled: targetUserId !== null && otherFeatured,
   });
+  const featured = useFeaturedMusic(canManageFeatured);
+  const profile = canManageFeatured ? featured.profile : targetProfile;
   const songs = useMySongs(20, activeTab !== "featured");
-  const [savingId, setSavingId] = useState<number | null>(null);
-  const [featureNotice, setFeatureNotice] = useState<string | null>(null);
 
   const pinnedShorts = profile.data?.activities.pinnedShorts ?? [];
   const pinnedIds = new Set(pinnedShorts.map((song) => song.shortId));
   const items = userId === null || activeTab === "featured" ? [] : songsForTab(songs.items, userId, activeTab);
-
-  async function toggleFeatured(song: PinnedSongInput) {
-    if (!canManageFeatured || !profile.data || savingId !== null) return;
-    const currentlyPinned = pinnedIds.has(song.shortId);
-    setSavingId(song.shortId);
-    setFeatureNotice(null);
-    try {
-      await updateFeaturedMusic(currentlyPinned ? null : song.shortId);
-      queryClient.setQueryData<UserProfile | undefined>(
-        profileKeys.detail(userId, userId),
-        (prev) => {
-          if (!prev) return prev;
-          const nextPinned = currentlyPinned ? [] : [{ ...song, displayOrder: 0 }];
-          return {
-            ...prev,
-            activities: {
-              ...prev.activities,
-              pinnedShorts: nextPinned,
-            },
-          };
-        },
-      );
-      void queryClient.invalidateQueries({ queryKey: profileKeys.detail(userId, userId) });
-    } catch (cause) {
-      setFeatureNotice(cause instanceof Error ? cause.message : "대표 음악을 변경하지 못했습니다.");
-    } finally {
-      setSavingId(null);
-    }
-  }
 
   return {
     targetUserId,
@@ -221,10 +175,12 @@ export function useMyMusic(tab: MusicListTab, featuredUserId?: number) {
     songs,
     items,
     pinnedIds,
-    savingId,
-    featureNotice,
-    clearNotice: () => setFeatureNotice(null),
-    toggleFeatured,
+    pinnedCount: pinnedShorts.length,
+    maxFeatured: featured.maxFeatured,
+    savingId: featured.savingId,
+    featureNotice: featured.notice,
+    clearNotice: featured.clearNotice,
+    toggleFeatured: featured.toggleFeatured,
   };
 }
 
@@ -243,6 +199,8 @@ function MySongsChart({ tab, onTabChange, onOpenShort, featuredUserId }: {
     songs,
     items,
     pinnedIds,
+    pinnedCount,
+    maxFeatured,
     savingId,
     featureNotice,
     clearNotice,
@@ -270,7 +228,7 @@ function MySongsChart({ tab, onTabChange, onOpenShort, featuredUserId }: {
       )}
       {canManageFeatured && profile.data && (
         <p className="mb-4 px-5 text-caption leading-[18px] text-app-muted">
-          내 작업물이나 내 참가작에서 별표를 눌러 대표 음악으로 설정할 수 있어요.
+          별표를 눌러 대표 음악을 최대 {maxFeatured}개까지 설정할 수 있어요. ({pinnedCount}/{maxFeatured})
         </p>
       )}
       {featureNotice && (

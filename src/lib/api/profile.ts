@@ -33,11 +33,16 @@ export async function updateProfileImage(image: File): Promise<{ profileImageUrl
   return response.data;
 }
 
-export async function updateFeaturedMusic(shortId: number | null): Promise<void> {
-  const path = "/api/v1/users/me/profile/featured-music";
-  if (shortId === null) {
-    await apiRequest(path, { method: "DELETE" });
-  } else {
-    await apiRequest(`${path}/${shortId}`, { method: "PUT" });
-  }
+export const MAX_FEATURED_MUSIC = 5;
+
+export async function addFeaturedMusic(shortId: number): Promise<void> {
+  await apiRequest(`/api/v1/users/me/profile/featured-music/${shortId}`, { method: "PUT" });
+}
+
+export async function removeFeaturedMusic(shortId: number): Promise<void> {
+  await apiRequest(`/api/v1/users/me/profile/featured-music/${shortId}`, { method: "DELETE" });
+}
+
+export async function clearFeaturedMusic(): Promise<void> {
+  await apiRequest("/api/v1/users/me/profile/featured-music", { method: "DELETE" });
 }

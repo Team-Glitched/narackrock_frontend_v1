@@ -17,7 +17,9 @@ function useMyMusicChart(tab: MusicListTab, featuredUserId: number | undefined) 
   const base = {
     title: otherFeatured ? uiLabels.featuredMusic : uiLabels.myMusic,
     tab: otherFeatured ? null : activeTab,
-    hint: managing ? "내 작업물이나 내 참가작에서 별표를 눌러 대표 음악으로 설정할 수 있어요." : null,
+    hint: managing
+      ? `별표를 눌러 대표 음악을 최대 ${music.maxFeatured}개까지 설정할 수 있어요. (${music.pinnedCount}/${music.maxFeatured})`
+      : null,
     menu: false,
     starBusy: music.savingId !== null,
   };

@@ -18,6 +18,9 @@ export type NativeHome = {
   recommended: NativeList<NativeSong>;
   posts: NativeList<NativePost>;
   mine: NativeList<NativeSong> | null;
+  minePinnedIds?: number[];
+  starBusy?: boolean;
+  featuredNotice?: string | null;
 };
 
 export type NativeHomeAction =
@@ -25,4 +28,5 @@ export type NativeHomeAction =
   | { type: "open-post"; postId: number }
   | { type: "show-songs"; kind: "popular" | "recommended" | "mine" }
   | { type: "resume"; projectId: number; shortId: number | null }
+  | { type: "toggle-featured"; shortId: number }
   | { type: "open-posts" | "open-workspace" | "start-song" };
