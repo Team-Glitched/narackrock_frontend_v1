@@ -59,6 +59,7 @@ function Article({ model }: { model: Extract<NativeSourceDetail, { state: "ready
           writer={source.writer}
           onPress={() => act({ type: "source-profile", userId: source.writer.userId })}
         />
+        {source.instrumentLabel && <Text style={styles.copy}>악기: {source.instrumentLabel}</Text>}
         <Text style={styles.copy}>{source.description}</Text>
         <SourcePlayer
           player={model.player}

@@ -224,3 +224,38 @@ test("a failed public attempt can be completed privately without creating a seco
   assert.equal(server.calls.at(-1), "private:70");
   assert.equal(storage.size(), 0);
 });
+
+test("sample registration sends the selected instrument to the server", async () => {
+  const server = backend();
+  const deps = server.deps(memoryStorage());
+  const requests = [];
+  const create = deps.createOpenSource;
+  deps.createOpenSource = async body => {
+    requests.push(body);
+    return { ...await create(body), instrument: body.instrument };
+  };
+  await publishSource({ ...input, instrument: "violin" }, deps);
+  assert.equal(requests[0].instrument, "violin");
+});
+
+test("a lost creation response reconciles the server instrument before a retry completes", async () => {
+  const server = backend({ loseCreateResponse: true });
+  const deps = server.deps(memoryStorage());
+  const updates = [];
+  deps.updateOpenSource = async (id, patch) => updates.push([id, patch.instrument]);
+  await assert.rejects(publishSource({ ...input, instrument: "vocal" }, deps), /network lost/);
+  await publishSource({ ...input, audio: null, instrument: "vocal" }, deps);
+  assert.deepEqual(updates, [[70, "vocal"]]);
+  assert.equal(server.calls.filter(call => call === "create").length, 1);
+  assert.equal(server.calls.filter(call => call === "upload:AUDIO").length, 1);
+});
+
+test("legacy drafts register an unknown instrument as null", async () => {
+  const server = backend();
+  const deps = server.deps(memoryStorage());
+  const create = deps.createOpenSource;
+  let request;
+  deps.createOpenSource = async body => { request = body; return create(body); };
+  await publishSource(input, deps);
+  assert.equal(request.instrument, null);
+});

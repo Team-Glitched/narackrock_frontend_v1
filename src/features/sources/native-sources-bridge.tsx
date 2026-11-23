@@ -1,3 +1,4 @@
+import { partLabel } from "@/features/composition/instrument-parts";
 import { useState, type ReactNode } from "react";
 import { useCurrentUserId } from "@/features/auth/use-current-user";
 import { useLoginPrompt } from "@/features/auth/login-prompt";
@@ -148,6 +149,7 @@ function FeedBridge({ nav }: { nav: SourcesNavigation }) {
         key,
         openSourceId: source.openSourceId,
         title: source.title,
+        instrumentLabel: source.instrument ? partLabel(source.instrument) : null,
         thumbnailUrl: source.thumbnailUrl,
         usage: source.usageCount != null ? sourceUsage(source.usageCount) : null,
         description: source.description ?? "",
@@ -308,6 +310,7 @@ function MineBridge({ nav }: { nav: SourcesNavigation }) {
             items: items.map((source) => ({
               openSourceId: source.openSourceId,
               title: source.title,
+              instrumentLabel: source.instrument ? partLabel(source.instrument) : null,
               description: source.description || null,
               public: source.visibility === "PUBLIC",
               managing: busy?.kind === "manage" && busy.id === source.openSourceId,

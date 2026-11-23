@@ -386,6 +386,7 @@ export function useSocialCreate({
             // The original stays in the draft; only the framed thumbnail is uploaded.
             const thumbnail = image ? await renderThumbnail(image.file, imageCrop) : null;
             await publishSource({
+              instrument: sourceInstrument,
               userId,
               draftKey,
               title: title.trim(),

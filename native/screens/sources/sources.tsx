@@ -178,6 +178,7 @@ function SourceCard({ source }: { source: NativeSourceCard }) {
         </Text>
       )}
       <Touchable accessibilityRole="button" onPress={open}>
+        {source.instrumentLabel && <Text style={styles.copy}>악기: {source.instrumentLabel}</Text>}
         <Text style={styles.copy}>{source.description}</Text>
       </Touchable>
       <SourcePlayer
@@ -228,6 +229,7 @@ function Publications({ model }: { model: NativeSourcePublications }) {
         <Card key={source.openSourceId} style={{ gap: 12 }}>
           <Text style={type.caption}>{source.public ? "공개" : "비공개"}</Text>
           <Text style={type.title}>{source.title}</Text>
+          {source.instrumentLabel && <Text style={styles.copy}>악기: {source.instrumentLabel}</Text>}
           {source.description && <Text style={styles.copy}>{source.description}</Text>}
           <View style={[styles.row, { flexWrap: "wrap" }]}>
             <Pill

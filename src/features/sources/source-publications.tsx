@@ -1,3 +1,4 @@
+import { partLabel } from "@/features/composition/instrument-parts";
 import { useId, useMemo, useRef, useState } from "react";
 import {
   useInfiniteQuery,
@@ -370,6 +371,7 @@ function PublicationListManager({ onOpen }: { onOpen: (id: number) => void }) {
           }}
         >
           <h2>등록 관리</h2>
+          {editor.source.instrument && <p>악기: {partLabel(editor.source.instrument)}</p>}
           <p>
             공개 상태: {editor.source.visibility === "PUBLIC" ? "공개" : "비공개"}. 원본 음원은
             변경되지 않습니다.
@@ -509,6 +511,7 @@ function PublicationListManager({ onOpen }: { onOpen: (id: number) => void }) {
                 {source.visibility === "PUBLIC" ? "공개" : "비공개"}
               </span>
               <h2>{source.title}</h2>
+              {source.instrument && <p>악기: {partLabel(source.instrument)}</p>}
               {source.description && <p className="whitespace-pre-wrap">{source.description}</p>}
               <div className={cn(workspaceStyles.workspaceActions, sourceStyles.libraryActions)}>
                 <button

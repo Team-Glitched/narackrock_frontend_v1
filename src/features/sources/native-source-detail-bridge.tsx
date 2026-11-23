@@ -1,3 +1,4 @@
+import { partLabel } from "@/features/composition/instrument-parts";
 import { useLoginPrompt } from "@/features/auth/login-prompt";
 import { useNativeComments } from "@/features/comments/use-native-comments";
 import { useNativeScreen } from "@/features/navigation/use-native-screen";
@@ -46,6 +47,7 @@ export function NativeSourceDetailBridge({
               source: {
                 openSourceId: source.openSourceId,
                 title: source.title,
+                instrumentLabel: source.instrument ? partLabel(source.instrument) : null,
                 thumbnailUrl: source.thumbnailUrl,
                 usage: source.usageCount != null ? sourceUsage(source.usageCount) : null,
                 description: source.description ?? "",

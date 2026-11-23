@@ -16,6 +16,7 @@ export type NativeSourceCard = {
   key: string;
   openSourceId: number;
   title: string;
+  instrumentLabel?: string | null;
   thumbnailUrl: string | null;
   /** "사용 수 1,234"; null when the server does not report it. */
   usage: string | null;
@@ -66,6 +67,7 @@ export type NativeSourceFeed =
 export type NativeSourcePublication = {
   openSourceId: number;
   title: string;
+  instrumentLabel?: string | null;
   description: string | null;
   public: boolean;
   /** "관리" is loading this sample's metadata ("불러오는 중..."). */
@@ -164,6 +166,7 @@ export type NativeSourceDetail =
       source: {
         openSourceId: number;
         title: string;
+        instrumentLabel?: string | null;
         thumbnailUrl: string | null;
         usage: string | null;
         description: string;
