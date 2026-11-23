@@ -22,6 +22,12 @@ import {
   type OpenSourcePublication,
 } from "@/lib/api/open-sources";
 import { cn } from "@/lib/utils";
+import {
+  SOURCE_DESCRIPTION_MAX_LENGTH,
+  SOURCE_TITLE_MAX_LENGTH,
+  clampCodePoints,
+  codePointLength,
+} from "@/lib/content-limits";
 import { sharedStyles } from "@/styles/shared.styles";
 import { sourceStyles } from "@/styles/source.styles";
 import { buttonVariants } from "@/styles/variants";
@@ -223,11 +229,13 @@ export function useSourcePublications() {
     const working = editor;
     const title = working.title.trim();
     if (
-      Array.from(title).length < 1 ||
-      Array.from(title).length > 100 ||
-      Array.from(working.description).length > 2000
+      codePointLength(title) < 1 ||
+      codePointLength(title) > SOURCE_TITLE_MAX_LENGTH ||
+      codePointLength(working.description) > SOURCE_DESCRIPTION_MAX_LENGTH
     ) {
-      setEditorError("제목은 1~100자, 설명은 2000자 이내로 입력해 주세요.");
+      setEditorError(
+        `제목은 1~${SOURCE_TITLE_MAX_LENGTH}자, 설명은 ${SOURCE_DESCRIPTION_MAX_LENGTH}자 이내로 입력해 주세요.`,
+      );
       return;
     }
     if (working.thumbnail === "replace" && !working.file) {
@@ -385,12 +393,19 @@ function PublicationListManager({ onOpen }: { onOpen: (id: number) => void }) {
                 value={editor.title}
                 aria-describedby={`${formId}-title-count`}
                 onChange={(event) =>
-                  setEditor((old) => (old ? { ...old, title: event.target.value } : old))
+                  setEditor((old) =>
+                    old
+                      ? {
+                          ...old,
+                          title: clampCodePoints(event.target.value, SOURCE_TITLE_MAX_LENGTH),
+                        }
+                      : old,
+                  )
                 }
               />
             </label>
             <small id={`${formId}-title-count`}>
-              {Array.from(editor.title.trim()).length}/100자 · 필수
+              {codePointLength(editor.title.trim())}/{SOURCE_TITLE_MAX_LENGTH}자 · 필수
             </small>
             <label>
               설명 (선택)
@@ -399,12 +414,22 @@ function PublicationListManager({ onOpen }: { onOpen: (id: number) => void }) {
                 rows={4}
                 aria-describedby={`${formId}-description-count`}
                 onChange={(event) =>
-                  setEditor((old) => (old ? { ...old, description: event.target.value } : old))
+                  setEditor((old) =>
+                    old
+                      ? {
+                          ...old,
+                          description: clampCodePoints(
+                            event.target.value,
+                            SOURCE_DESCRIPTION_MAX_LENGTH,
+                          ),
+                        }
+                      : old,
+                  )
                 }
               />
             </label>
             <small id={`${formId}-description-count`}>
-              {Array.from(editor.description).length}/2000자
+              {codePointLength(editor.description)}/{SOURCE_DESCRIPTION_MAX_LENGTH}자
             </small>
             <fieldset className="min-w-0 space-y-3 border-0 p-0">
               <legend>썸네일</legend>

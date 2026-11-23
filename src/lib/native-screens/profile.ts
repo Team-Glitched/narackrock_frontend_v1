@@ -1,8 +1,13 @@
 /** Native screen types of the profile feature (profile, settings, saved, notifications); registered in ./index.ts. */
 import type { NativePerson, NativePost } from "./common.ts";
 
-/** A song card on a profile: cover and title only, as on the web. */
-export type NativeProfileSong = { shortId: number; title: string; albumImageUrl: string | null };
+/** A song card on a profile: cover, title, and optional featured-music toggle star for the owner. */
+export type NativeProfileSong = {
+  shortId: number;
+  title: string;
+  albumImageUrl: string | null;
+  star?: "pinned" | "unpinned" | null;
+};
 
 /**
  * A song section of the profile (대표 음악, 내 작업물, 내 참가작, 참여한 음악). `all` is where "모두보기"
@@ -69,6 +74,8 @@ export type NativeProfile = {
     explanation: string;
   } | null;
   relation: NativeProfileRelation | null;
+  starBusy?: boolean;
+  featuredNotice?: string | null;
   sections: NativeProfileWorks[];
   list: NativeProfileList | null;
 };
@@ -83,6 +90,7 @@ export type NativeProfileAction =
   | { type: "list-filter"; filter: "all" | "mutual" }
   | { type: "all-works"; section: NativeProfileWorks["key"] }
   | { type: "works-retry" }
+  | { type: "toggle-featured"; shortId: number }
   | { type: "open-short"; shortId: number }
   | { type: "open-post"; postId: number }
   | { type: "open-profile"; userId: number };

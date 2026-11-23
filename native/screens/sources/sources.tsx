@@ -18,6 +18,12 @@ import { SavedSources } from "../workspace/library";
 import { Card, Notice, Page, Pill } from "../workspace/parts";
 import { Sheet } from "../profile/parts";
 import { SourceActions, SourceAuthor, SourceLogin, SourcePlayer, styles } from "./parts";
+import {
+  SOURCE_DESCRIPTION_MAX_LENGTH,
+  SOURCE_TITLE_MAX_LENGTH,
+  clampCodePoints,
+  codePointLength,
+} from "../../../src/lib/content-limits";
 
 const tabs: { value: NativeSources["tab"]; label: string }[] = [
   { value: "feed", label: "탐색" },
@@ -286,11 +292,14 @@ function PublicationEditor({
             style={styles.input}
             value={title}
             onChangeText={(value) => {
-              setTitle(value);
-              act({ type: "sources-editor-title", value });
+              const clamped = clampCodePoints(value, SOURCE_TITLE_MAX_LENGTH);
+              setTitle(clamped);
+              act({ type: "sources-editor-title", value: clamped });
             }}
           />
-          <Text style={type.caption}>{Array.from(title.trim()).length}/100자 · 필수</Text>
+          <Text style={type.caption}>
+            {codePointLength(title.trim())}/{SOURCE_TITLE_MAX_LENGTH}자 · 필수
+          </Text>
         </View>
         <View style={styles.field}>
           <Text style={type.body}>설명 (선택)</Text>
@@ -301,11 +310,14 @@ function PublicationEditor({
             style={[styles.input, { minHeight: 100, textAlignVertical: "top" }]}
             value={description}
             onChangeText={(value) => {
-              setDescription(value);
-              act({ type: "sources-editor-description", value });
+              const clamped = clampCodePoints(value, SOURCE_DESCRIPTION_MAX_LENGTH);
+              setDescription(clamped);
+              act({ type: "sources-editor-description", value: clamped });
             }}
           />
-          <Text style={type.caption}>{Array.from(description).length}/2000자</Text>
+          <Text style={type.caption}>
+            {codePointLength(description)}/{SOURCE_DESCRIPTION_MAX_LENGTH}자
+          </Text>
         </View>
         <Text style={type.body}>썸네일</Text>
         {(

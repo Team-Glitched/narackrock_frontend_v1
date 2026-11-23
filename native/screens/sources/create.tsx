@@ -1,5 +1,11 @@
 import { useState } from "react";
 import { Image, Text, TextInput, View } from "react-native";
+import {
+  SOURCE_DESCRIPTION_MAX_LENGTH,
+  SOURCE_TITLE_MAX_LENGTH,
+  clampCodePoints,
+  codePointLength,
+} from "../../../src/lib/content-limits";
 import type { NativeSourceCreate } from "../../../src/lib/native-screens";
 import { AppHeader } from "../../ui/header";
 import { Button, Status, Touchable } from "../../ui/kit";
@@ -49,10 +55,14 @@ function CreateForm({ model }: { model: Extract<NativeSourceCreate, { state: "fo
             value={title}
             style={styles.input}
             onChangeText={(value) => {
-              setTitle(value);
-              act({ type: "source-create-title", value });
+              const clamped = clampCodePoints(value, SOURCE_TITLE_MAX_LENGTH);
+              setTitle(clamped);
+              act({ type: "source-create-title", value: clamped });
             }}
           />
+          <Text style={type.caption}>
+            {codePointLength(title)}/{SOURCE_TITLE_MAX_LENGTH}자
+          </Text>
         </View>
         <View style={styles.field}>
           <Text style={type.title}>설명</Text>
@@ -63,10 +73,14 @@ function CreateForm({ model }: { model: Extract<NativeSourceCreate, { state: "fo
             multiline
             style={[styles.input, { minHeight: 80, textAlignVertical: "top" }]}
             onChangeText={(value) => {
-              setDescription(value);
-              act({ type: "source-create-description", value });
+              const clamped = clampCodePoints(value, SOURCE_DESCRIPTION_MAX_LENGTH);
+              setDescription(clamped);
+              act({ type: "source-create-description", value: clamped });
             }}
           />
+          <Text style={type.caption}>
+            {codePointLength(description)}/{SOURCE_DESCRIPTION_MAX_LENGTH}자
+          </Text>
         </View>
         <View style={styles.field}>
           <Text style={type.title}>오디오</Text>

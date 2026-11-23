@@ -10,6 +10,11 @@ import { studioStyles } from "@/styles/studio.styles";
 import { cn } from "@/lib/utils";
 import { sharedStyles } from "@/styles/shared.styles";
 import { buttonVariants } from "@/styles/variants";
+import {
+  SONG_TITLE_MAX_LENGTH,
+  clampCodePoints,
+  codePointLength,
+} from "@/lib/content-limits";
 import { useEffect, useMemo, useRef, useState, type PointerEvent } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { queryScope } from "@/lib/query";
@@ -990,10 +995,14 @@ export function StudioScreen({ studio, portrait = true }: { studio: Studio; port
             <input
               value={studio.publishTitle}
               placeholder="예: 새벽 공기를 닮은 피아노"
-              onChange={(event) => studio.setPublishTitle(event.target.value)}
+              onChange={(event) =>
+                studio.setPublishTitle(clampCodePoints(event.target.value, SONG_TITLE_MAX_LENGTH))
+              }
               required
-              maxLength={100}
             />
+            <small className="text-right text-caption text-app-muted tabular-nums">
+              {codePointLength(studio.publishTitle)}/{SONG_TITLE_MAX_LENGTH}자
+            </small>
           </label>
           <ImageCropInput file={studio.publishImage} onChange={studio.setPublishImage} disabled={busy} />
           {error && <p role="alert">{error}</p>}

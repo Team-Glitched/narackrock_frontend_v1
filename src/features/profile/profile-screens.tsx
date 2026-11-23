@@ -1,3 +1,5 @@
+import { FeaturedStarButton } from "./featured-star-button";
+import { useFeaturedMusic, type PinnedSongInput } from "./use-featured-music";
 import { useLoginPrompt } from "@/features/auth/login-prompt";
 import { useUrlNavigation } from "@/features/navigation/use-url-navigation";
 import { profileStyles } from "@/styles/profile.styles";
@@ -63,16 +65,26 @@ export function featuredChartPath(profile: UserProfile, own: boolean) {
   return own ? "/charts?kind=mine&tab=featured" : `/charts?kind=mine&tab=featured&userId=${profile.userId}`;
 }
 
+type FeaturedControls = {
+  pinnedIds: Set<number>;
+  savingId: number | null;
+  onToggle: (song: PinnedSongInput) => Promise<void>;
+};
+
 function ProfileWorks({
   title,
   songs,
   onOpen,
   allHref,
+  featured,
+  emptyMessage = "아직 등록한 곡이 없습니다.",
 }: {
   title: string;
-  songs: UserProfile["activities"]["participatedShorts"];
+  songs: UserProfile["activities"]["participatedShorts"] | UserProfile["activities"]["pinnedShorts"];
   onOpen: (id: number) => void;
   allHref?: string;
+  featured?: FeaturedControls;
+  emptyMessage?: string;
 }) {
   const [showAll, setShowAll] = useState(false);
   const { to } = useUrlNavigation();
@@ -93,11 +105,29 @@ function ProfileWorks({
               title={song.title}
               albumImageUrl={song.albumImageUrl}
               onOpen={() => onOpen(song.shortId)}
+              cornerSlot={
+                featured ? (
+                  <FeaturedStarButton
+                    variant="card"
+                    songTitle={song.title}
+                    pinned={featured.pinnedIds.has(song.shortId)}
+                    busy={featured.savingId !== null}
+                    onToggle={() =>
+                      void featured.onToggle({
+                        shortId: song.shortId,
+                        title: song.title,
+                        albumImageUrl: song.albumImageUrl,
+                        mediaUrl: "mediaUrl" in song ? song.mediaUrl : null,
+                      })
+                    }
+                  />
+                ) : undefined
+              }
             />
           ))}
         </div>
       ) : (
-        <p className={profileStyles.profileEmpty}>아직 등록한 곡이 없습니다.</p>
+        <p className={profileStyles.profileEmpty}>{emptyMessage}</p>
       )}
       {showAll && (
         <FigmaSheet title={`${title} 전체 목록`} onClose={() => setShowAll(false)}>
@@ -149,7 +179,13 @@ export function useOwnWorks() {
   };
 }
 
-function OwnWorks({ onOpen }: { onOpen: (id: number) => void }) {
+function OwnWorks({
+  onOpen,
+  featured,
+}: {
+  onOpen: (id: number) => void;
+  featured: FeaturedControls;
+}) {
   const { to } = useUrlNavigation();
   const { songs, sections } = useOwnWorks();
   return (
@@ -186,6 +222,22 @@ function OwnWorks({ onOpen }: { onOpen: (id: number) => void }) {
                     title={song.title}
                     albumImageUrl={song.albumImageUrl}
                     onOpen={() => onOpen(song.shortId)}
+                    cornerSlot={
+                      <FeaturedStarButton
+                        variant="card"
+                        songTitle={song.title}
+                        pinned={featured.pinnedIds.has(song.shortId)}
+                        busy={featured.savingId !== null}
+                        onToggle={() =>
+                          void featured.onToggle({
+                            shortId: song.shortId,
+                            title: song.title,
+                            albumImageUrl: song.albumImageUrl,
+                            mediaUrl: song.mediaUrl,
+                          })
+                        }
+                      />
+                    }
                   />
                 ))}
               </div>
@@ -222,6 +274,7 @@ export function ProfileScreen({
   const [list, setList] = useState<ProfileListKind | null>(null);
   const own = userId === undefined || userId === currentUserId;
   const { profile, loading, error } = useOwnProfile(userId);
+  const featured = useFeaturedMusic(own);
 
   if (loading) {
     return (
@@ -240,6 +293,13 @@ export function ProfileScreen({
   }
 
   const instruments = profileInstruments(profile);
+  const featuredControls: FeaturedControls | undefined = own
+    ? {
+        pinnedIds: featured.pinnedIds,
+        savingId: featured.savingId,
+        onToggle: featured.toggleFeatured,
+      }
+    : undefined;
 
   return (
     <div className={cn(profileStyles.profileView, sharedStyles.scrollContent)}>
@@ -290,13 +350,28 @@ export function ProfileScreen({
           </p>
         </section>
 
+        {own && featured.notice && (
+          <p
+            role="alert"
+            className="m-0 rounded-[12px] border border-solid border-app-border px-4 py-3 text-body leading-[20px] text-[#ff8d8d]"
+          >
+            {featured.notice}
+          </p>
+        )}
+
         <ProfileWorks
           title={uiLabels.featuredMusic}
           songs={featuredSongs(profile)}
           onOpen={onOpenShort}
           allHref={featuredChartPath(profile, own)}
+          featured={featuredControls}
+          emptyMessage={
+            own
+              ? "아직 등록한 대표 음악이 없습니다. 아래 곡 카드 우상단의 별표를 눌러 최대 5개까지 설정해 보세요."
+              : "아직 등록한 곡이 없습니다."
+          }
         />
-        {own ? <OwnWorks onOpen={onOpenShort} /> : (
+        {own && featuredControls ? <OwnWorks onOpen={onOpenShort} featured={featuredControls} /> : (
           <ProfileWorks
             title={uiLabels.participatedMusic}
             songs={profile.activities.participatedShorts}
