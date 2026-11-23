@@ -608,7 +608,17 @@ export function TeamPianoRoll({
             style={{ height: rowHeight, minHeight: rowHeight, width: keyWidth }}
           >
             {drum ? (
-              <DrumPadIcon kind={drumPadFor(pitch)?.icon ?? "percussion"} />
+              <>
+                <DrumPadIcon kind={drumPadFor(pitch)?.icon ?? "percussion"} />
+                {keyWidth >= 70 && (
+                  <span
+                    className="min-w-0 flex-1 truncate text-left text-[11px] leading-tight text-app-fg!"
+                    style={{ position: "static", transform: "none" }}
+                  >
+                    {pitchLabel(pitch)}
+                  </span>
+                )}
+              </>
             ) : (
               <span style={{ display: "inline", position: "static", transform: "none", fontSize: 12 * zoom }}>{pitchLabel(pitch)}</span>
             )}

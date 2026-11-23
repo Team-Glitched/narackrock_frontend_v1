@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import { Music } from "lucide-react";
+import { Drum, Music } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { sharedStyles } from "@/styles/shared.styles";
 import { studioStyles } from "@/styles/studio.styles";
@@ -27,7 +27,7 @@ const rowScroll = "overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]
  */
 export function PortraitNoteEditor({
   title, bpm, signature, onTiming, timeMs, instrument, playing, onPlay, onPause, onRewind, metronome,
-  onMetronome, onBack, action, onImportSource, onChord, controls, status, tools, roll,
+  onMetronome, onBack, action, onImportSource, onChord, drumToggle, controls, status, tools, roll,
 }: {
   title: string;
   bpm: number;
@@ -49,6 +49,7 @@ export function PortraitNoteEditor({
   action: { label: string; onClick: () => void; disabled?: boolean };
   onImportSource?: () => void;
   onChord?: () => void;
+  drumToggle?: { expanded: boolean; hidden: number; onToggle: () => void };
   /** Selection, history, grid actions and the status row from the landscape layout. */
   controls: ReactNode;
   status: ReactNode;
@@ -81,6 +82,26 @@ export function PortraitNoteEditor({
             <button type="button" className={topPill} aria-label="코드 입력" onClick={onChord}>
               <Music size={14} aria-hidden="true" />
               <span>코드 입력</span>
+            </button>
+          )}
+          {drumToggle && (
+            <button
+              type="button"
+              className={cn(
+                topPill,
+                "aria-pressed:border-app-primary aria-pressed:bg-app-primary aria-pressed:text-white",
+              )}
+              aria-pressed={drumToggle.expanded}
+              aria-label={`전체 키트${drumToggle.hidden ? `, 숨은 노트 ${drumToggle.hidden}개` : ""}`}
+              onClick={drumToggle.onToggle}
+            >
+              <Drum size={14} aria-hidden="true" />
+              <span>전체 키트</span>
+              {drumToggle.hidden > 0 && (
+                <span className="rounded-full bg-app-bg/70 px-1 text-[11px] tabular-nums" aria-hidden="true">
+                  +{drumToggle.hidden}
+                </span>
+              )}
             </button>
           )}
         </div>
@@ -139,7 +160,7 @@ export function PortraitNoteEditor({
             {playing ? <span className={sharedStyles.pauseSymbol} /> : <Asset name="play.svg" />}
           </button>
           <button
-            className="grid size-12 place-items-center rounded-full border border-[#32323d] bg-[#23232a] text-[#F2F4F6] transition-colors aria-pressed:border-[#9966ff] aria-pressed:bg-[#4c00e5]/20 aria-pressed:text-[#9966ff]"
+            className="grid size-12 place-items-center rounded-full border border-[#32323d] bg-[#23232a] text-[#F2F4F6] transition-colors aria-pressed:border-[#9966ff] aria-pressed:bg-app-primary aria-pressed:text-white"
             aria-label="메트로놈"
             aria-pressed={metronome}
             onClick={onMetronome}

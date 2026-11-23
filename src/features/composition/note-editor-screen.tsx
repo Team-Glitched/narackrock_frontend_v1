@@ -116,13 +116,18 @@ function LoadedNoteEditor({
         <button onClick={onBack}>돌아가기</button>
       </div>
     );
+  const drum = editor.bounds.minPitch === 35 && editor.bounds.maxPitch === 81;
+  const hiddenDrumNotes = drum
+    ? editor.snapshot.notes.filter((note) => !editor.bounds.rows.includes(note.pitch)).length
+    : 0;
   const controls = editable && (
     <NoteEditorControls
       editor={editor}
       positionTick={positionTick}
       onSettings={screen.openSettings}
-      onChord={screen.openChords}
+      onChord={!drum ? screen.openChords : undefined}
       tools={!portrait}
+      showModeAction={!portrait}
     />
   );
   const recommendation = screen.recommendation;
@@ -238,9 +243,14 @@ function LoadedNoteEditor({
           onBack={screen.requestBack}
           action={{ label: "레이어 목록", onClick: screen.openLayerList }}
           onImportSource={screen.openSources}
-          onChord={
-            editor.editable && !(editor.bounds.minPitch === 35 && editor.bounds.maxPitch === 81)
-              ? screen.openChords
+          onChord={editor.editable && !drum ? screen.openChords : undefined}
+          drumToggle={
+            editor.editable && drum
+              ? {
+                  expanded: editor.view.expandedDrums,
+                  hidden: hiddenDrumNotes,
+                  onToggle: () => editor.setExpandedDrums(!editor.view.expandedDrums),
+                }
               : undefined
           }
           controls={controls}

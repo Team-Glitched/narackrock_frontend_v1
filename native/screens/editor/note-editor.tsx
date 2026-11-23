@@ -50,6 +50,7 @@ export function NoteEditorScreen({ model }: ScreenProps<"editor-notes">) {
           transport={model.transport}
           title={model.title}
           timingEditable={model.timingEditable}
+          piano
           onBack={() => act({ type: "back" })}
           onRewind={() => act({ type: "editor-rewind" })}
           onSample={model.canImportSource ? () => act({ type: "source-open" }) : undefined}
@@ -119,6 +120,19 @@ function Portrait({ model }: { model: Ready }) {
               <Text style={styles.portraitChipText}>코드 입력</Text>
             </Touchable>
           )}
+          {model.editable && model.roll.drum && (
+            <Touchable
+              accessibilityRole="button"
+              accessibilityLabel={`전체 키트${model.roll.hidden ? `, 숨은 노트 ${model.roll.hidden}개` : ""}`}
+              accessibilityState={{ selected: model.roll.expandedDrums }}
+              style={[styles.portraitChip, model.roll.expandedDrums && styles.portraitChipActive]}
+              onPress={() => act({ type: "roll-drums", expanded: !model.roll.expandedDrums })}
+            >
+              <Text style={[styles.portraitChipText, model.roll.expandedDrums && styles.portraitChipTextActive]}>
+                전체 키트{model.roll.hidden > 0 ? ` +${model.roll.hidden}` : ""}
+              </Text>
+            </Touchable>
+          )}
         </ScrollView>
         <Touchable
           accessibilityRole="button"
@@ -152,16 +166,8 @@ function Portrait({ model }: { model: Ready }) {
         {model.canImportSource && (
           <Readout small="+" value="샘플" label="샘플 추가" onPress={() => act({ type: "source-open" })} plain />
         )}
-        {model.instrument && (
-          <Readout
-            small="악기"
-            value={model.instrument.label}
-            label="악기 선택"
-            onPress={() => act({ type: "editor-instrument-open" })}
-          />
-        )}
       </ScrollView>
-      {model.editable && <NoteControls roll={model.roll} tools={false} />}
+      {model.editable && <NoteControls roll={model.roll} tools={false} showModeAction={false} />}
       <StatusRow model={model} />
       <Notices model={model} />
       <View style={styles.portraitRoll}>
@@ -266,7 +272,7 @@ function PortraitTransport({ transport }: { transport: NativeTransport }) {
         style={[styles.round, transport.metronome && styles.roundPressed]}
         onPress={() => act({ type: "transport-metronome" })}
       >
-        <MetronomeGlyph active={transport.metronome} size={22} />
+        <MetronomeGlyph active={false} size={22} />
       </Touchable>
     </View>
   );
@@ -495,6 +501,8 @@ const styles = StyleSheet.create({
     backgroundColor: "#23232a",
   },
   portraitChipText: { color: colors.fg, fontSize: 13, lineHeight: 18, fontWeight: "600", flexShrink: 1 },
+  portraitChipActive: { borderColor: colors.primary, backgroundColor: colors.primary },
+  portraitChipTextActive: { color: "#ffffff" },
   portraitAdd: {
     width: 56,
     height: 36,
@@ -534,7 +542,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     backgroundColor: "#23232a",
   },
-  roundPressed: { backgroundColor: "rgba(76, 0, 229, 0.22)", borderColor: "#9966ff" },
+  roundPressed: { backgroundColor: colors.primary, borderColor: "#9966ff" },
   play: {
     width: 64,
     height: 64,

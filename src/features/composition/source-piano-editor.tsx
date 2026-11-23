@@ -301,22 +301,31 @@ export function SourcePianoEditor(props: SourcePianoProps) {
     onPlay: play,
     onPause: player.pause,
   });
+  const drum = piano.instrument.kind === "drum";
+  const hiddenDrumNotes = drum
+    ? editor.snapshot.notes.filter((note) => !editor.bounds.rows.includes(note.pitch)).length
+    : 0;
   const controls = (
     <NoteEditorControls
       editor={editor}
       positionTick={positionTick}
       tools={!portrait}
+      showModeAction={!portrait}
       onSettings={() => {
         if (editor.selection.length === 1) setSettings(editor.selection[0]);
       }}
-      onChord={() => {
-        player.pause();
-        setShowChords(true);
-      }}
+      onChord={
+        !drum
+          ? () => {
+              player.pause();
+              setShowChords(true);
+            }
+          : undefined
+      }
     />
   );
   const status = (
-    <div className="note-editor-status flex min-h-8 shrink-0 items-center gap-2 px-3 py-1 text-caption text-app-muted">
+    <div className="note-editor-status flex min-h-9 shrink-0 items-center justify-between gap-2 border-b border-[#2b2b34] bg-[#19191f] px-3 py-1.5 text-caption text-app-muted">
       {importError || error || player.error || editor.error ? (
         <p className="m-0 min-w-0 flex-1" role="alert">
           {importError ?? error ?? player.error ?? editor.error}
@@ -332,7 +341,7 @@ export function SourcePianoEditor(props: SourcePianoProps) {
       )}
       <button
         type="button"
-        className="h-9 shrink-0 rounded-[10px] bg-app-surface px-3 text-body text-app-fg disabled:opacity-50"
+        className="h-7 shrink-0 rounded-[8px] border border-[#32323d] bg-[#23232a] px-2.5 text-caption font-medium text-app-fg disabled:opacity-50"
         disabled={busy}
         onClick={() => jsonInput.current?.click()}
       >
@@ -380,10 +389,19 @@ export function SourcePianoEditor(props: SourcePianoProps) {
           onMetronome={() => player.setMetronome((value) => !value)}
           onBack={leave}
           onChord={
-            editor.editable && piano.instrument.kind !== "drum"
+            editor.editable && !drum
               ? () => {
                   player.pause();
                   setShowChords(true);
+                }
+              : undefined
+          }
+          drumToggle={
+            editor.editable && drum
+              ? {
+                  expanded: editor.view.expandedDrums,
+                  hidden: hiddenDrumNotes,
+                  onToggle: () => editor.setExpandedDrums(!editor.view.expandedDrums),
                 }
               : undefined
           }

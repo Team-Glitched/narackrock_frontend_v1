@@ -332,7 +332,7 @@ export const studioStyles = {
     "[.design-canvas_.team-note-workspace_&]:min-h-[30px] [.design-canvas_.team-note-workspace_&]:w-[87px]",
     "[.design-canvas_.team-note-workspace_&]:bg-app-key-white [.design-canvas_.team-note-workspace_&]:text-app-key-black",
     "[&:focus-visible]:outline [&:focus-visible]:outline-2 [&:focus-visible]:outline-app-accent [&:focus-visible]:outline-offset-[-2px]",
-    "[&.drum-key]:flex [&.drum-key]:items-center [&.drum-key]:justify-center [&.drum-key]:px-1 [&.drum-key_svg]:h-6 [&.drum-key_svg]:w-6 [&.drum-key_svg]:shrink-0",
+    "[&.drum-key]:flex [&.drum-key]:items-center [&.drum-key]:justify-center [&.drum-key]:gap-1.5 [&.drum-key]:bg-[#23232a]! [&.drum-key]:px-1.5 [&.drum-key]:text-app-fg! [&.drum-key]:border-b! [&.drum-key]:border-solid! [&.drum-key]:border-b-[#32323d]! [&.drum-key]:hover:bg-[#2c2c37]! [&.drum-key_svg]:h-5 [&.drum-key_svg]:w-5 [&.drum-key_svg]:shrink-0",
     "[.design-canvas_.team-note-workspace_&]:border-0 [.design-canvas_.team-note-workspace_&]:border-none",
     "[.design-canvas_.team-note-workspace_&_span]:top-[10px] [.design-canvas_.team-note-workspace_&_span]:text-caption",
     "[.design-canvas_.team-note-workspace_&_span]:text-app-key-black",
@@ -557,7 +557,12 @@ export const studioStyles = {
   studioMetronome: [
     "studio-metronome",
     "grid h-11 w-11 place-items-center rounded-[10px] text-[#F2F4F6] transition-colors",
-    "[&[aria-pressed=true]]:bg-[#4c00e5]/20! [&[aria-pressed=true]]:text-[#9966ff]! [&[aria-pressed=true]]:ring-1 [&[aria-pressed=true]]:ring-[#9966ff]/70",
+    "[&[aria-pressed=true]]:bg-transparent [&[aria-pressed=true]]:text-[#9966ff]",
+  ].join(" "),
+  studioPianoMetronome: [
+    "studio-metronome",
+    "grid h-11 w-11 place-items-center rounded-[10px] text-[#F2F4F6] transition-colors",
+    "[&[aria-pressed=true]]:bg-app-primary [&[aria-pressed=true]]:text-white [&[aria-pressed=true]]:ring-1 [&[aria-pressed=true]]:ring-[#9966ff]",
   ].join(" "),
   studioVolumeTrigger: [
     "studio-volume-trigger",

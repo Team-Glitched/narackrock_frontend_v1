@@ -121,7 +121,7 @@ export function StudioToolbar({
           {playing ? <span className={sharedStyles.pauseSymbol} /> : <Asset name="play.svg" />}
         </button>
         <button
-          className={studioStyles.studioMetronome}
+          className={piano ? studioStyles.studioPianoMetronome : studioStyles.studioMetronome}
           aria-label="메트로놈"
           aria-pressed={metronome ?? false}
           onClick={onMetronome}
@@ -162,7 +162,7 @@ export function StudioToolbar({
             </span>
           </>
         )}
-        <span>
+        <span className={studioStyles.studioTiming}>
           <small>time</small>
           {`00:${clockTime(positionMs)}`}
         </span>

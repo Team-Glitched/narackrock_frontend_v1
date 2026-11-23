@@ -62,6 +62,7 @@ export function StudioToolbar({
   transport,
   title,
   timingEditable,
+  piano = false,
   onBack,
   onRewind,
   onSample,
@@ -72,6 +73,7 @@ export function StudioToolbar({
   transport: NativeTransport;
   title: string;
   timingEditable: boolean;
+  piano?: boolean;
   onBack: () => void;
   onRewind?: () => void;
   onSample?: () => void;
@@ -149,10 +151,11 @@ export function StudioToolbar({
         </IconButton>
         <IconButton
           label="메트로놈"
-          pressed={transport.metronome}
+          checked={transport.metronome}
+          pressed={piano && transport.metronome}
           onPress={() => act({ type: "transport-metronome" })}
         >
-          <MetronomeGlyph active={transport.metronome} size={22} />
+          <MetronomeGlyph active={!piano && transport.metronome} size={22} />
         </IconButton>
       </View>
       {!portrait && readouts}
@@ -172,20 +175,23 @@ export function StudioToolbar({
 
 function IconButton({
   label,
+  checked,
   pressed,
   onPress,
   children,
 }: {
   label: string;
+  checked?: boolean;
   pressed?: boolean;
   onPress: () => void;
   children: ReactNode;
 }) {
+  const ariaChecked = checked ?? pressed;
   return (
     <Touchable
       accessibilityRole="button"
       accessibilityLabel={label}
-      accessibilityState={pressed === undefined ? undefined : { checked: pressed }}
+      accessibilityState={ariaChecked === undefined ? undefined : { checked: ariaChecked }}
       hitSlop={7}
       style={[styles.icon, pressed && styles.iconPressed]}
       onPress={onPress}
@@ -293,7 +299,7 @@ const styles = StyleSheet.create({
   uprightReadouts: { width: "100%", flexGrow: 0 },
   icon: { width: 30, height: 30, alignItems: "center", justifyContent: "center", borderRadius: 8 },
   iconPressed: {
-    backgroundColor: "rgba(76, 0, 229, 0.22)",
+    backgroundColor: colors.primary,
     borderRadius: 10,
     borderWidth: 1,
     borderColor: "#9966ff",

@@ -710,10 +710,12 @@ export function NoteRoll({
             >
               {roll.drum ? (
                 <>
-                  <DrumPadIcon kind={drumPadFor(pitch)?.icon ?? "percussion"} color={colors["key-black"]} />
-                  <Text style={styles.drumLabel} numberOfLines={2}>
-                    {label}
-                  </Text>
+                  <DrumPadIcon kind={drumPadFor(pitch)?.icon ?? "percussion"} color={colors.fg} />
+                  {keyWidth >= 70 && (
+                    <Text style={styles.drumLabel} numberOfLines={2}>
+                      {label}
+                    </Text>
+                  )}
                 </>
               ) : (
                 <>
@@ -1022,7 +1024,15 @@ const barsOptions = ([1, 2, 4] as const).map((value) => ({ value, label: `${valu
  * The grouped strip of the web's NoteEditorControls: tools (unless shown elsewhere), history, snap and
  * window, selection actions, then the drum kit toggle or the chord button. Scrolls horizontally.
  */
-export function NoteControls({ roll, tools: showTools = true }: { roll: NativeNoteRoll; tools?: boolean }) {
+export function NoteControls({
+  roll,
+  tools: showTools = true,
+  showModeAction = true,
+}: {
+  roll: NativeNoteRoll;
+  tools?: boolean;
+  showModeAction?: boolean;
+}) {
   const { act } = useScreen();
   const count = roll.selection.length;
   const lastStart = Math.max(0, roll.maxTick - roll.windowTicks);
@@ -1127,8 +1137,8 @@ export function NoteControls({ roll, tools: showTools = true }: { roll: NativeNo
           />
         )}
       </Group>
-      {(roll.drum || roll.canChord) && <Divider />}
-      {roll.drum ? (
+      {showModeAction && (roll.drum || roll.canChord) && <Divider />}
+      {showModeAction && roll.drum ? (
         // Filled while all 47 pads show; hidden notes stay saved and playable.
         <Touchable
           accessibilityRole="button"
@@ -1146,6 +1156,7 @@ export function NoteControls({ roll, tools: showTools = true }: { roll: NativeNo
           )}
         </Touchable>
       ) : (
+        showModeAction &&
         roll.canChord && (
           <Touchable
             accessibilityRole="button"
@@ -1402,7 +1413,15 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: "#b9b8c2",
   },
-  drumKey: { flexDirection: "row", alignItems: "center", gap: 4, paddingHorizontal: 4 },
+  drumKey: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 4,
+    paddingHorizontal: 5,
+    backgroundColor: "#23232a",
+    borderBottomColor: "#32323d",
+  },
   blackKey: {
     position: "absolute",
     left: 0,
@@ -1419,7 +1438,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 14,
   },
-  drumLabel: { flex: 1, color: colors["key-black"], fontSize: 9, lineHeight: 11 },
+  drumLabel: { flex: 1, color: colors.fg, fontSize: 10, lineHeight: 12 },
   grid: { position: "absolute", right: 0, bottom: 0, overflow: "hidden" },
   row: {
     position: "absolute",
