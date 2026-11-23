@@ -112,6 +112,17 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
         microphonePermission: microphoneUsage,
       },
     ],
+    // Without this the prebuild keeps Expo's template splash: a white screen with the Expo logo
+    // until the first frame. App.tsx holds it until the first native screen is reported.
+    [
+      "expo-splash-screen",
+      {
+        backgroundColor: designTokens.colors.bg,
+        image: "./assets/splash-icon.png",
+        imageWidth: 160,
+        resizeMode: "contain",
+      },
+    ],
     ...(iosGoogleUrlScheme
       ? [
           ["@react-native-google-signin/google-signin", { iosUrlScheme: iosGoogleUrlScheme }] as [
