@@ -194,7 +194,10 @@ function FeedBridge({ nav }: { nav: SourcesNavigation }) {
               error: state?.error ?? null,
               empty: !!state && !state.error && state.items.length === 0,
               items: state?.items.map(toCard("all")) ?? [],
-              more: state?.hasNext ? { busy: list.moreBusy } : null,
+              more:
+                state && (state.hasNext || state.pageError)
+                  ? { busy: list.moreBusy, error: state.pageError ?? null }
+                  : null,
             },
           },
     },

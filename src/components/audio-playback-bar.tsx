@@ -1,5 +1,6 @@
 import { sourceStyles } from "@/styles/source.styles";
 import { cn } from "@/lib/utils";
+import { keyboardSeekMs } from "@/lib/playback-progress";
 import { Pause } from "lucide-react";
 import { Asset } from "./asset";
 export function playbackClock(ms: number) {
@@ -69,6 +70,12 @@ export function AudioPlaybackBar({
         value={durationMs === null ? 0 : position}
         disabled={disabled || loading || !durationMs}
         onChange={(event) => onSeek(Number(event.target.value))}
+        onKeyDown={(event) => {
+          const next = durationMs ? keyboardSeekMs(event.key, position, durationMs) : null;
+          if (next === null) return;
+          event.preventDefault();
+          onSeek(next);
+        }}
         style={{
           background: `linear-gradient(to right,var(--purple) ${durationMs ? (position / durationMs) * 100 : 0}%,var(--line-strong) 0)`,
         }}

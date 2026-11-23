@@ -1,45 +1,49 @@
-import { useEffect, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 
-type Anchor = { baseMs: number; atMs: number; playing: boolean };
+import {
+  anchoredPositionMs,
+  nextPlaybackAnchor,
+  playbackAnchorSettled,
+  type PlaybackAnchor,
+} from "../../src/lib/playback-progress.ts";
+import { useScreen } from "./screen-context";
 
 /**
- * Smoothly interpolates between throttled native-bridge position updates at the display frame rate
- * without drifting past the next expected update when paused or buffering.
+ * Smoothly interpolates between the page's stepped position reports at the display frame rate while
+ * `advancing` (the audio actually plays). The display never moves back within a playing stretch except
+ * for a seek, shows the exact reported position otherwise, and does no frame work once it cannot move
+ * or while its screen is not on display.
  */
 export function useSmoothPlaybackMs(
   positionMs: number,
   durationMs: number | null,
-  playing: boolean,
+  advancing: boolean,
 ): number {
-  const [sample, setSample] = useState<{ anchor: Anchor; nowMs: number }>(() => ({
-    anchor: { baseMs: positionMs, atMs: 0, playing: false },
-    nowMs: 0,
-  }));
+  const { active } = useScreen();
+  const running = advancing && active;
+  const anchorRef = useRef<PlaybackAnchor | null>(null);
+  const endRef = useRef(durationMs);
+  const [shownMs, setShownMs] = useState(positionMs);
 
-  useEffect(() => {
-    const start = performance.now();
-    const anchor: Anchor = { baseMs: positionMs, atMs: start, playing };
-    let rafId = window.requestAnimationFrame(() => {
-      setSample({ anchor, nowMs: performance.now() });
-      if (!playing) return;
-      const tick = () => {
-        setSample({ anchor, nowMs: performance.now() });
-        rafId = window.requestAnimationFrame(tick);
-      };
-      rafId = window.requestAnimationFrame(tick);
-    });
+  useLayoutEffect(() => {
+    endRef.current = durationMs;
+  });
+
+  useLayoutEffect(() => {
+    const anchor = nextPlaybackAnchor(anchorRef.current, positionMs, running, performance.now());
+    anchorRef.current = anchor;
+    if (!running) return;
+    setShownMs(anchoredPositionMs(anchor, anchor.atMs));
+    let rafId = 0;
+    const tick = () => {
+      const now = performance.now();
+      setShownMs(anchoredPositionMs(anchor, now));
+      if (!playbackAnchorSettled(anchor, now, endRef.current)) rafId = window.requestAnimationFrame(tick);
+    };
+    rafId = window.requestAnimationFrame(tick);
     return () => window.cancelAnimationFrame(rafId);
-  }, [positionMs, playing]);
+  }, [positionMs, running]);
 
-  const elapsed =
-    playing && sample.anchor.playing && sample.anchor.atMs > 0
-      ? Math.min(350, Math.max(0, sample.nowMs - sample.anchor.atMs))
-      : 0;
-  const jumped = Math.abs(positionMs - sample.anchor.baseMs) > 350;
-  const raw =
-    !jumped && sample.anchor.atMs > 0 && playing && sample.anchor.playing
-      ? sample.anchor.baseMs + elapsed
-      : positionMs;
-  const clamped = Math.max(0, raw);
-  return durationMs !== null && durationMs > 0 ? Math.min(durationMs, clamped) : clamped;
+  const ms = Math.max(0, running ? shownMs : positionMs);
+  return durationMs !== null && durationMs > 0 ? Math.min(durationMs, ms) : ms;
 }

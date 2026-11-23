@@ -125,6 +125,7 @@ export type NativePlayback = {
   playing: boolean;
   loading: boolean;
   muted: boolean;
+  /** `reportedPositionMs` (src/lib/playback-progress.ts): stepped while playing and not loading, exact otherwise. */
   positionMs: number;
   durationMs: number | null;
   /** The whole bar is disabled (empty clip). */

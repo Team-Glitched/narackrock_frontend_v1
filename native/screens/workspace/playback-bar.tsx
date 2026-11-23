@@ -32,10 +32,11 @@ export function PlaybackBar({
 }) {
   const [width, setWidth] = useState(0);
   const { durationMs, label } = player;
-  const smoothMs = useSmoothPlaybackMs(player.positionMs, durationMs, player.playing);
-  const position = Math.max(
-    0,
-    durationMs === null ? smoothMs : Math.min(smoothMs, durationMs),
+  // The clamped display position; it moves only while the audio actually plays (not while loading).
+  const position = useSmoothPlaybackMs(
+    player.positionMs,
+    durationMs,
+    player.playing && !player.loading,
   );
   const elapsed = clock(position);
   const total = durationMs === null ? "‒:‒" : clock(durationMs);

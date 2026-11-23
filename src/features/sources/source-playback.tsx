@@ -16,6 +16,7 @@ import {
   recordOpenSourceView,
   type OpenSourcePlayback,
 } from "@/lib/api/open-sources";
+import { nativeApp } from "@/lib/native-app";
 import { sourceKeys } from "./source-queries";
 
 function playbackError(cause: unknown) {
@@ -66,8 +67,10 @@ export function useSourcePlayback(
     };
   }, [canPreview]);
 
+  // The browser follows the media clock every frame; the app's hidden page keeps the time updates (the
+  // native screen interpolates between them).
   useEffect(() => {
-    if (!playing) return;
+    if (!playing || nativeApp()) return;
     let rafId = 0;
     const tick = () => {
       const player = audio.current;
