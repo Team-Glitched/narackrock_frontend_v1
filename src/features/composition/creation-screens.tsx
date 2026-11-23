@@ -6,6 +6,7 @@ import { buttonVariants } from "@/styles/variants";
 import { useEffect, useRef, useState } from "react";
 import { Asset } from "@/components/asset";
 import { Dropdown } from "@/components/dropdown";
+import { LoadingOverlay } from "@/components/loading-overlay";
 import { AudioTrimPicker } from "@/features/composition/audio-trim-picker";
 import type { AudioSelection } from "@/features/composition/prepare-audio-file";
 import { beatsPerBarFromSignature, useMetronome } from "@/features/composition/use-metronome";
@@ -95,10 +96,12 @@ export function useSelectedAudio() {
 export function CompositionUploadScreen({
   onSave,
   saveLabel = "선택 구간을 레이어에 저장",
+  suppressLoadingOverlay = false,
 }: {
   onSave: (file: File, selection: AudioSelection) => Promise<void>;
   saveLabel?: string;
   onBack: () => void;
+  suppressLoadingOverlay?: boolean;
 }) {
   const [selected, select] = useSelectedAudio();
   return (
@@ -127,6 +130,7 @@ export function CompositionUploadScreen({
           url={selected.url}
           onSave={(selection) => onSave(selected.file, selection)}
           saveLabel={saveLabel}
+          suppressLoadingOverlay={suppressLoadingOverlay}
         />
       )}
     </div>
@@ -256,6 +260,7 @@ export function useCompositionRecorder({
   const [liveStream, setLiveStream] = useState<MediaStream | null>(null);
   const [recording, setRecording] = useState(false);
   const [pending, setPending] = useState(false);
+  const [pendingKind, setPendingKind] = useState<"permission" | "save" | "transform" | null>(null);
   const [soundKind, setSoundKind] = useState<AudioTranscriptionMode>("AUTO");
   const [pendingLabel, setPendingLabel] = useState("처리 중");
   const [file, setFile] = useState<File | null>(null);
@@ -284,6 +289,7 @@ export function useCompositionRecorder({
       const startedAt = nativeStartedAt.current;
       nativeStartedAt.current = null;
       setRecording(false);
+      setPendingKind("permission");
       setPending(true);
       try {
         const recorded = await recordNativeAudio("stop");
@@ -293,10 +299,12 @@ export function useCompositionRecorder({
       } catch (cause) {
         setError(cause instanceof Error ? cause.message : "녹음을 저장하지 못했습니다.");
       } finally {
+        setPendingKind(null);
         setPending(false);
       }
       return;
     }
+    setPendingKind("permission");
     setPending(true);
     setError("");
     setFile(null);
@@ -312,6 +320,7 @@ export function useCompositionRecorder({
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "마이크 권한을 확인해 주세요.");
     } finally {
+      setPendingKind(null);
       setPending(false);
     }
   }
@@ -323,6 +332,7 @@ export function useCompositionRecorder({
       setLiveStream(null);
       return;
     }
+    setPendingKind("permission");
     setPending(true);
     setError("");
     setFile(null);
@@ -353,12 +363,14 @@ export function useCompositionRecorder({
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "마이크 권한을 확인해 주세요.");
     } finally {
+      setPendingKind(null);
       setPending(false);
     }
   }
   async function save() {
     if (!file || pending) return;
     setPendingLabel("저장 중");
+    setPendingKind("save");
     setPending(true);
     setError("");
     // The chooser auditions the recording itself; the native player must not play over it.
@@ -368,12 +380,14 @@ export function useCompositionRecorder({
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "녹음을 저장하지 못했습니다.");
     } finally {
+      setPendingKind(null);
       setPending(false);
     }
   }
   async function transform() {
     if (!file || pending || !onTransform) return;
     setPendingLabel("소리 분석 및 MIDI 변환 중");
+    setPendingKind("transform");
     setPending(true);
     setError("");
     beforeSubmit?.();
@@ -382,6 +396,7 @@ export function useCompositionRecorder({
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "녹음을 MIDI로 변환하지 못했습니다.");
     } finally {
+      setPendingKind(null);
       setPending(false);
     }
   }
@@ -391,6 +406,7 @@ export function useCompositionRecorder({
     liveStream,
     recording,
     pending,
+    pendingKind,
     file,
     durationMs,
     url,
@@ -410,6 +426,7 @@ export function CompositionRecordScreen({
   saveLabel = "레이어에 녹음 저장",
   bpm = 120,
   timeSignature = "4/4",
+  suppressLoadingOverlay = false,
 }: {
   onSave: (file: File) => Promise<void>;
   onTransform?: (file: File, soundKind?: AudioTranscriptionMode) => Promise<void>;
@@ -417,6 +434,7 @@ export function CompositionRecordScreen({
   onBack: () => void;
   bpm?: number;
   timeSignature?: string;
+  suppressLoadingOverlay?: boolean;
 }) {
   const playback = useRef<HTMLAudioElement>(null);
   const [metronomeOn, setMetronomeOn] = useState(false);
@@ -433,6 +451,7 @@ export function CompositionRecordScreen({
     liveStream,
     recording,
     pending,
+    pendingKind,
     file,
     url,
     error,
@@ -452,6 +471,12 @@ export function CompositionRecordScreen({
   const recorded = Boolean(url);
   return (
     <div className={cn(studioStyles.recordView, sharedStyles.scrollContent)}>
+      {(pendingKind === "transform" || pendingKind === "save") && !suppressLoadingOverlay && (
+        <LoadingOverlay
+          message={pendingKind === "transform" ? "소리 분석 및 MIDI 변환 중" : "녹음을 저장하는 중입니다."}
+          submessage={pendingKind === "transform" ? "오디오 길이에 따라 잠시 걸릴 수 있어요." : undefined}
+        />
+      )}
       <div
         className={cn(
           "flex flex-col items-center gap-3 [.design-canvas_&]:absolute",

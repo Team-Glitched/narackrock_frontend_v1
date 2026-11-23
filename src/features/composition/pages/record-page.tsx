@@ -144,6 +144,7 @@ export default function RecordPage() {
               onTransform={transform}
               bpm={bpm}
               timeSignature={timeSignature}
+              suppressLoadingOverlay={instrument.open}
             />
           )}
         </div>

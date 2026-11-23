@@ -12,6 +12,7 @@ import {
 } from "react";
 import type { MidiNoteDto } from "@/lib/api/composition";
 import { StudioToolbar } from "@/features/composition/studio-toolbar";
+import { LoadingOverlay } from "@/components/loading-overlay";
 import { NoteSettingsDialog } from "@/features/composition/note-settings-dialog";
 import { TeamPianoRoll } from "./team-piano-roll";
 import { useCompositionPlayback, type PlaybackComposition } from "./use-composition-playback";
@@ -479,6 +480,11 @@ export function SourcePianoEditor(props: SourcePianoProps) {
           instrument={piano.instrumentId}
           onClose={() => setSettings(null)}
           onApply={(note) => editor.execute({ type: "replace", index: settings, note })}
+        />
+      )}
+      {(pending || importing) && (
+        <LoadingOverlay
+          message={importing ? "JSON 파일을 읽는 중입니다." : "오디오를 만드는 중입니다."}
         />
       )}
     </div>
