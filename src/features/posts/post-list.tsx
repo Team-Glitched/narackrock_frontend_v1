@@ -12,6 +12,7 @@ import { useGalleryPosts } from "@/features/community/use-gallery-posts";
 import type { PostListItem } from "@/lib/api/contracts";
 import { relativeTime } from "@/features/posts/post-utils";
 import { PopularContentActions } from "@/features/posts/popular-content-actions";
+import defaultPostCover from "@/features/posts/assets/post-default-cover.png";
 
 export function PostListStatus({ state }: { state: "loading" | "error" | "empty" }) {
   const message =
@@ -37,7 +38,7 @@ export function MiniPost({
   onOpen: (postId: number) => void;
 }) {
   const hiddenPosts = useHiddenPosts();
-  const excerpt = post.content || post.contentPreview || post.title;
+  const imageUrl = post.imageUrl?.trim();
   if (hiddenPosts.ids.has(post.postId)) return null;
   return (
     <div className={cn(communityStyles.miniPost, tall ? communityStyles.miniPostTall : "")} data-post-id={post.postId}>
@@ -49,12 +50,15 @@ export function MiniPost({
         aria-description={post.gallery?.name ? `커뮤니티 ${post.gallery.name}` : undefined}
       >
       <span className={communityStyles.postThumb}>
-        {post.imageUrl && (
-          <img src={post.imageUrl} alt="게시글 첨부 이미지" width={104} height={104} />
-        )}
+        <img
+          src={imageUrl || defaultPostCover}
+          alt={imageUrl ? "게시글 첨부 이미지" : "게시글 기본 이미지"}
+          width={104}
+          height={104}
+        />
       </span>
       <div className={communityStyles.miniPostCopy}>
-        <strong>{excerpt}</strong>
+        <strong>{post.title}</strong>
         <div className={communityStyles.miniAuthor}>
           <Avatar size="xs" src={post.writer.profileImageUrl} />
           <span>{post.writer.nickname}</span>
