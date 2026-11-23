@@ -5,6 +5,7 @@ import { useCompositionPlayback, type PlaybackComposition } from "@/features/com
 import { ApiError, apiOrigin } from "@/lib/api/client";
 import type { ShortItemDto } from "@/lib/api/contracts";
 import { toggleShortPlayback, type ShortParticipantTracks } from "@/lib/api/shorts";
+import { nativeApp } from "@/lib/native-app";
 import { shortParticipantTracksQuery } from "./abyss-queries";
 import {
   listenerDurationMs,
@@ -37,7 +38,10 @@ export type ShortPlayback = {
   listenAll: () => void;
   stems: StemsState;
   retryStems: () => void;
+  /** Play intent; an owner-subset start may still wait for its stems. */
   playing: boolean;
+  /** The position actually moves: the audio plays (not a subset start still loading). */
+  progressing: boolean;
   canPlay: boolean;
   positionMs: number;
   totalMs: number;
@@ -150,8 +154,10 @@ export function useShortPlayback({
     void audioRef.current?.play().catch(() => {});
   }, [audioRef, key, mediaUrl]);
 
+  // The browser follows the media clock every frame; the app's hidden page keeps the time updates (the
+  // native screen interpolates between them).
   useEffect(() => {
-    if (selection !== null || !native.playing) return;
+    if (selection !== null || !native.playing || nativeApp()) return;
     let rafId = 0;
     const tick = () => {
       const audio = audioRef.current;
@@ -352,6 +358,7 @@ export function useShortPlayback({
     stems,
     retryStems: ensureStems,
     playing: selection === null ? native.playing : intent && !failed,
+    progressing: selection === null ? native.playing : engine.playing && !failed,
     canPlay: selection === null ? Boolean(mediaUrl)
       : selection.size > 0 && !failed && (composition !== null || stems.status !== "ready"),
     positionMs: selection === null ? native.timeMs : engine.positionMs,

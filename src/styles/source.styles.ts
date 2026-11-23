@@ -27,13 +27,14 @@ export const sourceStyles = {
     "[&_.os-body]:line-clamp-2 [&_.os-body]:[overflow-wrap:anywhere]",
     "[&_.os-foot-author]:min-w-0 [&_.os-foot-author>span:last-child]:truncate",
   ].join(" "),
+  // A paged card is 16px narrower than the rail and the gap is 16px, so the last card already reaches
+  // its start snap, flush with the gutter; the end spacer only keeps the trailing padding scrollable.
   osDiscoveryRail: [
     "os-discovery-rail",
     "-mx-5 px-5 scroll-px-5 relative flex gap-4 snap-x snap-mandatory overflow-x-auto overscroll-x-contain motion-safe:scroll-smooth [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
     "data-[paged=true]:cursor-grab data-[paged=true]:select-none data-[dragging=true]:cursor-grabbing data-[dragging=true]:snap-none",
     "data-[paged=true]:after:w-1 data-[paged=true]:after:flex-none data-[paged=true]:after:content-['']",
   ].join(" "),
-  osDiscoveryList: ["os-discovery-list", "flex flex-col gap-3"].join(" "),
   osDiscoveryEmpty: [
     "os-discovery-empty",
     "m-0 rounded-[12px] border border-solid border-app-border bg-transparent px-4 py-3 text-app-muted font-normal text-body font-sans leading-[20px]",

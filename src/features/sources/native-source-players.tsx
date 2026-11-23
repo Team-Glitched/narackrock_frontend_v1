@@ -10,6 +10,7 @@ import type {
   NativePlaybackTarget,
   NativeSavedSources,
 } from "@/lib/native-screens";
+import { reportedPositionMs } from "@/lib/playback-progress";
 import type { SavedOpenSourcesState } from "./saved-open-sources";
 import { useSourcePlayback } from "./source-playback";
 import { sourceError } from "./source-screens";
@@ -66,9 +67,15 @@ export function useNativePlayers() {
   return { players: states, report, control };
 }
 
+/** A player's reported position: stepped while its audio plays, exact when paused, seeked or loading. */
+const reportedPlayback = (state: NativePlayback): NativePlayback => ({
+  ...state,
+  positionMs: reportedPositionMs(state.positionMs, state.playing && !state.loading),
+});
+
 /**
- * Sends a player's state to the bridge. The position is rounded to 250 ms so a playing preview does not
- * resend the screen on every audio frame.
+ * Sends a player's state to the bridge. A playing preview's position is stepped so it does not resend
+ * the screen on every audio frame.
  */
 export function useReportPlayer(
   key: string,
@@ -76,17 +83,12 @@ export function useReportPlayer(
   controls: PlayerControls,
   report: PlayerReport,
 ) {
-  useReportItem(
-    key,
-    { ...state, positionMs: Math.floor(state.positionMs / 250) * 250 },
-    controls,
-    report,
-  );
+  useReportItem(key, reportedPlayback(state), controls, report);
 }
 
 /**
- * The web's AudioPlaybackBar state of a `useSourcePlayback` player. The position is rounded to 250 ms,
- * as `useReportPlayer` does, for players reported along with other state.
+ * The web's AudioPlaybackBar state of a `useSourcePlayback` player. The position is stepped while it
+ * plays, as `useReportPlayer` does, for players reported along with other state.
  */
 export function nativeSourcePlayback(
   player: Pick<NativePlayback, "playing" | "loading" | "muted" | "positionMs" | "durationMs"> & {
@@ -94,16 +96,16 @@ export function nativeSourcePlayback(
   },
   label: string,
 ): NativePlayback {
-  return {
+  return reportedPlayback({
     label,
     playing: player.playing,
     loading: player.loading,
     muted: player.muted,
-    positionMs: Math.floor(player.positionMs / 250) * 250,
+    positionMs: player.positionMs,
     durationMs: player.durationMs,
     disabled: false,
     error: player.error || null,
-  };
+  });
 }
 
 /**

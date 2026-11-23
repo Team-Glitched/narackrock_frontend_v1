@@ -181,13 +181,18 @@ function OpenSourceCard({
   );
 }
 
-/** Paged public source list for a keyword; following pages are appended until the server reports no more. */
+/**
+ * Paged public source list for a keyword; following pages are appended until the server reports no
+ * more. A failure with no cards is `error` (retry resets the list); once cards are shown it is
+ * `pageError` and the cards stay, `more` retrying the failed load.
+ */
 export function useOpenSourceList(keyword: string, enabled: boolean) {
   const userId = useCurrentUserId();
   const queryClient = useQueryClient();
   const options = openSourceListQuery(userId, keyword.trim());
   const query = useInfiniteQuery({ ...options, enabled: enabled && userId !== null });
-  const { data, error, isFetching, isFetchingNextPage, hasNextPage, fetchNextPage } = query;
+  const { data, error, isFetching, isFetchNextPageError, hasNextPage, fetchNextPage, refetch } =
+    query;
   const items = useMemo(() => {
     const seen = new Set<number>();
     return (data?.pages ?? [])
@@ -198,18 +203,27 @@ export function useOpenSourceList(keyword: string, enabled: boolean) {
         return true;
       });
   }, [data]);
+  const failure = error ? sourceError(error) : undefined;
   const state =
     data || (error && !isFetching)
-      ? { items, hasNext: hasNextPage, error: error ? sourceError(error) : undefined }
+      ? {
+          items,
+          hasNext: hasNextPage,
+          error: items.length ? undefined : failure,
+          pageError: items.length ? failure : undefined,
+        }
       : null;
   return {
     state,
     firstPage: data?.pages[0]?.items,
     userId,
+    /** Loads the next page, or retries the failed load; never interrupts a running fetch (refresh). */
     more: () => {
-      if (hasNextPage && !isFetchingNextPage) void fetchNextPage();
+      if (isFetching) return;
+      if (error && !isFetchNextPageError) void refetch();
+      else if (hasNextPage) void fetchNextPage({ cancelRefetch: false });
     },
-    moreBusy: isFetchingNextPage,
+    moreBusy: isFetching,
     retry: () => void queryClient.resetQueries({ queryKey: options.queryKey, exact: true }),
     signedIn: userId !== null,
   };
@@ -262,6 +276,7 @@ function SourceDiscoverySection({
   emptyMessage = "표시할 샘플이 없습니다.",
   hasNext = false,
   moreBusy = false,
+  moreError,
   onMore,
   onOpen,
   onProfile,
@@ -273,6 +288,8 @@ function SourceDiscoverySection({
   emptyMessage?: string;
   hasNext?: boolean;
   moreBusy?: boolean;
+  /** A failed load after cards are shown: the end tile offers "다시 시도" (`onMore`) instead. */
+  moreError?: string;
   onMore?: () => void;
   onOpen: (id: number, comments?: boolean) => void;
   onProfile: (id: number) => void;
@@ -288,7 +305,8 @@ function SourceDiscoverySection({
   } | null>(null);
   const suppressClick = useRef(false);
   const count = items?.length ?? 0;
-  const paged = count > 1 || Boolean(hasNext && onMore);
+  const moreTile = Boolean(onMore && (hasNext || moreError));
+  const paged = count > 1 || moreTile;
 
   function startDrag(event: PointerEvent<HTMLDivElement>) {
     suppressClick.current = false;
@@ -346,7 +364,8 @@ function SourceDiscoverySection({
       Math.min(Math.min(maxIndex, initial + 1), target),
     );
     delete track.dataset.dragging;
-    track.scrollTo({ left: next * step, behavior: "smooth" });
+    // No explicit behavior: the rail's `motion-safe:scroll-smooth` decides, honoring reduced motion.
+    track.scrollTo({ left: next * step });
   }
 
   return (
@@ -378,7 +397,7 @@ function SourceDiscoverySection({
           className={sourceStyles.osDiscoveryRail}
           data-paged={paged}
           onScroll={(event) => {
-            if (!hasNext || moreBusy || !onMore) return;
+            if (!hasNext || moreBusy || moreError || !onMore) return;
             const track = event.currentTarget;
             const step = discoveryCardStep(track);
             if (track.scrollLeft + track.clientWidth >= track.scrollWidth - step * 1.5) {
@@ -409,16 +428,31 @@ function SourceDiscoverySection({
               onProfile={onProfile}
             />
           ))}
-          {hasNext && onMore && (
-            <button
-              type="button"
-              className="flex w-[124px] flex-none snap-start items-center justify-center rounded-[12px] border border-solid border-app-border bg-app-panel px-4 text-body font-medium text-app-muted transition-colors hover:text-app-fg disabled:opacity-50"
-              disabled={moreBusy}
-              onClick={onMore}
-            >
-              {moreBusy ? "불러오는 중..." : "더보기"}
-            </button>
-          )}
+          {moreTile &&
+            (moreError && !moreBusy ? (
+              <div
+                role="alert"
+                className="flex w-[168px] flex-none snap-start flex-col items-center justify-center gap-3 rounded-[12px] border border-solid border-app-border bg-app-panel p-4 text-center text-body leading-[20px] text-[#ff8d8d]"
+              >
+                <p className="m-0">{moreError}</p>
+                <button
+                  type="button"
+                  className={buttonVariants({ tone: "secondary", size: "compact" })}
+                  onClick={onMore}
+                >
+                  다시 시도
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                className="flex w-[124px] flex-none snap-start items-center justify-center rounded-[12px] border border-solid border-app-border bg-app-panel px-4 text-body font-medium text-app-muted transition-colors hover:text-app-fg disabled:opacity-50"
+                disabled={moreBusy}
+                onClick={onMore}
+              >
+                {moreBusy ? "불러오는 중..." : "더보기"}
+              </button>
+            ))}
         </div>
       )}
     </section>
@@ -461,12 +495,13 @@ export function OpensourceScreen({
       />
       <SourceDiscoverySection
         title="전체 샘플"
-        items={state && !state.error ? state.items : undefined}
+        items={state?.error ? undefined : state?.items}
         error={state?.error}
         retry={list.retry}
         emptyMessage="아직 공개된 샘플이 없습니다."
         hasNext={state?.hasNext}
         moreBusy={list.moreBusy}
+        moreError={state?.pageError}
         onMore={() => void list.more()}
         onOpen={onOpen}
         onProfile={onProfile}

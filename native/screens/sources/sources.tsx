@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ScrollView, Text, TextInput, View, useWindowDimensions } from "react-native";
+import { ScrollView, Text, TextInput, View } from "react-native";
 import type {
   NativeSourceCard,
   NativeSourcePublications,
@@ -80,16 +80,22 @@ function SourceSection({
   section: NativeSourceSection;
   kind: "popular" | "recommended";
   emptyMessage?: string;
-  more?: { busy: boolean } | null;
+  more?: { busy: boolean; error: string | null } | null;
   onMore?: () => void;
 }) {
   const { act } = useScreen();
-  const innerWidth = Math.max(1, useWindowDimensions().width - gutter * 2);
+  // The rail's own width inside the screen padding and safe area; cards render once it is measured.
+  const [innerWidth, setInnerWidth] = useState(0);
   const count = section.items?.length ?? 0;
   const paged = count > 1 || Boolean(more && onMore);
   const cardWidth = paged ? Math.max(240, innerWidth - 16) : innerWidth;
+  // Room after the last card so it can reach its start snap like the others.
+  const endSpace = count > 1 ? Math.max(0, innerWidth - cardWidth) : 0;
   return (
-    <View style={{ gap: 12 }}>
+    <View
+      style={{ gap: 12 }}
+      onLayout={(event) => setInnerWidth(event.nativeEvent.layout.width)}
+    >
       <Text accessibilityRole="header" style={type.title}>
         {section.title}
       </Text>
@@ -103,7 +109,7 @@ function SourceSection({
           <Status>샘플을 불러오는 중...</Status>
         ))}
       {section.items?.length === 0 && <Status>{emptyMessage}</Status>}
-      {!!section.items?.length && (
+      {!!section.items?.length && innerWidth > 0 && (
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -113,7 +119,7 @@ function SourceSection({
           disableIntervalMomentum
           scrollEventThrottle={120}
           onScroll={(event) => {
-            if (!more || more.busy || !onMore) return;
+            if (!more || more.busy || more.error || !onMore) return;
             const { contentOffset, layoutMeasurement, contentSize } = event.nativeEvent;
             if (
               contentOffset.x + layoutMeasurement.width >=
@@ -123,23 +129,33 @@ function SourceSection({
             }
           }}
           style={{ marginHorizontal: -gutter }}
-          contentContainerStyle={{ paddingHorizontal: gutter, gap: 16 }}
+          contentContainerStyle={{
+            paddingLeft: gutter,
+            paddingRight: gutter + endSpace,
+            gap: 16,
+          }}
         >
           {section.items.map((source) => (
             <View key={source.key} style={{ width: cardWidth }}>
               <SourceCard source={source} />
             </View>
           ))}
-          {more && onMore && (
-            <View style={{ width: 124, justifyContent: "center" }}>
-              <Button
-                tone="secondary"
-                label={more.busy ? "불러오는 중..." : "더보기"}
-                disabled={more.busy}
-                onPress={onMore}
-              />
-            </View>
-          )}
+          {more &&
+            onMore &&
+            (more.error && !more.busy ? (
+              <View style={{ width: 200, justifyContent: "center" }}>
+                <ErrorRetry message={more.error} onRetry={onMore} />
+              </View>
+            ) : (
+              <View style={{ width: 124, justifyContent: "center" }}>
+                <Button
+                  tone="secondary"
+                  label={more.busy ? "불러오는 중..." : "더보기"}
+                  disabled={more.busy}
+                  onPress={onMore}
+                />
+              </View>
+            ))}
         </ScrollView>
       )}
     </View>

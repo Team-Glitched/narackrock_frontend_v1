@@ -212,7 +212,7 @@ function Short({ model, px }: { model: NativeAbyssReady; px: Px }) {
         <View style={[styles.player, { gap: px(20) }]}>
           <Progress
             px={px}
-            playing={playback.playing}
+            progressing={playback.progressing}
             positionMs={playback.positionMs}
             totalMs={playback.totalMs}
             onSeek={(ms) => act({ type: "abyss-seek", ms })}
@@ -617,13 +617,13 @@ function Icon({ px, icon: Glyph }: { px: Px; icon: FC<SvgProps> }) {
 /** The web's range input: a 5px bar filled to the position and a 13px thumb. */
 function Progress({
   px,
-  playing,
+  progressing,
   positionMs,
   totalMs,
   onSeek,
 }: {
   px: Px;
-  playing: boolean;
+  progressing: boolean;
   positionMs: number;
   totalMs: number;
   onSeek: (ms: number) => void;
@@ -632,7 +632,11 @@ function Progress({
   const [dragging, setDragging] = useState<number | null>(null);
   const latest = useRef({ width, totalMs, onSeek });
   latest.current = { width, totalMs, onSeek };
-  const smoothMs = useSmoothPlaybackMs(positionMs, totalMs > 0 ? totalMs : null, playing && dragging === null);
+  const smoothMs = useSmoothPlaybackMs(
+    positionMs,
+    totalMs > 0 ? totalMs : null,
+    progressing && dragging === null,
+  );
   const fractionAt = (x: number) => Math.min(1, Math.max(0, x / (latest.current.width || 1)));
   const gesture = useMemo(
     () =>

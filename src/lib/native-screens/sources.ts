@@ -53,12 +53,16 @@ export type NativeSourceFeed =
       /** "전체 샘플". */
       all: {
         loading: boolean;
+        /** A failure with no cards shown ("다시 시도" resets the list). */
         error: string | null;
         /** "아직 공개된 샘플이 없습니다." */
         empty: boolean;
         items: NativeSourceCard[];
-        /** The "더보기" button. */
-        more: { busy: boolean } | null;
+        /**
+         * The rail's end tile: "더보기", or `error` with "다시 시도" when a load failed after cards were
+         * shown (the cards stay). Both dispatch `more`.
+         */
+        more: { busy: boolean; error: string | null } | null;
       };
     };
 
