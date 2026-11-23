@@ -29,7 +29,7 @@ export const SHARK_MEMBER_SPECS: Record<SharkMember, SharkMemberSpec> = {
     inkTop: 108.5,
     inkWidth: 1161.7,
     inkHeight: 946.5,
-    scale: 0.195,
+    scale: 0.1404,
   },
   keyboard: {
     id: "keyboard",
@@ -37,7 +37,7 @@ export const SHARK_MEMBER_SPECS: Record<SharkMember, SharkMemberSpec> = {
     inkTop: 209.4,
     inkWidth: 533.1,
     inkHeight: 333.0,
-    scale: 0.3584,
+    scale: 0.258,
   },
   vocal: {
     id: "vocal",
@@ -45,7 +45,7 @@ export const SHARK_MEMBER_SPECS: Record<SharkMember, SharkMemberSpec> = {
     inkTop: 383.8,
     inkWidth: 424.6,
     inkHeight: 297.4,
-    scale: 0.3762,
+    scale: 0.2709,
   },
   bass: {
     id: "bass",
@@ -53,7 +53,7 @@ export const SHARK_MEMBER_SPECS: Record<SharkMember, SharkMemberSpec> = {
     inkTop: 171.2,
     inkWidth: 486.4,
     inkHeight: 480.8,
-    scale: 0.3529,
+    scale: 0.2541,
   },
   guitar: {
     id: "guitar",
@@ -61,7 +61,7 @@ export const SHARK_MEMBER_SPECS: Record<SharkMember, SharkMemberSpec> = {
     inkTop: 100.7,
     inkWidth: 557.4,
     inkHeight: 467.7,
-    scale: 0.3529,
+    scale: 0.2541,
   },
 };
 

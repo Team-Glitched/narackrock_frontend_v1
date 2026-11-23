@@ -1003,7 +1003,7 @@ export function SharkBandLoader({ member }: { member?: SharkMember }) {
 
   return (
     <div
-      className="shark-loading-stage relative flex h-[196px] w-[240px] shrink-0 items-center justify-center overflow-visible select-none"
+      className="shark-loading-stage relative flex h-[144px] w-[176px] shrink-0 items-center justify-center overflow-visible select-none"
       aria-hidden="true"
     >
       <div className="shark-band-loader relative flex size-full items-center justify-center overflow-visible">

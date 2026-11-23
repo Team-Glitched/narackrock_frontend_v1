@@ -59,7 +59,7 @@ function LoadingOverlayContent({
       <div className="relative flex w-full max-w-[320px] flex-col items-center justify-center gap-3 text-center">
         <div
           aria-hidden="true"
-          className="pointer-events-none absolute left-1/2 top-[42%] h-[210px] w-[250px] -translate-x-1/2 -translate-y-1/2 rounded-full"
+          className="pointer-events-none absolute left-1/2 top-[42%] h-[156px] w-[188px] -translate-x-1/2 -translate-y-1/2 rounded-full"
           style={{
             background:
               "radial-gradient(ellipse at 50% 56%, rgba(124, 77, 255, 0.24) 0%, rgba(255, 255, 255, 0.06) 44%, transparent 72%)",

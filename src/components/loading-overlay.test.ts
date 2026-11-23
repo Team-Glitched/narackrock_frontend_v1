@@ -74,8 +74,8 @@ test("solo shark specs balance visual proportions across all 5 members and avoid
     const spec = SHARK_MEMBER_SPECS[member];
     const renderedW = spec.inkWidth * spec.scale;
     const renderedH = spec.inkHeight * spec.scale;
-    assert.ok(renderedW >= 150 && renderedW <= 235, `${member} width out of balance: ${renderedW}`);
-    assert.ok(renderedH >= 105 && renderedH <= 190, `${member} height out of balance: ${renderedH}`);
+    assert.ok(renderedW >= 105 && renderedW <= 170, `${member} width out of balance: ${renderedW}`);
+    assert.ok(renderedH >= 75 && renderedH <= 140, `${member} height out of balance: ${renderedH}`);
   }
 
   for (const previous of SHARK_MEMBERS) {
