@@ -425,13 +425,21 @@ export const studioStyles = {
   ].join(" "),
   recordOutput: [
     "record-output",
-    "flex flex-1 flex-col [justify-content:end] w-full items-center gap-4 text-center text-body",
+    "flex flex-1 flex-col [justify-content:end] w-full items-center gap-5 text-center text-body",
     "[.design-canvas_&]:absolute [.design-canvas_&]:top-[345px] [.design-canvas_&]:w-[350px]",
     "[.design-canvas_&>[role=status]]:text-caption [.design-canvas_&>[role=status]]:text-app-muted",
   ].join(" "),
-  recordActions: ["record-actions", "flex flex-wrap items-center justify-center gap-[10px]"].join(
-    " ",
-  ),
+  /** A finished take: the compact metronome above frees room for the preview, mode and actions. */
+  recordOutputRecorded: "[.design-canvas_&]:top-[256px]!",
+  recordConvert: [
+    "record-convert",
+    "flex w-full items-center justify-between gap-3 rounded-xl bg-app-surface py-2 pr-2 pl-4 text-label",
+  ].join(" "),
+  recordActions: [
+    "record-actions",
+    "flex w-full flex-wrap items-center justify-center gap-[10px]",
+    "[&>button]:h-11 [&>button]:min-w-0 [&>button]:flex-1",
+  ].join(" "),
   recordButton: [
     "record-button",
     "h-[82px] w-[82px] rounded-[50%] bg-[white] bg-none grid shrink-0 place-items-center text-[length:28px] text-app-bg",

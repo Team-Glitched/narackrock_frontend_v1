@@ -102,6 +102,11 @@ export function CreationRecordScreen({ model, header }: ScreenProps<"creation-re
     };
   }, [metronomeOn, model.previewing, active, appActive, bpm, timeSignature, beatsPerBar]);
 
+  // A finished take shows the preview, conversion mode and actions; portrait shrinks the metronome
+  // and lifts the output so they keep their spacing above the record button.
+  const recorded = model.recorded && !model.recording;
+  const compact = !landscape && recorded;
+
   return (
     <>
       {header && <AppHeader header={header} />}
@@ -111,7 +116,13 @@ export function CreationRecordScreen({ model, header }: ScreenProps<"creation-re
             {model.notice}
           </Text>
         )}
-        <View style={[styles.symbolBox, landscape && styles.symbolBoxLandscape]}>
+        <View
+          style={[
+            styles.symbolBox,
+            landscape && styles.symbolBoxLandscape,
+            compact && styles.symbolBoxRecorded,
+          ]}
+        >
           <Touchable
             accessibilityRole="button"
             accessibilityLabel={metronomeOn ? "메트로놈 끄기" : "메트로놈 켜기"}
@@ -123,7 +134,10 @@ export function CreationRecordScreen({ model, header }: ScreenProps<"creation-re
             ]}
             onPress={() => setMetronomeOn((current) => !current)}
           >
-            <MetronomeIcon width={landscape ? 54 : 108} height={landscape ? 78 : 156} />
+            <MetronomeIcon
+              width={landscape ? 54 : compact ? 72 : 108}
+              height={landscape ? 78 : compact ? 104 : 156}
+            />
           </Touchable>
           <View style={styles.metronomeMeta}>
             <Text style={styles.metronomeTempo}>
@@ -147,7 +161,13 @@ export function CreationRecordScreen({ model, header }: ScreenProps<"creation-re
             )}
           </View>
         </View>
-        <View style={[styles.output, landscape ? styles.outputLandscape : styles.outputPortrait]}>
+        <View
+          style={[
+            styles.output,
+            landscape ? styles.outputLandscape : styles.outputPortrait,
+            compact && styles.outputRecorded,
+          ]}
+        >
           {model.error && (
             <Text accessibilityRole="alert" style={styles.text}>
               {model.error}
@@ -169,13 +189,40 @@ export function CreationRecordScreen({ model, header }: ScreenProps<"creation-re
             {model.status}
           </Text>
           {model.recorded && model.transform && (
-            <View style={{flexDirection: "row", gap: 8}}>
-              {([['AUTO','자동 판별'],['HUMMING','허밍 · 한 음씩'],['INSTRUMENT','악기 · 화음']] as const).map(([kind,label]) => (
-                <Touchable key={kind} accessibilityRole="button" accessibilityState={{selected:model.soundKind===kind}}
-                  disabled={model.pending} onPress={()=>act({type:"creation-record-sound-kind",kind})}>
-                  <Text style={{color:model.soundKind===kind?colors.accent:colors.fg}}>{label}</Text>
-                </Touchable>
-              ))}
+            <View style={styles.convert}>
+              <Text style={styles.convertLabel}>변환 방식</Text>
+              <View style={styles.convertOptions}>
+                {(
+                  [
+                    ["AUTO", "자동 판별"],
+                    ["HUMMING", "허밍 · 한 음씩"],
+                    ["INSTRUMENT", "악기 · 화음"],
+                  ] as const
+                ).map(([kind, label]) => {
+                  const selected = model.soundKind === kind;
+                  return (
+                    <Touchable
+                      key={kind}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected, disabled: model.pending }}
+                      disabled={model.pending}
+                      style={[
+                        styles.convertOption,
+                        selected && styles.convertOptionSelected,
+                        model.pending && styles.disabled,
+                      ]}
+                      onPress={() => act({ type: "creation-record-sound-kind", kind })}
+                    >
+                      <Text
+                        numberOfLines={1}
+                        style={[styles.convertText, selected && styles.convertTextSelected]}
+                      >
+                        {label}
+                      </Text>
+                    </Touchable>
+                  );
+                })}
+              </View>
             </View>
           )}
           {model.recorded && (
@@ -183,6 +230,7 @@ export function CreationRecordScreen({ model, header }: ScreenProps<"creation-re
               <Button
                 label={model.saveLabel}
                 disabled={model.pending}
+                style={styles.actionButton}
                 onPress={() => act({ type: "creation-record-save" })}
               />
               {model.transform && (
@@ -190,6 +238,7 @@ export function CreationRecordScreen({ model, header }: ScreenProps<"creation-re
                   tone="secondary"
                   label="MIDI로 변환"
                   disabled={model.pending}
+                  style={styles.actionButton}
                   onPress={() => act({ type: "creation-record-transform" })}
                 />
               )}
@@ -312,6 +361,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   symbolBoxLandscape: { top: 16, left: 24 },
+  symbolBoxRecorded: { top: 56 },
   metronomeButton: {
     padding: 12,
     borderRadius: 24,
@@ -347,29 +397,47 @@ const styles = StyleSheet.create({
   output: {
     position: "absolute",
     alignItems: "center",
-    gap: 16,
+    gap: 20,
   },
-  outputPortrait: { top: 345, width: 350, maxWidth: "100%" },
+  outputPortrait: { top: 345, width: "100%", maxWidth: 390, paddingHorizontal: 20 },
+  outputRecorded: { top: 250 },
   outputLandscape: { top: 16, left: 220, right: 156 },
   text: { color: colors.fg, fontSize: 14, lineHeight: 20, textAlign: "center" },
   status: { color: colors.muted, fontSize: 14, lineHeight: 20, textAlign: "center" },
   play: {
-    width: 38,
-    height: 38,
-    borderRadius: 19,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: "center",
     justifyContent: "center",
     paddingLeft: 2,
     backgroundColor: "#ffffff",
   },
   playText: { color: "#15161a", fontSize: 14 },
-  actions: {
-    flexDirection: "row",
-    flexWrap: "wrap",
+  convert: { alignSelf: "stretch", gap: 8 },
+  convertLabel: { color: colors.muted, fontSize: 13, lineHeight: 18, textAlign: "center" },
+  convertOptions: { flexDirection: "row", gap: 8 },
+  convertOption: {
+    flex: 1,
+    minHeight: 40,
+    paddingHorizontal: 8,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
     alignItems: "center",
     justifyContent: "center",
+  },
+  convertOptionSelected: { borderColor: colors.accent, backgroundColor: "rgba(153, 102, 255, 0.16)" },
+  convertText: { color: colors.fg, fontSize: 13, fontWeight: "500" },
+  convertTextSelected: { color: colors.accent, fontWeight: "700" },
+  actions: {
+    alignSelf: "stretch",
+    flexDirection: "row",
+    alignItems: "center",
     gap: 10,
   },
+  actionButton: { flex: 1, paddingHorizontal: 12 },
   recordButton: { position: "absolute", width: 82, height: 82 },
   recordButtonLandscape: { right: 48, top: "50%", marginTop: -41 },
   disabled: { opacity: 0.5 },

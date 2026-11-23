@@ -448,9 +448,16 @@ export function CompositionRecordScreen({
       setPreviewPlaying(false);
     },
   });
+  // A finished take shows the preview, conversion mode and actions; shrink the metronome to make room.
+  const recorded = Boolean(url);
   return (
     <div className={cn(studioStyles.recordView, sharedStyles.scrollContent)}>
-      <div className="[.design-canvas_&]:top-24 flex flex-col items-center gap-3 [.design-canvas_&]:absolute">
+      <div
+        className={cn(
+          "flex flex-col items-center gap-3 [.design-canvas_&]:absolute",
+          recorded ? "[.design-canvas_&]:top-16" : "[.design-canvas_&]:top-24",
+        )}
+      >
         <button
           type="button"
           aria-label={metronomeOn ? "메트로놈 끄기" : "메트로놈 켜기"}
@@ -466,7 +473,10 @@ export function CompositionRecordScreen({
         >
           <Asset
             name="metronome-large.svg"
-            className="h-[144px] w-28 object-contain [filter:invert(22%)_sepia(95%)_saturate(7000%)_hue-rotate(256deg)]"
+            className={cn(
+              "object-contain [filter:invert(22%)_sepia(95%)_saturate(7000%)_hue-rotate(256deg)]",
+              recorded ? "h-24 w-[75px]" : "h-[144px] w-28",
+            )}
           />
         </button>
         <div className="flex items-center gap-2 rounded-full border border-[#32323d] bg-[#1e1e26] px-3 py-1 text-caption">
@@ -495,7 +505,7 @@ export function CompositionRecordScreen({
           )}
         </div>
       </div>
-      <div className={studioStyles.recordOutput}>
+      <div className={cn(studioStyles.recordOutput, recorded && studioStyles.recordOutputRecorded)}>
         {error && <p role="alert">{error}</p>}
         {url && (
           <audio
@@ -510,8 +520,8 @@ export function CompositionRecordScreen({
         {recording && liveStream && <RecordingMeter stream={liveStream} />}
         <p role="status">{status}</p>
         {file && onTransform && (
-          <div className="flex items-center gap-2">
-            <span>변환 방식</span>
+          <div className={studioStyles.recordConvert}>
+            <span className="font-medium">변환 방식</span>
             <Dropdown<AudioTranscriptionMode>
               label="변환 방식"
               className="min-w-[156px]"
