@@ -18,7 +18,7 @@ import {
   runWithPortraitAllowed,
   type NativeLockMode,
   type NativeOrientationState,
-} from "../../native/orientation.ts";
+} from "./native-orientation.ts";
 
 const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 

@@ -60,7 +60,7 @@ import {
   runWithPortraitAllowed,
   type NativeLockMode,
   type NativeOrientationState,
-} from "./orientation";
+} from "../src/lib/native-orientation";
 import { canvasKinds, emptyStack, reduceStack, ScreenStack } from "./screen-stack";
 import { footerFrame, headerTop, TabBar, type Viewport } from "./tab-bar";
 
