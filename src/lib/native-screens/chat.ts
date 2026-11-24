@@ -42,6 +42,8 @@ export type NativeChatMessage = {
   outgoing: boolean;
   content: string;
   createdAt: string;
+  editedAt?: string | null;
+  deleted?: boolean;
 };
 
 /** The messages and composer of an open conversation. */
@@ -89,6 +91,8 @@ export type NativeChatConversation = {
 
 export type NativeChatConversationAction =
   | { type: "chat-send"; text: string }
+  | { type: "chat-edit"; messageId: number; text: string }
+  | { type: "chat-delete"; messageId: number }
   | { type: "chat-older" }
   | { type: "chat-retry" }
   /** The partner in the top bar: their profile. */

@@ -1,6 +1,12 @@
 import { useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 
+import {
+  COMMUNITY_DESCRIPTION_MAX_LENGTH,
+  COMMUNITY_NAME_MAX_LENGTH,
+  clampCodePoints,
+  codePointLength,
+} from "../../../src/lib/content-limits";
 import type { NativeCreateCommunity } from "../../../src/lib/native-screens";
 import { AppHeader } from "../../ui/header";
 import { Button, Status, TextField, Touchable } from "../../ui/kit";
@@ -69,13 +75,16 @@ function ProposalForm({ model }: { model: SignedInModel }) {
         <TextField
           accessibilityLabel="커뮤니티 이름"
           editable={!model.busy}
-          maxLength={100}
           value={title}
           onChangeText={(value) => {
-            setTitle(value);
-            act({ type: "title", value });
+            const clamped = clampCodePoints(value, COMMUNITY_NAME_MAX_LENGTH);
+            setTitle(clamped);
+            act({ type: "title", value: clamped });
           }}
         />
+        <Text style={[type.caption, { textAlign: "right" }]}>
+          {codePointLength(title)}/{COMMUNITY_NAME_MAX_LENGTH}자
+        </Text>
       </View>
       <View style={styles.field}>
         <Text style={styles.label}>설명</Text>
@@ -85,10 +94,14 @@ function ProposalForm({ model }: { model: SignedInModel }) {
           editable={!model.busy}
           value={content}
           onChangeText={(value) => {
-            setContent(value);
-            act({ type: "content", value });
+            const clamped = clampCodePoints(value, COMMUNITY_DESCRIPTION_MAX_LENGTH);
+            setContent(clamped);
+            act({ type: "content", value: clamped });
           }}
         />
+        <Text style={[type.caption, { textAlign: "right" }]}>
+          {codePointLength(content)}/{COMMUNITY_DESCRIPTION_MAX_LENGTH}자
+        </Text>
       </View>
       <Text style={styles.note}>
         커뮤니티 프로필 사진은 현재 서버에서 지원하지 않습니다. 이름과 설명으로 개설을 신청하면

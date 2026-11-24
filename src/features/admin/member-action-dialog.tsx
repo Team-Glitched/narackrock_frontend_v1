@@ -5,6 +5,13 @@ import { useId, useState } from "react";
 import { CanvasDialog } from "@/components/canvas-dialog";
 import { NativeDialog } from "@/components/native-dialog";
 import { nativeApp } from "@/lib/native-app";
+import {
+  MODERATION_REASON_MAX_LENGTH,
+  clampCodePoints,
+  codePointLength,
+  hasVisibleText,
+  sanitizeSingleLine,
+} from "@/lib/content-limits";
 export function MemberActionDialog({
   member,
   action,
@@ -23,13 +30,16 @@ export function MemberActionDialog({
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   async function confirm() {
-    if (busy || !reason.trim()) return;
+    const cleanReason = sanitizeSingleLine(reason);
+    if (busy || !cleanReason || !hasVisibleText(cleanReason)) return;
     setBusy(true);
     setError("");
     try {
       if (action === "suspend" && !validDays)
         throw new Error("이용정지 기간은 1일부터 365일까지 입력해주세요.");
-      await onConfirm(reason.trim(), Number(days));
+      if (codePointLength(cleanReason) > MODERATION_REASON_MAX_LENGTH)
+        throw new Error(`사유는 ${MODERATION_REASON_MAX_LENGTH}자 이내로 입력해주세요.`);
+      await onConfirm(cleanReason, Number(days));
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "처리하지 못했습니다.");
     } finally {
@@ -63,13 +73,14 @@ export function MemberActionDialog({
               id: "confirm",
               label: "확인",
               destructive: true,
-              disabled: busy || !reason.trim() || (action === "suspend" && !validDays),
+              disabled:
+                busy || !hasVisibleText(reason) || (action === "suspend" && !validDays),
             },
           ],
         }}
         onChange={(field, value) => {
           if (field === "days") setDays(value);
-          if (field === "reason") setReason(value.slice(0, 500));
+          if (field === "reason") setReason(clampCodePoints(value, MODERATION_REASON_MAX_LENGTH));
         }}
         onAction={(id) => {
           if (id === "confirm") void confirm();
@@ -93,7 +104,7 @@ export function MemberActionDialog({
               tone: "primary",
             })}
             type="submit"
-            disabled={busy || !reason.trim() || (action === "suspend" && !validDays)}
+            disabled={busy || !hasVisibleText(reason) || (action === "suspend" && !validDays)}
           >
             확인
           </button>
@@ -123,12 +134,14 @@ export function MemberActionDialog({
           사유
           <input
             autoFocus
-            maxLength={500}
             required
             value={reason}
-            onChange={(event) => setReason(event.target.value)}
+            onChange={(event) => setReason(clampCodePoints(event.target.value, MODERATION_REASON_MAX_LENGTH))}
             placeholder="사유를 입력하세요"
           />
+          <small className="block text-right text-caption text-app-muted tabular-nums">
+            {codePointLength(reason)}/{MODERATION_REASON_MAX_LENGTH}자
+          </small>
         </label>
         {error && <p role="alert">{error}</p>}
       </form>

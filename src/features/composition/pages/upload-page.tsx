@@ -1,9 +1,15 @@
-import { deleteEmptyTrack } from "@/lib/api/composition";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { deleteEmptyTrack, updateProjectTiming } from "@/lib/api/composition";
+import { useCurrentUserId } from "@/features/auth/use-current-user";
+import { compositionKeys, compositionQuery } from "@/features/composition/composition-queries";
+import type { CreationTimingMode } from "@/features/composition/creation-timing-bar";
 import { CompositionUploadScreen } from "@/features/composition/creation-screens";
 import {
   saveAudioLayer,
   PartialLayerError,
 } from "@/features/composition/composition-actions";
+import type { ProjectTiming } from "@/features/composition/project-timing";
+import { defaultSignature } from "@/features/composition/time-signature";
 import { InstrumentPromptCancelled, useInstrumentPrompt } from "../use-instrument-prompt";
 import { useRef, useState } from "react";
 import { useRouteComposition } from "@/features/composition/use-route-composition";
@@ -21,6 +27,48 @@ import { NativeUploadBridge } from "@/features/composition/native-creation-bridg
 import { NativePageStateBridge } from "@/features/community/native-community-bridge";
 export default function UploadPage() {
   const route = useRouteComposition();
+  const currentUserId = useCurrentUserId();
+  const queryClient = useQueryClient();
+  const projectQuery = useQuery({
+    ...compositionQuery(currentUserId, route.projectId ?? 0, route.view),
+    enabled: currentUserId !== null && route.projectId !== null,
+  });
+  const project = projectQuery.data?.project;
+  const viewerPermission = projectQuery.data?.viewerPermission;
+  const bpm = project?.bpm ?? 120;
+  const signature = project
+    ? {
+        numerator: project.timeSignatureNumerator,
+        denominator: project.timeSignatureDenominator,
+      }
+    : defaultSignature;
+  const canEditTiming =
+    route.shortId === null &&
+    Boolean(
+      project &&
+        viewerPermission?.canEdit &&
+        project.ownerId === viewerPermission.userId &&
+        ["DRAFT", "IN_PROGRESS"].includes(project.status),
+    );
+  const timingMode: CreationTimingMode = canEditTiming
+    ? (projectQuery.data?.tracks.length ?? 0) === 0
+      ? "initial"
+      : "editable"
+    : "locked";
+  const onTiming =
+    canEditTiming && project && route.projectId !== null
+      ? async (timing: ProjectTiming) => {
+          await updateProjectTiming(project.projectId, {
+            bpm: timing.bpm,
+            timeSignatureNumerator: timing.signature.numerator,
+            timeSignatureDenominator: timing.signature.denominator,
+          });
+          await queryClient.invalidateQueries(
+            { queryKey: compositionKeys.detail(currentUserId, route.projectId!) },
+            { throwOnError: true },
+          );
+        }
+      : undefined;
   const instrument = useInstrumentPrompt(route.projectId);
   const partial = useRef<PartialLayerError | null>(null);
   const [cancelError, setCancelError] = useState("");
@@ -74,6 +122,10 @@ export default function UploadPage() {
           <NativeUploadBridge
             onSave={save}
             instrument={instrument.native}
+            bpm={bpm}
+            signature={signature}
+            onTiming={onTiming}
+            timingMode={timingMode}
             notice={cancelError || null}
             onBack={() => void cancel()}
             onSearch={search}
@@ -95,6 +147,10 @@ export default function UploadPage() {
             <CompositionUploadScreen
               onBack={() => void cancel()}
               onSave={save}
+              bpm={bpm}
+              signature={signature}
+              onTiming={onTiming}
+              timingMode={timingMode}
               suppressLoadingOverlay={instrument.open}
             />
           )}

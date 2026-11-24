@@ -13,6 +13,7 @@ import { Asset } from "@/components/asset";
 import { toggleResource, useWorkspace, type Resource, type Work } from "./workspace-store";
 import { useVisitedWorks } from "./use-visited-works";
 import { apiOrigin } from "@/lib/api/client";
+import { SEARCH_QUERY_MAX_LENGTH, clampCodePoints } from "@/lib/content-limits";
 function Page({
   title,
   subtitle,
@@ -177,7 +178,7 @@ export function WorkspaceScreen({
               <button
                 className={cn(
                   workspaceStyles.workspacePrimary,
-                  "min-h-10 shrink-0 rounded-[20px] px-4 py-2 text-label font-medium leading-5 text-app-fg",
+                  "min-h-9 shrink-0 rounded-[20px] px-4 py-1.5 text-body font-medium leading-[18px] text-app-fg",
                 )}
                 onClick={() => onResume(work.id, work.shortId)}
               >
@@ -353,7 +354,7 @@ export function SourceLibraryScreen({
           aria-label="보관함 검색"
           placeholder="리소스 검색"
           value={query}
-          onChange={(e) => setQuery(e.target.value)}
+          onChange={(e) => setQuery(clampCodePoints(e.target.value, SEARCH_QUERY_MAX_LENGTH))}
         />
       </label>
       <div className={workspaceStyles.workspaceTabs}>

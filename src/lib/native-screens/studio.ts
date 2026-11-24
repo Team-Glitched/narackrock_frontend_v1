@@ -119,7 +119,7 @@ export type NativeSourcePickerRow = {
   key: string;
   title: string;
   subtitle: string;
-  /** "내 레이어에 넣기" / "노트 가져오기", or the busy label while this row is imported. */
+  /** "새 트랙에 추가" / "추가됨" / "노트 가져오기", or the busy label while this row is imported. */
   button: string;
   disabled: boolean;
 };
@@ -223,7 +223,7 @@ export type NativeStudio = {
   timingEditable: boolean;
   /** "+ 샘플" is shown. */
   canImportSource: boolean;
-  primary: NativeStudioPrimary;
+  primary: NativeStudioPrimary | null;
   privateSave: { disabled: boolean } | null;
   maxTick: number;
   maxDurationMs: number;

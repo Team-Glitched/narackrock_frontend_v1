@@ -200,8 +200,8 @@ export function Dropdown<T extends string | number>({
         onBlur={() => setMenu(null)}
         onKeyDown={handleKey}
         className={cn(
-          "inline-flex min-w-0 cursor-pointer items-center justify-between gap-2 rounded-lg border border-app-border bg-app-surface font-medium text-app-fg",
-          "hover:border-app-muted aria-expanded:border-[#aa8aff] focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#aa8aff] disabled:cursor-default disabled:opacity-50",
+          "inline-flex min-w-0 cursor-pointer items-center justify-between gap-2 rounded-lg border border-app-border bg-app-surface font-medium text-app-fg transition-colors",
+          "hover:border-app-muted aria-expanded:border-app-primary focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-app-primary disabled:cursor-default disabled:opacity-50",
           compact ? "h-7 gap-1 px-1.5 text-caption" : "min-h-10 px-3 text-body",
           className,
         )}
@@ -210,7 +210,7 @@ export function Dropdown<T extends string | number>({
         <span className="truncate">{options[selected]?.label}</span>
         <ChevronDown
           size={compact ? 13 : 16}
-          className={cn("shrink-0 text-app-muted", open && "rotate-180 text-[#c9b3ff]")}
+          className={cn("shrink-0 text-app-muted transition-transform", open && "rotate-180 text-app-fg")}
           aria-hidden="true"
         />
       </button>
@@ -237,13 +237,13 @@ export function Dropdown<T extends string | number>({
                 }}
                 onClick={() => choose(index)}
                 className={cn(
-                  "flex h-9 cursor-pointer items-center justify-between gap-2 rounded-lg px-2.5 text-body text-app-fg",
-                  index === selected && "font-semibold text-[#d5c4ff]",
-                  index === activeIndex && "bg-[#38265a]",
+                  "flex h-9 cursor-pointer items-center justify-between gap-2 rounded-lg px-2.5 text-body text-app-fg transition-colors",
+                  index === activeIndex && index !== selected && "bg-app-raised",
+                  index === selected && "bg-app-primary font-semibold text-white",
                 )}
               >
                 <span className="truncate">{option.label}</span>
-                {index === selected && <Check size={16} className="shrink-0" aria-hidden="true" />}
+                {index === selected && <Check size={16} className="shrink-0 text-white" aria-hidden="true" />}
               </li>
             ))}
           </ul>,

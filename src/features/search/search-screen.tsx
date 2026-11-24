@@ -22,6 +22,7 @@ import { sourceError } from "@/features/sources/source-screens";
 import type { SearchScope } from "@/features/search/search-scope";
 import { searchCommunityPosts } from "@/features/community/post-search";
 import { queryScope } from "@/lib/query";
+import { SEARCH_QUERY_MAX_LENGTH, clampCodePoints } from "@/lib/content-limits";
 // `hint` tells first-time searchers what each tab looks for before anything is typed.
 const scopes: { id: SearchScope; label: string; hint: string }[] = [
   { id: "sources", label: "샘플", hint: "샘플 제목이나 설명으로 검색해 보세요." },
@@ -239,7 +240,9 @@ export function ScopedSearch({
                 : `${scopes.find((item) => item.id === scope)?.label} 검색`
             }
             value={searchText}
-            onChange={(event) => setSearchText(event.target.value)}
+            onChange={(event) =>
+              setSearchText(clampCodePoints(event.target.value, SEARCH_QUERY_MAX_LENGTH))
+            }
             placeholder={community ? "커뮤니티 내 게시글 검색" : `${scopes.find((item) => item.id === scope)?.label} 검색`}
           />
           {searchText && (
@@ -329,7 +332,12 @@ export function ScopedSearch({
               key={song.shortId}
               onClick={() => onSong(song.shortId)}
             >
-              <AlbumArtwork src={song.albumImageUrl} title={song.title} className={sharedStyles.chartArt} />
+              <AlbumArtwork
+                src={song.albumImageUrl}
+                title={song.title}
+                seed={`short:${song.shortId}`}
+                className={sharedStyles.chartArt}
+              />
               <span className="flex min-w-0 flex-1 flex-col gap-[var(--supporting-copy-gap)]">
                 <strong className="truncate">{song.title}</strong>
                 <small className="truncate">{song.author.nickname}</small>
@@ -343,7 +351,12 @@ export function ScopedSearch({
               key={source.openSourceId}
               onClick={() => onSource(source.openSourceId)}
             >
-              <AlbumArtwork src={source.thumbnailUrl} title={source.title} className={sharedStyles.chartArt} />
+              <AlbumArtwork
+                src={source.thumbnailUrl}
+                title={source.title}
+                seed={`source:${source.openSourceId}`}
+                className={sharedStyles.chartArt}
+              />
               <span className="flex min-w-0 flex-1 flex-col gap-[var(--supporting-copy-gap)]">
                 <strong className="truncate">{source.title}</strong>
                 <small className="truncate">{source.writer.nickname}</small>

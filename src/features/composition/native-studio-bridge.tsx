@@ -55,7 +55,7 @@ export function studioStateModel(message: string, failed: boolean): NativeStudio
     timingEditable: false,
     canImportSource: false,
     privateSave: null,
-    primary: { kind: "add", disabled: true, hint: null },
+    primary: null,
     maxTick: 1,
     maxDurationMs: 1,
     stepTick: 1,
@@ -101,6 +101,9 @@ export function NativeStudioBridge({ studio }: { studio: Studio }) {
   const pendingAudio = studio.pendingAudio;
   const trim = useNativeAudioTrim(pendingAudio, {
     saveLabel: "선택 구간을 레이어에 저장",
+    bpm: project?.bpm ?? 120,
+    signature: playback.signature,
+    enableSplice: true,
     onCancel: () => studio.setPendingAudio(null),
     onSave: async (selection) => {
       if (!pendingAudio) return;
@@ -115,6 +118,7 @@ export function NativeStudioBridge({ studio }: { studio: Studio }) {
   const instrument = useNativeInstrumentPicker(studio.instrumentChoice, studio.closeInstrument);
   const sources = useNativeSourcePicker({
     open: studio.showSources,
+    importedSourceIds: studio.importedSourceIds,
     onOpen: () => {
       if (!studio.canImportSource) return;
       playback.pause();
@@ -122,6 +126,7 @@ export function NativeStudioBridge({ studio }: { studio: Studio }) {
     },
     onClose: () => studio.setShowSources(false),
     onResource: studio.importResource,
+    onOpenSource: studio.importOpenSource,
   });
   const audioClips = tracks.flatMap((track) =>
     track.clips.filter((clip) => clip.clipType === "AUDIO" && clip.mediaUrl && clip.durationMs > 0),
@@ -170,7 +175,7 @@ export function NativeStudioBridge({ studio }: { studio: Studio }) {
             name: track.name,
             highlighted: studio.highlightedTracks.has(track.trackId),
             add:
-              track.ownerId === viewer.userId
+              !studio.readOnly && track.ownerId === viewer.userId
                 ? {
                     notes: Boolean(track.instrument),
                     audioDisabled: studio.busy || !viewer.canContribute,
@@ -225,7 +230,9 @@ export function NativeStudioBridge({ studio }: { studio: Studio }) {
               : "오디오",
             volume: studio.trackSettings.volume,
             canChangeInstrument: studio.trackSettings.roleEditable,
-            emptyMidi: emptyMidiChoices(studio.trackSettings.track.clips, project.ppq, signature),
+            emptyMidi: studio.readOnly
+              ? []
+              : emptyMidiChoices(studio.trackSettings.track.clips, project.ppq, signature),
           },
           instrument: instrument.model,
           timing: timing.model,
@@ -264,7 +271,7 @@ export function NativeStudioBridge({ studio }: { studio: Studio }) {
         return studio.requestPrivateSave();
       case "studio-primary": {
         const { primary } = studio;
-        if (primary.disabled) return;
+        if (!primary || primary.disabled) return;
         if (primary.kind === "submit") {
           studio.setError(null);
           studio.setShowSubmitForm(true);
@@ -273,12 +280,14 @@ export function NativeStudioBridge({ studio }: { studio: Studio }) {
         return;
       }
       case "studio-track-notes": {
+        if (studio.readOnly) return;
         const track = tracks.find((item) => item.trackId === action.trackId);
         if (track && track.ownerId === viewer?.userId && track.instrument)
           studio.onEditTrack(track.trackId, null);
         return;
       }
       case "studio-track-audio": {
+        if (studio.readOnly) return;
         const track = tracks.find((item) => item.trackId === action.trackId);
         if (
           !viewer ||

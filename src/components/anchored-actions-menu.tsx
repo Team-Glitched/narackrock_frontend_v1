@@ -19,7 +19,7 @@ export function AnchoredActionsMenu({
   width = 260,
   children,
 }: {
-  anchorRef: RefObject<HTMLButtonElement | null>;
+  anchorRef: RefObject<HTMLElement | null>;
   className: string;
   onClose: () => void;
   label: string;

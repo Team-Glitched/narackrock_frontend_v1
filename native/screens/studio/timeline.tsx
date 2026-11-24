@@ -12,6 +12,7 @@ import {
 import Svg, { Path, Rect } from "react-native-svg";
 
 import {
+  CONTRIBUTION_COMMENT_MAX_LENGTH,
   SONG_TITLE_MAX_LENGTH,
   clampCodePoints,
   codePointLength,
@@ -83,28 +84,31 @@ function Studio({ model }: { model: NativeStudio }) {
         onBack={() => act({ type: "studio-exit" })}
         onSample={model.canImportSource ? () => act({ type: "source-open" }) : undefined}
       >
-        <View style={styles.toolbarActions}>
-          {model.privateSave && (
-            <ToolbarTextButton
-              label="임시 저장"
-              disabled={model.privateSave.disabled}
-              onPress={() => act({ type: "studio-private-save" })}
-            />
-          )}
-          {primary.kind !== "add" ? (
-            <ToolbarTextButton
-              label={primary.kind === "submit" ? "제출하기" : "공개하기"}
-              disabled={primary.disabled}
-              onPress={() => act({ type: "studio-primary" })}
-            />
-          ) : (
-            <AddButton
-              label="레이어 추가"
-              disabled={primary.disabled}
-              onPress={() => act({ type: "studio-primary" })}
-            />
-          )}
-        </View>
+        {model.privateSave || primary ? (
+          <View style={styles.toolbarActions}>
+            {model.privateSave && (
+              <ToolbarTextButton
+                label="임시 저장"
+                disabled={model.privateSave.disabled}
+                onPress={() => act({ type: "studio-private-save" })}
+              />
+            )}
+            {primary &&
+              (primary.kind !== "add" ? (
+                <ToolbarTextButton
+                  label={primary.kind === "submit" ? "제출하기" : "공개하기"}
+                  disabled={primary.disabled}
+                  onPress={() => act({ type: "studio-primary" })}
+                />
+              ) : (
+                <AddButton
+                  label="레이어 추가"
+                  disabled={primary.disabled}
+                  onPress={() => act({ type: "studio-primary" })}
+                />
+              ))}
+          </View>
+        ) : null}
       </StudioToolbar>
       {model.selectMidiLayer && (
         <Text style={styles.notice}>피아노롤에서 열 MIDI 레이어를 선택하세요.</Text>
@@ -326,12 +330,7 @@ function TrackPerson({ track }: { track: NativeStudioTrack }) {
           <SoundIcon width={22} height={18.6} />
         )}
       </Touchable>
-      {track.highlighted && (
-        <>
-          <View pointerEvents="none" style={styles.highlight} />
-          <Text style={styles.badge}>추가 트랙</Text>
-        </>
-      )}
+      {track.highlighted && <View pointerEvents="none" style={styles.highlight} />}
     </View>
   );
 }
@@ -678,8 +677,7 @@ function SubmitForm({
         <TextInput
           accessibilityLabel="한 줄 코멘트"
           value={comment}
-          onChangeText={onComment}
-          maxLength={120}
+          onChangeText={(value) => onComment(clampCodePoints(value, CONTRIBUTION_COMMENT_MAX_LENGTH))}
           placeholder="어떤 작업을 추가했나요?"
           placeholderTextColor="#9692a6"
           selectionColor={colors.accent}
@@ -688,6 +686,9 @@ function SubmitForm({
           onSubmitEditing={send}
           style={styles.formInput}
         />
+        <Text style={{ color: "#9692a6", fontSize: 12, textAlign: "right" }}>
+          {codePointLength(comment)}/{CONTRIBUTION_COMMENT_MAX_LENGTH}자
+        </Text>
       </View>
       {submit.error && (
         <Text accessibilityRole="alert" style={styles.formError}>
@@ -874,19 +875,8 @@ const styles = StyleSheet.create({
     zIndex: 3,
     borderRadius: 6,
     borderWidth: 2,
-    borderColor: colors["primary-soft"],
-  },
-  badge: {
-    position: "absolute",
-    right: 4,
-    bottom: 0,
-    zIndex: 3,
-    borderRadius: 4,
-    paddingHorizontal: 4,
-    backgroundColor: colors.primary,
-    color: "#ffffff",
-    fontSize: 9,
-    lineHeight: 12,
+    borderColor: colors.primary,
+    backgroundColor: "rgba(76, 0, 229, 0.15)",
   },
   ruler: {
     height: rulerHeight,

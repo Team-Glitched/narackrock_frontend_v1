@@ -107,7 +107,7 @@ export function StudioToolbar({
         </button>
         {onRewind && (
           <button onClick={onRewind} aria-label="처음으로">
-            <RewindIcon size={18} />
+            <RewindIcon size={20} />
           </button>
         )}
         <button onClick={playing ? onPause : onPlay} aria-label={playing ? "일시정지" : "재생"}>

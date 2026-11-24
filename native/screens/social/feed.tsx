@@ -21,6 +21,16 @@ import LikeOffIcon from "../../../public/figma/v3-post-like-off.svg";
 import LikeOnIcon from "../../../public/figma/v3-post-like-on.svg";
 import SaveOffIcon from "../../../public/figma/v3-post-save-off.svg";
 import SaveOnIcon from "../../../public/figma/v3-post-save-on.svg";
+import {
+  MODERATION_REASON_MAX_LENGTH,
+  POST_CONTENT_MAX_LENGTH,
+  POST_TITLE_MAX_LENGTH,
+  clampCodePoints,
+  codePointLength,
+  hasVisibleText,
+  sanitizeMultiline,
+  sanitizeSingleLine,
+} from "../../../src/lib/content-limits";
 import type {
   NativeFeed,
   NativeFeedPost,
@@ -332,6 +342,8 @@ function EditForm({
   const { act } = useScreen();
   const [title, setTitle] = useState(editing.title);
   const [content, setContent] = useState(editing.content);
+  const [localError, setLocalError] = useState<string | null>(null);
+  const error = localError ?? post.error;
   return (
     <View style={[styles.post, styles.form]}>
       <TextField
@@ -339,19 +351,25 @@ function EditForm({
         placeholder="제목"
         value={title}
         editable={!post.submitting}
-        onChangeText={setTitle}
+        onChangeText={(value) => setTitle(clampCodePoints(value, POST_TITLE_MAX_LENGTH))}
       />
+      <Text style={[type.caption, { textAlign: "right" }]}>
+        {codePointLength(title)}/{POST_TITLE_MAX_LENGTH}자
+      </Text>
       <TextField
         accessibilityLabel="게시글 내용 수정"
         placeholder="내용을 입력하세요"
         multiline
         value={content}
         editable={!post.submitting}
-        onChangeText={setContent}
+        onChangeText={(value) => setContent(clampCodePoints(value, POST_CONTENT_MAX_LENGTH))}
       />
-      {post.error && (
+      <Text style={[type.caption, { textAlign: "right" }]}>
+        {codePointLength(content)}/{POST_CONTENT_MAX_LENGTH}자
+      </Text>
+      {error && (
         <Text style={styles.error} accessibilityRole="alert">
-          {post.error}
+          {error}
         </Text>
       )}
       <View style={styles.formActions}>
@@ -364,7 +382,34 @@ function EditForm({
         <Button
           label={post.submitting ? "저장 중..." : "저장"}
           disabled={post.submitting}
-          onPress={() => act({ type: "post-edit-save", postId: post.postId, title, content })}
+          onPress={() => {
+            const cleanTitle = sanitizeSingleLine(title);
+            const cleanContent = sanitizeMultiline(content);
+            if (
+              !cleanTitle ||
+              !hasVisibleText(cleanTitle) ||
+              !cleanContent ||
+              !hasVisibleText(cleanContent)
+            ) {
+              setLocalError("제목과 내용을 모두 입력해주세요.");
+              return;
+            }
+            if (codePointLength(cleanTitle) > POST_TITLE_MAX_LENGTH) {
+              setLocalError(`제목은 ${POST_TITLE_MAX_LENGTH}자 이내로 입력해주세요.`);
+              return;
+            }
+            if (codePointLength(cleanContent) > POST_CONTENT_MAX_LENGTH) {
+              setLocalError(`본문은 ${POST_CONTENT_MAX_LENGTH}자 이내로 입력해주세요.`);
+              return;
+            }
+            setLocalError(null);
+            act({
+              type: "post-edit-save",
+              postId: post.postId,
+              title: cleanTitle,
+              content: cleanContent,
+            });
+          }}
         />
       </View>
     </View>
@@ -383,9 +428,8 @@ function DeleteConfirm({ post, moderating }: { post: NativeFeedPost; moderating:
         <TextField
           accessibilityLabel="운영 삭제 사유"
           placeholder="삭제 사유"
-          maxLength={500}
           value={reason}
-          onChangeText={setReason}
+          onChangeText={(value) => setReason(clampCodePoints(value, MODERATION_REASON_MAX_LENGTH))}
         />
       )}
       <View style={styles.formActions}>
@@ -397,8 +441,14 @@ function DeleteConfirm({ post, moderating }: { post: NativeFeedPost; moderating:
         />
         <Button
           label={post.submitting ? "삭제 중..." : "삭제 확인"}
-          disabled={post.submitting || (moderating && !reason.trim())}
-          onPress={() => act({ type: "post-delete", postId: post.postId, reason })}
+          disabled={post.submitting || (moderating && !hasVisibleText(reason))}
+          onPress={() =>
+            act({
+              type: "post-delete",
+              postId: post.postId,
+              reason: moderating ? sanitizeSingleLine(reason) : reason,
+            })
+          }
         />
       </View>
     </View>

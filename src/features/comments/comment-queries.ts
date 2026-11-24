@@ -68,10 +68,18 @@ export function updateCachedReaction(
             item.id === commentId
               ? {
                   ...item,
-                  isLiked: reaction.isLiked,
-                  isDisliked: reaction.isDisliked,
-                  likes: reaction.likeCount,
-                  dislikes: reaction.dislikeCount,
+                  isLiked: typeof reaction.isLiked === "boolean" ? reaction.isLiked : item.isLiked,
+                  isDisliked:
+                    typeof reaction.isDisliked === "boolean" ? reaction.isDisliked : item.isDisliked,
+                  likes:
+                    typeof reaction.likeCount === "number" && Number.isFinite(reaction.likeCount)
+                      ? reaction.likeCount
+                      : item.likes,
+                  dislikes:
+                    typeof reaction.dislikeCount === "number" &&
+                    Number.isFinite(reaction.dislikeCount)
+                      ? reaction.dislikeCount
+                      : item.dislikes,
                 }
               : item,
           ),

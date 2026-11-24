@@ -24,9 +24,19 @@ import { useMySongs } from "@/features/home/use-my-songs";
 import { songsForTab } from "@/features/home/my-songs";
 import { profileKeys, profileQuery } from "./profile-queries";
 import { useImageCrop } from "@/features/images/use-image-crop";
-import { InstrumentDialog } from "@/features/composition/instrument-dialog";
-import { partIdForValue, partLabel } from "@/features/composition/instrument-parts";
+import { ProfileInstrumentDialog } from "@/features/composition/instrument-dialog";
+import { profileInstrumentLabels } from "@/features/composition/instrument-parts";
 import { ChevronDown } from "lucide-react";
+import {
+  INSTRUMENT_MAX_LENGTH,
+  NICKNAME_MAX_LENGTH,
+  PROFILE_BIO_MAX_LENGTH,
+  clampCodePoints,
+  codePointLength,
+  hasVisibleText,
+  sanitizeMultiline,
+  sanitizeSingleLine,
+} from "@/lib/content-limits";
 
 export function profileErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : "프로필을 불러오지 못했습니다.";
@@ -52,12 +62,7 @@ export function compactCount(count: number) {
 }
 
 export function profileInstruments(profile: UserProfile): string[] {
-  return (
-    profile.primaryInstrument
-      ?.split(",")
-      .map((item) => item.trim())
-      .filter(Boolean) ?? []
-  );
+  return profileInstrumentLabels(profile.primaryInstrument);
 }
 
 export function featuredSongs(profile: UserProfile) {
@@ -107,6 +112,7 @@ function ProfileWorks({
               key={song.shortId}
               title={song.title}
               albumImageUrl={song.albumImageUrl}
+              seed={`short:${song.shortId}`}
               onOpen={() => onOpen(song.shortId)}
               cornerSlot={
                 featured ? (
@@ -144,7 +150,12 @@ function ProfileWorks({
                       setShowAll(false);
                       onOpen(song.shortId);
                     }}>
-                      <AlbumArtwork src={song.albumImageUrl} title={song.title} className="size-11 shrink-0 rounded-[6px]" />
+                      <AlbumArtwork
+                        src={song.albumImageUrl}
+                        title={song.title}
+                        seed={`short:${song.shortId}`}
+                        className="size-11 shrink-0 rounded-[6px]"
+                      />
                       <span className="min-w-0 flex-1"><strong className="block truncate">{song.title}</strong></span>
                     </button>
                   </li>
@@ -224,6 +235,7 @@ function OwnWorks({
                     key={song.shortId}
                     title={song.title}
                     albumImageUrl={song.albumImageUrl}
+                    seed={`short:${song.shortId}`}
                     onOpen={() => onOpen(song.shortId)}
                     cornerSlot={
                       <FeaturedStarButton
@@ -513,8 +525,23 @@ export function useProfileForm(onSubmit: (draft: ProfileDraft) => Promise<void>)
   }
 
   async function save({ nickname, instrument, explanation }: Omit<ProfileDraft, "image">) {
-    if (!nickname.trim()) {
+    const cleanNickname = sanitizeSingleLine(nickname);
+    const cleanInstrument = sanitizeSingleLine(instrument);
+    const cleanExplanation = sanitizeMultiline(explanation);
+    if (!cleanNickname || !hasVisibleText(cleanNickname)) {
       setError("이름을 입력해 주세요.");
+      return;
+    }
+    if (codePointLength(cleanNickname) > NICKNAME_MAX_LENGTH) {
+      setError(`이름은 ${NICKNAME_MAX_LENGTH}자 이내로 입력해 주세요.`);
+      return;
+    }
+    if (codePointLength(cleanInstrument) > INSTRUMENT_MAX_LENGTH) {
+      setError(`주 악기는 ${INSTRUMENT_MAX_LENGTH}자 이내로 입력해 주세요.`);
+      return;
+    }
+    if (codePointLength(cleanExplanation) > PROFILE_BIO_MAX_LENGTH) {
+      setError(`설명은 ${PROFILE_BIO_MAX_LENGTH}자 이내로 입력해 주세요.`);
       return;
     }
 
@@ -523,9 +550,9 @@ export function useProfileForm(onSubmit: (draft: ProfileDraft) => Promise<void>)
 
     try {
       await onSubmit({
-        nickname: nickname.trim(),
-        instrument: instrument.trim(),
-        explanation: explanation.trim(),
+        nickname: cleanNickname,
+        instrument: cleanInstrument,
+        explanation: cleanExplanation,
         image: image?.file ?? null,
       });
     } catch (cause) {
@@ -559,10 +586,7 @@ export function ProfileForm({
   const [instrumentOpen, setInstrumentOpen] = useState(false);
   const [explanation, setExplanation] = useState(initial.explanation);
   const { image, saving, error, pick, save } = useProfileForm(onSubmit);
-  const selectedInstrumentId = partIdForValue(instrument);
-  const instrumentDisplay = selectedInstrumentId
-    ? partLabel(selectedInstrumentId)
-    : instrument.trim();
+  const instrumentDisplay = profileInstrumentLabels(instrument).join(", ");
   const crop = useImageCrop({
     file: image?.file ?? null,
     onApply: pick,
@@ -628,10 +652,12 @@ export function ProfileForm({
         <strong>이름</strong>
         <input
           value={nickname}
-          onChange={(event) => setNickname(event.target.value)}
-          maxLength={30}
+          onChange={(event) => setNickname(clampCodePoints(event.target.value, NICKNAME_MAX_LENGTH))}
           disabled={saving}
         />
+        <small className="text-right text-caption text-app-muted tabular-nums">
+          {codePointLength(nickname)}/{NICKNAME_MAX_LENGTH}자
+        </small>
       </label>
 
       <label>
@@ -651,21 +677,10 @@ export function ProfileForm({
         </button>
       </label>
       {instrumentOpen && (
-        <InstrumentDialog
-          subtitle="프로필에 표시할 주 악기나 보컬 파트를 선택하세요."
-          hidePreview
-          allowSameConfirm
-          onClear={() => setInstrument("")}
-          choice={{
-            value: selectedInstrumentId,
-            mode: "audio",
-            tracks: [],
-            onPreview: async () => {},
-            onStopPreview: () => {},
-            onConfirm: async (id) => {
-              setInstrument(partLabel(id));
-            },
-          }}
+        <ProfileInstrumentDialog
+          value={instrument}
+          allowEmpty
+          onConfirm={(formatted) => setInstrument(formatted)}
           onClose={() => setInstrumentOpen(false)}
         />
       )}
@@ -674,9 +689,14 @@ export function ProfileForm({
         <strong>설명</strong>
         <textarea
           value={explanation}
-          onChange={(event) => setExplanation(event.target.value)}
+          onChange={(event) =>
+            setExplanation(clampCodePoints(event.target.value, PROFILE_BIO_MAX_LENGTH))
+          }
           disabled={saving}
         />
+        <small className="text-right text-caption text-app-muted tabular-nums">
+          {codePointLength(explanation)}/{PROFILE_BIO_MAX_LENGTH}자
+        </small>
       </label>
 
       {error && (

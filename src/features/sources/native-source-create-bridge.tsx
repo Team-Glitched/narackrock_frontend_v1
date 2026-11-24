@@ -18,6 +18,7 @@ import type { NativeSourceCreate } from "@/lib/native-screens";
 import { clampCrop } from "./thumbnail-crop";
 import { isNativeInstrumentAction } from "@/lib/native-screens/studio";
 import { partLabel, supportsMidi } from "@/features/composition/instrument-parts";
+import { defaultSignature, type TimeSignature } from "@/features/composition/time-signature";
 
 type Navigation = { onBack: () => void; onSearch: () => void };
 const header = { left: "back", actions: [] } as const;
@@ -237,7 +238,19 @@ function SourceChooseStep({ form, onBack, onSearch }: StepProps) {
 }
 
 function SourceUploadStep({ form, onBack, onSearch }: StepProps) {
-  const upload = useNativeUpload({ saveLabel: "오디오 선택 완료", onSave: form.selectAudio, instrument: form.instrumentPrompt.native });
+  const [sourceSignature, setSourceSignature] = useState<TimeSignature>(defaultSignature);
+  const upload = useNativeUpload({
+    saveLabel: "오디오 선택 완료",
+    onSave: form.selectAudio,
+    instrument: form.instrumentPrompt.native,
+    bpm: form.pianoBpm,
+    signature: sourceSignature,
+    timingMode: "initial",
+    onTiming: async ({ bpm, signature }) => {
+      form.setPianoBpm(bpm);
+      setSourceSignature(signature);
+    },
+  });
   const node = useNativeScreen("creation-upload", upload.model, {
     header: creationHeader,
     onBack,
@@ -255,8 +268,20 @@ function SourceUploadStep({ form, onBack, onSearch }: StepProps) {
 }
 
 function SourceRecordStep({ form, onBack, onSearch }: StepProps) {
-  const record = useNativeRecord({ saveLabel: "녹음 선택 완료", onSave: form.selectAudio, instrument: form.instrumentPrompt.native });
-  return useNativeScreen("creation-record", record.model, {
+  const [sourceSignature, setSourceSignature] = useState<TimeSignature>(defaultSignature);
+  const record = useNativeRecord({
+    saveLabel: "녹음 선택 완료",
+    onSave: form.selectAudio,
+    instrument: form.instrumentPrompt.native,
+    bpm: form.pianoBpm,
+    signature: sourceSignature,
+    timingMode: "initial",
+    onTiming: async ({ bpm, signature }) => {
+      form.setPianoBpm(bpm);
+      setSourceSignature(signature);
+    },
+  });
+  const node = useNativeScreen("creation-record", record.model, {
     header: creationHeader,
     onBack,
     onSearch,
@@ -264,6 +289,12 @@ function SourceRecordStep({ form, onBack, onSearch }: StepProps) {
       if (action.type !== "more") record.act(action);
     },
   });
+  return (
+    <>
+      {node}
+      {record.node}
+    </>
+  );
 }
 
 /** The landscape piano has no page header; its toolbar's back (and the app's) returns to the choice. */

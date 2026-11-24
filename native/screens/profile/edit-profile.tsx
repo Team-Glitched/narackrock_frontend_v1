@@ -1,20 +1,24 @@
 import { useState } from "react";
-import { Image, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Image, StyleSheet, Text, TextInput, View } from "react-native";
 
 import AddIcon from "../../../public/figma/profile-photo-add.svg";
-import {
-  instrumentGroups,
-  partIdForValue,
-  partLabel,
-} from "../../../src/features/composition/instrument-parts";
+import { profileInstrumentLabels } from "../../../src/features/composition/instrument-parts";
 import type { NativeEditProfile } from "../../../src/lib/native-screens";
+import {
+  NICKNAME_MAX_LENGTH,
+  PROFILE_BIO_MAX_LENGTH,
+  clampCodePoints,
+  codePointLength,
+  sanitizeMultiline,
+  sanitizeSingleLine,
+} from "../../../src/lib/content-limits";
 import { AppHeader } from "../../ui/header";
 import { Avatar, Touchable } from "../../ui/kit";
 import { ScreenScroll } from "../../ui/screen";
 import { useScreen } from "../../ui/screen-context";
 import { colors, gutter, type } from "../../ui/theme";
-import { Dialog, DialogButton } from "../studio/parts";
 import type { ScreenProps } from "../types";
+import { ProfileInstrumentDialog } from "./instrument-dialog";
 import { CenterMessage, PreferenceRow } from "./parts";
 
 /** The web profile editor (src/features/profile/profile-screens.tsx EditProfileScreen / ProfileForm). */
@@ -47,170 +51,132 @@ function Form({
   const [instrumentOpen, setInstrumentOpen] = useState(false);
   const [explanation, setExplanation] = useState(initial.explanation);
   const { saving, privacy } = model;
-  const selectedInstrumentId = partIdForValue(instrument);
-  const [draftInstrument, setDraftInstrument] = useState<string | null>(selectedInstrumentId);
-  const instrumentDisplay = selectedInstrumentId
-    ? partLabel(selectedInstrumentId)
-    : instrument.trim();
+  const instrumentDisplay = profileInstrumentLabels(instrument).join(", ");
   return (
-    <ScreenScroll>
-      <View style={styles.form}>
-        {privacy && (
-          <View style={styles.privacy}>
-            <PreferenceRow
-              large
-              title="비공개 계정"
-              description="켜면 팔로우는 승인 후에만 이뤄지고 관계 목록이 숨겨집니다."
-              value={privacy.isPrivate}
-              disabled={privacy.busy}
-              alert={privacy.error}
-              onChange={(value) => act({ type: "privacy", value })}
-            />
-          </View>
-        )}
-        <Touchable
-          accessibilityRole="button"
-          accessibilityLabel="프로필 사진 변경"
-          accessibilityState={{ disabled: saving }}
-          disabled={saving}
-          style={styles.avatar}
-          onPress={() => act({ type: "pick-image" })}
-        >
-          <View style={styles.avatarRing}>
-            {model.imagePreview ? (
-              <Image
-                source={{ uri: model.imagePreview }}
-                style={styles.preview}
-                accessibilityLabel="프로필"
-              />
-            ) : (
-              <Avatar uri={uri(initial.imageUrl)} size={136} />
-            )}
-          </View>
-          <View style={styles.overlay} pointerEvents="none">
-            <AddIcon width={48} height={48} />
-          </View>
-        </Touchable>
-        <Field label="이름">
-          <TextInput
-            value={nickname}
-            onChangeText={setNickname}
-            maxLength={30}
-            editable={!saving}
-            accessibilityLabel="이름"
-            selectionColor={colors.accent}
-            style={styles.input}
-          />
-        </Field>
-        <Field label="악기">
-          <Touchable
-            accessibilityRole="button"
-            accessibilityLabel="악기 선택"
-            accessibilityState={{ disabled: saving, expanded: instrumentOpen }}
-            disabled={saving}
-            style={styles.selector}
-            onPress={() => {
-              setDraftInstrument(selectedInstrumentId);
-              setInstrumentOpen(true);
-            }}
-          >
-            <Text style={instrumentDisplay ? styles.selectorText : styles.selectorPlaceholder}>
-              {instrumentDisplay || "악기를 선택하세요"}
-            </Text>
-          </Touchable>
-        </Field>
-        {instrumentOpen && (
-          <Dialog
-            label="악기 선택"
-            onClose={() => setInstrumentOpen(false)}
-            style={styles.instrumentDialog}
-          >
-            <Text style={styles.dialogHeading} accessibilityRole="header">
-              악기 선택
-            </Text>
-            <Text style={type.muted}>프로필에 표시할 주 악기나 보컬 파트를 선택하세요.</Text>
-            <ScrollView
-              style={styles.instrumentList}
-              contentContainerStyle={styles.instrumentGroups}
-              accessibilityRole="radiogroup"
-              accessibilityLabel="악기"
-            >
-              {instrumentGroups.map((group) => (
-                <View key={group.id}>
-                  <Text style={styles.legend}>{group.label}</Text>
-                  <View style={styles.parts}>
-                    {group.instruments.map((id) => {
-                      const checked = draftInstrument === id;
-                      return (
-                        <Touchable
-                          key={id}
-                          accessibilityRole="radio"
-                          accessibilityState={{ checked }}
-                          style={[styles.part, checked && styles.partChecked]}
-                          onPress={() => setDraftInstrument(id)}
-                        >
-                          <Text style={styles.partText}>{partLabel(id)}</Text>
-                        </Touchable>
-                      );
-                    })}
-                  </View>
-                </View>
-              ))}
-            </ScrollView>
-            <View style={styles.dialogActions}>
-              <DialogButton
-                label="선택 해제"
-                tone="secondary"
-                onPress={() => {
-                  setInstrument("");
-                  setInstrumentOpen(false);
-                }}
-              />
-              <DialogButton
-                label="선택 완료"
-                disabled={draftInstrument === null}
-                onPress={() => {
-                  if (draftInstrument) setInstrument(partLabel(draftInstrument));
-                  setInstrumentOpen(false);
-                }}
+    <>
+      <ScreenScroll>
+        <View style={styles.form}>
+          {privacy && (
+            <View style={styles.privacy}>
+              <PreferenceRow
+                large
+                title="비공개 계정"
+                description="켜면 팔로우는 승인 후에만 이뤄지고 관계 목록이 숨겨집니다."
+                value={privacy.isPrivate}
+                disabled={privacy.busy}
+                alert={privacy.error}
+                onChange={(value) => act({ type: "privacy", value })}
               />
             </View>
-          </Dialog>
-        )}
-        <Field label="설명">
-          <TextInput
-            value={explanation}
-            onChangeText={setExplanation}
-            editable={!saving}
-            multiline
-            accessibilityLabel="설명"
-            selectionColor={colors.accent}
-            style={[styles.input, styles.textarea]}
-          />
-        </Field>
-        {model.error && (
-          <Text accessibilityRole="alert" style={styles.error}>
-            {model.error}
-          </Text>
-        )}
-        <Touchable
-          accessibilityRole="button"
-          accessibilityState={{ disabled: saving, busy: saving }}
-          disabled={saving}
-          style={[styles.save, saving && styles.saveDisabled]}
-          onPress={() => act({ type: "save", nickname, instrument, explanation })}
-        >
-          <Text style={styles.saveText}>{saving ? "저장 중..." : model.submitLabel}</Text>
-        </Touchable>
-        <Touchable
-          accessibilityRole="link"
-          style={styles.policy}
-          onPress={() => act({ type: "open-privacy-policy" })}
-        >
-          <Text style={styles.policyText}>개인정보처리방침</Text>
-        </Touchable>
-      </View>
-    </ScreenScroll>
+          )}
+          <Touchable
+            accessibilityRole="button"
+            accessibilityLabel="프로필 사진 변경"
+            accessibilityState={{ disabled: saving }}
+            disabled={saving}
+            style={styles.avatar}
+            onPress={() => act({ type: "pick-image" })}
+          >
+            <View style={styles.avatarRing}>
+              {model.imagePreview ? (
+                <Image
+                  source={{ uri: model.imagePreview }}
+                  style={styles.preview}
+                  accessibilityLabel="프로필"
+                />
+              ) : (
+                <Avatar uri={uri(initial.imageUrl)} size={136} />
+              )}
+            </View>
+            <View style={styles.overlay} pointerEvents="none">
+              <AddIcon width={48} height={48} />
+            </View>
+          </Touchable>
+          <Field label="이름">
+            <TextInput
+              value={nickname}
+              onChangeText={(value) => setNickname(clampCodePoints(value, NICKNAME_MAX_LENGTH))}
+              editable={!saving}
+              accessibilityLabel="이름"
+              selectionColor={colors.accent}
+              style={styles.input}
+            />
+            <Text style={[type.caption, { textAlign: "right" }]}>
+              {codePointLength(nickname)}/{NICKNAME_MAX_LENGTH}자
+            </Text>
+          </Field>
+          <Field label="악기">
+            <Touchable
+              accessibilityRole="button"
+              accessibilityLabel="악기 선택"
+              accessibilityState={{ disabled: saving, expanded: instrumentOpen }}
+              disabled={saving}
+              style={styles.selector}
+              onPress={() => setInstrumentOpen(true)}
+            >
+              <Text
+                numberOfLines={1}
+                style={instrumentDisplay ? styles.selectorText : styles.selectorPlaceholder}
+              >
+                {instrumentDisplay || "악기를 선택하세요"}
+              </Text>
+            </Touchable>
+          </Field>
+          <Field label="설명">
+            <TextInput
+              value={explanation}
+              onChangeText={(value) =>
+                setExplanation(clampCodePoints(value, PROFILE_BIO_MAX_LENGTH))
+              }
+              editable={!saving}
+              multiline
+              accessibilityLabel="설명"
+              selectionColor={colors.accent}
+              style={[styles.input, styles.textarea]}
+            />
+            <Text style={[type.caption, { textAlign: "right" }]}>
+              {codePointLength(explanation)}/{PROFILE_BIO_MAX_LENGTH}자
+            </Text>
+          </Field>
+          {model.error && (
+            <Text accessibilityRole="alert" style={styles.error}>
+              {model.error}
+            </Text>
+          )}
+          <Touchable
+            accessibilityRole="button"
+            accessibilityState={{ disabled: saving, busy: saving }}
+            disabled={saving}
+            style={[styles.save, saving && styles.saveDisabled]}
+            onPress={() =>
+              act({
+                type: "save",
+                nickname: sanitizeSingleLine(nickname),
+                instrument: sanitizeSingleLine(instrument),
+                explanation: sanitizeMultiline(explanation),
+              })
+            }
+          >
+            <Text style={styles.saveText}>{saving ? "저장 중..." : model.submitLabel}</Text>
+          </Touchable>
+          <Touchable
+            accessibilityRole="link"
+            style={styles.policy}
+            onPress={() => act({ type: "open-privacy-policy" })}
+          >
+            <Text style={styles.policyText}>개인정보처리방침</Text>
+          </Touchable>
+        </View>
+      </ScreenScroll>
+      {instrumentOpen && (
+        <ProfileInstrumentDialog
+          value={instrument}
+          allowEmpty
+          onConfirm={(formatted) => setInstrument(formatted)}
+          onClose={() => setInstrumentOpen(false)}
+        />
+      )}
+    </>
   );
 }
 
@@ -253,23 +219,6 @@ const styles = StyleSheet.create({
   },
   selectorText: { color: colors.fg, fontSize: 16, lineHeight: 20 },
   selectorPlaceholder: { color: "#9692a6", fontSize: 16, lineHeight: 20 },
-  instrumentDialog: { gap: 16 },
-  dialogHeading: { color: colors.fg, fontSize: 16, lineHeight: 22, fontWeight: "700" },
-  instrumentList: { maxHeight: 320 },
-  instrumentGroups: { gap: 16 },
-  legend: { color: colors.muted, fontSize: 14, lineHeight: 20, fontWeight: "700", marginBottom: 8 },
-  parts: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
-  part: {
-    minHeight: 36,
-    borderRadius: 18,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    backgroundColor: colors.surface,
-    justifyContent: "center",
-  },
-  partChecked: { backgroundColor: colors.primary },
-  partText: { color: colors.fg, fontSize: 14, lineHeight: 20, fontWeight: "500" },
-  dialogActions: { flexDirection: "row", justifyContent: "flex-end", gap: 8 },
   input: {
     height: 44,
     paddingHorizontal: 10,

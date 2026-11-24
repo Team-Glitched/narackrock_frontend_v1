@@ -132,13 +132,21 @@ export function deleteShortComment(shortId: number, commentId: number): Promise<
   return apiRequest(`/api/v1/shorts/${shortId}/comments/${commentId}`, { method: "DELETE" });
 }
 
-export function likeShortComment(shortId: number, commentId: number): Promise<{ isLiked: boolean; likeCount: number }> {
+export type ShortCommentReaction = {
+  commentId?: number;
+  isLiked?: boolean;
+  isDisliked?: boolean;
+  likeCount?: number;
+  dislikeCount?: number;
+};
+
+export function likeShortComment(shortId: number, commentId: number): Promise<ShortCommentReaction> {
   return data(`/api/v1/shorts/${shortId}/comments/${commentId}/likes`, { method: "POST" });
 }
 
 export function dislikeShortComment(
   shortId: number,
   commentId: number,
-): Promise<{ isDisliked: boolean; dislikeCount: number }> {
+): Promise<ShortCommentReaction> {
   return data(`/api/v1/shorts/${shortId}/comments/${commentId}/dislikes`, { method: "POST" });
 }

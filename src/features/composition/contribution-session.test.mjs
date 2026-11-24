@@ -2,12 +2,17 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 import {
   canCreateLayer,
+  orderStudioTracks,
   shouldShowContributionSubmit,
   shouldOfferSongPublish,
 } from "./contribution-session.ts";
 
 const permission = { userId: 22, canContribute: true, canReviewContribution: false };
-const track = (ownerId, approvalStatus) => ({ ownerId, clips: [{ ownerId, approvalStatus }] });
+const track = (ownerId, approvalStatus, originOpenSourceId = null) => ({
+  ownerId,
+  originOpenSourceId,
+  clips: [{ ownerId, approvalStatus }],
+});
 
 test("allows a user to create their first layer in a song", () => {
   assert.equal(canCreateLayer(permission, [track(10, "APPROVED")]), true);
@@ -15,6 +20,27 @@ test("allows a user to create their first layer in a song", () => {
 
 test("prevents a user from creating a second layer in the same song", () => {
   assert.equal(canCreateLayer(permission, [track(22, "APPROVED")]), false);
+});
+
+test("sample tracks do not count against the single regular layer limit", () => {
+  assert.equal(canCreateLayer(permission, [track(22, "DRAFT", 301)]), true);
+  assert.equal(
+    canCreateLayer(permission, [track(22, "DRAFT", 301), track(22, "APPROVED", null)]),
+    false,
+  );
+});
+
+test("orders imported sample tracks below all regular layers while preserving order", () => {
+  const ordered = orderStudioTracks([
+    { trackId: 1, originOpenSourceId: 301 },
+    { trackId: 2, originOpenSourceId: null },
+    { trackId: 3, originOpenSourceId: 302 },
+    { trackId: 4 },
+  ]);
+  assert.deepEqual(
+    ordered.map((t) => t.trackId),
+    [2, 4, 1, 3],
+  );
 });
 
 test("keeps the add button before the participant saves a layer", () => {

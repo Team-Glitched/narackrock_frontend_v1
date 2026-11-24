@@ -28,6 +28,44 @@ function scheduleWebClick(
   osc.stop(when + 0.05);
 }
 
+/** Reuses one AudioContext to play one-shot count-in metronome clicks before recording begins. */
+export function createMetronomeClickPlayer(): {
+  click: (accent?: boolean) => void;
+  close: () => void;
+} {
+  const AudioCtor =
+    typeof window !== "undefined"
+      ? (window.AudioContext ??
+        (window as unknown as { webkitAudioContext?: typeof AudioContext })
+          .webkitAudioContext)
+      : undefined;
+  let context: AudioContext | null = null;
+  if (AudioCtor) {
+    try {
+      context = new AudioCtor();
+      if (context.state === "suspended") void context.resume().catch(() => {});
+    } catch {
+      context = null;
+    }
+  }
+  return {
+    click(accent = false) {
+      if (!context) return;
+      if (context.state === "suspended") void context.resume().catch(() => {});
+      try {
+        scheduleWebClick(context, context.currentTime + 0.005, accent);
+      } catch {
+        /* Ignore closed/suspended AudioContext errors on teardown. */
+      }
+    },
+    close() {
+      const target = context;
+      context = null;
+      if (target) void target.close().catch(() => {});
+    },
+  };
+}
+
 /**
  * Plays a Web Audio lookahead metronome click while `enabled` is true and exposes the current beat index
  * (`activeBeat`, 0-based within the bar) for synchronized visual pulse feedback.

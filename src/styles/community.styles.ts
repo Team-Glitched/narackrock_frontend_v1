@@ -616,8 +616,8 @@ export const communityStyles = {
     "[.design-canvas_&_textarea]:text-app-fg [.design-canvas_&_textarea]:border [.design-canvas_&_textarea]:border-solid",
     "[.design-canvas_&_textarea]:border-app-border [.design-canvas_&_textarea]:leading-[22px]",
     "flex w-[350px] shrink-0 flex-col gap-6",
-    "[.design-canvas_&>label]:flex [.design-canvas_&>label]:flex-col [.design-canvas_&>label]:gap-[10px] [.design-canvas_&>label]:text-title",
-    "[.design-canvas_&>label]:font-bold [.design-canvas_&>label]:text-app-fg [.design-canvas_&>label]:leading-[26px]",
+    "[.design-canvas_&>label]:flex [.design-canvas_&>label]:flex-col [.design-canvas_&>label]:gap-[10px] [.design-canvas_&>label]:text-label",
+    "[.design-canvas_&>label]:font-bold [.design-canvas_&>label]:text-app-fg [.design-canvas_&>label]:leading-[22px]",
   ].join(" "),
   socialCreateSubmit: [
     "social-create-submit",

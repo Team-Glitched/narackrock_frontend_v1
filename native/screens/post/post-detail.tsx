@@ -14,6 +14,12 @@ import LikeOnIcon from "../../../public/figma/v3-post-like-on.svg";
 import SaveOffIcon from "../../../public/figma/v3-post-save-off.svg";
 import SaveOnIcon from "../../../public/figma/v3-post-save-on.svg";
 import type { NativePostDetail } from "../../../src/lib/native-screens";
+import {
+  MODERATION_REASON_MAX_LENGTH,
+  clampCodePoints,
+  hasVisibleText,
+  sanitizeSingleLine,
+} from "../../../src/lib/content-limits";
 import { Comments, MenuSheet, type MenuItem } from "../../ui/comments";
 import { AppHeader } from "../../ui/header";
 import { Avatar, Button, MoreButton, Status, TextField, Touchable } from "../../ui/kit";
@@ -132,9 +138,10 @@ function PostArticle({
           <TextField
             accessibilityLabel="운영 삭제 사유"
             placeholder="삭제 사유"
-            maxLength={500}
             value={reason}
-            onChangeText={setReason}
+            onChangeText={(value) =>
+              setReason(clampCodePoints(value, MODERATION_REASON_MAX_LENGTH))
+            }
           />
           <View style={styles.confirmButtons}>
             <Button
@@ -146,9 +153,9 @@ function PostArticle({
             />
             <Button
               label={model.deleting ? "삭제 중..." : "삭제 확인"}
-              disabled={model.deleting || !reason.trim()}
+              disabled={model.deleting || !hasVisibleText(reason)}
               style={styles.flex}
-              onPress={() => act({ type: "post-delete", reason })}
+              onPress={() => act({ type: "post-delete", reason: sanitizeSingleLine(reason) })}
             />
           </View>
         </View>

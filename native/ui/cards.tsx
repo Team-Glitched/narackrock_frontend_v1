@@ -5,9 +5,8 @@ import Svg, { Path } from "react-native-svg";
 import CommentIcon from "../../public/figma/post-comment.svg";
 import DislikeIcon from "../../public/figma/v3-post-dislike-off.svg";
 import LikeIcon from "../../public/figma/v3-post-like-off.svg";
-import defaultCover from "../../src/features/abyss/assets/shortform-default-cover.png";
-import defaultPostCover from "../../src/features/posts/assets/post-default-cover.png";
 import type { NativeList, NativePost, NativeSong } from "../../src/lib/native-screens";
+import { pickNativeDefaultCover } from "./default-covers";
 import { Avatar, MoreButton, Status, Touchable } from "./kit";
 import { useScreen } from "./screen-context";
 import { colors, gutter, type } from "./theme";
@@ -27,10 +26,12 @@ export const postStatus = {
 /** Album cover, or the web's default shortform cover. */
 export function Cover({
   url,
+  seed,
   size,
   radius = 8,
 }: {
   url: string | null;
+  seed?: string | number | null;
   size: number;
   radius?: number;
 }) {
@@ -38,7 +39,7 @@ export function Cover({
   const resolved = uri(url);
   return (
     <Image
-      source={resolved ? { uri: resolved } : defaultCover}
+      source={resolved ? { uri: resolved } : pickNativeDefaultCover(seed)}
       style={{ width: size, height: size, borderRadius: radius, backgroundColor: colors.surface }}
       accessibilityIgnoresInvertColors
     />
@@ -119,7 +120,7 @@ export function SongRail({
             onPress={() => onOpen(song.shortId)}
           >
             <View style={styles.songArt}>
-              <Cover url={song.albumImageUrl} size={160} radius={10} />
+              <Cover url={song.albumImageUrl} seed={`short:${song.shortId}`} size={160} radius={10} />
             </View>
             <View style={styles.songCopy}>
               <Text style={styles.songTitle} numberOfLines={1}>
@@ -163,12 +164,14 @@ export function MediaRow({
   title,
   subtitle,
   coverUrl,
+  seed,
   onOpen,
   trailing,
 }: {
   title: string;
   subtitle: string;
   coverUrl: string | null;
+  seed?: string | number | null;
   onOpen: () => void;
   trailing?: ReactNode;
 }) {
@@ -180,7 +183,7 @@ export function MediaRow({
         style={styles.rowMain}
         onPress={onOpen}
       >
-        <Cover url={coverUrl} size={56} />
+        <Cover url={coverUrl} seed={seed ?? title} size={56} />
         <View style={styles.rowCopy}>
           <Text style={type.label} numberOfLines={1}>
             {title}
@@ -209,6 +212,7 @@ export function SongRow({
       title={song.title}
       subtitle={song.author}
       coverUrl={song.albumImageUrl}
+      seed={`short:${song.shortId}`}
       onOpen={onOpen}
       trailing={trailing}
     />
@@ -282,7 +286,7 @@ export function PostRow({
       >
         <View style={[styles.postThumb, { width: thumb, height: thumb }]}>
           <Image
-            source={image ? { uri: image } : defaultPostCover}
+            source={image ? { uri: image } : pickNativeDefaultCover(`post:${post.postId}`)}
             style={StyleSheet.absoluteFill}
             accessibilityLabel={image ? "게시글 첨부 이미지" : "게시글 기본 이미지"}
           />

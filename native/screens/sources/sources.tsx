@@ -23,6 +23,7 @@ import {
   SOURCE_TITLE_MAX_LENGTH,
   clampCodePoints,
   codePointLength,
+  sanitizeSingleLine,
 } from "../../../src/lib/content-limits";
 
 const tabs: { value: NativeSources["tab"]; label: string }[] = [
@@ -174,9 +175,9 @@ function SourceCard({ source }: { source: NativeSourceCard }) {
           style={[styles.row, { flex: 1 }]}
           onPress={open}
         >
-          <Cover url={source.thumbnailUrl} size={44} />
+          <Cover url={source.thumbnailUrl} seed={`source:${source.openSourceId}`} size={44} />
           <View style={styles.title}>
-            <Text style={type.title} numberOfLines={1}>
+            <Text style={type.label} numberOfLines={1}>
               {source.title}
             </Text>
             {source.usage && <Text style={type.caption}>{source.usage}</Text>}
@@ -246,7 +247,7 @@ function Publications({ model }: { model: NativeSourcePublications }) {
       {model.items.map((source) => (
         <Card key={source.openSourceId} style={{ gap: 12 }}>
           <Text style={type.caption}>{source.public ? "공개" : "비공개"}</Text>
-          <Text style={type.title}>{source.title}</Text>
+          <Text style={type.label}>{source.title}</Text>
           {source.instrumentLabel && <Text style={styles.copy}>악기: {source.instrumentLabel}</Text>}
           {source.description && <Text style={styles.copy}>{source.description}</Text>}
           <View style={[styles.row, { flexWrap: "wrap" }]}>
@@ -312,7 +313,7 @@ function PublicationEditor({
             }}
           />
           <Text style={type.caption}>
-            {codePointLength(title.trim())}/{SOURCE_TITLE_MAX_LENGTH}자 · 필수
+            {codePointLength(sanitizeSingleLine(title))}/{SOURCE_TITLE_MAX_LENGTH}자 · 필수
           </Text>
         </View>
         <View style={styles.field}>

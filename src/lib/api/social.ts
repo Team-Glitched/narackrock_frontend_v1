@@ -16,7 +16,18 @@ export type FollowRequest = {
   profileImageUrl: string | null;
 };
 export type OutgoingRequest = { id: number; requesterId: number; targetId: number };
-export type ChatMessage = { id: number; senderId: number; recipientId: number; content: string; createdAt: string };
+export type ChatMessage = {
+  id: number;
+  senderId: number;
+  recipientId: number;
+  content: string;
+  createdAt: string;
+  editedAt?: string | null;
+  /** Per-message mutation counter: 0 when sent, incremented by every committed edit or delete. */
+  revision?: number | null;
+  deleted?: boolean;
+  isDeleted?: boolean;
+};
 export type ChatThread = Person & { lastMessageId: number; lastMessage: string; lastMessageAt: string; outgoing: boolean; unreadCount?: number };
 
 /** STOMP endpoint on the configured backend origin (ws/wss derived from http/https). */
@@ -65,3 +76,10 @@ export const getChatMessages = (friendId: number, beforeId?: number) =>
   data<ChatMessage[]>(`/api/v1/chats/${friendId}/messages?size=50${beforeId === undefined ? "" : `&beforeId=${beforeId}`}`);
 export const sendChatMessage = (friendId: number, content: string) =>
   data<ChatMessage>(`/api/v1/chats/${friendId}/messages`, { method: "POST", body: JSON.stringify({ content }) });
+export const editChatMessage = (friendId: number, messageId: number, content: string) =>
+  data<ChatMessage>(`/api/v1/chats/${friendId}/messages/${messageId}`, {
+    method: "PATCH",
+    body: JSON.stringify({ content }),
+  });
+export const deleteChatMessage = (friendId: number, messageId: number) =>
+  data<ChatMessage>(`/api/v1/chats/${friendId}/messages/${messageId}`, { method: "DELETE" });

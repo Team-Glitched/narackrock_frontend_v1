@@ -2,6 +2,12 @@ import { useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 
 import { parseBanDays } from "../../../src/features/admin/ban-days";
+import {
+  MODERATION_REASON_MAX_LENGTH,
+  clampCodePoints,
+  hasVisibleText,
+  sanitizeSingleLine,
+} from "../../../src/lib/content-limits";
 import type {
   NativeAdminProposal,
   NativeAdminReport,
@@ -88,9 +94,8 @@ function ProposalCard({ proposal }: { proposal: NativeAdminProposal }) {
       <TextField
         accessibilityLabel={`${proposal.name} 반려 사유`}
         placeholder="반려 사유"
-        maxLength={500}
         value={reason}
-        onChangeText={setReason}
+        onChangeText={(value) => setReason(clampCodePoints(value, MODERATION_REASON_MAX_LENGTH))}
       />
       {error !== "" && (
         <Text accessibilityRole="alert" style={styles.error}>
@@ -100,9 +105,13 @@ function ProposalCard({ proposal }: { proposal: NativeAdminProposal }) {
       <CardActions>
         <CardButton
           label="반려"
-          disabled={busy || !reason.trim()}
+          disabled={busy || !hasVisibleText(reason)}
           onPress={() =>
-            act({ type: "reject", proposalId: proposal.proposalId, reason: reason.trim() })
+            act({
+              type: "reject",
+              proposalId: proposal.proposalId,
+              reason: sanitizeSingleLine(reason),
+            })
           }
         />
         <CardButton
@@ -153,9 +162,8 @@ function ReportCard({ report }: { report: NativeAdminReport }) {
       <TextField
         accessibilityLabel="처리 사유"
         placeholder="처리 사유"
-        maxLength={500}
         value={reason}
-        onChangeText={setReason}
+        onChangeText={(value) => setReason(clampCodePoints(value, MODERATION_REASON_MAX_LENGTH))}
       />
       {error !== "" && (
         <Text accessibilityRole="alert" style={styles.error}>
@@ -165,21 +173,25 @@ function ReportCard({ report }: { report: NativeAdminReport }) {
       <CardActions>
         <CardButton
           label="신고 반려"
-          disabled={busy || !reason.trim()}
+          disabled={busy || !hasVisibleText(reason)}
           onPress={() =>
-            act({ type: "reject-report", reportId: report.reportId, reason: reason.trim() })
+            act({
+              type: "reject-report",
+              reportId: report.reportId,
+              reason: sanitizeSingleLine(reason),
+            })
           }
         />
         <CardButton
           label="처리"
           primary
-          disabled={busy || !reason.trim() || (action === "BAN_USER" && !validDays)}
+          disabled={busy || !hasVisibleText(reason) || (action === "BAN_USER" && !validDays)}
           onPress={() =>
             act({
               type: "resolve-report",
               reportId: report.reportId,
               action,
-              reason: reason.trim(),
+              reason: sanitizeSingleLine(reason),
               banDays: action === "BAN_USER" ? banDays : null,
             })
           }

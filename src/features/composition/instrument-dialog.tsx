@@ -6,7 +6,9 @@ import type { NativeInstrumentAction, NativeInstrumentPicker } from "@/lib/nativ
 import { useEffect, useEffectEvent, useId, useState } from "react";
 import { canonicalInstrumentId } from "./instrument-catalog";
 import {
+  formatProfileInstruments,
   instrumentGroups,
+  parseProfileInstruments,
   tracksUsingInstrumentFamily,
   partLabel,
   supportsMidi,
@@ -254,6 +256,7 @@ export function InstrumentDialog({
           </button>
         )}
         <button
+          type="button"
           className={cn(
             buttonVariants({ tone: "primary", size: "compact" }),
             "min-w-0 flex-1 justify-center",
@@ -262,6 +265,108 @@ export function InstrumentDialog({
           onClick={() => void state.confirm()}
         >
           {busy ? "적용 중..." : "선택 완료"}
+        </button>
+      </div>
+    </CanvasDialog>
+  );
+}
+
+/** Multi-select instrument picker for profile edit and onboarding. */
+export function ProfileInstrumentDialog({
+  value,
+  onConfirm,
+  onClose,
+  allowEmpty = true,
+  subtitle = "프로필에 표시할 악기나 보컬 파트를 여러 개 선택할 수 있어요.",
+}: {
+  value: string;
+  onConfirm: (formatted: string) => void;
+  onClose: () => void;
+  allowEmpty?: boolean;
+  subtitle?: string;
+}) {
+  const titleId = useId();
+  const parsed = parseProfileInstruments(value);
+  const [selectedIds, setSelectedIds] = useState<string[]>(parsed.selectedIds);
+  const [customLabels, setCustomLabels] = useState<string[]>(parsed.customLabels);
+  const totalCount = selectedIds.length + customLabels.length;
+  const toggle = (id: string) => {
+    setSelectedIds((current) =>
+      current.includes(id) ? current.filter((item) => item !== id) : [...current, id],
+    );
+  };
+  const canConfirm = allowEmpty || totalCount > 0;
+  return (
+    <CanvasDialog className={sharedStyles.instrumentDialog} titleId={titleId} onClose={onClose}>
+      <div className="flex items-center justify-between gap-2">
+        <h2 id={titleId}>악기 선택</h2>
+        {totalCount > 0 && (
+          <button
+            type="button"
+            className="text-caption font-medium text-app-muted underline hover:text-app-fg"
+            onClick={() => {
+              setSelectedIds([]);
+              setCustomLabels([]);
+            }}
+          >
+            전체 해제
+          </button>
+        )}
+      </div>
+      <p>
+        {subtitle} ({totalCount}개 선택)
+      </p>
+      <div
+        role="group"
+        aria-label="악기"
+        className="scrollbar-dark grid min-h-0 max-h-[320px] flex-1 gap-4 overflow-y-auto overscroll-contain pr-1"
+      >
+        {instrumentGroups.map((group) => (
+          <fieldset key={group.id}>
+            <legend>{group.label}</legend>
+            <div className="flex flex-wrap gap-2">
+              {group.instruments.map((id) => {
+                const checked = selectedIds.includes(id);
+                return (
+                  <button
+                    key={id}
+                    type="button"
+                    role="checkbox"
+                    aria-checked={checked}
+                    onClick={() => toggle(id)}
+                  >
+                    {partLabel(id)}
+                  </button>
+                );
+              })}
+            </div>
+          </fieldset>
+        ))}
+      </div>
+      <div className="flex shrink-0 gap-2">
+        <button
+          type="button"
+          className={cn(
+            buttonVariants({ tone: "secondary", size: "compact" }),
+            "shrink-0 justify-center px-4",
+          )}
+          onClick={onClose}
+        >
+          취소
+        </button>
+        <button
+          type="button"
+          className={cn(
+            buttonVariants({ tone: "primary", size: "compact" }),
+            "min-w-0 flex-1 justify-center",
+          )}
+          disabled={!canConfirm}
+          onClick={() => {
+            onConfirm(formatProfileInstruments(selectedIds, customLabels));
+            onClose();
+          }}
+        >
+          선택 완료
         </button>
       </div>
     </CanvasDialog>

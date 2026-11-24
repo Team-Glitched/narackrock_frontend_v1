@@ -4,6 +4,13 @@ import { communityStyles } from "@/styles/community.styles";
 import { sharedStyles } from "@/styles/shared.styles";
 import { buttonVariants } from "@/styles/variants";
 import { cn } from "@/lib/utils";
+import {
+  COMMENT_MAX_LENGTH,
+  MODERATION_REASON_MAX_LENGTH,
+  clampCodePoints,
+  codePointLength,
+  hasVisibleText,
+} from "@/lib/content-limits";
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Asset } from "@/components/asset";
 import { Avatar } from "@/components/avatar";
@@ -194,7 +201,9 @@ export function CommentsView({
               aria-label="댓글 내용"
               placeholder="입력"
               value={draft}
-              onChange={(event) => setDraft(event.target.value)}
+              onChange={(event) =>
+                setDraft(clampCodePoints(event.target.value, COMMENT_MAX_LENGTH))
+              }
               onKeyDown={submitOnEnter}
               disabled={busy || !writable}
             />
@@ -203,12 +212,19 @@ export function CommentsView({
             type="submit"
             aria-label="댓글 보내기"
             disabled={
-              busy || comments.hiding || (currentUserId !== null && (!writable || !draft.trim()))
+              busy ||
+              comments.hiding ||
+              (currentUserId !== null && (!writable || !hasVisibleText(draft)))
             }
           >
             <Asset name="comment-send.svg" />
           </button>
         </div>
+        {currentUserId !== null && draft.length > 0 && (
+          <small className="mt-1 block text-right text-caption text-app-muted tabular-nums">
+            {codePointLength(draft)}/{COMMENT_MAX_LENGTH}자
+          </small>
+        )}
       </form>
       {comments.dialogs}
     </div>
@@ -411,13 +427,16 @@ function CommentCard({
           <textarea
             aria-label="댓글 내용 수정"
             value={draft}
-            onChange={(event) => setDraft(event.target.value)}
+            onChange={(event) => setDraft(clampCodePoints(event.target.value, COMMENT_MAX_LENGTH))}
             onKeyDown={submitOnEnter}
           />
+          <small className="text-right text-caption text-app-muted tabular-nums">
+            {codePointLength(draft)}/{COMMENT_MAX_LENGTH}자
+          </small>
           <button type="button" onClick={() => setEditing(false)}>
             취소
           </button>
-          <button disabled={busy || !draft.trim()}>저장</button>
+          <button disabled={busy || !hasVisibleText(draft)}>저장</button>
         </form>
       ) : (
         <>
@@ -454,13 +473,14 @@ function CommentCard({
           <input
             aria-label="운영 삭제 사유"
             placeholder="삭제 사유"
-            maxLength={500}
             value={moderationReason}
-            onChange={(event) => setModerationReason(event.target.value)}
+            onChange={(event) =>
+              setModerationReason(clampCodePoints(event.target.value, MODERATION_REASON_MAX_LENGTH))
+            }
           />
           <button onClick={() => setModerating(false)}>취소</button>
           <button
-            disabled={busy || !moderationReason.trim()}
+            disabled={busy || !hasVisibleText(moderationReason)}
             onClick={() => {
               if (!busy) void writes.moderate(item, moderationReason).then(done);
             }}
@@ -501,6 +521,7 @@ function CommentCard({
           <Asset
             name={item.isDisliked ? "v3-comment-dislike-on.svg" : "v3-comment-dislike-off.svg"}
           />
+          <span className="tabular-nums">{item.dislikes}</span>
         </button>
         {replyCount !== undefined && (
           <button

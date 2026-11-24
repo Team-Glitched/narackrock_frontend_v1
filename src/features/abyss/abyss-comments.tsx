@@ -46,8 +46,25 @@ export function useShortCommentAdapter(shortId: number): CommentAdapter {
       update: (id, text) => updateShortComment(shortId, id, text),
       remove: (id) => deleteShortComment(shortId, id),
       async react(id, kind) {
-        await (kind === "like" ? likeShortComment(shortId, id) : dislikeShortComment(shortId, id));
-        // Each toggle reports only its own side; re-read so both like and dislike reflect the server.
+        const result = await (kind === "like"
+          ? likeShortComment(shortId, id)
+          : dislikeShortComment(shortId, id));
+        if (
+          typeof result?.isLiked === "boolean" &&
+          typeof result?.isDisliked === "boolean" &&
+          typeof result?.likeCount === "number" &&
+          Number.isFinite(result.likeCount) &&
+          typeof result?.dislikeCount === "number" &&
+          Number.isFinite(result.dislikeCount)
+        ) {
+          return {
+            isLiked: result.isLiked,
+            isDisliked: result.isDisliked,
+            likeCount: result.likeCount,
+            dislikeCount: result.dislikeCount,
+          };
+        }
+        // Fallback when talking to older API payloads carrying only the requested side.
         const comment = (await getShortComments(shortId)).comments.find(
           (item) => item.commentId === id,
         );

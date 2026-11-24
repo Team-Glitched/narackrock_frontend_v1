@@ -11,9 +11,12 @@ import { cn } from "@/lib/utils";
 import { sharedStyles } from "@/styles/shared.styles";
 import { buttonVariants } from "@/styles/variants";
 import {
+  CONTRIBUTION_COMMENT_MAX_LENGTH,
   SONG_TITLE_MAX_LENGTH,
   clampCodePoints,
   codePointLength,
+  hasVisibleText,
+  sanitizeSingleLine,
 } from "@/lib/content-limits";
 import { useEffect, useMemo, useRef, useState, type PointerEvent } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -34,6 +37,7 @@ import type { AudioSelection } from "@/features/composition/prepare-audio-file";
 import { AudioTrimPicker } from "@/features/composition/audio-trim-picker";
 import {
   canCreateLayer,
+  orderStudioTracks,
   shouldShowContributionSubmit,
   shouldOfferSongPublish,
 } from "@/features/composition/contribution-session";
@@ -47,9 +51,12 @@ import { MusicalRuler } from "@/features/composition/musical-ruler";
 import { TimelineClip } from "@/features/composition/timeline-clip";
 import { canMoveClip, overlapsClip } from "@/features/composition/timeline-move";
 import { emptyMidiChoices, isEmptyMidi } from "@/features/composition/midi-content";
+import { openSourceDurationMs, insertThenRefresh } from "@/features/composition/open-source-insertion";
+import type { OpenSourceSummary } from "@/lib/api/open-sources";
 import type { ProjectTiming } from "@/features/composition/project-timing";
 import {
   createAudioClip,
+  createOpenSourceTrack,
   getExport,
   getPendingContributions,
   publishComposition,
@@ -106,7 +113,8 @@ export type PendingStudioAudio = { trackId: number; file: File; url: string };
 /** The studio's toolbar right button: "제출하기", or the round add button ("곡 올리기" / "레이어 추가"). */
 export type StudioPrimary =
   | { kind: "submit"; disabled: boolean }
-  | { kind: "publish" | "add"; disabled: boolean; hint: string | null };
+  | { kind: "publish" | "add"; disabled: boolean; hint: string | null }
+  | null;
 
 /**
  * The studio timeline's data and actions (the shared tracks merged with the viewer's drafts,
@@ -162,8 +170,11 @@ export function useStudio({
     enabled: loadedProjectId !== null,
     refetchOnMount: "always",
   });
+  const isContributionReview = contributionId !== undefined || typeof view !== "string";
   const readOnly =
-    view !== "working" && !(view === "studio" && compositionResult.data?.viewerPermission.canEdit);
+    isContributionReview ||
+    (view !== "working" && !(view === "studio" && compositionResult.data?.viewerPermission.canEdit));
+  const effectiveReadOnly = readOnly;
   const draftsResult = useQuery({
     ...editorDraftsQuery(userId, loadedProjectId ?? 0),
     enabled: loadedProjectId !== null && !readOnly,
@@ -237,14 +248,16 @@ export function useStudio({
   }, [loadKey]);
   useEffect(() => {
     if (!composition) return;
-    try {
-      rememberWork(composition, shortId);
-    } catch {
-      /* The server project remains available if browser storage is full. */
+    if (!effectiveReadOnly) {
+      try {
+        rememberWork(composition, shortId);
+      } catch {
+        /* The server project remains available if browser storage is full. */
+      }
     }
     if (composition.project.projectId !== projectId)
       onProjectSelected(composition.project.projectId);
-  }, [composition, shortId, projectId, onProjectSelected]);
+  }, [composition, effectiveReadOnly, shortId, projectId, onProjectSelected]);
 
   /** Plays the layer's own trimmed server audio; the media is fetched once per URL in this scope. */
   async function previewOriginal(clip: ClipDto | undefined) {
@@ -275,10 +288,15 @@ export function useStudio({
       );
   }
   function canAnalyze(clip: ClipDto) {
-    return clip.clipType === "AUDIO" && clip.clipId > 0 && clip.ownerId === userId &&
+    return (
+      !effectiveReadOnly &&
+      clip.clipType === "AUDIO" &&
+      clip.clipId > 0 &&
+      clip.ownerId === userId &&
       clip.approvalStatus !== "REJECTED" &&
       Boolean(composition?.viewerPermission.canEdit || composition?.viewerPermission.canContribute) &&
-      ["FILE_UPLOAD", "RECORDING"].includes(clip.sourceType);
+      ["FILE_UPLOAD", "RECORDING"].includes(clip.sourceType)
+    );
   }
   function openAnalysis(clip: ClipDto) {
     if (!canAnalyze(clip) || activeAnalysis.current) return;
@@ -334,7 +352,8 @@ export function useStudio({
   }
 
   async function submitDrafts(comment: string) {
-    if (!composition || busy || !comment.trim()) return;
+    const cleanComment = sanitizeSingleLine(comment);
+    if (!composition || busy || !cleanComment || !hasVisibleText(cleanComment)) return;
     setBusy(true);
     setBusyMessage("작업을 제출하는 중입니다.");
     setError(null);
@@ -350,7 +369,7 @@ export function useStudio({
         id,
         drafts,
         composition.project.version,
-        comment.trim(),
+        cleanComment,
       );
       clearCommittedRecovery(browserDraftStorage(), drafts);
       // Drafts, tracks and contribution lists of this account all changed with the submission.
@@ -374,6 +393,7 @@ export function useStudio({
   }
 
   const canSavePrivate =
+    !effectiveReadOnly &&
     composition !== null &&
     shortId === null &&
     !composition.project.isPublic &&
@@ -488,9 +508,10 @@ export function useStudio({
   }
 
   async function finishMetadata(title: string) {
-    if (!composition || !metadataAction || !title.trim() || busy) return;
+    const cleanTitle = sanitizeSingleLine(title);
+    if (!composition || !metadataAction || !cleanTitle || !hasVisibleText(cleanTitle) || busy) return;
     if (metadataAction === "save") {
-      await savePrivateDraft(title.trim());
+      await savePrivateDraft(cleanTitle);
       return;
     }
     setBusy(true);
@@ -498,7 +519,7 @@ export function useStudio({
     setError(null);
     try {
       const imageId = publishImage ? await uploadMedia(publishImage, "IMAGE") : null;
-      await updateProjectMetadata(composition.project.projectId, title.trim(), imageId);
+      await updateProjectMetadata(composition.project.projectId, cleanTitle, imageId);
       await refresh();
       setMetadataAction(null);
       setShowPublishConfirmation(true);
@@ -511,7 +532,10 @@ export function useStudio({
   }
 
   const ready = composition !== null && composition.viewerPermission.userId === userId;
-  const tracks = preview?.tracks ?? composition?.tracks ?? [];
+  const tracks = useMemo(
+    () => orderStudioTracks(preview?.tracks ?? composition?.tracks ?? []),
+    [preview?.tracks, composition?.tracks],
+  );
 
   /** Saves a clip's new start as the viewer's draft of it; the timeline then shows the draft. */
   async function moveClip(track: TrackDto, clip: ClipDto, startTick: number) {
@@ -590,38 +614,60 @@ export function useStudio({
   const viewerPermission = composition?.viewerPermission;
   const project = composition?.project;
   const canSubmit =
+    !effectiveReadOnly &&
     viewerPermission !== undefined &&
     shouldShowContributionSubmit(shortId, viewerPermission, tracks);
   const canPublish =
-    viewerPermission !== undefined && shouldOfferSongPublish(shortId, viewerPermission, tracks);
+    !effectiveReadOnly &&
+    viewerPermission !== undefined &&
+    shouldOfferSongPublish(shortId, viewerPermission, tracks);
   const layerCreationAllowed =
-    viewerPermission !== undefined && canCreateLayer(viewerPermission, tracks, shortId === null);
+    !effectiveReadOnly &&
+    viewerPermission !== undefined &&
+    canCreateLayer(viewerPermission, tracks, shortId === null);
+  const canImportSource =
+    !effectiveReadOnly &&
+    viewerPermission !== undefined &&
+    project?.status !== "COMPLETED" &&
+    (viewerPermission.canContribute || viewerPermission.canEdit);
+  const importedSourceIds = useMemo(
+    () =>
+      new Set(
+        tracks
+          .filter((track) => track.originOpenSourceId != null && track.approvalStatus !== "REJECTED")
+          .map((track) => track.originOpenSourceId!),
+      ),
+    [tracks],
+  );
   const trackEditorTarget = (track: TrackDto) =>
-    viewerPermission && project && (selectMidiLayer || track.clips.length === 0)
+    !effectiveReadOnly && viewerPermission && project && (selectMidiLayer || track.clips.length === 0)
       ? layerEditorTarget(viewerPermission, project.status, track)
       : null;
   const resumableLayer =
-    viewerPermission && project
+    !effectiveReadOnly && viewerPermission && project
       ? tracks
           .map((track) => emptyLayerEditor(viewerPermission, project.status, track))
           .find(Boolean)
       : null;
-  const primary: StudioPrimary = canSubmit
-    ? { kind: "submit", disabled: busy }
-    : {
-        kind: canPublish ? "publish" : "add",
-        disabled:
-          busy ||
-          (!(shortId == null && viewerPermission?.canExport) &&
-            !layerCreationAllowed &&
-            !resumableLayer),
-        hint:
-          !layerCreationAllowed && !resumableLayer && viewerPermission?.canContribute
-            ? "한 곡에는 하나의 레이어만 만들 수 있습니다."
-            : null,
-      };
+  const primary: StudioPrimary = effectiveReadOnly
+    ? null
+    : canSubmit
+      ? { kind: "submit", disabled: busy }
+      : {
+          kind: canPublish ? "publish" : "add",
+          disabled:
+            busy ||
+            (!(shortId == null && viewerPermission?.canExport) &&
+              !layerCreationAllowed &&
+              !resumableLayer),
+          hint:
+            !layerCreationAllowed && !resumableLayer && viewerPermission?.canContribute
+              ? "한 곡에는 하나의 레이어만 만들 수 있습니다."
+              : null,
+        };
 
   const onTiming =
+    !effectiveReadOnly &&
     project &&
     viewerPermission &&
     viewerPermission.canEdit &&
@@ -661,6 +707,7 @@ export function useStudio({
           track: settingsTrack,
           volume: playback.trackVolumes[settingsTrack.trackId] ?? settingsTrack.volume,
           roleEditable:
+            !effectiveReadOnly &&
             typeof view === "string" &&
             canChangeTrackInstrument(viewerPermission.userId, project.status, settingsTrack),
         }
@@ -670,7 +717,7 @@ export function useStudio({
   // Personal MIDI drafts are already merged into `tracks`, so they also force MIDI mode.
   const instrumentMidi = instrumentTrack?.clips.some((clip) => clip.clipType === "MIDI") ?? false;
   const instrumentChoice: InstrumentChoice | null =
-    instrumentTrack && composition
+    !effectiveReadOnly && instrumentTrack && composition
       ? {
           value: instrumentTrack.instrument,
           mode: instrumentMidi ? "midi" : "audio",
@@ -707,8 +754,41 @@ export function useStudio({
         }
       : null;
 
+  async function importOpenSource(source: OpenSourceSummary) {
+    if (!composition || effectiveReadOnly || busy) return;
+    if (!viewerPermission?.canContribute && !(shortId === null && viewerPermission?.canEdit))
+      throw new Error("이 곡에는 샘플을 추가할 수 없습니다.");
+    if (importedSourceIds.has(source.openSourceId)) {
+      throw new Error("이미 이 곡에 추가된 샘플입니다.");
+    }
+    setBusy(true);
+    setError(null);
+    setStatus(null);
+    try {
+      playback.pause();
+      const durationMs = await openSourceDurationMs(source.openSourceId);
+      const { projectId: id, bpm, ppq, maxTick } = composition.project;
+      const ticksPerMs = (bpm * ppq) / 60000;
+      const startTick = Math.min(maxTick - 1, Math.max(0, Math.round(playback.positionMs * ticksPerMs)));
+      const durationTick = Math.max(1, Math.min(Math.ceil(durationMs * ticksPerMs), maxTick - startTick));
+      const refreshed = await insertThenRefresh(
+        () => createOpenSourceTrack(id, source.openSourceId, startTick, durationTick),
+        refresh,
+      );
+      setShowSources(false);
+      setStatus(
+        refreshed
+          ? `‘${source.title}’ 샘플을 하단 새 트랙으로 추가했습니다.`
+          : `‘${source.title}’ 추가는 완료되었지만 타임라인을 새로 불러오지 못했습니다.`,
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return {
     userId,
+    readOnly: effectiveReadOnly,
     composition,
     ready,
     loadMessage: loadFailure ? errorText(loadFailure) : error,
@@ -724,7 +804,8 @@ export function useStudio({
     contribution,
     retryContribution: () => void requestList.refetch(),
     primary,
-    canImportSource: layerCreationAllowed,
+    canImportSource,
+    importedSourceIds,
     onTiming,
     onExit,
     onAddLayer: () => (resumableLayer ? onEditTrack(resumableLayer.trackId, null) : onAddLayer()),
@@ -741,6 +822,7 @@ export function useStudio({
         setBusyMessage(null);
       }
     },
+    importOpenSource,
     showSubmitForm,
     setShowSubmitForm,
     submitDrafts,
@@ -795,6 +877,7 @@ export function useStudio({
       else setTrackSettingsId(track.trackId);
     },
     clipMovable: (clip: ClipDto) =>
+      !effectiveReadOnly &&
       !busy &&
       clip.clipId > 0 &&
       viewerPermission !== undefined &&
@@ -894,36 +977,38 @@ export function StudioScreen({
             임시 저장
           </button>
         )}
-        {primary.kind === "submit" ? (
-          <button
-            className={studioStyles.studioSubmit}
-            onClick={() => {
-              setError(null);
-              studio.setShowSubmitForm(true);
-            }}
-            disabled={primary.disabled}
-          >
-            제출하기
-          </button>
-        ) : primary.kind === "publish" ? (
-          <button
-            className={studioStyles.studioSubmit}
-            disabled={primary.disabled}
-            onClick={studio.requestPublish}
-          >
-            공개하기
-          </button>
-        ) : (
-          <button
-            className={studioStyles.studioAdd}
-            onClick={studio.onAddLayer}
-            disabled={primary.disabled}
-            aria-label="레이어 추가"
-            title={primary.hint ?? undefined}
-          >
-            <i />
-          </button>
-        )}
+        {primary ? (
+          primary.kind === "submit" ? (
+            <button
+              className={studioStyles.studioSubmit}
+              onClick={() => {
+                setError(null);
+                studio.setShowSubmitForm(true);
+              }}
+              disabled={primary.disabled}
+            >
+              제출하기
+            </button>
+          ) : primary.kind === "publish" ? (
+            <button
+              className={studioStyles.studioSubmit}
+              disabled={primary.disabled}
+              onClick={studio.requestPublish}
+            >
+              공개하기
+            </button>
+          ) : (
+            <button
+              className={studioStyles.studioAdd}
+              onClick={studio.onAddLayer}
+              disabled={primary.disabled}
+              aria-label="레이어 추가"
+              title={primary.hint ?? undefined}
+            >
+              <i />
+            </button>
+          )
+        ) : null}
       </StudioToolbar>
       {onToggleOrientation && (
         <OrientationToggleButton portrait={portrait} onToggle={onToggleOrientation} />
@@ -981,12 +1066,16 @@ export function StudioScreen({
             한 줄 코멘트
             <input
               value={submitComment}
-              onChange={(event) => setSubmitComment(event.target.value)}
-              maxLength={120}
+              onChange={(event) =>
+                setSubmitComment(clampCodePoints(event.target.value, CONTRIBUTION_COMMENT_MAX_LENGTH))
+              }
               required
               placeholder="어떤 작업을 추가했나요?"
               autoFocus
             />
+            <small className="text-right text-caption text-app-muted tabular-nums">
+              {codePointLength(submitComment)}/{CONTRIBUTION_COMMENT_MAX_LENGTH}자
+            </small>
           </label>
           {error && <p role="alert">{error}</p>}
           <div>
@@ -1000,7 +1089,7 @@ export function StudioScreen({
             >
               취소
             </button>
-            <button type="submit" disabled={busy || !submitComment.trim()}>
+            <button type="submit" disabled={busy || !hasVisibleText(submitComment)}>
               {busy ? "제출 중..." : "제출하기"}
             </button>
           </div>
@@ -1067,6 +1156,12 @@ export function StudioScreen({
             <p>{pendingAudio.file.name}</p>
             <AudioTrimPicker
               url={pendingAudio.url}
+              bpm={project.bpm}
+              signature={{
+                numerator: project.timeSignatureNumerator,
+                denominator: project.timeSignatureDenominator,
+              }}
+              enableSplice
               saveLabel="선택 구간을 레이어에 저장"
               suppressLoadingOverlay
               onCancel={() => studio.setPendingAudio(null)}
@@ -1092,13 +1187,17 @@ export function StudioScreen({
               ? () => studio.changeInstrument(trackSettings.track.trackId)
               : undefined
           }
-          emptyMidi={emptyMidiChoices(trackSettings.track.clips, project.ppq, playback.signature).map(
-            ({ clipId, label }) => ({
-              clipId,
-              label,
-              open: () => onEditTrack(trackSettings.track.trackId, clipId > 0 ? clipId : null),
-            }),
-          )}
+          emptyMidi={
+            studio.readOnly
+              ? []
+              : emptyMidiChoices(trackSettings.track.clips, project.ppq, playback.signature).map(
+                  ({ clipId, label }) => ({
+                    clipId,
+                    label,
+                    open: () => onEditTrack(trackSettings.track.trackId, clipId > 0 ? clipId : null),
+                  }),
+                )
+          }
         />
       )}
       {studio.instrumentChoice && (
@@ -1106,6 +1205,8 @@ export function StudioScreen({
       )}
       {studio.showSources && (
         <StudioSourceDialog
+          importedSourceIds={studio.importedSourceIds}
+          onOpenSource={studio.importOpenSource}
           onClose={() => studio.setShowSources(false)}
           onResource={studio.importResource}
         />
@@ -1186,7 +1287,7 @@ export function StudioScreen({
                 sharedStyles.track,
                 studioStyles.studioTrack,
                 highlightedTracks.has(track.trackId) &&
-                  "after:pointer-events-none after:absolute after:inset-0 after:z-[3] after:rounded-md after:border-2 after:border-solid after:border-app-primary-soft after:content-['']",
+                  "after:pointer-events-none after:absolute after:inset-0 after:z-[3] after:rounded-md after:border-2 after:border-solid after:border-app-primary after:bg-app-primary/15 after:content-['']",
               )}
               key={track.trackId}
               style={{ gridRow: index + 2 }}
@@ -1199,11 +1300,6 @@ export function StudioScreen({
               }
             >
               <div className={studioStyles.trackPerson} title={track.name}>
-                {highlightedTracks.has(track.trackId) && (
-                  <span className="pointer-events-none absolute right-1 bottom-0 z-[3] rounded bg-app-primary px-1 text-[9px] leading-3 text-white">
-                    추가 트랙
-                  </span>
-                )}
                 <button
                   className={"track-settings-trigger"}
                   aria-label={
@@ -1231,7 +1327,7 @@ export function StudioScreen({
                 className={studioStyles.studioTrackClips}
                 style={{ width: timelineWidth, flexBasis: timelineWidth }}
               >
-                {emptyLayerEditor(viewerPermission, project.status, track) && (
+                {!studio.readOnly && emptyLayerEditor(viewerPermission, project.status, track) && (
                   <button
                     type="button"
                     className="absolute inset-y-1 left-1 rounded-md border border-dashed border-app-primary-soft px-4 text-caption text-app-primary-soft"
@@ -1263,7 +1359,7 @@ export function StudioScreen({
                   />
                 ))}
               </div>
-              {track.ownerId === viewerPermission.userId && (
+              {!studio.readOnly && track.ownerId === viewerPermission.userId && track.originOpenSourceId == null && (
                 <div className={studioStyles.studioTrackActions}>
                   {track.instrument && (
                     <button onClick={() => onEditTrack(track.trackId, null)}>+ 노트</button>

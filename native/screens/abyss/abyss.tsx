@@ -423,7 +423,12 @@ function Carousel({
           ([cover, slot]) =>
             cover && (
               <View key={slot} style={[styles.cover, { left: px(slot * COVER.step) }]}>
-                <Cover url={cover.albumImageUrl} size={size} radius={px(16)} />
+                <Cover
+                  url={cover.albumImageUrl}
+                  seed={`short:${cover.shortId}`}
+                  size={size}
+                  radius={px(16)}
+                />
               </View>
             ),
         )}

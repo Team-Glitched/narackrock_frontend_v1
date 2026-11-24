@@ -43,17 +43,31 @@ export async function readJsonNotes(file: File): Promise<MidiNoteDto[]> {
 }
 
 /**
- * Converts file ticks to the project's ppq after `afterTick`. Start and end are rounded, and the
- * length is their difference, so back-to-back notes of one pitch stay adjacent instead of
- * overlapping by a rounded tick.
+ * Converts source ticks from `sourcePpq` to the project's ppq after `afterTick`. Start and end are
+ * rounded, and the length is their difference, so back-to-back notes of one pitch stay adjacent
+ * instead of overlapping by a rounded tick.
  */
-export function positionJsonNotes(notes: MidiNoteDto[], projectPpq: number, afterTick: number): MidiNoteDto[] {
-  const ratio = projectPpq / filePpq;
+export function positionMidiNotes(
+  notes: MidiNoteDto[],
+  sourcePpq: number,
+  projectPpq: number,
+  afterTick: number,
+): MidiNoteDto[] {
+  const ratio = projectPpq / Math.max(1, sourcePpq);
   return notes.map((note) => {
     const start = Math.round(note.startTick * ratio);
     const end = Math.round((note.startTick + note.durationTick) * ratio);
     return { ...note, startTick: afterTick + start, durationTick: Math.max(1, end - start) };
   });
+}
+
+/**
+ * Converts file ticks to the project's ppq after `afterTick`. Start and end are rounded, and the
+ * length is their difference, so back-to-back notes of one pitch stay adjacent instead of
+ * overlapping by a rounded tick.
+ */
+export function positionJsonNotes(notes: MidiNoteDto[], projectPpq: number, afterTick: number): MidiNoteDto[] {
+  return positionMidiNotes(notes, filePpq, projectPpq, afterTick);
 }
 
 /**

@@ -37,9 +37,9 @@ function Article({ model }: { model: Extract<NativeSourceDetail, { state: "ready
     <View style={{ borderBottomWidth: 8, borderBottomColor: colors.panel }}>
       <View style={styles.column}>
         <View style={styles.row}>
-          <Cover url={source.thumbnailUrl} size={44} />
+          <Cover url={source.thumbnailUrl} seed={`source:${source.openSourceId}`} size={44} />
           <View style={styles.title}>
-            <Text style={type.title}>{source.title}</Text>
+            <Text style={type.label}>{source.title}</Text>
             {source.usage && <Text style={type.caption}>{source.usage}</Text>}
           </View>
           <Pill
@@ -70,7 +70,7 @@ function Article({ model }: { model: Extract<NativeSourceDetail, { state: "ready
           onMute={() => act({ type: "source-mute" })}
         />
         <Text style={[type.caption, styles.hintBox]}>
-          보관한 뒤 피아노롤의 ‘+ 샘플’에서 내 레이어에 오디오로 넣을 수 있습니다.
+          보관한 뒤 스튜디오의 ‘+ 샘플’에서 레이어에 추가할 수 있습니다. MIDI 샘플은 피아노롤에서도 음표로 불러올 수 있습니다.
         </Text>
         <SourceActions
           source={source}

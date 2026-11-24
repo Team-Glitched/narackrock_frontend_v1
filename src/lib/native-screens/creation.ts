@@ -32,12 +32,23 @@ export type NativeAudioTrim = {
   /** null while the length is read ("오디오 길이를 읽는 중입니다.") or when it could not be read (`error`). */
   durationMs: number | null;
   selection: { startMs: number; endMs: number } | null;
+  segments?: { startMs: number; endMs: number }[];
+  selectedSegmentIndex?: number;
+  canUndo?: boolean;
+  edited?: boolean;
+  enableSplice?: boolean;
+  hideActions?: boolean;
+  hidePreviewButton?: boolean;
+  bpm?: number;
+  timeSignature?: string;
   /** 96 bar heights (0.12–1); null while computing (`waveformFailed` false) or when it failed. */
   peaks: number[] | null;
   waveformFailed: boolean;
   previewing: boolean;
-  /** Preview position inside the selection; moves while previewing. */
+  /** Preview position inside the selection/spliced result; moves while previewing. */
   positionMs: number;
+  /** Source waveform cursor position in ms. */
+  cursorSourceMs?: number;
   /** Saving ("올리는 중..."). */
   busy: boolean;
   error: string | null;
@@ -53,6 +64,14 @@ export type NativeAudioTrimAction =
   | { type: "trim-preview" }
   /** The "미리 듣기 위치" slider. */
   | { type: "trim-position"; positionMs: number }
+  | { type: "trim-cursor"; sourceMs: number }
+  | { type: "trim-split" }
+  | { type: "trim-delete-segment" }
+  | { type: "trim-duplicate-segment" }
+  | { type: "trim-select-segment"; index: number }
+  | { type: "trim-reorder-segment"; direction: -1 | 1 }
+  | { type: "trim-undo" }
+  | { type: "trim-reset" }
   | { type: "trim-save" }
   | { type: "trim-cancel" };
 
@@ -60,6 +79,14 @@ const trimActions: Record<NativeAudioTrimAction["type"], true> = {
   "trim-select": true,
   "trim-preview": true,
   "trim-position": true,
+  "trim-cursor": true,
+  "trim-split": true,
+  "trim-delete-segment": true,
+  "trim-duplicate-segment": true,
+  "trim-select-segment": true,
+  "trim-reorder-segment": true,
+  "trim-undo": true,
+  "trim-reset": true,
   "trim-save": true,
   "trim-cancel": true,
 };
@@ -77,11 +104,16 @@ export type NativeCreationUpload = {
   trim: NativeAudioTrim | null;
   /** The studio or sample registration's instrument prompt. */
   instrument: NativeInstrumentPicker | null;
+  bpm?: number;
+  timeSignature?: string;
+  timingMode?: "initial" | "editable" | "locked";
+  timing?: NativeTimingSheet | null;
 };
 
 export type NativeCreationUploadAction =
   | { type: "creation-upload-pick" }
   | NativeAudioTrimAction
+  | NativeTimingAction
   | NativeInstrumentAction;
 
 /** The web's CompositionRecordScreen. */
@@ -105,14 +137,20 @@ export type NativeCreationRecord = {
   instrument: NativeInstrumentPicker | null;
   bpm?: number;
   timeSignature?: string;
+  timingMode?: "initial" | "editable" | "locked";
+  timing?: NativeTimingSheet | null;
+  trim?: NativeAudioTrim | null;
 };
 
 export type NativeCreationRecordAction =
   | { type: "creation-record-toggle" }
+  | { type: "creation-record-retry" }
   | { type: "creation-record-save" }
   | { type: "creation-record-transform" }
   | { type: "creation-record-sound-kind"; kind: AudioTranscriptionMode }
   | { type: "creation-record-preview" }
+  | NativeTimingAction
+  | NativeAudioTrimAction
   | NativeInstrumentAction;
 
 /** The web's SourcePianoEditor (sample registration "피아노롤"). */

@@ -306,18 +306,18 @@ function Readout({
 }) {
   const body = (
     <>
-      <Text style={plain ? styles.readoutPlus : styles.readoutSmall}>{small}</Text>
-      <Text style={styles.readoutValue} numberOfLines={1}>
+      <Text style={plain ? [styles.readoutPlus, styles.readoutPlusCompact] : [styles.readoutSmall, styles.readoutSmallCompact]}>{small}</Text>
+      <Text style={[styles.readoutValue, styles.readoutValueCompact]} numberOfLines={1}>
         {value}
       </Text>
     </>
   );
   return onPress ? (
-    <Touchable accessibilityRole="button" accessibilityLabel={label} style={styles.readout} onPress={onPress}>
+    <Touchable accessibilityRole="button" accessibilityLabel={label} style={[styles.readout, styles.readoutCompact]} onPress={onPress}>
       {body}
     </Touchable>
   ) : (
-    <View style={styles.readout}>{body}</View>
+    <View style={[styles.readout, styles.readoutCompact]}>{body}</View>
   );
 }
 
@@ -481,8 +481,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   recDismissText: { color: colors.muted, fontSize: 12, lineHeight: 16, fontWeight: "500" },
-  recToggleOn: { borderColor: colors.primary, backgroundColor: "rgba(91, 0, 255, 0.22)" },
-  recToggleText: { color: "#d8c7ff", fontWeight: "600" },
+  recToggleOn: { borderColor: colors.primary, backgroundColor: colors.primary },
+  recToggleText: { color: "#ffffff", fontWeight: "600" },
   flex: { flex: 1 },
   disabled: { opacity: 0.45 },
   page: { flex: 1, backgroundColor: colors.bg },
@@ -545,7 +545,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     backgroundColor: "#23232a",
   },
-  roundPressed: { backgroundColor: colors.primary, borderColor: "#9966ff" },
+  roundPressed: { backgroundColor: colors.primary, borderColor: colors.primary },
   play: {
     width: 64,
     height: 64,
@@ -619,4 +619,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   exitDangerText: { color: "#fda4af", fontSize: 14, fontWeight: "600" },
+  readoutCompact: { paddingHorizontal: 10 },
+  readoutSmallCompact: { fontSize: 12, lineHeight: 16 },
+  readoutPlusCompact: { fontSize: 14, lineHeight: 18, fontWeight: "600" },
+  readoutValueCompact: { lineHeight: 18 },
 });

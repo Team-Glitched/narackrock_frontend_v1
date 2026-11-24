@@ -46,12 +46,7 @@ export default function SettingsPage() {
           {query.get("migration") === "1" ? (
             <MigrationScreen />
           ) : (
-            <>
-              <SettingsScreen onNavigate={to} onLogout={signOut} />
-              <button onClick={() => to("/settings?migration=1")}>
-                이 브라우저 데이터 이관·복구
-              </button>
-            </>
+            <SettingsScreen onNavigate={to} onLogout={signOut} />
           )}
         </div>
         <Footer activeTab={null} />
