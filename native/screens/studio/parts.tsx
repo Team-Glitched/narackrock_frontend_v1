@@ -397,7 +397,7 @@ function TimingDialog({ sheet }: { sheet: NativeTimingSheet }) {
           <NumberField
             value={draft.numerator}
             min={1}
-            max={12}
+            max={16}
             clamp={false}
             style={[styles.timingNumber, styles.flex]}
             label="마디당 박 수"
@@ -407,7 +407,7 @@ function TimingDialog({ sheet }: { sheet: NativeTimingSheet }) {
           <Text style={styles.signatureSlash}>/</Text>
           <NumberField
             value={draft.denominator}
-            min={2}
+            min={1}
             max={16}
             clamp={false}
             style={[styles.timingNumber, styles.flex]}

@@ -555,7 +555,10 @@ export function useNoteEditorScreen({
     exportRecovery,
     insertOpenSource,
     importResource,
-    rewind: () => playback.seek(projectPositionMs(0, timing)),
+    rewind: () => {
+      playback.seek(projectPositionMs(0, timing));
+      editor.setViewStartTick(0);
+    },
     seekTick: (tick: number) => playback.seek(projectPositionMs(tick, timing)),
     audition: (pitch: number) => void playback.audition(pitch, track.instrument),
     toggleMetronome: () => playback.setMetronome((value) => !value),

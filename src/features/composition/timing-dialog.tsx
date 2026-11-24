@@ -105,7 +105,7 @@ export function TimingDialog({
             <DialogNumberInput
               value={draft.signature.numerator}
               min={1}
-              max={12}
+              max={16}
               clamp={false}
               label="마디당 박 수"
               disabled={!editable}
@@ -116,7 +116,7 @@ export function TimingDialog({
             <span className="shrink-0 text-title font-bold text-app-muted select-none">/</span>
             <DialogNumberInput
               value={draft.signature.denominator}
-              min={2}
+              min={1}
               max={16}
               clamp={false}
               label="기준 음표"

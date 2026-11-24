@@ -203,7 +203,10 @@ export function useSourcePiano({
     play,
     applyTiming,
     clearError: () => setError(null),
-    rewind: () => player.seek(projectPositionMs(0, timing)),
+    rewind: () => {
+      player.seek(projectPositionMs(0, timing));
+      editor.setViewStartTick(0);
+    },
     seekTick: (tick: number) => player.seek(projectPositionMs(tick, timing)),
     save,
   };

@@ -41,7 +41,13 @@ export function DialogNumberInput({
       step={1}
       disabled={disabled}
       value={draft ?? value}
-      onChange={(event) => setDraft(event.target.value)}
+      onChange={(event) => {
+        const nextText = event.target.value;
+        setDraft(nextText);
+        if (!clamp && nextText.trim() !== "" && Number.isFinite(Number(nextText))) {
+          onChange(Math.round(Number(nextText)));
+        }
+      }}
       onBlur={commit}
       onKeyDown={(event) => {
         if (event.key === "Enter") {
