@@ -1,8 +1,13 @@
 import { cn } from "@/lib/utils";
 import { sharedStyles } from "@/styles/shared.styles";
 import { useState } from "react";
+import { timingFieldText, timingFieldValue } from "./project-timing";
 
-/** Numeric fields commit on Enter or blur so multi-digit values can be typed freely. */
+/**
+ * Numeric fields commit on Enter or blur so multi-digit values can be typed freely. With
+ * `clamp={false}` (timing fields) every keystroke reports the displayed text unrounded (NaN when
+ * blank), so the dialog validates and applies exactly what the user sees.
+ */
 export function DialogNumberInput({
   value,
   min,
@@ -24,9 +29,10 @@ export function DialogNumberInput({
 }) {
   const [draft, setDraft] = useState<string | null>(null);
   function commit() {
+    if (!clamp) return;
     if (draft !== null && draft.trim() !== "" && Number.isFinite(Number(draft))) {
       const rounded = Math.round(Number(draft));
-      onChange(clamp ? Math.min(max ?? Number.MAX_SAFE_INTEGER, Math.max(min, rounded)) : rounded);
+      onChange(Math.min(max ?? Number.MAX_SAFE_INTEGER, Math.max(min, rounded)));
     }
     setDraft(null);
   }
@@ -40,13 +46,11 @@ export function DialogNumberInput({
       max={max}
       step={1}
       disabled={disabled}
-      value={draft ?? value}
+      value={clamp ? (draft ?? value) : timingFieldText(draft, value)}
       onChange={(event) => {
         const nextText = event.target.value;
         setDraft(nextText);
-        if (!clamp && nextText.trim() !== "" && Number.isFinite(Number(nextText))) {
-          onChange(Math.round(Number(nextText)));
-        }
+        if (!clamp) onChange(timingFieldValue(nextText));
       }}
       onBlur={commit}
       onKeyDown={(event) => {
@@ -54,7 +58,7 @@ export function DialogNumberInput({
           event.preventDefault();
           commit();
         }
-        if (event.key === "Escape" && draft !== null) {
+        if (event.key === "Escape" && clamp && draft !== null) {
           event.stopPropagation();
           setDraft(null);
         }

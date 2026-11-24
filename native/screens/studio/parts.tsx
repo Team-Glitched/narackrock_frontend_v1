@@ -19,7 +19,12 @@ import {
   type ViewStyle,
 } from "react-native";
 
-import { timingProblem } from "../../../src/features/composition/project-timing";
+import {
+  timingFieldText,
+  timingFieldValue,
+  timingProblem,
+  timingSliderBpm,
+} from "../../../src/features/composition/project-timing";
 import { SEARCH_QUERY_MAX_LENGTH, clampCodePoints } from "../../../src/lib/content-limits";
 import type {
   NativeInstrumentPicker,
@@ -137,7 +142,11 @@ export function Slider({
   );
 }
 
-/** The web's DialogNumberInput: commits on submit or blur, clamped and rounded. */
+/**
+ * The web's DialogNumberInput: commits on submit or blur, clamped and rounded. With `clamp={false}`
+ * (timing fields) every keystroke reports the displayed text unrounded (NaN when blank), so Apply
+ * sends what the user sees even while the field still has focus.
+ */
 export function NumberField({
   value,
   min,
@@ -159,9 +168,10 @@ export function NumberField({
 }) {
   const [draft, setDraft] = useState<string | null>(null);
   const commit = () => {
+    if (!clamp) return;
     if (draft !== null && draft.trim() !== "" && Number.isFinite(Number(draft))) {
       const rounded = Math.round(Number(draft));
-      onChange(clamp ? Math.min(max ?? Number.MAX_SAFE_INTEGER, Math.max(min, rounded)) : rounded);
+      onChange(Math.min(max ?? Number.MAX_SAFE_INTEGER, Math.max(min, rounded)));
     }
     setDraft(null);
   };
@@ -172,8 +182,11 @@ export function NumberField({
       keyboardType="number-pad"
       returnKeyType="done"
       selectionColor={colors.accent}
-      value={draft ?? String(value)}
-      onChangeText={setDraft}
+      value={clamp ? (draft ?? String(value)) : timingFieldText(draft, value)}
+      onChangeText={(text) => {
+        setDraft(text);
+        if (!clamp) onChange(timingFieldValue(text));
+      }}
       onBlur={commit}
       onSubmitEditing={commit}
       style={[styles.number, style, disabled && styles.disabled]}
@@ -419,7 +432,7 @@ function TimingDialog({ sheet }: { sheet: NativeTimingSheet }) {
       ) : (
         <View style={styles.timingRow}>
           <Slider
-            value={draft.bpm}
+            value={timingSliderBpm(draft.bpm)}
             min={30}
             max={300}
             label="bpm"

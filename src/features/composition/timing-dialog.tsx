@@ -5,7 +5,7 @@ import { CanvasDialog } from "@/components/canvas-dialog";
 import { DialogNumberInput } from "@/features/composition/dialog-number-input";
 import type { NativeTimingAction, NativeTimingSheet } from "@/lib/native-screens";
 import { useId, useState } from "react";
-import { timingProblem, type ProjectTiming } from "./project-timing";
+import { timingProblem, timingSliderBpm, type ProjectTiming } from "./project-timing";
 
 /** Saving state of a timing dialog: "적용" saves, closes on success and shows the failure otherwise. */
 function useTimingApply(
@@ -136,11 +136,11 @@ export function TimingDialog({
               type="range"
               min={30}
               max={300}
-              value={Math.min(300, Math.max(30, draft.bpm))}
+              value={timingSliderBpm(draft.bpm)}
               disabled={!editable}
               onChange={(event) => setDraft((old) => ({ ...old, bpm: Number(event.target.value) }))}
               style={{
-                background: `linear-gradient(to right,var(--white) ${Math.max(0, Math.min(100, ((draft.bpm - 30) / 270) * 100))}%,var(--line-strong) 0)`,
+                background: `linear-gradient(to right,var(--white) ${((timingSliderBpm(draft.bpm) - 30) / 270) * 100}%,var(--line-strong) 0)`,
               }}
             />
             <DialogNumberInput
