@@ -4,7 +4,7 @@ import { cn } from "@/lib/utils";
 import { studioStyles } from "@/styles/studio.styles";
 import { buttonVariants } from "@/styles/variants";
 import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } from "react";
-import { FileAudio, Mic, RotateCcw, Square, Upload } from "lucide-react";
+import { Mic, RotateCcw, Square } from "lucide-react";
 import { Asset } from "@/components/asset";
 import { Dropdown } from "@/components/dropdown";
 import { AudioTrimPicker, formatTrimTime } from "@/features/composition/audio-trim-picker";
@@ -20,7 +20,7 @@ import {
   parseSignature,
   type TimeSignature,
 } from "@/features/composition/time-signature";
-import { beatsPerBarFromSignature, useMetronome } from "@/features/composition/use-metronome";
+import { useMetronome } from "@/features/composition/use-metronome";
 import { recordNativeAudio } from "@/lib/native-app";
 
 export type CreationMethod = "upload" | "record" | "note";
@@ -131,18 +131,8 @@ export function CompositionUploadScreen({
       />
       {!selected ? (
         <label className={sharedStyles.uploadArea}>
-          <span className="grid size-14 place-items-center rounded-full bg-app-primary/15 text-[#c4b5fd]">
-            <Upload size={26} aria-hidden="true" />
-          </span>
-          <div className="flex flex-col items-center gap-1.5">
-            <strong className="text-title font-bold text-white">오디오 파일 업로드</strong>
-            <span className="text-caption leading-relaxed text-app-muted">
-              WAV, MP3, M4A, FLAC · 박자에 맞춰 자르고 이어 붙이기
-            </span>
-          </div>
-          <span className="mt-1 rounded-full bg-app-primary px-5 py-2.5 text-body font-semibold text-white">
-            업로드 파일 선택
-          </span>
+          <Asset name="audio-upload-large.svg" />
+          <span>업로드 파일 선택</span>
           <input
             type="file"
             accept="audio/wav,audio/x-wav,audio/wave,audio/mpeg,audio/mp4,audio/flac"
@@ -155,13 +145,10 @@ export function CompositionUploadScreen({
         </label>
       ) : (
         <div className="flex flex-col gap-3 pb-2">
-          <div className="flex items-center justify-between gap-3 rounded-[14px] border border-[#32323d] bg-[#1e1e26] px-3.5 py-2.5">
-            <div className="flex min-w-0 items-center gap-2.5">
-              <FileAudio size={18} className="shrink-0 text-[#c4b5fd]" aria-hidden="true" />
-              <span className="truncate text-body font-medium text-white">
-                {selected.file.name}
-              </span>
-            </div>
+          <div className="flex items-center justify-between gap-3 py-1">
+            <span className="truncate text-body font-medium text-white">
+              {selected.file.name}
+            </span>
             <label className="relative shrink-0 cursor-pointer rounded-[8px] border border-[#32323d] bg-[#23232a] px-2.5 py-1.5 text-caption font-medium text-app-fg transition-colors hover:border-app-primary">
               <span>파일 변경</span>
               <input
@@ -176,17 +163,15 @@ export function CompositionUploadScreen({
               />
             </label>
           </div>
-          <div className="rounded-[18px] border border-[#32323d] bg-[#1e1e26] p-4">
-            <AudioTrimPicker
-              key={selected.url}
-              url={selected.url}
-              bpm={bpm}
-              signature={signature}
-              enableSplice
-              onSave={(selection) => onSave(selected.file, selection)}
-              saveLabel={saveLabel}
-            />
-          </div>
+          <AudioTrimPicker
+            key={selected.url}
+            url={selected.url}
+            bpm={bpm}
+            signature={signature}
+            enableSplice
+            onSave={(selection) => onSave(selected.file, selection)}
+            saveLabel={saveLabel}
+          />
         </div>
       )}
     </div>
@@ -534,7 +519,6 @@ export function CompositionRecordScreen({
     [signature, timeSignature],
   );
   const formattedSignature = `${parsedSignature.numerator}/${parsedSignature.denominator}`;
-  const beatsPerBar = beatsPerBarFromSignature(formattedSignature);
 
   const [metronomeOn, setMetronomeOn] = useState(false);
   const [previewPlaying, setPreviewPlaying] = useState(false);
@@ -564,7 +548,6 @@ export function CompositionRecordScreen({
     file,
     url,
     error,
-    status,
     toggle,
     reset,
     save,
@@ -579,7 +562,7 @@ export function CompositionRecordScreen({
   });
 
   // Auto-start the metronome when recording begins if toggled ON; keep it strictly isolated from MediaRecorder.
-  const { activeBeat } = useMetronome({
+  useMetronome({
     enabled: metronomeOn && recording,
     bpm,
     timeSignature: formattedSignature,
@@ -589,7 +572,13 @@ export function CompositionRecordScreen({
   const canRetry = !pending && (recording || recorded);
 
   return (
-    <div className={cn(studioStyles.recordView, sharedStyles.scrollContent)}>
+    <div
+      className={cn(
+        studioStyles.recordView,
+        sharedStyles.scrollContent,
+        "[scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+      )}
+    >
       <CreationTimingBar
         bpm={bpm}
         signature={parsedSignature}
@@ -598,7 +587,7 @@ export function CompositionRecordScreen({
         disabled={recording || pending}
       />
 
-      <div className="flex min-h-0 w-full flex-1 flex-col gap-3 overflow-y-auto">
+      <div className="flex min-h-0 w-full flex-1 flex-col gap-3 overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {error && (
           <p role="alert" className="m-0 rounded-[12px] border border-[#ff4d4f]/30 bg-[#ff4d4f]/10 px-3.5 py-2 text-caption text-[#ff9ca8]">
             {error}
@@ -606,74 +595,22 @@ export function CompositionRecordScreen({
         )}
 
         {!recorded ? (
-          <div className="my-auto flex w-full flex-col gap-3.5 rounded-[18px] border border-[#32323d] bg-[#1e1e26] p-4">
-            <div className="flex items-center justify-between gap-2">
-              <span className="flex items-center gap-2 text-caption font-semibold text-app-fg">
-                <span
-                  className={cn(
-                    "size-2 rounded-full",
-                    recording ? "animate-pulse bg-[#ff4d4f]" : "bg-[#606072]",
-                  )}
-                  aria-hidden="true"
-                />
-                <span>{status || "녹음 대기"}</span>
-              </span>
+          <div className="my-auto flex w-full flex-col items-center gap-5">
+            <strong
+              aria-label={`녹음 경과 시간 ${Math.floor(elapsedMs / 1000)}초`}
+              className="tabular-nums text-[32px] leading-tight font-bold tracking-tight text-white"
+            >
+              {formatTrimTime(elapsedMs)}
+            </strong>
 
-              <div
-                className={cn(
-                  "flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors",
-                  metronomeOn
-                    ? "border-app-primary/60 bg-app-primary/20 text-[#d8b4fe]"
-                    : "border-[#32323d] bg-[#23232a] text-app-muted",
-                )}
-              >
-                <span>
-                  {recording && metronomeOn
-                    ? "메트로놈 재생 중"
-                    : metronomeOn
-                      ? "메트로놈 ON · 시작 시 자동 재생"
-                      : "메트로놈 OFF"}
-                </span>
-                {metronomeOn && recording && (
-                  <span className="flex items-center gap-1" aria-hidden="true">
-                    {Array.from({ length: beatsPerBar }, (_, index) => (
-                      <span
-                        key={index}
-                        className={cn(
-                          "size-1.5 rounded-full transition-colors",
-                          activeBeat === index
-                            ? index === 0
-                              ? "bg-white"
-                              : "bg-[#c4b5fd]"
-                            : "bg-white/25",
-                        )}
-                      />
-                    ))}
-                  </span>
-                )}
-              </div>
-            </div>
-
-            <div className="flex flex-col items-center gap-0.5 py-1 text-center">
-              <div className="flex items-baseline gap-1.5 tabular-nums">
-                <strong
-                  aria-label={`녹음 경과 시간 ${Math.floor(elapsedMs / 1000)}초`}
-                  className="text-[32px] leading-tight font-bold tracking-tight text-white"
-                >
-                  {formatTrimTime(elapsedMs)}
-                </strong>
-                <span className="text-body text-app-muted">/ 01:00.0</span>
-              </div>
-            </div>
-
-            <div className="relative flex h-28 w-full items-center justify-center overflow-hidden rounded-[12px] border border-[#2a2a35] bg-[#14141a]">
+            <div className="relative flex h-28 w-full items-center justify-center overflow-hidden">
               {recording && liveStream ? (
                 <RecordingMeter stream={liveStream} onElapsedMs={setElapsedMs} />
               ) : (
                 <>
                   <div className="pointer-events-none absolute inset-x-0 top-1/2 h-px bg-app-primary/25" />
                   <div
-                    className="pointer-events-none absolute inset-0 flex items-center justify-center gap-1.5 px-4 opacity-40"
+                    className="pointer-events-none absolute inset-0 flex items-center justify-center gap-1.5 px-4 opacity-45"
                     aria-hidden="true"
                   >
                     {Array.from({ length: 28 }, (_, index) => {
@@ -687,19 +624,12 @@ export function CompositionRecordScreen({
                       );
                     })}
                   </div>
-                  <span className="relative z-[1] rounded-full bg-[#14141a]/85 px-3 py-1 text-caption text-app-muted">
-                    아래 녹음 버튼을 눌러 시작하세요
-                  </span>
                 </>
               )}
             </div>
-
-            <p className="m-0 text-center text-[11px] leading-relaxed text-app-muted">
-              메트로놈 소리는 최종 녹음에 포함되지 않습니다 · 이어폰 착용 시 더 깔끔하게 녹음됩니다
-            </p>
           </div>
         ) : (
-          <div className="flex w-full flex-col gap-3 rounded-[18px] border border-[#32323d] bg-[#1e1e26] p-4">
+          <div className="flex w-full flex-col gap-3 pb-2">
             <AudioTrimPicker
               key={url}
               url={url}
@@ -764,94 +694,76 @@ export function CompositionRecordScreen({
       </div>
 
       {/* Portrait Piano Roll style bottom transport bar */}
-      <div className="flex shrink-0 items-start justify-center gap-8 pt-1 pb-1">
-        <div className="flex flex-col items-center gap-1.5">
-          <button
-            type="button"
-            disabled={!canRetry}
-            aria-label="다시 녹음"
-            onClick={() => {
-              previewControlRef.current?.stop();
-              selectionRef.current = undefined;
-              setElapsedMs(0);
-              reset();
-            }}
-            className="grid size-12 place-items-center rounded-full border border-[#32323d] bg-[#23232a] text-app-fg transition-colors hover:border-app-primary disabled:opacity-40"
-          >
-            <RotateCcw size={20} aria-hidden="true" />
-          </button>
-          <span className="text-[11px] font-medium text-app-muted">다시 녹음</span>
-        </div>
+      <div className="flex shrink-0 items-center justify-center gap-8 pt-2 pb-1">
+        <button
+          type="button"
+          disabled={!canRetry}
+          aria-label="다시 녹음"
+          onClick={() => {
+            previewControlRef.current?.stop();
+            selectionRef.current = undefined;
+            setElapsedMs(0);
+            reset();
+          }}
+          className="grid size-12 place-items-center rounded-full border border-[#32323d] bg-[#23232a] text-app-fg transition-colors hover:border-app-primary disabled:opacity-40"
+        >
+          <RotateCcw size={20} aria-hidden="true" />
+        </button>
 
-        <div className="flex flex-col items-center gap-1.5">
-          {recorded ? (
-            <button
-              type="button"
-              disabled={pending}
-              aria-label={previewPlaying ? "일시정지" : "미리 듣기"}
-              onClick={() => previewControlRef.current?.toggle()}
-              className={cn(studioStyles.recordButton, "bg-app-primary [&_img]:size-7")}
-            >
-              {previewPlaying ? (
-                <span className={sharedStyles.pauseSymbol} />
-              ) : (
-                <Asset name="play.svg" />
-              )}
-            </button>
-          ) : (
-            <button
-              type="button"
-              disabled={pending}
-              aria-label={recording ? "녹음 종료" : "녹음 시작"}
-              onClick={() => {
-                previewControlRef.current?.stop();
-                setPreviewPlaying(false);
-                if (!recording) {
-                  selectionRef.current = undefined;
-                  setElapsedMs(0);
-                }
-                void toggle();
-              }}
-              className={cn(
-                studioStyles.recordButton,
-                recording
-                  ? "bg-[#ef4444] ring-4 ring-[#ef4444]/25"
-                  : "bg-app-primary shadow-[0_6px_20px_rgba(76,0,229,0.4)] hover:brightness-110",
-                pending && "opacity-50",
-              )}
-            >
-              {recording ? (
-                <Square size={22} fill="currentColor" aria-hidden="true" />
-              ) : (
-                <Mic size={26} aria-hidden="true" />
-              )}
-            </button>
-          )}
-          <span className="text-[11px] font-medium text-app-fg">
-            {recorded ? (previewPlaying ? "일시정지" : "미리 듣기") : recording ? "녹음 종료" : "녹음 시작"}
-          </span>
-        </div>
-
-        <div className="flex flex-col items-center gap-1.5">
+        {recorded ? (
           <button
             type="button"
             disabled={pending}
-            aria-label={metronomeOn ? "메트로놈 끄기" : "메트로놈 켜기"}
-            aria-pressed={metronomeOn}
-            onClick={() => setMetronomeOn((current) => !current)}
-            className="grid size-12 place-items-center rounded-full border border-[#32323d] bg-[#23232a] text-[#F2F4F6] transition-colors aria-pressed:border-app-primary aria-pressed:bg-app-primary aria-pressed:text-white disabled:opacity-40"
+            aria-label={previewPlaying ? "일시정지" : "미리 듣기"}
+            onClick={() => previewControlRef.current?.toggle()}
+            className={cn(studioStyles.recordButton, "bg-app-primary [&_img]:size-7")}
           >
-            <MetronomeIcon size={22} />
+            {previewPlaying ? (
+              <span className={sharedStyles.pauseSymbol} />
+            ) : (
+              <Asset name="play.svg" />
+            )}
           </button>
-          <span
+        ) : (
+          <button
+            type="button"
+            disabled={pending}
+            aria-label={recording ? "녹음 종료" : "녹음 시작"}
+            onClick={() => {
+              previewControlRef.current?.stop();
+              setPreviewPlaying(false);
+              if (!recording) {
+                selectionRef.current = undefined;
+                setElapsedMs(0);
+              }
+              void toggle();
+            }}
             className={cn(
-              "text-[11px] font-medium",
-              metronomeOn ? "text-[#c4b5fd]" : "text-app-muted",
+              studioStyles.recordButton,
+              recording
+                ? "bg-[#ef4444] ring-4 ring-[#ef4444]/25"
+                : "bg-app-primary shadow-[0_6px_20px_rgba(76,0,229,0.4)] hover:brightness-110",
+              pending && "opacity-50",
             )}
           >
-            {metronomeOn ? "메트로놈 ON" : "메트로놈 OFF"}
-          </span>
-        </div>
+            {recording ? (
+              <Square size={22} fill="currentColor" aria-hidden="true" />
+            ) : (
+              <Mic size={26} aria-hidden="true" />
+            )}
+          </button>
+        )}
+
+        <button
+          type="button"
+          disabled={pending}
+          aria-label={metronomeOn ? "메트로놈 끄기" : "메트로놈 켜기"}
+          aria-pressed={metronomeOn}
+          onClick={() => setMetronomeOn((current) => !current)}
+          className="grid size-12 place-items-center rounded-full border border-[#32323d] bg-[#23232a] text-[#F2F4F6] transition-colors aria-pressed:border-app-primary aria-pressed:bg-app-primary aria-pressed:text-white disabled:opacity-40"
+        >
+          <MetronomeIcon size={22} />
+        </button>
       </div>
     </div>
   );

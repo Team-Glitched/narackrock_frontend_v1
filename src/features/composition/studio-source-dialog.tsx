@@ -3,6 +3,7 @@ import { buttonVariants } from "@/styles/variants";
 import { useId, useState, type ReactNode } from "react";
 import { CanvasDialog } from "@/components/canvas-dialog";
 import { Asset } from "@/components/asset";
+import { Dropdown } from "@/components/dropdown";
 import { useWorkspace, type Resource } from "@/features/workspace/workspace-store";
 import { loadSavedSources, savedSourcesScope } from "@/features/sources/source-queries";
 import { usePagedItems } from "@/hooks/use-paged-items";
@@ -303,6 +304,11 @@ export function StudioSourceDialog({
     tab === "saved" && midiOnly
       ? "보관한 MIDI 샘플의 음표를 현재 피아노롤에 바로 추가할 수 있습니다."
       : pickerText[tab].description;
+  const tabOptions: { value: Tab; label: string }[] = [
+    ...(handlers.onOpenSource ? [{ value: "saved" as const, label: "보관한 샘플" }] : []),
+    { value: "local", label: "이 기기의 MIDI 작업" },
+    ...(localFileImport ? [{ value: "upload" as const, label: "이 기기에서 업로드" }] : []),
+  ];
   return (
     <CanvasDialog
       className={studioStyles.studioSourceDialog}
@@ -317,30 +323,15 @@ export function StudioSourceDialog({
           <Asset name="search-close.svg" />
         </button>
       </header>
-      {(handlers.onOpenSource || localFileImport) && (
-        <div className="flex flex-wrap items-start gap-2" role="group" aria-label="가져올 자료">
-          {(
-            [
-              ...(handlers.onOpenSource ? ([["saved", "보관한 샘플"]] as const) : []),
-              ["local", "이 기기의 MIDI 작업"],
-              ...(localFileImport ? ([["upload", "이 기기에서 업로드"]] as const) : []),
-            ] as const
-          ).map(([value, label]) => (
-            <button
-              key={value}
-              type="button"
-              aria-pressed={tab === value}
-              className={buttonVariants({
-                tone: tab === value ? "primary" : "secondary",
-                size: "compact",
-              })}
-              disabled={busy !== null}
-              onClick={() => picker.setTab(value)}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
+      {tabOptions.length > 1 && (
+        <Dropdown<Tab>
+          label="가져올 자료"
+          className="w-full"
+          value={tab}
+          disabled={busy !== null}
+          options={tabOptions}
+          onChange={(value) => picker.setTab(value)}
+        />
       )}
       {tab === "upload" ? (
         localFileImport

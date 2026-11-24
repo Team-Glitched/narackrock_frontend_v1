@@ -720,8 +720,6 @@ export function AudioTrimPicker({
   const canDuplicate = Boolean(
     activeSegment && totalMs + (activeSegment.endMs - activeSegment.startMs) <= maxAudioClipMs,
   );
-  const estimatedBars =
-    beatTimeline && beatTimeline.barMs > 0 ? Math.max(1, Math.round((totalMs / beatTimeline.barMs) * 10) / 10) : null;
 
   return (
     <div className={studioStyles.audioTrimPicker}>
@@ -751,28 +749,20 @@ export function AudioTrimPicker({
       {durationMs != null && selection ? (
         <>
           <div className={studioStyles.audioTrimSummary}>
-            <div className="flex items-baseline gap-2">
-              <strong className="text-[20px] font-bold tracking-tight text-white">
-                {formatTime(totalMs)}
-              </strong>
-              <span className="text-caption text-app-muted">
-                {segments.length > 1
-                  ? `${segments.length}개 조각 이어붙임`
-                  : estimatedBars
-                    ? `약 ${estimatedBars}마디`
-                    : "선택 길이"}
+            <strong className="text-[20px] font-bold tracking-tight text-white">
+              {formatTime(totalMs)}
+            </strong>
+            {segments.length > 1 && (
+              <span className="text-caption tabular-nums text-app-muted">
+                {segments.length}조각
               </span>
-            </div>
-            <span className="rounded-full border border-[#32323d] bg-[#23232a] px-2.5 py-0.5 text-[11px] font-medium text-[#c4b5fd]">
-              {signature.numerator}/{signature.denominator} · {bpm} BPM
-            </span>
+            )}
           </div>
 
-          {/* Unified Beat/Bar Ruler + Dark Waveform Box */}
-          <div className="overflow-hidden rounded-[12px] border border-[#2a2a35] bg-[#14141a]">
+          <div className="overflow-hidden rounded-[10px] bg-[#181820]">
             {beatTimeline && (
               <div
-                className="relative h-6 border-b border-[#2a2a35] bg-[#181820] select-none"
+                className="relative h-6 border-b border-[#252532] bg-[#1a1a22] select-none"
                 aria-label="박자표 눈금자"
               >
                 {beatTimeline.marks.map((mark, index) => {
@@ -957,18 +947,11 @@ export function AudioTrimPicker({
                 );
               })}
 
-              {/* Crisp vertical playhead / split cursor */}
               <div
                 className="pointer-events-none absolute top-0 bottom-0 z-[5] w-[2px] bg-white shadow-[0_0_6px_rgba(255,255,255,0.65)]"
                 style={{ left: `${Math.max(0, Math.min(100, (cursorSourceMs / durationMs) * 100))}%` }}
                 aria-hidden="true"
               />
-            </div>
-
-            <div className={sharedStyles.audioWaveformTimes}>
-              <span>00:00.0</span>
-              <span>커서 {formatTime(cursorSourceMs)}</span>
-              <span>{formatTime(durationMs)}</span>
             </div>
           </div>
 
@@ -1011,50 +994,50 @@ export function AudioTrimPicker({
 
           {enableSplice && (
             <div className="flex flex-col gap-2">
-              <div className="flex flex-wrap items-center gap-1.5" role="toolbar" aria-label="오디오 자르기 및 이어 붙이기 도구">
+              <div className="grid grid-cols-5 gap-1.5" role="toolbar" aria-label="오디오 자르기 및 이어 붙이기 도구">
                 <button
                   type="button"
                   disabled={busy || !canSplit}
                   onClick={() => trim.splitAtCursor(cursorSourceMs)}
-                  className="flex h-8 items-center gap-1 rounded-[8px] border border-[#32323d] bg-[#23232a] px-2.5 text-caption font-medium text-app-fg transition-colors hover:border-app-primary disabled:opacity-40"
+                  className="flex h-8 items-center justify-center gap-1 whitespace-nowrap rounded-[8px] border border-[#32323d] bg-[#23232a] px-1 text-[11px] font-medium text-app-fg transition-colors hover:border-app-primary disabled:opacity-40"
                 >
-                  <Scissors size={13} aria-hidden="true" />
+                  <Scissors size={12} aria-hidden="true" />
                   <span>자르기</span>
                 </button>
                 <button
                   type="button"
                   disabled={busy || segments.length <= 1}
                   onClick={() => trim.deleteSelected()}
-                  className="flex h-8 items-center gap-1 rounded-[8px] border border-[#32323d] bg-[#23232a] px-2.5 text-caption font-medium text-app-fg transition-colors hover:border-app-primary disabled:opacity-40"
+                  className="flex h-8 items-center justify-center gap-1 whitespace-nowrap rounded-[8px] border border-[#32323d] bg-[#23232a] px-1 text-[11px] font-medium text-app-fg transition-colors hover:border-app-primary disabled:opacity-40"
                 >
-                  <Trash2 size={13} aria-hidden="true" />
-                  <span>구간 삭제</span>
+                  <Trash2 size={12} aria-hidden="true" />
+                  <span>삭제</span>
                 </button>
                 <button
                   type="button"
                   disabled={busy || !canDuplicate}
                   onClick={() => trim.duplicateSelected()}
-                  className="flex h-8 items-center gap-1 rounded-[8px] border border-[#32323d] bg-[#23232a] px-2.5 text-caption font-medium text-app-fg transition-colors hover:border-app-primary disabled:opacity-40"
+                  className="flex h-8 items-center justify-center gap-1 whitespace-nowrap rounded-[8px] border border-[#32323d] bg-[#23232a] px-1 text-[11px] font-medium text-app-fg transition-colors hover:border-app-primary disabled:opacity-40"
                 >
-                  <CopyPlus size={13} aria-hidden="true" />
+                  <CopyPlus size={12} aria-hidden="true" />
                   <span>붙이기</span>
                 </button>
                 <button
                   type="button"
                   disabled={busy || !trim.canUndo}
                   onClick={() => trim.undo()}
-                  className="flex h-8 items-center gap-1 rounded-[8px] border border-[#32323d] bg-[#23232a] px-2.5 text-caption font-medium text-app-fg transition-colors hover:border-app-primary disabled:opacity-40"
+                  className="flex h-8 items-center justify-center gap-1 whitespace-nowrap rounded-[8px] border border-[#32323d] bg-[#23232a] px-1 text-[11px] font-medium text-app-fg transition-colors hover:border-app-primary disabled:opacity-40"
                 >
-                  <Undo2 size={13} aria-hidden="true" />
+                  <Undo2 size={12} aria-hidden="true" />
                   <span>되돌리기</span>
                 </button>
                 <button
                   type="button"
                   disabled={busy || !trim.edited}
                   onClick={() => trim.reset()}
-                  className="ml-auto flex h-8 items-center gap-1 rounded-[8px] border border-[#32323d] bg-[#23232a] px-2.5 text-caption font-medium text-app-muted transition-colors hover:border-app-primary hover:text-app-fg disabled:opacity-40"
+                  className="flex h-8 items-center justify-center gap-1 whitespace-nowrap rounded-[8px] border border-[#32323d] bg-[#23232a] px-1 text-[11px] font-medium text-app-muted transition-colors hover:border-app-primary hover:text-app-fg disabled:opacity-40"
                 >
-                  <RotateCcw size={13} aria-hidden="true" />
+                  <RotateCcw size={12} aria-hidden="true" />
                   <span>초기화</span>
                 </button>
               </div>
@@ -1107,10 +1090,6 @@ export function AudioTrimPicker({
                   })}
                 </div>
               )}
-
-              <p className={studioStyles.audioTrimGuide}>
-                파형을 눌러 커서를 이동한 뒤 자르기·구간 삭제·붙이기로 편집하세요. (최대 1분)
-              </p>
             </div>
           )}
         </>

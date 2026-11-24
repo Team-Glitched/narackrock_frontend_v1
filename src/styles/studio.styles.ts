@@ -417,7 +417,7 @@ export const studioStyles = {
   ].join(" "),
   recordConvert: [
     "record-convert",
-    "flex w-full items-center justify-between gap-3 rounded-[12px] border border-[#2c2c38] bg-[#16161d] py-2 pr-2 pl-3.5 text-body text-app-fg",
+    "flex w-full items-center justify-between gap-3 py-1 text-body text-app-fg",
   ].join(" "),
   recordActions: [
     "record-actions",

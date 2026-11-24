@@ -246,26 +246,16 @@ function Loaded({
       Math.round(cursorSourceMs / 100) * 100 <= s.endMs - minAudioClipMs,
   );
   const canDuplicate = totalMs + (activeSeg.endMs - activeSeg.startMs) <= maxAudioClipMs;
-  const estimatedBars = Math.max(1, Math.round((totalMs / beatTimeline.barMs) * 10) / 10);
   const position = draft ? 0 : trim.positionMs;
   const enableSplice = trim.enableSplice !== false;
 
   return (
     <>
       <View style={styles.summary}>
-        <View style={styles.summaryLeft}>
-          <Text style={styles.summaryStrong}>{formatTrimTime(totalMs)}</Text>
-          <Text style={styles.summaryMeta}>
-            {displaySegments.length > 1
-              ? `${displaySegments.length}개 조각 이어붙임`
-              : `약 ${estimatedBars}마디`}
-          </Text>
-        </View>
-        <View style={styles.summaryPill}>
-          <Text style={styles.summaryPillText}>
-            {sig.numerator}/{sig.denominator} · {bpm} BPM
-          </Text>
-        </View>
+        <Text style={styles.summaryStrong}>{formatTrimTime(totalMs)}</Text>
+        {displaySegments.length > 1 && (
+          <Text style={styles.summaryMeta}>{displaySegments.length}조각</Text>
+        )}
       </View>
 
       <View style={styles.waveBox}>
@@ -364,12 +354,6 @@ function Loaded({
             ]}
           />
         </View>
-
-        <View style={styles.times}>
-          <Text style={styles.timeText}>00:00.0</Text>
-          <Text style={styles.timeText}>커서 {formatTrimTime(cursorSourceMs)}</Text>
-          <Text style={styles.timeText}>{formatTrimTime(durationMs)}</Text>
-        </View>
       </View>
 
       <View style={styles.previewRow}>
@@ -415,7 +399,7 @@ function Loaded({
               style={[styles.toolChip, (trim.busy || displaySegments.length <= 1) && styles.disabled]}
               onPress={() => act({ type: "trim-delete-segment" })}
             >
-              <Text style={styles.toolText}>구간 삭제</Text>
+              <Text style={styles.toolText}>삭제</Text>
             </Touchable>
             <Touchable
               accessibilityRole="button"
@@ -436,7 +420,7 @@ function Loaded({
             <Touchable
               accessibilityRole="button"
               disabled={trim.busy || !trim.edited}
-              style={[styles.toolChip, styles.toolReset, (trim.busy || !trim.edited) && styles.disabled]}
+              style={[styles.toolChip, (trim.busy || !trim.edited) && styles.disabled]}
               onPress={() => act({ type: "trim-reset" })}
             >
               <Text style={styles.toolMutedText}>초기화</Text>
@@ -477,10 +461,6 @@ function Loaded({
               })}
             </ScrollView>
           )}
-
-          <Text style={styles.guide}>
-            파형을 눌러 커서를 이동한 뒤 자르기·구간 삭제·붙이기로 편집하세요. (최대 1분)
-          </Text>
         </View>
       )}
     </>
@@ -520,27 +500,15 @@ const styles = StyleSheet.create({
   error: { color: "#ff9ca8", fontSize: 13, lineHeight: 18 },
   summary: {
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "baseline",
     justifyContent: "space-between",
     gap: 8,
   },
-  summaryLeft: { flexDirection: "row", alignItems: "baseline", gap: 8 },
   summaryStrong: { color: "#ffffff", fontSize: 20, fontWeight: "700", fontVariant: ["tabular-nums"] },
-  summaryMeta: { color: colors.muted, fontSize: 12 },
-  summaryPill: {
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: "#32323d",
-    backgroundColor: "#23232a",
-    paddingHorizontal: 10,
-    paddingVertical: 3,
-  },
-  summaryPillText: { color: "#c4b5fd", fontSize: 11, fontWeight: "600" },
+  summaryMeta: { color: colors.muted, fontSize: 12, fontVariant: ["tabular-nums"] },
   waveBox: {
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: "#2a2a35",
-    backgroundColor: "#14141a",
+    borderRadius: 10,
+    backgroundColor: "#181820",
     overflow: "hidden",
   },
   ruler: {
@@ -647,16 +615,6 @@ const styles = StyleSheet.create({
     zIndex: 5,
     backgroundColor: "#ffffff",
   },
-  times: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    borderTopWidth: 1,
-    borderTopColor: "#24242f",
-    backgroundColor: "#181820",
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-  },
-  timeText: { color: colors.muted, fontSize: 11, fontVariant: ["tabular-nums"] },
   previewRow: { flexDirection: "row", alignItems: "center", gap: 10 },
   previewToggle: {
     width: 36,
@@ -670,19 +628,20 @@ const styles = StyleSheet.create({
   previewTime: { width: 52, color: "#d8dce1", fontSize: 12, fontVariant: ["tabular-nums"] },
   previewTotal: { color: colors.muted, fontSize: 12, fontVariant: ["tabular-nums"] },
   spliceWrap: { gap: 8 },
-  toolRow: { flexDirection: "row", flexWrap: "wrap", alignItems: "center", gap: 6 },
+  toolRow: { flexDirection: "row", alignItems: "center", gap: 6 },
   toolChip: {
+    flex: 1,
     height: 32,
-    paddingHorizontal: 10,
+    paddingHorizontal: 4,
     borderRadius: 8,
     borderWidth: 1,
     borderColor: "#32323d",
     backgroundColor: "#23232a",
+    alignItems: "center",
     justifyContent: "center",
   },
-  toolReset: { marginLeft: "auto" },
-  toolText: { color: colors.fg, fontSize: 12, fontWeight: "500" },
-  toolMutedText: { color: colors.muted, fontSize: 12, fontWeight: "500" },
+  toolText: { color: colors.fg, fontSize: 11, fontWeight: "500" },
+  toolMutedText: { color: colors.muted, fontSize: 11, fontWeight: "500" },
   segList: { gap: 6, paddingVertical: 2 },
   segChip: {
     flexDirection: "row",
@@ -700,7 +659,6 @@ const styles = StyleSheet.create({
   segChipTextActive: { color: "#ffffff", fontSize: 11, fontWeight: "600", fontVariant: ["tabular-nums"] },
   segArrows: { flexDirection: "row", alignItems: "center", gap: 2, borderLeftWidth: 1, borderLeftColor: "rgba(255,255,255,0.15)", paddingLeft: 4 },
   segArrowBtn: { paddingHorizontal: 4 },
-  guide: { color: colors.muted, fontSize: 12, lineHeight: 17 },
   actions: { flexDirection: "row", gap: 10, paddingTop: 4 },
   action: {
     flex: 1,

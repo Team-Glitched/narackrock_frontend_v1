@@ -40,13 +40,7 @@ export function CreationUploadScreen({ model, header }: ScreenProps<"creation-up
               style={styles.dropzone}
               onPress={() => act({ type: "creation-upload-pick" })}
             >
-              <View style={styles.iconCircle}>
-                <UploadIcon width={32} height={30} />
-              </View>
-              <View style={styles.copy}>
-                <Text style={styles.title}>오디오 파일 업로드</Text>
-                <Text style={styles.subtitle}>WAV, MP3, M4A, FLAC · 박자에 맞춰 자르고 이어 붙이기</Text>
-              </View>
+              <UploadIcon width={150} height={136} />
               <View style={styles.pickPill}>
                 <Text style={styles.pickText}>업로드 파일 선택</Text>
               </View>
@@ -66,9 +60,7 @@ export function CreationUploadScreen({ model, header }: ScreenProps<"creation-up
                   <Text style={styles.changeBtnText}>파일 변경</Text>
                 </Touchable>
               </View>
-              <View style={styles.trimCard}>
-                <AudioTrim trim={model.trim} />
-              </View>
+              <AudioTrim trim={model.trim} />
             </View>
           )}
         </View>
@@ -100,47 +92,25 @@ const styles = StyleSheet.create({
   },
   dropzone: {
     flex: 1,
-    minHeight: 300,
-    borderRadius: 18,
-    borderWidth: 1,
-    borderStyle: "dashed",
-    borderColor: "#3b3b4a",
-    backgroundColor: "#1e1e26",
+    minHeight: 260,
     alignItems: "center",
     justifyContent: "center",
-    padding: 24,
-    gap: 16,
+    gap: 32,
   },
-  iconCircle: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: "rgba(76, 0, 229, 0.16)",
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  copy: { alignItems: "center", gap: 6 },
-  title: { color: "#ffffff", fontSize: 18, fontWeight: "700" },
-  subtitle: { color: colors.muted, fontSize: 12, lineHeight: 18, textAlign: "center" },
   pickPill: {
     borderRadius: 999,
     backgroundColor: colors.primary,
-    paddingHorizontal: 20,
+    paddingHorizontal: 24,
     paddingVertical: 10,
   },
-  pickText: { color: "#ffffff", fontSize: 14, fontWeight: "600" },
+  pickText: { color: "#ffffff", fontSize: 14, fontWeight: "500" },
   loadedWrap: { gap: 12 },
   fileBar: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     gap: 12,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: "#32323d",
-    backgroundColor: "#1e1e26",
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+    paddingVertical: 4,
   },
   fileName: { flex: 1, color: "#ffffff", fontSize: 14, fontWeight: "500" },
   changeBtn: {
@@ -152,11 +122,4 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
   },
   changeBtnText: { color: colors.fg, fontSize: 12, fontWeight: "500" },
-  trimCard: {
-    borderRadius: 18,
-    borderWidth: 1,
-    borderColor: "#32323d",
-    backgroundColor: "#1e1e26",
-    padding: 16,
-  },
 });

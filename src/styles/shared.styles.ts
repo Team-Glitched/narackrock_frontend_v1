@@ -394,12 +394,13 @@ export const sharedStyles = {
   ].join(" "),
   uploadView: [
     "upload-view",
-    "flex h-full min-h-0 w-full flex-col gap-3 overflow-y-auto px-4 pt-3 pb-4",
+    "flex h-full min-h-0 w-full flex-col gap-3 overflow-y-auto px-4 pt-3 pb-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
     "[.source-audio-flow>&]:min-h-0 [.source-audio-flow>&]:flex-1",
   ].join(" "),
   uploadArea: [
     "upload-area",
-    "relative flex flex-1 min-h-[260px] w-full cursor-pointer flex-col items-center justify-center gap-4 rounded-[18px] border border-dashed border-[#3b3b4a] bg-[#1e1e26] p-6 text-center transition-colors hover:border-app-primary",
+    "relative flex flex-1 min-h-[260px] w-full cursor-pointer flex-col items-center justify-center gap-8 text-center",
+    "[&>span]:rounded-full [&>span]:bg-app-primary [&>span]:px-6 [&>span]:py-2.5 [&>span]:text-label [&>span]:font-medium [&>span]:text-white",
     "[&_input[type=file]]:sr-only",
   ].join(" "),
   sharpRow: [

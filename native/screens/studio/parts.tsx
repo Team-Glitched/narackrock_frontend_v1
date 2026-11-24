@@ -464,6 +464,7 @@ export function SourceSheet({ picker }: { picker: NativeSourcePicker | null }) {
 function SourceDialog({ picker }: { picker: NativeSourcePicker }) {
   const { act } = useScreen();
   const [query, setQuery] = useState(picker.query);
+  const [menuOpen, setMenuOpen] = useState(false);
   const close = () => {
     if (!picker.busy) act({ type: "source-close" });
   };
@@ -485,17 +486,48 @@ function SourceDialog({ picker }: { picker: NativeSourcePicker }) {
           <CloseIcon width={14} height={14} />
         </Touchable>
       </View>
-      {picker.tabs.length > 0 && (
-        <View style={styles.row} accessibilityLabel="가져올 자료">
-          {picker.tabs.map((value) => (
-            <DialogButton
-              key={value}
-              label={sourceTabLabels[value]}
-              tone={picker.tab === value ? "primary" : "secondary"}
-              disabled={picker.busy}
-              onPress={() => act({ type: "source-tab", tab: value })}
-            />
-          ))}
+      {picker.tabs.length > 1 && (
+        <View style={styles.sourceSelectWrap}>
+          <Touchable
+            accessibilityRole="button"
+            accessibilityLabel="가져올 자료"
+            accessibilityState={{ expanded: menuOpen, disabled: picker.busy }}
+            disabled={picker.busy}
+            style={[styles.sourceSelectButton, menuOpen && styles.sourceSelectButtonOpen]}
+            onPress={() => setMenuOpen((open) => !open)}
+          >
+            <Text style={styles.sourceSelectText}>{sourceTabLabels[picker.tab]}</Text>
+            <Text style={styles.sourceSelectChevron}>{menuOpen ? "▲" : "▼"}</Text>
+          </Touchable>
+          {menuOpen && (
+            <View style={styles.sourceSelectMenu}>
+              {picker.tabs.map((value) => {
+                const selected = picker.tab === value;
+                return (
+                  <Touchable
+                    key={value}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected, disabled: picker.busy }}
+                    disabled={picker.busy}
+                    style={[styles.sourceSelectOption, selected && styles.sourceSelectOptionSelected]}
+                    onPress={() => {
+                      setMenuOpen(false);
+                      act({ type: "source-tab", tab: value });
+                    }}
+                  >
+                    <Text
+                      style={[
+                        styles.sourceSelectOptionText,
+                        selected && styles.sourceSelectOptionTextSelected,
+                      ]}
+                    >
+                      {sourceTabLabels[value]}
+                    </Text>
+                  </Touchable>
+                );
+              })}
+            </View>
+          )}
         </View>
       )}
       {picker.tab === "upload" ? (
@@ -720,6 +752,38 @@ const styles = StyleSheet.create({
   signatureRow: { flexDirection: "row", alignItems: "center", gap: 10 },
   sourceHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   sourceClose: { width: 32, height: 32, alignItems: "center", justifyContent: "center" },
+  sourceSelectWrap: { gap: 6 },
+  sourceSelectButton: {
+    minHeight: 40,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+    paddingHorizontal: 12,
+  },
+  sourceSelectButtonOpen: { borderColor: "#aa8aff" },
+  sourceSelectText: { color: colors.fg, fontSize: 14, fontWeight: "500" },
+  sourceSelectChevron: { color: colors.muted, fontSize: 11 },
+  sourceSelectMenu: {
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: "#23232a",
+    padding: 4,
+    gap: 2,
+  },
+  sourceSelectOption: {
+    minHeight: 36,
+    borderRadius: 8,
+    justifyContent: "center",
+    paddingHorizontal: 10,
+  },
+  sourceSelectOptionSelected: { backgroundColor: "#38265a" },
+  sourceSelectOptionText: { color: colors.fg, fontSize: 14 },
+  sourceSelectOptionTextSelected: { color: "#d5c4ff", fontWeight: "600" },
   search: {
     borderRadius: 10,
     paddingVertical: 10,

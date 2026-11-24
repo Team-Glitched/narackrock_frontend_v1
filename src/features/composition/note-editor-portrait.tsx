@@ -149,7 +149,7 @@ export function PortraitNoteEditor({
             aria-label="처음으로"
             onClick={onRewind}
           >
-            <RewindIcon size={20} />
+            <RewindIcon size={18} />
           </button>
           <button
             className="grid size-16 place-items-center rounded-full bg-app-primary [&_img]:size-7"
