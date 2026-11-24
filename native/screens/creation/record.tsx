@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { AppState, ScrollView, StyleSheet, Text, View } from "react-native";
 import Svg, { Defs, LinearGradient, Path, Rect, Stop } from "react-native-svg";
 
@@ -7,6 +7,10 @@ import {
   beatsPerBarFromSignature,
   isAccentBeat,
 } from "../../../src/features/composition/metronome-timing";
+import {
+  RECORD_COUNTDOWN_START,
+  countdownBeatMs,
+} from "../../../src/features/composition/record-countdown";
 import PlayIcon from "../../../public/figma/play.svg";
 import { useRecordingLevels } from "../../audio";
 import { runningContext } from "../../audio/graph";
@@ -69,10 +73,36 @@ export function CreationRecordScreen({ model, header }: ScreenProps<"creation-re
   const [metronomeOn, setMetronomeOn] = useState(false);
   const [appActive, setAppActive] = useState(AppState.currentState === "active");
   const [elapsedMs, setElapsedMs] = useState(0);
+  const [countdown, setCountdown] = useState<number | null>(null);
+  const countdownTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
 
   const bpm = model.bpm ?? 120;
   const timeSignature = model.timeSignature ?? "4/4";
   const beatsPerBar = beatsPerBarFromSignature(timeSignature);
+
+  const playIsolatedClick = useCallback((accent: boolean) => {
+    void runningContext()
+      .then((ctx) => {
+        const samples = clickSamples(ctx.sampleRate);
+        const buffer = ctx.createBuffer(1, samples.length, ctx.sampleRate);
+        buffer.copyToChannel(samples, 0);
+        const src = ctx.createBufferSource();
+        src.buffer = buffer;
+        src.playbackRate.value = accent ? 1.25 : 0.9;
+        const gain = ctx.createGain();
+        gain.gain.value = accent ? 1.3 : 0.9;
+        src.connect(gain);
+        gain.connect(ctx.destination);
+        src.start();
+      })
+      .catch(() => {});
+  }, []);
+
+  const cancelCountdown = useCallback(() => {
+    for (const timer of countdownTimersRef.current) clearTimeout(timer);
+    countdownTimersRef.current = [];
+    setCountdown(null);
+  }, []);
 
   useEffect(() => {
     const subscription = AppState.addEventListener("change", (state) =>
@@ -81,9 +111,14 @@ export function CreationRecordScreen({ model, header }: ScreenProps<"creation-re
     return () => subscription.remove();
   }, []);
 
+  useEffect(() => () => cancelCountdown(), [cancelCountdown]);
+
   useEffect(() => {
-    if (!active) setMetronomeOn(false);
-  }, [active]);
+    if (!active) {
+      cancelCountdown();
+      setMetronomeOn(false);
+    }
+  }, [active, cancelCountdown]);
 
   // Auto-start isolated metronome click ONLY while recording; never included in hardware mic recording.
   useEffect(() => {
@@ -95,22 +130,7 @@ export function CreationRecordScreen({ model, header }: ScreenProps<"creation-re
       if (cancelled) return;
       const accent = isAccentBeat(beat, beatsPerBar);
       beat += 1;
-      void runningContext()
-        .then((ctx) => {
-          if (cancelled) return;
-          const samples = clickSamples(ctx.sampleRate);
-          const buffer = ctx.createBuffer(1, samples.length, ctx.sampleRate);
-          buffer.copyToChannel(samples, 0);
-          const src = ctx.createBufferSource();
-          src.buffer = buffer;
-          src.playbackRate.value = accent ? 1.25 : 0.9;
-          const gain = ctx.createGain();
-          gain.gain.value = accent ? 1.3 : 0.85;
-          src.connect(gain);
-          gain.connect(ctx.destination);
-          src.start();
-        })
-        .catch(() => {});
+      playIsolatedClick(accent);
     };
     playBeat();
     const timer = setInterval(playBeat, intervalMs);
@@ -118,10 +138,34 @@ export function CreationRecordScreen({ model, header }: ScreenProps<"creation-re
       cancelled = true;
       clearInterval(timer);
     };
-  }, [metronomeOn, model.recording, active, appActive, bpm, timeSignature, beatsPerBar]);
+  }, [metronomeOn, model.recording, active, appActive, bpm, timeSignature, beatsPerBar, playIsolatedClick]);
 
+  const startCountdown = useCallback(() => {
+    cancelCountdown();
+    setElapsedMs(0);
+    const beatMs = countdownBeatMs(bpm, timeSignature);
+    setCountdown(RECORD_COUNTDOWN_START);
+    playIsolatedClick(false);
+    for (let step = 1; step < RECORD_COUNTDOWN_START; step += 1) {
+      const nextCount = RECORD_COUNTDOWN_START - step;
+      const timer = setTimeout(() => {
+        setCountdown(nextCount);
+        playIsolatedClick(false);
+      }, beatMs * step);
+      countdownTimersRef.current.push(timer);
+    }
+    const finishTimer = setTimeout(() => {
+      countdownTimersRef.current = [];
+      setCountdown(null);
+      setElapsedMs(0);
+      act({ type: "creation-record-toggle" });
+    }, beatMs * RECORD_COUNTDOWN_START);
+    countdownTimersRef.current.push(finishTimer);
+  }, [act, bpm, cancelCountdown, playIsolatedClick, timeSignature]);
+
+  const countingDown = countdown !== null;
   const recorded = model.recorded && !model.recording;
-  const canRetry = !model.pending && (model.recording || recorded);
+  const canRetry = !model.pending && (countingDown || model.recording || recorded);
 
   return (
     <>
@@ -137,7 +181,7 @@ export function CreationRecordScreen({ model, header }: ScreenProps<"creation-re
           bpm={bpm}
           timeSignature={timeSignature}
           timingMode={model.timingMode}
-          disabled={model.recording || model.pending}
+          disabled={model.recording || countingDown || model.pending}
         />
 
         <ScrollView
@@ -152,26 +196,40 @@ export function CreationRecordScreen({ model, header }: ScreenProps<"creation-re
           )}
 
           {!recorded ? (
-            <View style={styles.stage}>
-              <Text style={styles.timerMain}>
-                {formatTrimTime(model.recording ? elapsedMs : 0)}
-              </Text>
-
-              <View style={styles.waveWrap}>
-                {model.recording ? (
-                  <RecordingMeter onElapsedMs={setElapsedMs} />
-                ) : (
-                  <View style={styles.idleWaveWrap}>
-                    <View style={styles.idleCenterLine} />
-                    <View style={styles.idleBars}>
-                      {idleBarHeights.map((h, index) => (
-                        <View key={index} style={[styles.idleBar, { height: `${h}%` }]} />
-                      ))}
-                    </View>
-                  </View>
-                )}
+            countingDown ? (
+              <View style={styles.countdownWrap}>
+                <View style={styles.countdownRing}>
+                  <Text
+                    accessibilityLiveRegion="assertive"
+                    accessibilityLabel={`녹음 시작 ${countdown}초 전`}
+                    style={styles.countdownText}
+                  >
+                    {countdown}
+                  </Text>
+                </View>
               </View>
-            </View>
+            ) : (
+              <View style={styles.stage}>
+                <Text style={styles.timerMain}>
+                  {formatTrimTime(model.recording ? elapsedMs : 0)}
+                </Text>
+
+                <View style={styles.waveWrap}>
+                  {model.recording ? (
+                    <RecordingMeter onElapsedMs={setElapsedMs} />
+                  ) : (
+                    <View style={styles.idleWaveWrap}>
+                      <View style={styles.idleCenterLine} />
+                      <View style={styles.idleBars}>
+                        {idleBarHeights.map((h, index) => (
+                          <View key={index} style={[styles.idleBar, { height: `${h}%` }]} />
+                        ))}
+                      </View>
+                    </View>
+                  )}
+                </View>
+              </View>
+            )
           ) : (
             <View style={styles.recordedWrap}>
               <AudioTrim trim={model.trim ?? null} />
@@ -241,6 +299,11 @@ export function CreationRecordScreen({ model, header }: ScreenProps<"creation-re
             disabled={!canRetry}
             style={[styles.roundBtn, !canRetry && styles.disabled]}
             onPress={() => {
+              if (countingDown) {
+                cancelCountdown();
+                setElapsedMs(0);
+                return;
+              }
               setElapsedMs(0);
               act({ type: "creation-record-retry" });
             }}
@@ -269,20 +332,27 @@ export function CreationRecordScreen({ model, header }: ScreenProps<"creation-re
           ) : (
             <Touchable
               accessibilityRole="button"
-              accessibilityLabel={model.recording ? "녹음 종료" : "녹음 시작"}
+              accessibilityLabel={countingDown ? "카운트다운 취소" : model.recording ? "녹음 종료" : "녹음 시작"}
               accessibilityState={{ disabled: model.pending }}
               disabled={model.pending}
               style={[
                 styles.mainBtn,
-                model.recording && styles.mainBtnLive,
+                (model.recording || countingDown) && styles.mainBtnLive,
                 model.pending && styles.disabled,
               ]}
               onPress={() => {
-                if (!model.recording) setElapsedMs(0);
-                act({ type: "creation-record-toggle" });
+                if (countingDown) {
+                  cancelCountdown();
+                  return;
+                }
+                if (model.recording) {
+                  act({ type: "creation-record-toggle" });
+                  return;
+                }
+                startCountdown();
               }}
             >
-              {model.recording ? <View style={styles.stopSquare} /> : <MicGlyph />}
+              {model.recording || countingDown ? <View style={styles.stopSquare} /> : <MicGlyph />}
             </Touchable>
           )}
 
@@ -358,9 +428,27 @@ function RecordingMeter({ onElapsedMs }: { onElapsedMs: (ms: number) => void }) 
 }
 
 const styles = StyleSheet.create({
-  view: { flex: 1, gap: 12, paddingHorizontal: 16, paddingTop: 12 },
+  view: { flex: 1, gap: 20, paddingHorizontal: 16, paddingTop: 16 },
   center: { flex: 1 },
-  centerContent: { flexGrow: 1, justifyContent: "center", gap: 12, paddingVertical: 4 },
+  centerContent: { flexGrow: 1, justifyContent: "center", gap: 20, paddingVertical: 8 },
+  countdownWrap: { alignItems: "center", justifyContent: "center" },
+  countdownRing: {
+    width: 112,
+    height: 112,
+    borderRadius: 56,
+    borderWidth: 2,
+    borderColor: colors.primary,
+    backgroundColor: "rgba(76, 0, 229, 0.15)",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  countdownText: {
+    color: "#ffffff",
+    fontSize: 56,
+    lineHeight: 62,
+    fontWeight: "800",
+    fontVariant: ["tabular-nums"],
+  },
   error: {
     borderRadius: 12,
     borderWidth: 1,
@@ -388,7 +476,7 @@ const styles = StyleSheet.create({
   idleCenterLine: { position: "absolute", left: 0, right: 0, height: 1, backgroundColor: "rgba(76, 0, 229, 0.25)" },
   idleBars: { flexDirection: "row", alignItems: "center", gap: 6, opacity: 0.45, height: "100%" },
   idleBar: { width: 3, borderRadius: 99, backgroundColor: "#7c3aed" },
-  recordedWrap: { gap: 12 },
+  recordedWrap: { gap: 20 },
   convert: {
     gap: 8,
     paddingVertical: 4,
@@ -409,9 +497,9 @@ const styles = StyleSheet.create({
   convertOptionSelected: { borderColor: colors.primary, backgroundColor: colors.primary },
   convertText: { color: colors.fg, fontSize: 12, fontWeight: "500" },
   convertTextSelected: { color: "#ffffff", fontWeight: "700" },
-  actions: { flexDirection: "row", alignItems: "center", gap: 10 },
+  actions: { flexDirection: "row", alignItems: "center", gap: 12, paddingTop: 4 },
   actionButton: { flex: 1, paddingHorizontal: 12 },
-  transport: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 32, paddingVertical: 8 },
+  transport: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 32, paddingTop: 14, paddingBottom: 8 },
   roundBtn: {
     width: 48,
     height: 48,

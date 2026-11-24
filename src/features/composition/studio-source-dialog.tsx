@@ -1,9 +1,9 @@
 import { studioStyles } from "@/styles/studio.styles";
-import { buttonVariants } from "@/styles/variants";
+import { buttonVariants, filterChip, filterChipRow } from "@/styles/variants";
+import { cn } from "@/lib/utils";
 import { useId, useState, type ReactNode } from "react";
 import { CanvasDialog } from "@/components/canvas-dialog";
 import { Asset } from "@/components/asset";
-import { Dropdown } from "@/components/dropdown";
 import { useWorkspace, type Resource } from "@/features/workspace/workspace-store";
 import { loadSavedSources, savedSourcesScope } from "@/features/sources/source-queries";
 import { usePagedItems } from "@/hooks/use-paged-items";
@@ -324,14 +324,23 @@ export function StudioSourceDialog({
         </button>
       </header>
       {tabOptions.length > 1 && (
-        <Dropdown<Tab>
-          label="가져올 자료"
-          className="w-full"
-          value={tab}
-          disabled={busy !== null}
-          options={tabOptions}
-          onChange={(value) => picker.setTab(value)}
-        />
+        <div className={filterChipRow} role="group" aria-label="가져올 자료">
+          {tabOptions.map((option) => (
+            <button
+              key={option.value}
+              type="button"
+              className={cn(filterChip, "disabled:opacity-50")}
+              aria-pressed={tab === option.value}
+              disabled={busy !== null}
+              onClick={(event) => {
+                picker.setTab(option.value);
+                event.currentTarget.scrollIntoView({ block: "nearest", inline: "nearest" });
+              }}
+            >
+              {option.label}
+            </button>
+          ))}
+        </div>
       )}
       {tab === "upload" ? (
         localFileImport

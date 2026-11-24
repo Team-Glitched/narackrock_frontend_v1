@@ -175,7 +175,7 @@ function SourceCard({ source }: { source: NativeSourceCard }) {
           style={[styles.row, { flex: 1 }]}
           onPress={open}
         >
-          <Cover url={source.thumbnailUrl} size={44} />
+          <Cover url={source.thumbnailUrl} seed={`source:${source.openSourceId}`} size={44} />
           <View style={styles.title}>
             <Text style={type.label} numberOfLines={1}>
               {source.title}

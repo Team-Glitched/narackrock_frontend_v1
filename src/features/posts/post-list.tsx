@@ -12,7 +12,7 @@ import { useGalleryPosts } from "@/features/community/use-gallery-posts";
 import type { PostListItem } from "@/lib/api/contracts";
 import { relativeTime } from "@/features/posts/post-utils";
 import { PopularContentActions } from "@/features/posts/popular-content-actions";
-import defaultPostCover from "@/features/posts/assets/post-default-cover.png";
+import { pickDefaultCover } from "@/lib/default-covers";
 
 export function PostListStatus({ state }: { state: "loading" | "error" | "empty" }) {
   const message =
@@ -51,7 +51,7 @@ export function MiniPost({
       >
       <span className={communityStyles.postThumb}>
         <img
-          src={imageUrl || defaultPostCover}
+          src={imageUrl || pickDefaultCover(`post:${post.postId}`)}
           alt={imageUrl ? "게시글 첨부 이미지" : "게시글 기본 이미지"}
           width={104}
           height={104}

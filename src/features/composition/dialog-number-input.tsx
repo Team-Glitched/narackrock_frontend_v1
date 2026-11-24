@@ -1,3 +1,4 @@
+import { cn } from "@/lib/utils";
 import { sharedStyles } from "@/styles/shared.styles";
 import { useState } from "react";
 
@@ -6,6 +7,8 @@ export function DialogNumberInput({
   value,
   min,
   max,
+  clamp = true,
+  className,
   label,
   onChange,
   disabled = false,
@@ -13,19 +16,23 @@ export function DialogNumberInput({
   value: number;
   min: number;
   max?: number;
+  clamp?: boolean;
+  className?: string;
   label: string;
   onChange: (value: number) => void;
   disabled?: boolean;
 }) {
   const [draft, setDraft] = useState<string | null>(null);
   function commit() {
-    if (draft !== null && draft.trim() !== "" && Number.isFinite(Number(draft)))
-      onChange(Math.min(max ?? Number.MAX_SAFE_INTEGER, Math.max(min, Math.round(Number(draft)))));
+    if (draft !== null && draft.trim() !== "" && Number.isFinite(Number(draft))) {
+      const rounded = Math.round(Number(draft));
+      onChange(clamp ? Math.min(max ?? Number.MAX_SAFE_INTEGER, Math.max(min, rounded)) : rounded);
+    }
     setDraft(null);
   }
   return (
     <input
-      className={sharedStyles.dialogNumberInput}
+      className={cn(sharedStyles.dialogNumberInput, className)}
       type="number"
       inputMode="numeric"
       aria-label={label}

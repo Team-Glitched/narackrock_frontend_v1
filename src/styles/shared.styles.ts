@@ -394,7 +394,7 @@ export const sharedStyles = {
   ].join(" "),
   uploadView: [
     "upload-view",
-    "flex h-full min-h-0 w-full flex-col gap-3 overflow-y-auto px-4 pt-3 pb-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+    "flex h-full min-h-0 w-full flex-col gap-5 overflow-y-auto px-4 pt-4 pb-5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
     "[.source-audio-flow>&]:min-h-0 [.source-audio-flow>&]:flex-1",
   ].join(" "),
   uploadArea: [
@@ -611,10 +611,13 @@ export const sharedStyles = {
     "m-auto box-border h-25 w-[350px] max-w-[calc(100vw_-_40px)] p-5 rounded-[20px] bg-app-bg bg-none font-sans text-app-fg border-0 border-none",
     "border-current",
     // Timing adds an apply button and notices below the row; a fixed height clipped them.
-    "[&.timing-dialog]:flex [&.timing-dialog]:h-auto [&.timing-dialog]:flex-col [&.timing-dialog]:items-start [&.timing-dialog]:gap-4",
+    "[&.timing-dialog]:flex [&.timing-dialog]:h-auto [&.timing-dialog]:flex-col [&.timing-dialog]:items-stretch [&.timing-dialog]:gap-5",
     "[&.timing-dialog_h2]:mb-0",
     "[&_h2]:m-[0_0_22px] [&_h2]:text-label [&_h2]:font-bold [&_h2]:leading-[19px]",
     "[&_input]:h-[5px] [&_input]:w-[178px] [&_input]:flex-[0_0_178px] [&_input]:appearance-none [&_input]:p-0 [&_input]:m-0",
+    "[&.timing-dialog_input[type=range]]:h-[6px] [&.timing-dialog_input[type=range]]:w-full [&.timing-dialog_input[type=range]]:min-w-0 [&.timing-dialog_input[type=range]]:flex-1 [&.timing-dialog_input[type=range]]:rounded-[99px]",
+    "[&.timing-dialog_input[type=range]::-webkit-slider-thumb]:h-[14px] [&.timing-dialog_input[type=range]::-webkit-slider-thumb]:w-[14px]",
+    "[&.timing-dialog_input[type=range]::-moz-range-thumb]:h-[14px] [&.timing-dialog_input[type=range]::-moz-range-thumb]:w-[14px]",
     "[&_input]:rounded-[10px] [&_input]:border-0 [&_input]:border-none [&_input]:border-current",
     "[&_input::-webkit-slider-thumb]:h-[9px] [&_input::-webkit-slider-thumb]:w-[9px] [&_input::-webkit-slider-thumb]:appearance-none",
     "[&_input::-webkit-slider-thumb]:rounded-[50%] [&_input::-webkit-slider-thumb]:bg-app-fg [&_input::-webkit-slider-thumb]:bg-none",
@@ -626,7 +629,7 @@ export const sharedStyles = {
   volumeDialogRow: [
     "volume-dialog-row",
     "flex h-[19px] items-center",
-    "[.timing-dialog_&]:text-label [.timing-dialog_&]:font-medium",
+    "[.timing-dialog_&]:h-auto [.timing-dialog_&]:w-full [.timing-dialog_&]:gap-4 [.timing-dialog_&]:text-label [.timing-dialog_&]:font-medium",
   ].join(" "),
   volumeDialogIcon: [
     "volume-dialog-icon",
@@ -752,7 +755,12 @@ export const sharedStyles = {
     "[.design-canvas_.note-settings-control_input&]:leading-[20px]",
     "[&::-webkit-inner-spin-button]:m-0 [&::-webkit-inner-spin-button]:appearance-none",
     "[&::-webkit-outer-spin-button]:m-0 [&::-webkit-outer-spin-button]:appearance-none",
+    "[.design-canvas_.timing-dialog_input&]:m-0 [.design-canvas_.timing-dialog_input&]:h-10 [.design-canvas_.timing-dialog_input&]:w-[76px]",
+    "[.design-canvas_.timing-dialog_input&]:flex-[0_0_76px] [.design-canvas_.timing-dialog_input&]:rounded-[10px]",
+    "[.design-canvas_.timing-dialog_input&]:border-app-border [.design-canvas_.timing-dialog_input&]:bg-app-surface",
+    "[.design-canvas_.timing-dialog_input&]:px-3 [.design-canvas_.timing-dialog_input&]:font-semibold",
+    "[.design-canvas_.timing-dialog_.time-signature-fields_input&]:w-full [.design-canvas_.timing-dialog_.time-signature-fields_input&]:min-w-0 [.design-canvas_.timing-dialog_.time-signature-fields_input&]:flex-1",
     "[.design-canvas_input&:focus-visible]:[outline:2px_solid_var(--purple)] [.design-canvas_input&:focus-visible]:[outline-offset:2px]",
   ].join(" "),
-  timeSignatureFields: "flex items-center gap-[10px]",
+  timeSignatureFields: "time-signature-fields flex w-full items-center gap-3",
 } as const;

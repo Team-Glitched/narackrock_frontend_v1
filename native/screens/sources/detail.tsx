@@ -37,7 +37,7 @@ function Article({ model }: { model: Extract<NativeSourceDetail, { state: "ready
     <View style={{ borderBottomWidth: 8, borderBottomColor: colors.panel }}>
       <View style={styles.column}>
         <View style={styles.row}>
-          <Cover url={source.thumbnailUrl} size={44} />
+          <Cover url={source.thumbnailUrl} seed={`source:${source.openSourceId}`} size={44} />
           <View style={styles.title}>
             <Text style={type.label}>{source.title}</Text>
             {source.usage && <Text style={type.caption}>{source.usage}</Text>}

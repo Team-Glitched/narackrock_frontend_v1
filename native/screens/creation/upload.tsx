@@ -74,9 +74,9 @@ export function CreationUploadScreen({ model, header }: ScreenProps<"creation-up
 const styles = StyleSheet.create({
   view: {
     flex: 1,
-    gap: 12,
+    gap: 20,
     paddingHorizontal: 16,
-    paddingTop: 12,
+    paddingTop: 16,
     paddingBottom: 24,
   },
   error: {
@@ -104,7 +104,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   pickText: { color: "#ffffff", fontSize: 14, fontWeight: "500" },
-  loadedWrap: { gap: 12 },
+  loadedWrap: { gap: 20 },
   fileBar: {
     flexDirection: "row",
     alignItems: "center",

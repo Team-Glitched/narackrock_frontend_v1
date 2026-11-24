@@ -332,7 +332,12 @@ export function ScopedSearch({
               key={song.shortId}
               onClick={() => onSong(song.shortId)}
             >
-              <AlbumArtwork src={song.albumImageUrl} title={song.title} className={sharedStyles.chartArt} />
+              <AlbumArtwork
+                src={song.albumImageUrl}
+                title={song.title}
+                seed={`short:${song.shortId}`}
+                className={sharedStyles.chartArt}
+              />
               <span className="flex min-w-0 flex-1 flex-col gap-[var(--supporting-copy-gap)]">
                 <strong className="truncate">{song.title}</strong>
                 <small className="truncate">{song.author.nickname}</small>
@@ -346,7 +351,12 @@ export function ScopedSearch({
               key={source.openSourceId}
               onClick={() => onSource(source.openSourceId)}
             >
-              <AlbumArtwork src={source.thumbnailUrl} title={source.title} className={sharedStyles.chartArt} />
+              <AlbumArtwork
+                src={source.thumbnailUrl}
+                title={source.title}
+                seed={`source:${source.openSourceId}`}
+                className={sharedStyles.chartArt}
+              />
               <span className="flex min-w-0 flex-1 flex-col gap-[var(--supporting-copy-gap)]">
                 <strong className="truncate">{source.title}</strong>
                 <small className="truncate">{source.writer.nickname}</small>

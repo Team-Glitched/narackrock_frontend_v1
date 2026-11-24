@@ -412,16 +412,16 @@ export const studioStyles = {
   ].join(" "),
   recordView: [
     "record-view",
-    "flex h-full min-h-0 w-full flex-col gap-3 px-4 pt-3 pb-4",
+    "flex h-full min-h-0 w-full flex-col gap-5 px-4 pt-4 pb-5",
     "[.source-audio-flow>&]:min-h-0 [.source-audio-flow>&]:flex-1",
   ].join(" "),
   recordConvert: [
     "record-convert",
-    "flex w-full items-center justify-between gap-3 py-1 text-body text-app-fg",
+    "flex w-full items-center justify-between gap-3 py-1.5 text-body text-app-fg",
   ].join(" "),
   recordActions: [
     "record-actions",
-    "flex w-full flex-wrap items-center justify-center gap-2.5",
+    "flex w-full flex-wrap items-center justify-center gap-3 pt-1",
     "[&>button]:h-11 [&>button]:min-w-0 [&>button]:flex-1 [&>button]:rounded-[12px]",
   ].join(" "),
   recordButton: [
@@ -490,7 +490,7 @@ export const studioStyles = {
   ].join(" "),
   audioTrimPicker: [
     "audio-trim-picker",
-    "flex w-full flex-col gap-3 text-body text-app-fg",
+    "flex w-full flex-col gap-5 text-body text-app-fg",
     "[&_audio]:hidden",
     "[&_p]:m-0",
   ].join(" "),
@@ -508,7 +508,7 @@ export const studioStyles = {
   ].join(" "),
   audioTrimActions: [
     "audio-trim-actions",
-    "flex w-full items-center gap-2.5 pt-1",
+    "flex w-full items-center gap-3 pt-2",
     "[&>button]:h-11 [&>button]:rounded-[12px]",
   ].join(" "),
   audioTrimError: ["audio-trim-error", "text-caption text-[#ff9ca8]"].join(" "),

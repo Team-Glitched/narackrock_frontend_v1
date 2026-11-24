@@ -205,7 +205,7 @@ function Works({ works, starBusy }: { works: NativeProfileWorks; starBusy: boole
                     act({ type: "open-short", shortId: song.shortId });
                   }}
                 >
-                  <Cover url={song.albumImageUrl} size={44} radius={6} />
+                  <Cover url={song.albumImageUrl} seed={`short:${song.shortId}`} size={44} radius={6} />
                   <Text style={[type.label, styles.flex]} numberOfLines={1}>
                     {song.title}
                   </Text>
@@ -256,7 +256,7 @@ function SongCard({ song, starBusy }: { song: NativeProfileSong; starBusy: boole
         style={styles.songCardBody}
         onPress={() => act({ type: "open-short", shortId: song.shortId })}
       >
-        <Cover url={song.albumImageUrl} size={160} radius={10} />
+        <Cover url={song.albumImageUrl} seed={`short:${song.shortId}`} size={160} radius={10} />
         <Text style={styles.songTitle} numberOfLines={1}>
           {song.title}
         </Text>

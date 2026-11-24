@@ -133,6 +133,7 @@ function OpenSourceCard({
           <AlbumArtwork
             src={source.thumbnailUrl}
             title={source.title}
+            seed={`source:${source.openSourceId}`}
             className="size-11 shrink-0 rounded-[8px]"
           />
           <span className="min-w-0 flex-1">
@@ -674,6 +675,7 @@ function SourceDetail({
             <AlbumArtwork
               src={source.thumbnailUrl}
               title={source.title}
+              seed={`source:${source.openSourceId}`}
               className="size-11 shrink-0 rounded-[8px]"
             />
             <span className="min-w-0 flex-1">

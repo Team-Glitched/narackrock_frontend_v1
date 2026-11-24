@@ -2,13 +2,10 @@ import { sharedStyles } from "@/styles/shared.styles";
 import { buttonVariants } from "@/styles/variants";
 import { cn } from "@/lib/utils";
 import { CanvasDialog } from "@/components/canvas-dialog";
-import { Dropdown } from "@/components/dropdown";
 import { DialogNumberInput } from "@/features/composition/dialog-number-input";
 import type { NativeTimingAction, NativeTimingSheet } from "@/lib/native-screens";
 import { useId, useState } from "react";
-import { timingDenominators, timingProblem, type ProjectTiming } from "./project-timing";
-
-const denominatorOptions = timingDenominators.map((value) => ({ value, label: String(value) }));
+import { timingProblem, type ProjectTiming } from "./project-timing";
 
 /** Saving state of a timing dialog: "적용" saves, closes on success and shows the failure otherwise. */
 function useTimingApply(
@@ -109,19 +106,20 @@ export function TimingDialog({
               value={draft.signature.numerator}
               min={1}
               max={12}
+              clamp={false}
               label="마디당 박 수"
               disabled={!editable}
               onChange={(numerator) =>
                 setDraft((old) => ({ ...old, signature: { ...old.signature, numerator } }))
               }
             />
-            <span>/</span>
-            <Dropdown
-              label="기준 음표"
-              options={denominatorOptions}
-              compact
-              className="min-w-15"
+            <span className="shrink-0 text-title font-bold text-app-muted select-none">/</span>
+            <DialogNumberInput
               value={draft.signature.denominator}
+              min={2}
+              max={16}
+              clamp={false}
+              label="기준 음표"
               disabled={!editable}
               onChange={(denominator) =>
                 setDraft((old) => ({
@@ -138,17 +136,18 @@ export function TimingDialog({
               type="range"
               min={30}
               max={300}
-              value={draft.bpm}
+              value={Math.min(300, Math.max(30, draft.bpm))}
               disabled={!editable}
               onChange={(event) => setDraft((old) => ({ ...old, bpm: Number(event.target.value) }))}
               style={{
-                background: `linear-gradient(to right,var(--white) ${((draft.bpm - 30) / 270) * 100}%,var(--line-strong) 0)`,
+                background: `linear-gradient(to right,var(--white) ${Math.max(0, Math.min(100, ((draft.bpm - 30) / 270) * 100))}%,var(--line-strong) 0)`,
               }}
             />
             <DialogNumberInput
               value={draft.bpm}
               min={30}
               max={300}
+              clamp={false}
               label="BPM 직접 입력"
               disabled={!editable}
               onChange={(bpm) => setDraft((old) => ({ ...old, bpm }))}
@@ -156,12 +155,15 @@ export function TimingDialog({
           </>
         )}
       </div>
-      {!editable && <p>곡의 BPM과 박자는 원작성자만 바꿀 수 있습니다.</p>}
-      {editable && problem && <p role="alert">{problem}</p>}
-      {error && <p role="alert">{error}</p>}
+      {!editable && <p className="m-0 text-caption text-app-muted">곡의 BPM과 박자는 원작성자만 바꿀 수 있습니다.</p>}
+      {editable && problem && <p role="alert" className="m-0 text-caption text-[#ff9ca8]">{problem}</p>}
+      {error && <p role="alert" className="m-0 text-caption text-[#ff9ca8]">{error}</p>}
       {editable && (
         <button
-          className={buttonVariants({ tone: "primary", size: "compact" })}
+          className={cn(
+            buttonVariants({ tone: "primary", size: "compact" }),
+            "h-10 w-full justify-center rounded-[12px]",
+          )}
           disabled={busy || problem !== null}
           onClick={() => void apply(draft)}
         >
@@ -170,7 +172,10 @@ export function TimingDialog({
       )}
       {!editable && (
         <button
-          className={buttonVariants({ tone: "secondary", size: "compact" })}
+          className={cn(
+            buttonVariants({ tone: "secondary", size: "compact" }),
+            "h-10 w-full justify-center rounded-[12px]",
+          )}
           onClick={onClose}
         >
           닫기

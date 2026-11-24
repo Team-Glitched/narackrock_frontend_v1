@@ -15,13 +15,11 @@ import {
   TextInput,
   View,
   type StyleProp,
+  type TextStyle,
   type ViewStyle,
 } from "react-native";
 
-import {
-  timingDenominators,
-  timingProblem,
-} from "../../../src/features/composition/project-timing";
+import { timingProblem } from "../../../src/features/composition/project-timing";
 import { SEARCH_QUERY_MAX_LENGTH, clampCodePoints } from "../../../src/lib/content-limits";
 import type {
   NativeInstrumentPicker,
@@ -144,6 +142,8 @@ export function NumberField({
   value,
   min,
   max,
+  clamp = true,
+  style,
   label,
   disabled = false,
   onChange,
@@ -151,14 +151,18 @@ export function NumberField({
   value: number;
   min: number;
   max?: number;
+  clamp?: boolean;
+  style?: StyleProp<TextStyle>;
   label: string;
   disabled?: boolean;
   onChange: (value: number) => void;
 }) {
   const [draft, setDraft] = useState<string | null>(null);
   const commit = () => {
-    if (draft !== null && draft.trim() !== "" && Number.isFinite(Number(draft)))
-      onChange(Math.min(max ?? Number.MAX_SAFE_INTEGER, Math.max(min, Math.round(Number(draft)))));
+    if (draft !== null && draft.trim() !== "" && Number.isFinite(Number(draft))) {
+      const rounded = Math.round(Number(draft));
+      onChange(clamp ? Math.min(max ?? Number.MAX_SAFE_INTEGER, Math.max(min, rounded)) : rounded);
+    }
     setDraft(null);
   };
   return (
@@ -172,7 +176,7 @@ export function NumberField({
       onChangeText={setDraft}
       onBlur={commit}
       onSubmitEditing={commit}
-      style={[styles.number, disabled && styles.disabled]}
+      style={[styles.number, style, disabled && styles.disabled]}
     />
   );
 }
@@ -394,31 +398,26 @@ function TimingDialog({ sheet }: { sheet: NativeTimingSheet }) {
             value={draft.numerator}
             min={1}
             max={12}
+            clamp={false}
+            style={[styles.timingNumber, styles.flex]}
             label="마디당 박 수"
             disabled={!editable}
             onChange={(numerator) => setDraft((old) => ({ ...old, numerator }))}
           />
-          <Text style={styles.label}>/</Text>
-          <View style={styles.row} accessibilityRole="radiogroup" accessibilityLabel="기준 음표">
-            {timingDenominators.map((denominator) => {
-              const checked = draft.denominator === denominator;
-              return (
-                <Touchable
-                  key={denominator}
-                  accessibilityRole="radio"
-                  accessibilityState={{ checked, disabled: !editable }}
-                  disabled={!editable}
-                  style={[styles.part, checked && styles.partChecked, !editable && styles.disabled]}
-                  onPress={() => setDraft((old) => ({ ...old, denominator }))}
-                >
-                  <Text style={styles.partText}>{denominator}</Text>
-                </Touchable>
-              );
-            })}
-          </View>
+          <Text style={styles.signatureSlash}>/</Text>
+          <NumberField
+            value={draft.denominator}
+            min={2}
+            max={16}
+            clamp={false}
+            style={[styles.timingNumber, styles.flex]}
+            label="기준 음표"
+            disabled={!editable}
+            onChange={(denominator) => setDraft((old) => ({ ...old, denominator }))}
+          />
         </View>
       ) : (
-        <View style={styles.volumeRow}>
+        <View style={styles.timingRow}>
           <Slider
             value={draft.bpm}
             min={30}
@@ -432,6 +431,8 @@ function TimingDialog({ sheet }: { sheet: NativeTimingSheet }) {
             value={draft.bpm}
             min={30}
             max={300}
+            clamp={false}
+            style={styles.timingNumber}
             label="BPM 직접 입력"
             disabled={!editable}
             onChange={(bpm) => setDraft((old) => ({ ...old, bpm }))}
@@ -445,12 +446,18 @@ function TimingDialog({ sheet }: { sheet: NativeTimingSheet }) {
       {sheet.error && <Alert>{sheet.error}</Alert>}
       {editable ? (
         <DialogButton
+          wide
           label={sheet.busy ? "저장 중..." : "적용"}
           disabled={sheet.busy || problem !== null}
           onPress={() => act({ type: "timing-apply", ...draft })}
         />
       ) : (
-        <DialogButton label="닫기" tone="secondary" onPress={() => act({ type: "timing-close" })} />
+        <DialogButton
+          wide
+          label="닫기"
+          tone="secondary"
+          onPress={() => act({ type: "timing-close" })}
+        />
       )}
     </Dialog>
   );
@@ -464,7 +471,6 @@ export function SourceSheet({ picker }: { picker: NativeSourcePicker | null }) {
 function SourceDialog({ picker }: { picker: NativeSourcePicker }) {
   const { act } = useScreen();
   const [query, setQuery] = useState(picker.query);
-  const [menuOpen, setMenuOpen] = useState(false);
   const close = () => {
     if (!picker.busy) act({ type: "source-close" });
   };
@@ -487,48 +493,30 @@ function SourceDialog({ picker }: { picker: NativeSourcePicker }) {
         </Touchable>
       </View>
       {picker.tabs.length > 1 && (
-        <View style={styles.sourceSelectWrap}>
-          <Touchable
-            accessibilityRole="button"
-            accessibilityLabel="가져올 자료"
-            accessibilityState={{ expanded: menuOpen, disabled: picker.busy }}
-            disabled={picker.busy}
-            style={[styles.sourceSelectButton, menuOpen && styles.sourceSelectButtonOpen]}
-            onPress={() => setMenuOpen((open) => !open)}
-          >
-            <Text style={styles.sourceSelectText}>{sourceTabLabels[picker.tab]}</Text>
-            <Text style={styles.sourceSelectChevron}>{menuOpen ? "▲" : "▼"}</Text>
-          </Touchable>
-          {menuOpen && (
-            <View style={styles.sourceSelectMenu}>
-              {picker.tabs.map((value) => {
-                const selected = picker.tab === value;
-                return (
-                  <Touchable
-                    key={value}
-                    accessibilityRole="button"
-                    accessibilityState={{ selected, disabled: picker.busy }}
-                    disabled={picker.busy}
-                    style={[styles.sourceSelectOption, selected && styles.sourceSelectOptionSelected]}
-                    onPress={() => {
-                      setMenuOpen(false);
-                      act({ type: "source-tab", tab: value });
-                    }}
-                  >
-                    <Text
-                      style={[
-                        styles.sourceSelectOptionText,
-                        selected && styles.sourceSelectOptionTextSelected,
-                      ]}
-                    >
-                      {sourceTabLabels[value]}
-                    </Text>
-                  </Touchable>
-                );
-              })}
-            </View>
-          )}
-        </View>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.sourceChipScroll}
+          contentContainerStyle={styles.sourceChipRow}
+        >
+          {picker.tabs.map((value) => {
+            const selected = picker.tab === value;
+            return (
+              <Touchable
+                key={value}
+                accessibilityRole="button"
+                accessibilityState={{ selected, disabled: picker.busy }}
+                disabled={picker.busy}
+                style={[styles.sourceChip, selected && styles.sourceChipActive, picker.busy && styles.disabled]}
+                onPress={() => act({ type: "source-tab", tab: value })}
+              >
+                <Text style={[styles.sourceChipText, selected && styles.sourceChipTextActive]}>
+                  {sourceTabLabels[value]}
+                </Text>
+              </Touchable>
+            );
+          })}
+        </ScrollView>
       )}
       {picker.tab === "upload" ? (
         <>
@@ -673,7 +661,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.bg,
   },
   volumeDialog: {},
-  timingDialog: { gap: 16, alignItems: "flex-start" },
+  timingDialog: { gap: 20, alignItems: "stretch" },
   instrumentDialog: { gap: 16 },
   sourceDialog: { width: 540, gap: 16 },
   dialogTitle: {
@@ -693,6 +681,15 @@ const styles = StyleSheet.create({
   identityText: { flex: 1, gap: 10 },
   identityName: { color: colors.fg, fontSize: 16, lineHeight: 19, fontWeight: "700" },
   volumeRow: { flexDirection: "row", alignItems: "center", gap: 12, alignSelf: "stretch" },
+  timingRow: { flexDirection: "row", alignItems: "center", gap: 16, alignSelf: "stretch" },
+  timingNumber: {
+    width: 72,
+    height: 40,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.border,
+    fontWeight: "600",
+  },
   volumeIcon: { marginRight: 18 },
   instrumentChange: { marginTop: 20 },
   emptyMidiButton: { minHeight: 44, marginTop: 12 },
@@ -749,41 +746,25 @@ const styles = StyleSheet.create({
   },
   partChecked: { backgroundColor: colors.primary },
   partText: { color: colors.fg, fontSize: 14, lineHeight: 20, fontWeight: "500" },
-  signatureRow: { flexDirection: "row", alignItems: "center", gap: 10 },
+  signatureRow: { flexDirection: "row", alignItems: "center", gap: 12, alignSelf: "stretch" },
+  signatureSlash: { color: colors.muted, fontSize: 18, fontWeight: "700" },
   sourceHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   sourceClose: { width: 32, height: 32, alignItems: "center", justifyContent: "center" },
-  sourceSelectWrap: { gap: 6 },
-  sourceSelectButton: {
-    minHeight: 40,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    borderRadius: 8,
+  sourceChipScroll: { flexGrow: 0 },
+  sourceChipRow: { alignItems: "center", gap: 8, paddingVertical: 4 },
+  sourceChip: {
+    minHeight: 28,
+    borderRadius: 999,
     borderWidth: 1,
     borderColor: colors.border,
-    backgroundColor: colors.surface,
     paddingHorizontal: 12,
-  },
-  sourceSelectButtonOpen: { borderColor: "#aa8aff" },
-  sourceSelectText: { color: colors.fg, fontSize: 14, fontWeight: "500" },
-  sourceSelectChevron: { color: colors.muted, fontSize: 11 },
-  sourceSelectMenu: {
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: colors.border,
-    backgroundColor: "#23232a",
-    padding: 4,
-    gap: 2,
-  },
-  sourceSelectOption: {
-    minHeight: 36,
-    borderRadius: 8,
+    paddingVertical: 4,
+    alignItems: "center",
     justifyContent: "center",
-    paddingHorizontal: 10,
   },
-  sourceSelectOptionSelected: { backgroundColor: "#38265a" },
-  sourceSelectOptionText: { color: colors.fg, fontSize: 14 },
-  sourceSelectOptionTextSelected: { color: "#d5c4ff", fontWeight: "600" },
+  sourceChipActive: { borderColor: colors.primary, backgroundColor: colors.primary },
+  sourceChipText: { color: colors.muted, fontSize: 12, lineHeight: 18, fontWeight: "500" },
+  sourceChipTextActive: { color: colors.fg, fontWeight: "500" },
   search: {
     borderRadius: 10,
     paddingVertical: 10,

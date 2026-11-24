@@ -5,6 +5,7 @@ import { useHiddenPosts } from "@/features/community/hidden-posts";
 import { useState } from "react";
 import { Asset } from "@/components/asset";
 import { AlbumArtwork } from "@/components/music-card";
+import { pickDefaultCover } from "@/lib/default-covers";
 import { Avatar } from "@/components/avatar";
 import { useCurrentUserId } from "@/features/auth/use-current-user";
 import { SignInRequired } from "@/features/auth/sign-in-required";
@@ -167,10 +168,18 @@ function SavedLibrary({ onOpenPost, onOpenSong }: SavedScreenProps) {
                 onClick={() => (kind === "post" ? onOpenPost(item.id) : onOpenSong(item.id))}
               >
                 {kind === "song" ? (
-                  <AlbumArtwork src={item.imageUrl} title={item.title} className="size-16 shrink-0 rounded-[8px]" />
+                  <AlbumArtwork
+                    src={item.imageUrl}
+                    title={item.title}
+                    seed={`short:${item.id}`}
+                    className="size-16 shrink-0 rounded-[8px]"
+                  />
                 ) : (
                   <span className="size-20 flex-[0_0_80px] overflow-hidden rounded-[6px] bg-app-surface [&>img]:size-full [&>img]:object-cover">
-                    {item.imageUrl ? <img src={item.imageUrl} alt="" /> : null}
+                    <img
+                      src={item.imageUrl?.trim() || pickDefaultCover(`post:${item.id}`)}
+                      alt={item.imageUrl ? "게시글 첨부 이미지" : "게시글 기본 이미지"}
+                    />
                   </span>
                 )}
                 <span className="flex min-w-0 flex-1 flex-col gap-1 overflow-hidden [&>strong]:block [&>strong]:w-full [&>strong]:truncate [&>strong]:text-label [&>strong]:leading-[22px] [&>strong]:font-semibold [&>small]:truncate [&>small]:text-body [&>small]:leading-[20px] [&>small]:text-app-muted">

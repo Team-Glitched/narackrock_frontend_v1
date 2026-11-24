@@ -16,11 +16,18 @@ import { MetronomeIcon } from "@/features/composition/metronome-icon";
 import type { AudioSelection } from "@/features/composition/prepare-audio-file";
 import type { ProjectTiming } from "@/features/composition/project-timing";
 import {
+  RECORD_COUNTDOWN_START,
+  countdownBeatMs,
+} from "@/features/composition/record-countdown";
+import {
   defaultSignature,
   parseSignature,
   type TimeSignature,
 } from "@/features/composition/time-signature";
-import { useMetronome } from "@/features/composition/use-metronome";
+import {
+  createMetronomeClickPlayer,
+  useMetronome,
+} from "@/features/composition/use-metronome";
 import { recordNativeAudio } from "@/lib/native-app";
 
 export type CreationMethod = "upload" | "record" | "note";
@@ -144,7 +151,7 @@ export function CompositionUploadScreen({
           />
         </label>
       ) : (
-        <div className="flex flex-col gap-3 pb-2">
+        <div className="flex flex-col gap-5 pb-3">
           <div className="flex items-center justify-between gap-3 py-1">
             <span className="truncate text-body font-medium text-white">
               {selected.file.name}
@@ -290,11 +297,13 @@ export function useCompositionRecorder({
   onSave,
   onTransform,
   native = false,
+  countdown: countdownOption,
   beforeSubmit,
 }: {
   onSave: (file: File) => Promise<void>;
   onTransform?: (file: File, soundKind?: AudioTranscriptionMode) => Promise<void>;
   native?: boolean;
+  countdown?: { bpm: number; timeSignature?: string };
   beforeSubmit?: () => void;
 }) {
   const recorder = useRef<MediaRecorder | null>(null);
@@ -302,7 +311,11 @@ export function useCompositionRecorder({
   const discardOnStop = useRef(false);
   const nativeStartedAt = useRef<number | null>(null);
   const mounted = useRef(true);
+  const countdownTimers = useRef<number[]>([]);
+  const pendingStream = useRef<MediaStream | null>(null);
+  const clickPlayer = useRef<ReturnType<typeof createMetronomeClickPlayer> | null>(null);
   const [liveStream, setLiveStream] = useState<MediaStream | null>(null);
+  const [countdown, setCountdown] = useState<number | null>(null);
   const [recording, setRecording] = useState(false);
   const [pending, setPending] = useState(false);
   const [soundKind, setSoundKind] = useState<AudioTranscriptionMode>("AUTO");
@@ -311,10 +324,28 @@ export function useCompositionRecorder({
   const [durationMs, setDurationMs] = useState<number | null>(null);
   const [url, setUrl] = useState("");
   const [error, setError] = useState("");
+  function clearCountdownTimers() {
+    for (const timer of countdownTimers.current) window.clearTimeout(timer);
+    countdownTimers.current = [];
+  }
+  function cancelCountdown() {
+    clearCountdownTimers();
+    clickPlayer.current?.close();
+    clickPlayer.current = null;
+    pendingStream.current?.getTracks().forEach((track) => track.stop());
+    pendingStream.current = null;
+    setCountdown(null);
+  }
   useEffect(() => {
     mounted.current = true;
     return () => {
       mounted.current = false;
+      for (const timer of countdownTimers.current) window.clearTimeout(timer);
+      countdownTimers.current = [];
+      clickPlayer.current?.close();
+      clickPlayer.current = null;
+      pendingStream.current?.getTracks().forEach((track) => track.stop());
+      pendingStream.current = null;
       if (recorder.current?.state === "recording") recorder.current.stop();
       stream.current?.getTracks().forEach((track) => track.stop());
       // Leaving the page discards an unfinished app recording.
@@ -368,6 +399,11 @@ export function useCompositionRecorder({
   }
   async function toggle() {
     if (native) return toggleNative();
+    if (countdown !== null) {
+      cancelCountdown();
+      recorder.current = null;
+      return;
+    }
     if (recording) {
       recorder.current?.stop();
       setRecording(false);
@@ -391,6 +427,10 @@ export function useCompositionRecorder({
           autoGainControl: true,
         },
       });
+      if (!mounted.current) {
+        nextStream.getTracks().forEach((track) => track.stop());
+        return;
+      }
       stream.current = nextStream;
       const next = new MediaRecorder(nextStream);
       recorder.current = next;
@@ -410,10 +450,41 @@ export function useCompositionRecorder({
         setFile(recorded);
         setUrl(URL.createObjectURL(recorded));
       };
-      next.start();
-      setLiveStream(nextStream);
-      setRecording(true);
+      if (countdownOption) {
+        pendingStream.current = nextStream;
+        const beatMs = countdownBeatMs(countdownOption.bpm, countdownOption.timeSignature);
+        const player = createMetronomeClickPlayer();
+        clickPlayer.current = player;
+        setCountdown(RECORD_COUNTDOWN_START);
+        player.click(false);
+        for (let step = 1; step < RECORD_COUNTDOWN_START; step += 1) {
+          const nextCount = RECORD_COUNTDOWN_START - step;
+          const timer = window.setTimeout(() => {
+            if (!mounted.current || pendingStream.current !== nextStream) return;
+            setCountdown(nextCount);
+            player.click(false);
+          }, beatMs * step);
+          countdownTimers.current.push(timer);
+        }
+        const startTimer = window.setTimeout(() => {
+          if (!mounted.current || pendingStream.current !== nextStream) return;
+          clearCountdownTimers();
+          pendingStream.current = null;
+          clickPlayer.current?.close();
+          clickPlayer.current = null;
+          setCountdown(null);
+          next.start();
+          setLiveStream(nextStream);
+          setRecording(true);
+        }, beatMs * RECORD_COUNTDOWN_START);
+        countdownTimers.current.push(startTimer);
+      } else {
+        next.start();
+        setLiveStream(nextStream);
+        setRecording(true);
+      }
     } catch (cause) {
+      cancelCountdown();
       setError(cause instanceof Error ? cause.message : "마이크 권한을 확인해 주세요.");
     } finally {
       setPending(false);
@@ -458,10 +529,12 @@ export function useCompositionRecorder({
         void recordNativeAudio("cancel").catch(() => {});
       }
     } else {
+      cancelCountdown();
       if (recorder.current?.state === "recording") {
         discardOnStop.current = true;
         recorder.current.stop();
       }
+      recorder.current = null;
       stream.current?.getTracks().forEach((track) => track.stop());
       setLiveStream(null);
       setRecording(false);
@@ -475,6 +548,7 @@ export function useCompositionRecorder({
     soundKind,
     setSoundKind,
     liveStream,
+    countdown,
     recording,
     pending,
     file,
@@ -482,7 +556,7 @@ export function useCompositionRecorder({
     url,
     error,
     /** The status line under the recorder. */
-    status: recording ? "녹음 중" : pending ? pendingLabel : file ? "녹음 완료" : "",
+    status: countdown !== null ? "녹음 준비" : recording ? "녹음 중" : pending ? pendingLabel : file ? "녹음 완료" : "",
     toggle,
     reset,
     save,
@@ -543,6 +617,7 @@ export function CompositionRecordScreen({
     soundKind,
     setSoundKind,
     liveStream,
+    countdown,
     recording,
     pending,
     file,
@@ -555,6 +630,7 @@ export function CompositionRecordScreen({
   } = useCompositionRecorder({
     onSave: saveWithSelection,
     onTransform: transformWithSelection,
+    countdown: { bpm, timeSignature: formattedSignature },
     beforeSubmit: () => {
       previewControlRef.current?.stop();
       setPreviewPlaying(false);
@@ -568,8 +644,9 @@ export function CompositionRecordScreen({
     timeSignature: formattedSignature,
   });
 
+  const countingDown = countdown !== null;
   const recorded = Boolean(url);
-  const canRetry = !pending && (recording || recorded);
+  const canRetry = !pending && (countingDown || recording || recorded);
 
   return (
     <div
@@ -584,10 +661,10 @@ export function CompositionRecordScreen({
         signature={parsedSignature}
         onTiming={onTiming}
         timingMode={timingMode}
-        disabled={recording || pending}
+        disabled={recording || countingDown || pending}
       />
 
-      <div className="flex min-h-0 w-full flex-1 flex-col gap-3 overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      <div className="flex min-h-0 w-full flex-1 flex-col gap-5 overflow-y-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
         {error && (
           <p role="alert" className="m-0 rounded-[12px] border border-[#ff4d4f]/30 bg-[#ff4d4f]/10 px-3.5 py-2 text-caption text-[#ff9ca8]">
             {error}
@@ -595,41 +672,55 @@ export function CompositionRecordScreen({
         )}
 
         {!recorded ? (
-          <div className="my-auto flex w-full flex-col items-center gap-5">
-            <strong
-              aria-label={`녹음 경과 시간 ${Math.floor(elapsedMs / 1000)}초`}
-              className="tabular-nums text-[32px] leading-tight font-bold tracking-tight text-white"
-            >
-              {formatTrimTime(elapsedMs)}
-            </strong>
-
-            <div className="relative flex h-28 w-full items-center justify-center overflow-hidden">
-              {recording && liveStream ? (
-                <RecordingMeter stream={liveStream} onElapsedMs={setElapsedMs} />
-              ) : (
-                <>
-                  <div className="pointer-events-none absolute inset-x-0 top-1/2 h-px bg-app-primary/25" />
-                  <div
-                    className="pointer-events-none absolute inset-0 flex items-center justify-center gap-1.5 px-4 opacity-45"
-                    aria-hidden="true"
-                  >
-                    {Array.from({ length: 28 }, (_, index) => {
-                      const height = 14 + Math.abs(Math.sin((index + 1) * 0.65)) * 42;
-                      return (
-                        <span
-                          key={index}
-                          className="w-[3px] rounded-full bg-[#7c3aed]"
-                          style={{ height: `${Math.round(height)}%` }}
-                        />
-                      );
-                    })}
-                  </div>
-                </>
-              )}
+          countingDown ? (
+            <div className="my-auto flex w-full flex-col items-center justify-center">
+              <div className="flex size-28 items-center justify-center rounded-full border-2 border-app-primary bg-app-primary/15">
+                <strong
+                  aria-live="assertive"
+                  aria-label={`녹음 시작 ${countdown}초 전`}
+                  className="tabular-nums text-[56px] leading-none font-extrabold text-white"
+                >
+                  {countdown}
+                </strong>
+              </div>
             </div>
-          </div>
+          ) : (
+            <div className="my-auto flex w-full flex-col items-center gap-5">
+              <strong
+                aria-label={`녹음 경과 시간 ${Math.floor(elapsedMs / 1000)}초`}
+                className="tabular-nums text-[32px] leading-tight font-bold tracking-tight text-white"
+              >
+                {formatTrimTime(elapsedMs)}
+              </strong>
+
+              <div className="relative flex h-28 w-full items-center justify-center overflow-hidden">
+                {recording && liveStream ? (
+                  <RecordingMeter stream={liveStream} onElapsedMs={setElapsedMs} />
+                ) : (
+                  <>
+                    <div className="pointer-events-none absolute inset-x-0 top-1/2 h-px bg-app-primary/25" />
+                    <div
+                      className="pointer-events-none absolute inset-0 flex items-center justify-center gap-1.5 px-4 opacity-45"
+                      aria-hidden="true"
+                    >
+                      {Array.from({ length: 28 }, (_, index) => {
+                        const height = 14 + Math.abs(Math.sin((index + 1) * 0.65)) * 42;
+                        return (
+                          <span
+                            key={index}
+                            className="w-[3px] rounded-full bg-[#7c3aed]"
+                            style={{ height: `${Math.round(height)}%` }}
+                          />
+                        );
+                      })}
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          )
         ) : (
-          <div className="flex w-full flex-col gap-3 pb-2">
+          <div className="flex w-full flex-col gap-5 pb-3">
             <AudioTrimPicker
               key={url}
               url={url}
@@ -694,7 +785,7 @@ export function CompositionRecordScreen({
       </div>
 
       {/* Portrait Piano Roll style bottom transport bar */}
-      <div className="flex shrink-0 items-center justify-center gap-8 pt-2 pb-1">
+      <div className="flex shrink-0 items-center justify-center gap-8 pt-4 pb-2">
         <button
           type="button"
           disabled={!canRetry}
@@ -728,11 +819,11 @@ export function CompositionRecordScreen({
           <button
             type="button"
             disabled={pending}
-            aria-label={recording ? "녹음 종료" : "녹음 시작"}
+            aria-label={countingDown ? "카운트다운 취소" : recording ? "녹음 종료" : "녹음 시작"}
             onClick={() => {
               previewControlRef.current?.stop();
               setPreviewPlaying(false);
-              if (!recording) {
+              if (!recording && !countingDown) {
                 selectionRef.current = undefined;
                 setElapsedMs(0);
               }
@@ -740,13 +831,13 @@ export function CompositionRecordScreen({
             }}
             className={cn(
               studioStyles.recordButton,
-              recording
+              recording || countingDown
                 ? "bg-[#ef4444] ring-4 ring-[#ef4444]/25"
                 : "bg-app-primary shadow-[0_6px_20px_rgba(76,0,229,0.4)] hover:brightness-110",
               pending && "opacity-50",
             )}
           >
-            {recording ? (
+            {recording || countingDown ? (
               <Square size={22} fill="currentColor" aria-hidden="true" />
             ) : (
               <Mic size={26} aria-hidden="true" />

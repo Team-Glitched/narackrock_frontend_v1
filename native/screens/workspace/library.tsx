@@ -182,7 +182,12 @@ export function SavedSources({
           {item.source ? (
             <>
               <View style={styles.savedHead}>
-                <Cover url={item.source.thumbnailUrl} size={48} radius={8} />
+                <Cover
+                  url={item.source.thumbnailUrl}
+                  seed={`source:${item.openSourceId}`}
+                  size={48}
+                  radius={8}
+                />
                 <View style={styles.savedMeta}>
                   <Text style={[text.labelStrong, styles.savedTitle]} numberOfLines={1}>
                     {item.source.title}

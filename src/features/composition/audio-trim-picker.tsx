@@ -993,13 +993,13 @@ export function AudioTrimPicker({
           </div>
 
           {enableSplice && (
-            <div className="flex flex-col gap-2">
-              <div className="grid grid-cols-5 gap-1.5" role="toolbar" aria-label="오디오 자르기 및 이어 붙이기 도구">
+            <div className="flex flex-col gap-3">
+              <div className="grid grid-cols-5 gap-2" role="toolbar" aria-label="오디오 자르기 및 이어 붙이기 도구">
                 <button
                   type="button"
                   disabled={busy || !canSplit}
                   onClick={() => trim.splitAtCursor(cursorSourceMs)}
-                  className="flex h-8 items-center justify-center gap-1 whitespace-nowrap rounded-[8px] border border-[#32323d] bg-[#23232a] px-1 text-[11px] font-medium text-app-fg transition-colors hover:border-app-primary disabled:opacity-40"
+                  className="flex h-9 items-center justify-center gap-1 whitespace-nowrap rounded-[8px] border border-[#32323d] bg-[#23232a] px-1 text-[11px] font-medium text-app-fg transition-colors hover:border-app-primary disabled:opacity-40"
                 >
                   <Scissors size={12} aria-hidden="true" />
                   <span>자르기</span>
@@ -1008,7 +1008,7 @@ export function AudioTrimPicker({
                   type="button"
                   disabled={busy || segments.length <= 1}
                   onClick={() => trim.deleteSelected()}
-                  className="flex h-8 items-center justify-center gap-1 whitespace-nowrap rounded-[8px] border border-[#32323d] bg-[#23232a] px-1 text-[11px] font-medium text-app-fg transition-colors hover:border-app-primary disabled:opacity-40"
+                  className="flex h-9 items-center justify-center gap-1 whitespace-nowrap rounded-[8px] border border-[#32323d] bg-[#23232a] px-1 text-[11px] font-medium text-app-fg transition-colors hover:border-app-primary disabled:opacity-40"
                 >
                   <Trash2 size={12} aria-hidden="true" />
                   <span>삭제</span>
@@ -1017,7 +1017,7 @@ export function AudioTrimPicker({
                   type="button"
                   disabled={busy || !canDuplicate}
                   onClick={() => trim.duplicateSelected()}
-                  className="flex h-8 items-center justify-center gap-1 whitespace-nowrap rounded-[8px] border border-[#32323d] bg-[#23232a] px-1 text-[11px] font-medium text-app-fg transition-colors hover:border-app-primary disabled:opacity-40"
+                  className="flex h-9 items-center justify-center gap-1 whitespace-nowrap rounded-[8px] border border-[#32323d] bg-[#23232a] px-1 text-[11px] font-medium text-app-fg transition-colors hover:border-app-primary disabled:opacity-40"
                 >
                   <CopyPlus size={12} aria-hidden="true" />
                   <span>붙이기</span>
@@ -1026,7 +1026,7 @@ export function AudioTrimPicker({
                   type="button"
                   disabled={busy || !trim.canUndo}
                   onClick={() => trim.undo()}
-                  className="flex h-8 items-center justify-center gap-1 whitespace-nowrap rounded-[8px] border border-[#32323d] bg-[#23232a] px-1 text-[11px] font-medium text-app-fg transition-colors hover:border-app-primary disabled:opacity-40"
+                  className="flex h-9 items-center justify-center gap-1 whitespace-nowrap rounded-[8px] border border-[#32323d] bg-[#23232a] px-1 text-[11px] font-medium text-app-fg transition-colors hover:border-app-primary disabled:opacity-40"
                 >
                   <Undo2 size={12} aria-hidden="true" />
                   <span>되돌리기</span>
@@ -1035,7 +1035,7 @@ export function AudioTrimPicker({
                   type="button"
                   disabled={busy || !trim.edited}
                   onClick={() => trim.reset()}
-                  className="flex h-8 items-center justify-center gap-1 whitespace-nowrap rounded-[8px] border border-[#32323d] bg-[#23232a] px-1 text-[11px] font-medium text-app-muted transition-colors hover:border-app-primary hover:text-app-fg disabled:opacity-40"
+                  className="flex h-9 items-center justify-center gap-1 whitespace-nowrap rounded-[8px] border border-[#32323d] bg-[#23232a] px-1 text-[11px] font-medium text-app-muted transition-colors hover:border-app-primary hover:text-app-fg disabled:opacity-40"
                 >
                   <RotateCcw size={12} aria-hidden="true" />
                   <span>초기화</span>

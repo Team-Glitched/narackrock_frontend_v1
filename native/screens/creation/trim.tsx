@@ -494,7 +494,7 @@ function Handle({
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
-  picker: { width: "100%", maxWidth: 520, gap: 12 },
+  picker: { width: "100%", maxWidth: 520, gap: 20 },
   loading: { flexDirection: "row", alignItems: "center", gap: 8 },
   caption: { color: colors.muted, fontSize: 12, lineHeight: 18 },
   error: { color: "#ff9ca8", fontSize: 13, lineHeight: 18 },
@@ -627,11 +627,11 @@ const styles = StyleSheet.create({
   previewToggleText: { color: "#ffffff", fontSize: 13 },
   previewTime: { width: 52, color: "#d8dce1", fontSize: 12, fontVariant: ["tabular-nums"] },
   previewTotal: { color: colors.muted, fontSize: 12, fontVariant: ["tabular-nums"] },
-  spliceWrap: { gap: 8 },
-  toolRow: { flexDirection: "row", alignItems: "center", gap: 6 },
+  spliceWrap: { gap: 12 },
+  toolRow: { flexDirection: "row", alignItems: "center", gap: 8 },
   toolChip: {
     flex: 1,
-    height: 32,
+    height: 36,
     paddingHorizontal: 4,
     borderRadius: 8,
     borderWidth: 1,
@@ -659,7 +659,7 @@ const styles = StyleSheet.create({
   segChipTextActive: { color: "#ffffff", fontSize: 11, fontWeight: "600", fontVariant: ["tabular-nums"] },
   segArrows: { flexDirection: "row", alignItems: "center", gap: 2, borderLeftWidth: 1, borderLeftColor: "rgba(255,255,255,0.15)", paddingLeft: 4 },
   segArrowBtn: { paddingHorizontal: 4 },
-  actions: { flexDirection: "row", gap: 10, paddingTop: 4 },
+  actions: { flexDirection: "row", gap: 12, paddingTop: 8 },
   action: {
     flex: 1,
     height: 44,

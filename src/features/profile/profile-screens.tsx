@@ -112,6 +112,7 @@ function ProfileWorks({
               key={song.shortId}
               title={song.title}
               albumImageUrl={song.albumImageUrl}
+              seed={`short:${song.shortId}`}
               onOpen={() => onOpen(song.shortId)}
               cornerSlot={
                 featured ? (
@@ -149,7 +150,12 @@ function ProfileWorks({
                       setShowAll(false);
                       onOpen(song.shortId);
                     }}>
-                      <AlbumArtwork src={song.albumImageUrl} title={song.title} className="size-11 shrink-0 rounded-[6px]" />
+                      <AlbumArtwork
+                        src={song.albumImageUrl}
+                        title={song.title}
+                        seed={`short:${song.shortId}`}
+                        className="size-11 shrink-0 rounded-[6px]"
+                      />
                       <span className="min-w-0 flex-1"><strong className="block truncate">{song.title}</strong></span>
                     </button>
                   </li>
@@ -229,6 +235,7 @@ function OwnWorks({
                     key={song.shortId}
                     title={song.title}
                     albumImageUrl={song.albumImageUrl}
+                    seed={`short:${song.shortId}`}
                     onOpen={() => onOpen(song.shortId)}
                     cornerSlot={
                       <FeaturedStarButton

@@ -124,6 +124,7 @@ function SavedSourceList({ query, onOpen }: { query: string; onOpen: (id: number
                 <AlbumArtwork
                   src={item.source.thumbnailUrl}
                   title={item.source.title}
+                  seed={`source:${item.openSourceId}`}
                   className="size-12 shrink-0 rounded-[8px]"
                 />
                 <div className="min-w-0 flex-1">
