@@ -1,6 +1,7 @@
 import { studioStyles } from "@/styles/studio.styles";
 import { cn } from "@/lib/utils";
 import { CanvasDialog } from "@/components/canvas-dialog";
+import { LoadingOverlay } from "@/components/loading-overlay";
 import { nativeApp } from "@/lib/native-app";
 import { NoteSettingsDialog } from "./note-settings-dialog";
 import { StudioSourceDialog } from "./studio-source-dialog";
@@ -48,7 +49,11 @@ export function NoteEditorScreen({
       );
     return (
       <div className={cn(studioStyles.studio, studioStyles.studioState, portrait && studioStyles.studioPortrait)}>
-        <p role={load.state === "error" ? "alert" : "status"}>{load.message}</p>
+        {load.state === "loading" ? (
+          <LoadingOverlay message={load.message} />
+        ) : (
+          <p role={load.state === "error" ? "alert" : "status"}>{load.message}</p>
+        )}
         <button onClick={onBack}>돌아가기</button>
       </div>
     );
@@ -405,6 +410,11 @@ function LoadedNoteEditor({
           />
         )}
       {!portrait && roll}
+      {busy ? (
+        <LoadingOverlay message="작업을 처리하는 중입니다." />
+      ) : playback.preparing ? (
+        <LoadingOverlay message="악기를 준비하는 중입니다." />
+      ) : null}
     </div>
   );
 }

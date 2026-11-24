@@ -41,6 +41,7 @@ import {
   clearCreationDraft,
 } from "@/features/community/creation-draft";
 import { CanvasDialog } from "@/components/canvas-dialog";
+import { LoadingOverlay } from "@/components/loading-overlay";
 import { NativeDialog } from "@/components/native-dialog";
 import { nativeApp } from "@/lib/native-app";
 import { createPost, proposeGallery } from "@/lib/api/community";
@@ -939,6 +940,7 @@ function SocialCreateFormContent({ form }: { form: SocialCreateState }) {
           </div>
         </CanvasDialog>
       )}
+      {kind === "source" && busy && <LoadingOverlay message="샘플을 등록하는 중입니다." />}
     </form>
   );
 }

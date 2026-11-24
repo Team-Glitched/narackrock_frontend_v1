@@ -13,6 +13,7 @@ import {
   type SyntheticEvent,
 } from "react";
 import { LoaderCircle } from "lucide-react";
+import { LoadingOverlay } from "@/components/loading-overlay";
 import type { AudioSelection } from "@/features/composition/prepare-audio-file";
 import {
   centerAudioSelection,
@@ -151,11 +152,13 @@ export function AudioTrimPicker({
   onSave,
   onCancel,
   saveLabel,
+  suppressLoadingOverlay = false,
 }: {
   url: string;
   onSave: (selection: AudioSelection) => Promise<void>;
   onCancel?: () => void;
   saveLabel: string;
+  suppressLoadingOverlay?: boolean;
 }) {
   const audioRef = useRef<HTMLAudioElement>(null);
   const waveformRef = useRef<HTMLDivElement>(null);
@@ -239,6 +242,7 @@ export function AudioTrimPicker({
   const endPercent = durationMs && selection ? (selection.endMs / durationMs) * 100 : 0;
   return (
     <div className={studioStyles.audioTrimPicker}>
+      {busy && !suppressLoadingOverlay && <LoadingOverlay message="오디오를 올리는 중입니다." />}
       <audio
         ref={audioRef}
         src={url}

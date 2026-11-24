@@ -92,7 +92,11 @@ export default function UploadPage() {
           {route.projectId === null ? (
             <PageState error>올바르지 않은 페이지 주소입니다.</PageState>
           ) : (
-            <CompositionUploadScreen onBack={() => void cancel()} onSave={save} />
+            <CompositionUploadScreen
+              onBack={() => void cancel()}
+              onSave={save}
+              suppressLoadingOverlay={instrument.open}
+            />
           )}
         </div>
         <Footer activeTab={null} />
