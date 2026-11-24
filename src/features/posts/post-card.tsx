@@ -20,6 +20,16 @@ import { useCurrentUserId } from "@/features/auth/use-current-user";
 import { applyPostEdit, applyPostRemoval, postDetailQuery } from "@/features/posts/post-queries";
 import { postError, relativeTime } from "@/features/posts/post-utils";
 import { reportPost } from "@/lib/api/reports";
+import {
+  MODERATION_REASON_MAX_LENGTH,
+  POST_CONTENT_MAX_LENGTH,
+  POST_TITLE_MAX_LENGTH,
+  clampCodePoints,
+  codePointLength,
+  hasVisibleText,
+  sanitizeMultiline,
+  sanitizeSingleLine,
+} from "@/lib/content-limits";
 
 type CommunityPostProps = {
   moderation?: ModerationScope;
@@ -144,26 +154,39 @@ export function useCommunityPostCard({
   }
 
   function saveEdit(edit: { title: string; content: string }) {
-    if (!edit.title.trim() || !edit.content.trim()) {
+    const cleanTitle = sanitizeSingleLine(edit.title);
+    const cleanContent = sanitizeMultiline(edit.content);
+    if (!cleanTitle || !hasVisibleText(cleanTitle) || !cleanContent || !hasVisibleText(cleanContent)) {
       setActionError("제목과 내용을 모두 입력해주세요.");
+      return;
+    }
+    if (codePointLength(cleanTitle) > POST_TITLE_MAX_LENGTH) {
+      setActionError(`제목은 ${POST_TITLE_MAX_LENGTH}자 이내로 입력해주세요.`);
+      return;
+    }
+    if (codePointLength(cleanContent) > POST_CONTENT_MAX_LENGTH) {
+      setActionError(`본문은 ${POST_CONTENT_MAX_LENGTH}자 이내로 입력해주세요.`);
       return;
     }
     if (submitting) return;
     setActionError(null);
-    saving.mutate(edit);
+    saving.mutate({ title: cleanTitle, content: cleanContent });
   }
 
   function remove(moderationReason: string) {
-    if (moderating && !moderationReason.trim()) {
+    const cleanReason = sanitizeSingleLine(moderationReason);
+    if (moderating && (!cleanReason || !hasVisibleText(cleanReason))) {
       setActionError("운영 삭제 사유를 입력해주세요.");
+      return;
+    }
+    if (moderating && codePointLength(cleanReason) > MODERATION_REASON_MAX_LENGTH) {
+      setActionError(`운영 삭제 사유는 ${MODERATION_REASON_MAX_LENGTH}자 이내로 입력해주세요.`);
       return;
     }
     if (submitting) return;
     setActionError(null);
     removal.mutate(
-      moderating && moderation
-        ? { galleryId: moderation.galleryId, reason: moderationReason.trim() }
-        : null,
+      moderating && moderation ? { galleryId: moderation.galleryId, reason: cleanReason } : null,
     );
   }
 
@@ -282,17 +305,23 @@ function ScopedCommunityPost({
           <input
             aria-label="게시글 제목 수정"
             value={title}
-            onChange={(e) => setTitle(e.target.value)}
+            onChange={(e) => setTitle(clampCodePoints(e.target.value, POST_TITLE_MAX_LENGTH))}
             placeholder="제목"
             disabled={submitting}
           />
+          <small className="text-right text-caption text-app-muted tabular-nums">
+            {codePointLength(title)}/{POST_TITLE_MAX_LENGTH}자
+          </small>
           <textarea
             aria-label="게시글 내용 수정"
             value={content}
-            onChange={(e) => setContent(e.target.value)}
+            onChange={(e) => setContent(clampCodePoints(e.target.value, POST_CONTENT_MAX_LENGTH))}
             placeholder="내용을 입력하세요"
             disabled={submitting}
           />
+          <small className="text-right text-caption text-app-muted tabular-nums">
+            {codePointLength(content)}/{POST_CONTENT_MAX_LENGTH}자
+          </small>
           {error && <p className={communityStyles.postFormError}>{error}</p>}
           <div className={communityStyles.postFormActions}>
             <button
@@ -462,9 +491,12 @@ function ScopedCommunityPost({
             <input
               aria-label="운영 삭제 사유"
               placeholder="삭제 사유"
-              maxLength={500}
               value={moderationReason}
-              onChange={(event) => setModerationReason(event.target.value)}
+              onChange={(event) =>
+                setModerationReason(
+                  clampCodePoints(event.target.value, MODERATION_REASON_MAX_LENGTH),
+                )
+              }
             />
           )}
           <button
@@ -480,7 +512,7 @@ function ScopedCommunityPost({
             className={buttonVariants({
               tone: "primary",
             })}
-            disabled={submitting || (moderating && !moderationReason.trim())}
+            disabled={submitting || (moderating && !hasVisibleText(moderationReason))}
             onClick={() => {
               setMenuOpen(false);
               remove(moderationReason);

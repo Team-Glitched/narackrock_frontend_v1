@@ -2,7 +2,7 @@ import { abyssStyles } from "@/styles/abyss.styles";
 import { cn } from "@/lib/utils";
 import { useLayoutEffect, useRef } from "react";
 import type { ShortItemDto } from "@/lib/api/contracts";
-import defaultCover from "./assets/shortform-default-cover.png";
+import { pickDefaultCover } from "@/lib/default-covers";
 export function AlbumCarousel({
   items,
   index,
@@ -115,7 +115,7 @@ export function AlbumCarousel({
         {covers.map((item, position) => (
           <img
             key={cycle && position === cycleCoverPosition ? "previous-cycle" : item.shortId}
-            src={item.albumImageUrl?.trim() || defaultCover}
+            src={item.albumImageUrl?.trim() || pickDefaultCover(`short:${item.shortId}`)}
             alt={position === coverIndex ? `${item.title} 앨범 커버` : ""}
             aria-hidden={position !== coverIndex}
             className={cn(

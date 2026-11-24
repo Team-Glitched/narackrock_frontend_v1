@@ -3,7 +3,7 @@ import { test } from "node:test";
 import { prepareAudioFile } from "./prepare-audio-file.ts";
 
 function fakeAudio(durationSeconds) {
-  const calls = { start: null, frames: null };
+  const calls = { start: null, starts: [], frames: null };
   globalThis.AudioContext = class {
     async decodeAudioData() {
       return { duration: durationSeconds };
@@ -20,6 +20,7 @@ function fakeAudio(durationSeconds) {
         connect() {},
         start(...args) {
           calls.start = args;
+          calls.starts.push(args);
         },
       };
     }
@@ -63,4 +64,44 @@ test("rejects a selection longer than one minute", async () => {
   const file = new File(["audio"], "original.mp3", { type: "audio/mpeg" });
 
   await assert.rejects(() => prepareAudioFile(file, { startMs: 10_000, endMs: 71_000 }), /1분/);
+});
+
+test("splices multiple ordered segments sequentially into one WAV", async () => {
+  const calls = fakeAudio(30);
+  const file = new File(["audio"], "cut-take.mp3", { type: "audio/mpeg" });
+
+  const result = await prepareAudioFile(file, {
+    startMs: 1_000,
+    endMs: 18_000,
+    segments: [
+      { startMs: 1_000, endMs: 5_000 },
+      { startMs: 12_000, endMs: 18_000 },
+    ],
+  });
+
+  assert.equal(result.durationMs, 10_000);
+  assert.equal(result.wav.name, "cut-take.wav");
+  assert.equal(result.wav.size, 44 + 10 * 44_100 * 4);
+  assert.deepEqual(calls.starts, [
+    [0, 1, 4],
+    [4, 12, 6],
+  ]);
+});
+
+test("rejects spliced segments whose combined length exceeds one minute", async () => {
+  fakeAudio(120);
+  const file = new File(["audio"], "long-splice.mp3", { type: "audio/mpeg" });
+
+  await assert.rejects(
+    () =>
+      prepareAudioFile(file, {
+        startMs: 0,
+        endMs: 90_000,
+        segments: [
+          { startMs: 0, endMs: 35_000 },
+          { startMs: 50_000, endMs: 80_000 },
+        ],
+      }),
+    /1분/,
+  );
 });

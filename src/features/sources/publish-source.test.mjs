@@ -290,3 +290,25 @@ test("legacy drafts register an unknown instrument as null", async () => {
   await publishSource(input, deps);
   assert.equal(request.instrument, null);
 });
+
+test("MIDI sample publication sends midiPpq, midiBpm and midiNotes and retries preserve them", async () => {
+  const storage = memoryStorage();
+  const server = backend({ failVisibility: 1 });
+  const deps = server.deps(storage);
+  const requests = [];
+  const create = deps.createOpenSource;
+  deps.createOpenSource = async (body) => {
+    requests.push(body);
+    return create(body);
+  };
+  const midiNotes = [{ pitch: 60, startTick: 0, durationTick: 480, velocity: 100 }];
+  await assert.rejects(
+    publishSource({ ...input, instrument: "piano", midiPpq: 480, midiBpm: 120, midiNotes }, deps),
+    /503/,
+  );
+  assert.equal(requests.length, 1);
+  assert.equal(requests[0].midiPpq, 480);
+  assert.equal(requests[0].midiBpm, 120);
+  assert.deepEqual(requests[0].midiNotes, midiNotes);
+  assert.equal(await publishSource({ ...input, audio: null, instrument: "piano" }, deps), 70);
+});

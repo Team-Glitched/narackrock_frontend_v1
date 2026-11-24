@@ -3,6 +3,7 @@ import { Image, StyleSheet, Text, View } from "react-native";
 import OptionIcon from "../../../public/figma/option.svg";
 import type { NativeSavedItem } from "../../../src/lib/native-screens";
 import { Cover } from "../../ui/cards";
+import { pickNativeDefaultCover } from "../../ui/default-covers";
 import { AppHeader } from "../../ui/header";
 import { Avatar, Button, Touchable } from "../../ui/kit";
 import { ScreenList } from "../../ui/screen";
@@ -128,10 +129,13 @@ function SavedRow({
           onPress={() => act({ type: "open", id: item.id })}
         >
           {kind === "song" ? (
-            <Cover url={item.imageUrl} size={64} />
+            <Cover url={item.imageUrl} seed={`short:${item.id}`} size={64} />
           ) : (
             <View style={styles.thumb}>
-              {image && <Image source={{ uri: image }} style={StyleSheet.absoluteFill} />}
+              <Image
+                source={image ? { uri: image } : pickNativeDefaultCover(`post:${item.id}`)}
+                style={StyleSheet.absoluteFill}
+              />
             </View>
           )}
           <View style={styles.copy}>
@@ -187,7 +191,7 @@ const styles = StyleSheet.create({
   padded: { marginHorizontal: gutter },
   footer: { gap: 20, marginTop: 4 },
   pill: { borderRadius: 999 },
-  caption: { color: colors.muted, fontSize: 14, lineHeight: 22, marginTop: 8 },
+  caption: { color: colors.muted, fontSize: 12, lineHeight: 18, marginTop: 8 },
   rowWrap: { paddingHorizontal: gutter },
   row: { flexDirection: "row", alignItems: "center", gap: 8 },
   rowMain: { flex: 1, flexDirection: "row", alignItems: "center", gap: 12 },

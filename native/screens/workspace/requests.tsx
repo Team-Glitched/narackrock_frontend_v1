@@ -7,6 +7,7 @@ import { ScreenScroll } from "../../ui/screen";
 import { useScreen } from "../../ui/screen-context";
 import { colors, gutter } from "../../ui/theme";
 import type { ScreenProps } from "../types";
+import { MODERATION_REASON_MAX_LENGTH, clampCodePoints } from "../../../src/lib/content-limits";
 import { ArrowUpRight, Empty, StatusBadge, text } from "./parts";
 
 /** The web's sent requests page (contribution-requests.tsx SubmissionsScreen). */
@@ -141,12 +142,13 @@ export function WorkspaceSubmissionScreen({ model, header }: ScreenProps<"worksp
               <Text style={[text.labelStrong, styles.reasonLabel]}>거절 사유 (선택)</Text>
               <TextField
                 multiline
-                maxLength={500}
                 accessibilityLabel="거절 사유 (선택)"
                 placeholder="거절할 때 참여자에게 보여줄 사유를 적어 주세요."
                 value={reason}
                 editable={!model.reviewBusy}
-                onChangeText={setReason}
+                onChangeText={(value) =>
+                  setReason(clampCodePoints(value, MODERATION_REASON_MAX_LENGTH))
+                }
                 style={styles.reason}
               />
             </View>

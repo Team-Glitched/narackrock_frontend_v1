@@ -5,6 +5,13 @@ import { Asset } from "@/components/asset";
 import { ApiError } from "@/lib/api/client";
 import { NativeDialog } from "@/components/native-dialog";
 import { nativeApp } from "@/lib/native-app";
+import {
+  REPORT_DESCRIPTION_MAX_LENGTH,
+  clampCodePoints,
+  codePointLength,
+  hasVisibleText,
+  sanitizeMultiline,
+} from "@/lib/content-limits";
 
 const reasons = ["스팸", "욕설·괴롭힘", "부적절한 콘텐츠", "권리 침해", "기타"] as const;
 
@@ -30,14 +37,19 @@ export function ReportReasons({
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
   const needsDescription = selected === "기타";
-  const ready = selected !== null && (!needsDescription || description.trim().length > 0);
+  const ready = selected !== null && (!needsDescription || hasVisibleText(description));
   async function submit(event?: React.FormEvent) {
     event?.preventDefault();
     if (!ready || busy || done) return;
+    const cleanDescription = sanitizeMultiline(description);
+    if (codePointLength(cleanDescription) > REPORT_DESCRIPTION_MAX_LENGTH) {
+      setError(`신고 내용은 ${REPORT_DESCRIPTION_MAX_LENGTH}자 이내로 적어주세요.`);
+      return;
+    }
     setBusy(true);
     setError(null);
     try {
-      await onSubmit(selected, description.trim() || null);
+      await onSubmit(selected, cleanDescription || null);
       setDone(true);
     } catch (cause) {
       setError(reportError(cause));
@@ -88,7 +100,8 @@ export function ReportReasons({
         onChange={(id, value) => {
           if (id === "reason" && reasons.includes(value as (typeof reasons)[number]))
             setSelected(value as (typeof reasons)[number]);
-          if (id === "description") setDescription(value.slice(0, 1000));
+          if (id === "description")
+            setDescription(clampCodePoints(value, REPORT_DESCRIPTION_MAX_LENGTH));
         }}
         onAction={(id) => {
           if (id === "done") onDone();
@@ -137,10 +150,14 @@ export function ReportReasons({
         placeholder={
           needsDescription ? "어떤 문제인지 적어주세요." : "추가로 알릴 내용이 있으면 적어주세요."
         }
-        maxLength={1000}
         value={description}
-        onChange={(event) => setDescription(event.target.value)}
+        onChange={(event) =>
+          setDescription(clampCodePoints(event.target.value, REPORT_DESCRIPTION_MAX_LENGTH))
+        }
       />
+      <small className="block text-right text-caption text-app-muted tabular-nums">
+        {codePointLength(description)}/{REPORT_DESCRIPTION_MAX_LENGTH}자
+      </small>
       {error && <p role="alert">{error}</p>}
       <button className={buttonVariants({ tone: "primary" })} disabled={!ready || busy}>
         {busy ? "접수 중..." : "신고하기"}

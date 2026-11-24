@@ -1,3 +1,4 @@
+import { sanitizeSingleLine } from "../content-limits.ts";
 import { apiRequest } from "./client.ts";
 import type { ApiResponse, ContentViewResponse } from "./contracts.ts";
 
@@ -8,9 +9,17 @@ async function data<T>(path: string, init?: RequestInit): Promise<T> {
 
 export type OpenSourceWriter = { userId: number; nickname: string; profileImageUrl: string | null };
 
+export type OpenSourceMidiNote = {
+  pitch: number;
+  startTick: number;
+  durationTick: number;
+  velocity: number;
+};
+
 /** `GET /api/v1/open-sources` item. A null usageCount means usage is not tracked. */
 export type OpenSourceSummary = {
   instrument?: string | null;
+  hasMidiNotes?: boolean;
   openSourceId: number;
   title: string;
   description: string | null;
@@ -28,7 +37,13 @@ export type OpenSourceSummary = {
 };
 
 /** Flat detail: summary fields plus preview availability. durationMs may be null. */
-export type OpenSourceDetail = OpenSourceSummary & { canPreview: boolean; durationMs: number | null };
+export type OpenSourceDetail = OpenSourceSummary & {
+  canPreview: boolean;
+  durationMs: number | null;
+  midiPpq?: number | null;
+  midiBpm?: number | null;
+  midiNotes?: OpenSourceMidiNote[] | null;
+};
 
 export type OpenSourcePage<T> = { page: number; size: number; hasNext: boolean; items: T[] };
 
@@ -41,6 +56,7 @@ export type SavedOpenSource = {
 
 export type OpenSourcePublication = {
   instrument?: string | null;
+  hasMidiNotes?: boolean;
   openSourceId: number;
   ownerId: number;
   title: string;
@@ -113,7 +129,10 @@ export function listOpenSources(
   options: { keyword?: string; page?: number; size?: number },
   signal?: AbortSignal,
 ): Promise<OpenSourcePage<OpenSourceSummary>> {
-  return data(`/api/v1/sources${query({ keyword: options.keyword?.trim(), page: options.page ?? 0, size: options.size ?? 20 })}`, { signal });
+  return data(
+    `/api/v1/sources${query({ keyword: options.keyword ? sanitizeSingleLine(options.keyword) : undefined, page: options.page ?? 0, size: options.size ?? 20 })}`,
+    { signal },
+  );
 }
 
 export function getOpenSource(id: number, signal?: AbortSignal): Promise<OpenSourceDetail> {
@@ -191,6 +210,9 @@ export function createOpenSource(body: {
   description: string | null;
   mediaFileId: number;
   thumbnailMediaFileId: number | null;
+  midiPpq?: number | null;
+  midiBpm?: number | null;
+  midiNotes?: OpenSourceMidiNote[] | null;
 }): Promise<OpenSourcePublication> {
   return data("/api/v1/sources", { method: "POST", body: JSON.stringify(body) });
 }

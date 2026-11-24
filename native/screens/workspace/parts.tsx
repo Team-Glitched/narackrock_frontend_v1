@@ -6,17 +6,17 @@ import type { NativeRequestStatus, NativeWork } from "../../../src/lib/native-sc
 import { Touchable } from "../../ui/kit";
 import { colors, gutter } from "../../ui/theme";
 
-/** Same values as the web's Tailwind tokens (text-caption is 14px on the web). */
+/** Text scale aligned with the web's Tailwind tokens (caption = 12px, body = 14px). */
 export const text = StyleSheet.create({
-  title: { color: colors.fg, fontSize: 20, lineHeight: 28, fontWeight: "600" },
-  heading: { color: colors.fg, fontSize: 20, lineHeight: 26, fontWeight: "700" },
-  label: { color: colors.fg, fontSize: 16, lineHeight: 24 },
-  labelStrong: { color: colors.fg, fontSize: 16, lineHeight: 22, fontWeight: "600" },
-  muted: { color: colors.muted, fontSize: 16, lineHeight: 24 },
+  title: { color: colors.fg, fontSize: 18, lineHeight: 26, fontWeight: "700" },
+  heading: { color: colors.fg, fontSize: 16, lineHeight: 22, fontWeight: "700" },
+  label: { color: colors.fg, fontSize: 14, lineHeight: 20 },
+  labelStrong: { color: colors.fg, fontSize: 15, lineHeight: 21, fontWeight: "600" },
+  muted: { color: colors.muted, fontSize: 14, lineHeight: 20 },
   body: { color: colors.fg, fontSize: 14, lineHeight: 20 },
   bodyMuted: { color: colors.muted, fontSize: 14, lineHeight: 20 },
-  caption: { color: colors.muted, fontSize: 14, lineHeight: 18 },
-  error: { color: colors.error, fontSize: 16, lineHeight: 24 },
+  caption: { color: colors.muted, fontSize: 12, lineHeight: 16 },
+  error: { color: colors.error, fontSize: 14, lineHeight: 20 },
 });
 
 /** The web's workspace page column (workspacePage: 24px 20px 36px, gap 20) with its h1 and subtitle. */

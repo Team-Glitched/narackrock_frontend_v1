@@ -13,6 +13,7 @@ import { Touchable } from "../../ui/kit";
 import { ScreenScroll } from "../../ui/screen";
 import { useScreen } from "../../ui/screen-context";
 import { colors } from "../../ui/theme";
+import { SEARCH_QUERY_MAX_LENGTH, clampCodePoints } from "../../../src/lib/content-limits";
 import type { ScreenProps } from "../types";
 import { Card, Empty, Notice, Page, Pill, styles as parts, text, Wide } from "./parts";
 import { PlaybackBar } from "./playback-bar";
@@ -150,7 +151,7 @@ function SearchField({ query }: { query: string }) {
         placeholderTextColor="#9692a6"
         selectionColor={colors.accent}
         value={value}
-        onChangeText={setValue}
+        onChangeText={(text) => setValue(clampCodePoints(text, SEARCH_QUERY_MAX_LENGTH))}
         returnKeyType="search"
         style={styles.searchInput}
       />
@@ -181,7 +182,12 @@ export function SavedSources({
           {item.source ? (
             <>
               <View style={styles.savedHead}>
-                <Cover url={item.source.thumbnailUrl} size={48} radius={8} />
+                <Cover
+                  url={item.source.thumbnailUrl}
+                  seed={`source:${item.openSourceId}`}
+                  size={48}
+                  radius={8}
+                />
                 <View style={styles.savedMeta}>
                   <Text style={[text.labelStrong, styles.savedTitle]} numberOfLines={1}>
                     {item.source.title}
@@ -207,7 +213,7 @@ export function SavedSources({
                 )
               )}
               <Text style={styles.hint}>
-                피아노롤의 ‘+ 샘플’에서 내 레이어에 오디오로 넣을 수 있습니다.
+                보관한 뒤 스튜디오의 ‘+ 샘플’에서 레이어에 추가할 수 있습니다. MIDI 샘플은 피아노롤에서도 음표로 불러올 수 있습니다.
               </Text>
             </>
           ) : (

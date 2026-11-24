@@ -1,7 +1,12 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import path from "node:path";
 import test from "node:test";
+import { fileURLToPath } from "node:url";
 
 import { shortParticipation } from "./short-participation.ts";
+
+const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..", "..");
 
 const short = {
   completionStatus: "IN_PROGRESS" as const,
@@ -39,5 +44,27 @@ test("a pending request is shown until it is approved", () => {
 test("a completed song offers nothing to a user with no part in it, nor does a short without a project", () => {
   assert.equal(shortParticipation({ ...short, completionStatus: "COMPLETED" }, 8), null);
   assert.equal(shortParticipation({ ...short, projectId: null }, 7), null);
+});
+
+test("abyss keeps the join button slot mounted when participation is absent so bottom player spacing does not jump", () => {
+  const webSource = readFileSync(
+    path.join(rootDir, "src", "features", "abyss", "abyss-screen.tsx"),
+    "utf8",
+  );
+  const nativeSource = readFileSync(
+    path.join(rootDir, "native", "screens", "abyss", "abyss.tsx"),
+    "utf8",
+  );
+
+  const webSlotIndex = webSource.indexOf("className={abyssStyles.abyssJoinSlot}");
+  assert.ok(webSlotIndex >= 0);
+  const webJoinBlock = webSource.slice(webSlotIndex, webSlotIndex + 420);
+  assert.equal(webJoinBlock.includes("{participation && current.projectId != null && ("), true);
+
+  const nativeSlotIndex = nativeSource.indexOf("styles.joinSlot");
+  assert.ok(nativeSlotIndex >= 0);
+  const nativeJoinBlock = nativeSource.slice(nativeSlotIndex, nativeSlotIndex + 300);
+  assert.equal(nativeJoinBlock.includes("{model.join && ("), true);
+  assert.equal(nativeSource.includes("joinSlot:"), true);
 });
 

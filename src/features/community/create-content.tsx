@@ -3,10 +3,18 @@ import { communityStyles } from "@/styles/community.styles";
 import { cn } from "@/lib/utils";
 import { buttonVariants } from "@/styles/variants";
 import {
+  COMMUNITY_DESCRIPTION_MAX_LENGTH,
+  COMMUNITY_NAME_MAX_LENGTH,
+  COMMUNITY_NAME_MIN_LENGTH,
+  POST_CONTENT_MAX_LENGTH,
+  POST_TITLE_MAX_LENGTH,
   SOURCE_DESCRIPTION_MAX_LENGTH,
   SOURCE_TITLE_MAX_LENGTH,
   clampCodePoints,
   codePointLength,
+  hasVisibleText,
+  sanitizeMultiline,
+  sanitizeSingleLine,
 } from "@/lib/content-limits";
 import type { PostTargetStatus } from "@/features/community/post-target";
 import { SourcePianoEditor } from "@/features/composition/source-piano-editor";
@@ -22,6 +30,7 @@ import {
   CompositionRecordScreen,
 } from "../composition/creation-screens";
 import { prepareAudioFile, type AudioSelection } from "@/features/composition/prepare-audio-file";
+import { defaultSignature, type TimeSignature } from "@/features/composition/time-signature";
 import {
   useCallback,
   useEffect,
@@ -35,12 +44,14 @@ import {
 } from "react";
 import { getCurrentUserId } from "@/lib/api/client";
 import {
+  type RenderedMidiSnapshot,
   readCreationDraft,
   restoreCreationDraft,
   rememberCreationDraft,
   clearCreationDraft,
 } from "@/features/community/creation-draft";
 import { CanvasDialog } from "@/components/canvas-dialog";
+import { LoadingOverlay } from "@/components/loading-overlay";
 import { NativeDialog } from "@/components/native-dialog";
 import { nativeApp } from "@/lib/native-app";
 import { createPost, proposeGallery } from "@/lib/api/community";
@@ -109,7 +120,7 @@ export type SocialCreateState = {
   /** A retried sample publication reuses the uploaded audio. */
   sourceAudioLocked: boolean;
   selectAudio: (file: File, selection?: AudioSelection) => Promise<void>;
-  saveSelectedAudio: (file: File) => void;
+  saveSelectedAudio: (file: File, midi: RenderedMidiSnapshot) => void;
   pianoNotes: MidiNoteDto[];
   setPianoNotes: Dispatch<SetStateAction<MidiNoteDto[]>>;
   pianoBpm: number;
@@ -182,6 +193,9 @@ export function useSocialCreate({
     initial?.image ? { file: initial.image, url: URL.createObjectURL(initial.image) } : null,
   );
   const [audio, setAudio] = useState<File | null>(() => initial?.audio ?? null);
+  const [renderedMidi, setRenderedMidi] = useState<RenderedMidiSnapshot | null>(() =>
+    initial?.audio ? (initial.renderedMidi ?? null) : null,
+  );
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [sourceVisibility, setSourceVisibility] = useState<"PRIVATE" | "PUBLIC">(() =>
@@ -223,6 +237,7 @@ export function useSocialCreate({
       content,
       image: image?.file ?? null,
       audio,
+      renderedMidi,
       notes: pianoNotes,
       bpm: pianoBpm,
       pianoInstrument,
@@ -236,6 +251,7 @@ export function useSocialCreate({
       content,
       image,
       audio,
+      renderedMidi,
       pianoNotes,
       pianoBpm,
       pianoInstrument,
@@ -259,6 +275,7 @@ export function useSocialCreate({
         setTitle(draft.title);
         setContent(draft.content);
         setAudio(draft.audio);
+        setRenderedMidi(draft.audio ? (draft.renderedMidi ?? null) : null);
         setPianoNotes(draft.notes);
         setPianoBpm(draft.bpm);
         setPianoInstrument(draft.pianoInstrument ?? null);
@@ -346,10 +363,11 @@ export function useSocialCreate({
         setError(sourceError(cause, "악기를 선택하지 못했습니다."));
     }
   }
-  function saveSelectedAudio(file: File) {
+  function saveSelectedAudio(file: File, midi: RenderedMidiSnapshot) {
     if (readSourceAudioId() === null) {
       setAudio(file);
       setSourceInstrument(pianoInstrument);
+      setRenderedMidi(midi);
     }
     setAudioStage("details");
   }
@@ -364,6 +382,8 @@ export function useSocialCreate({
     if (readSourceAudioId() !== null) return;
     setAudio(prepared);
     setSourceInstrument(id);
+    setPianoNotes([]);
+    setRenderedMidi(null);
     setAudioStage("details");
   }
   function pickImage(file: File) {
@@ -386,12 +406,15 @@ export function useSocialCreate({
     [image],
   );
   async function submit() {
+    const cleanTitle = sanitizeSingleLine(title);
+    const cleanContent = sanitizeMultiline(content);
     if (
       busy ||
       draftExpired ||
-      !title.trim() ||
+      !cleanTitle ||
+      !hasVisibleText(cleanTitle) ||
       imageRestoreFailed ||
-      (kind !== "source" && !content.trim()) ||
+      (kind !== "source" && (!cleanContent || !hasVisibleText(cleanContent))) ||
       (kind === "post" && postTargetStatus !== "ready")
     )
       return;
@@ -399,8 +422,15 @@ export function useSocialCreate({
     setError(null);
     try {
       if (kind === "post") {
+        if (
+          codePointLength(cleanTitle) > POST_TITLE_MAX_LENGTH ||
+          codePointLength(cleanContent) > POST_CONTENT_MAX_LENGTH
+        )
+          throw new Error(
+            `제목은 ${POST_TITLE_MAX_LENGTH}자, 본문은 ${POST_CONTENT_MAX_LENGTH}자 이내로 입력해주세요.`,
+          );
         const imageId = image ? await uploadMedia(image.file, "IMAGE") : null;
-        await createPost(galleryId, title.trim(), content.trim(), imageId);
+        await createPost(galleryId, cleanTitle, cleanContent, imageId);
         setDiscarding(true);
         clearCreationDraft(draftKey);
         onCreated();
@@ -409,8 +439,8 @@ export function useSocialCreate({
         if (userId === null) throw new Error("로그인 후 샘플을 등록할 수 있습니다.");
         if (!audio && !sourceAudioLocked) throw new Error("오디오를 먼저 선택해주세요.");
         if (
-          codePointLength(title.trim()) > SOURCE_TITLE_MAX_LENGTH ||
-          codePointLength(content) > SOURCE_DESCRIPTION_MAX_LENGTH
+          codePointLength(cleanTitle) > SOURCE_TITLE_MAX_LENGTH ||
+          codePointLength(cleanContent) > SOURCE_DESCRIPTION_MAX_LENGTH
         )
           throw new Error(
             `샘플 이름은 ${SOURCE_TITLE_MAX_LENGTH}자, 설명은 ${SOURCE_DESCRIPTION_MAX_LENGTH}자 이내로 입력해주세요.`,
@@ -419,12 +449,28 @@ export function useSocialCreate({
           await withSourcePublicationLock({ userId, draftKey, draftRevision }, async () => {
             // The original stays in the draft; only the framed thumbnail is uploaded.
             const thumbnail = image ? await renderThumbnail(image.file, imageCrop) : null;
+            const midi =
+              renderedMidi && renderedMidi.notes.length > 0
+                ? {
+                    midiPpq: renderedMidi.ppq,
+                    midiBpm: renderedMidi.bpm,
+                    midiNotes: renderedMidi.notes.map(
+                      ({ pitch, startTick, durationTick, velocity }) => ({
+                        pitch,
+                        startTick,
+                        durationTick,
+                        velocity,
+                      }),
+                    ),
+                  }
+                : {};
             await publishSource({
               instrument: sourceInstrument,
+              ...midi,
               userId,
               draftKey,
-              title: title.trim(),
-              description: content.trim() || null,
+              title: cleanTitle,
+              description: cleanContent || null,
               audio,
               expectedPendingAudioId: pendingAudioId,
               image: thumbnail,
@@ -445,7 +491,20 @@ export function useSocialCreate({
       } else if (kind === "community") {
         if (getCurrentUserId() === null)
           throw new Error("로그인 후 커뮤니티 개설을 신청할 수 있습니다.");
-        await proposeGallery(title.trim(), content.trim());
+        const trimmedName = cleanTitle;
+        const trimmedDesc = cleanContent;
+        if (
+          codePointLength(trimmedName) < COMMUNITY_NAME_MIN_LENGTH ||
+          codePointLength(trimmedName) > COMMUNITY_NAME_MAX_LENGTH
+        )
+          throw new Error(
+            `커뮤니티 이름은 ${COMMUNITY_NAME_MIN_LENGTH}자 이상 ${COMMUNITY_NAME_MAX_LENGTH}자 이내로 입력해주세요.`,
+          );
+        if (codePointLength(trimmedDesc) > COMMUNITY_DESCRIPTION_MAX_LENGTH)
+          throw new Error(
+            `설명은 ${COMMUNITY_DESCRIPTION_MAX_LENGTH}자 이내로 입력해주세요.`,
+          );
+        await proposeGallery(trimmedName, trimmedDesc);
         setDiscarding(true);
         clearCreationDraft(draftKey);
         onCreated();
@@ -541,8 +600,8 @@ export function useSocialCreate({
       busy ||
       imageRestoreFailed ||
       (kind === "post" && postTargetStatus !== "ready") ||
-      !title.trim() ||
-      (kind !== "source" && !content.trim()) ||
+      !hasVisibleText(title) ||
+      (kind !== "source" && !hasVisibleText(content)) ||
       (kind === "source" && !audio && !sourceAudioLocked)
     ),
     submitLabel: busy
@@ -605,6 +664,7 @@ function SocialCreateFormContent({ form }: { form: SocialCreateState }) {
     confirmDiscard,
     setConfirmDiscard,
   } = form;
+  const [sourceSignature, setSourceSignature] = useState<TimeSignature>(defaultSignature);
   function pickImage(input: HTMLInputElement) {
     const file = input.files?.[0];
     input.value = "";
@@ -654,9 +714,17 @@ function SocialCreateFormContent({ form }: { form: SocialCreateState }) {
           />
         ) : audioStage === "upload" ? (
           <CompositionUploadScreen
+            bpm={pianoBpm}
+            signature={sourceSignature}
+            timingMode="initial"
+            onTiming={async ({ bpm, signature }) => {
+              setPianoBpm(bpm);
+              setSourceSignature(signature);
+            }}
             saveLabel="오디오 선택 완료"
             onBack={() => setAudioStage("choose")}
             onSave={selectAudio}
+            suppressLoadingOverlay={form.instrumentPrompt.open}
           />
         ) : audioStage === "note" ? (
           <SourcePianoEditor
@@ -671,13 +739,33 @@ function SocialCreateFormContent({ form }: { form: SocialCreateState }) {
           />
         ) : (
           <CompositionRecordScreen
+            bpm={pianoBpm}
+            signature={sourceSignature}
+            timingMode="initial"
+            onTiming={async ({ bpm, signature }) => {
+              setPianoBpm(bpm);
+              setSourceSignature(signature);
+            }}
             saveLabel="녹음 선택 완료"
             onBack={() => setAudioStage("choose")}
             onSave={selectAudio}
+            suppressLoadingOverlay={form.instrumentPrompt.open}
           />
         )}
       </div>
     );
+  const titleLimit =
+    kind === "post"
+      ? POST_TITLE_MAX_LENGTH
+      : kind === "community"
+        ? COMMUNITY_NAME_MAX_LENGTH
+        : SOURCE_TITLE_MAX_LENGTH;
+  const contentLimit =
+    kind === "post"
+      ? POST_CONTENT_MAX_LENGTH
+      : kind === "community"
+        ? COMMUNITY_DESCRIPTION_MAX_LENGTH
+        : SOURCE_DESCRIPTION_MAX_LENGTH;
   return (
     <form
       className={cn(communityStyles.socialCreateView, sharedStyles.scrollContent)}
@@ -698,21 +786,12 @@ function SocialCreateFormContent({ form }: { form: SocialCreateState }) {
             }
             disabled={busy}
             value={title}
-            onChange={(event) =>
-              setTitle(
-                kind === "source"
-                  ? clampCodePoints(event.target.value, SOURCE_TITLE_MAX_LENGTH)
-                  : event.target.value,
-              )
-            }
-            maxLength={kind === "source" ? undefined : 100}
+            onChange={(event) => setTitle(clampCodePoints(event.target.value, titleLimit))}
             required
           />
-          {kind === "source" && (
-            <small className="text-right text-caption text-app-muted tabular-nums">
-              {codePointLength(title)}/{SOURCE_TITLE_MAX_LENGTH}자
-            </small>
-          )}
+          <small className="text-right text-caption text-app-muted tabular-nums">
+            {codePointLength(title)}/{titleLimit}자
+          </small>
         </label>
         <label>
           {kind === "post" ? "본문" : "설명"}
@@ -720,21 +799,13 @@ function SocialCreateFormContent({ form }: { form: SocialCreateState }) {
             aria-label={kind === "post" ? "게시글 내용" : "설명"}
             disabled={busy}
             value={content}
-            onChange={(event) =>
-              setContent(
-                kind === "source"
-                  ? clampCodePoints(event.target.value, SOURCE_DESCRIPTION_MAX_LENGTH)
-                  : event.target.value,
-              )
-            }
+            onChange={(event) => setContent(clampCodePoints(event.target.value, contentLimit))}
             required={kind !== "source"}
             rows={1}
           />
-          {kind === "source" && (
-            <small className="text-right text-caption text-app-muted tabular-nums">
-              {codePointLength(content)}/{SOURCE_DESCRIPTION_MAX_LENGTH}자
-            </small>
-          )}
+          <small className="text-right text-caption text-app-muted tabular-nums">
+            {codePointLength(content)}/{contentLimit}자
+          </small>
         </label>
         {kind === "source" && (
           <label>
@@ -939,6 +1010,7 @@ function SocialCreateFormContent({ form }: { form: SocialCreateState }) {
           </div>
         </CanvasDialog>
       )}
+      {kind === "source" && busy && <LoadingOverlay message="샘플을 등록하는 중입니다." />}
     </form>
   );
 }

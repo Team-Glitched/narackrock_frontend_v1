@@ -82,3 +82,41 @@ test("sample drafts restore the attached part and the piano-roll instrument inde
     else globalThis.localStorage = previousStorage;
   }
 });
+
+test("renderedMidi snapshot stays independent from later sketch edits and clears if audio is missing", async () => {
+  const values = new Map();
+  const previousStorage = globalThis.localStorage;
+  globalThis.localStorage = {
+    getItem: (key) => values.get(key) ?? null,
+    setItem: (key, value) => values.set(key, value),
+    removeItem: (key) => values.delete(key),
+  };
+  try {
+    const renderedNotes = [{ pitch: 60, startTick: 0, durationTick: 480, velocity: 100 }];
+    const editedNotes = [{ pitch: 72, startTick: 480, durationTick: 480, velocity: 90 }];
+    const renderedAudio = new File(["wav"], "piano.wav", { type: "audio/wav" });
+    await rememberCreationDraft("source-rendered-midi", {
+      title: "피아노 샘플",
+      content: "",
+      image: null,
+      audio: renderedAudio,
+      renderedMidi: { ppq: 480, bpm: 120, notes: renderedNotes },
+      notes: editedNotes,
+      bpm: 155,
+    });
+
+    const reloaded = await import("./creation-draft.ts?rendered-midi-snapshot");
+    const serialized = reloaded.readCreationDraft("source-rendered-midi");
+    assert.deepEqual(serialized.renderedMidi, { ppq: 480, bpm: 120, notes: renderedNotes });
+    assert.deepEqual(serialized.notes, editedNotes);
+    assert.equal(serialized.bpm, 155);
+
+    const restoredWithoutAudio = await reloaded.restoreCreationDraft("source-rendered-midi");
+    assert.equal(restoredWithoutAudio.audio, null);
+    assert.equal(restoredWithoutAudio.renderedMidi, null);
+  } finally {
+    clearCreationDraft("source-rendered-midi");
+    if (previousStorage === undefined) delete globalThis.localStorage;
+    else globalThis.localStorage = previousStorage;
+  }
+});

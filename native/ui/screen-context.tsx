@@ -11,6 +11,8 @@ export type MenuTarget = { kind: NativeContentKind; id: number; title: string; o
 export type ScreenContextValue = {
   /** Sends an action to this screen's web page. */
   act: (action: NativeScreenAction) => void;
+  /** Toggles manual portrait/landscape orientation on composition canvas screens. */
+  toggleOrientation: () => void;
   session: NativeSession;
   /** Absolute URL for an image: legacy relative /files/... paths go through the bundled web server. */
   uri: (url: string | null | undefined) => string | null;

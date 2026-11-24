@@ -52,6 +52,7 @@ export type TrackDto = {
   ownerProfileImageUrl?: string | null;
   ownerNickname?: string | null;
   ownerId: number;
+  originOpenSourceId?: number | null;
   name: string;
   instrument: string | null;
   volume: number;
@@ -190,6 +191,19 @@ export async function insertOpenSourceClip(
   durationTick: number,
 ) {
   return data(`/api/v1/projects/${projectId}/tracks/${trackId}/clips/source`, {
+    method: "POST",
+    body: JSON.stringify({ openSourceId, startTick, durationTick }),
+  });
+}
+
+/** Creates a dedicated bottom sample track with a public open source's audio clip. */
+export async function createOpenSourceTrack(
+  projectId: number,
+  openSourceId: number,
+  startTick: number,
+  durationTick: number,
+) {
+  return data(`/api/v1/projects/${projectId}/tracks/source`, {
     method: "POST",
     body: JSON.stringify({ openSourceId, startTick, durationTick }),
   });

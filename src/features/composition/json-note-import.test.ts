@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { importJsonNoteFile, positionJsonNotes, readJsonNotes } from "./json-note-import.ts";
+import { importJsonNoteFile, positionJsonNotes, positionMidiNotes, readJsonNotes } from "./json-note-import.ts";
 import { validateNotes } from "./note-editing.ts";
 
 const note = { pitch: 60, startTick: 1, durationTick: 1, velocity: 96 };
@@ -42,4 +42,20 @@ test("an import with a note past the clip end adds nothing", async () => {
     /최대 길이/,
   );
   assert.deepEqual(executed, []);
+});
+
+test("scales source notes from arbitrary source ppq to project ppq after cursor", () => {
+  const positioned = positionMidiNotes(
+    [
+      { pitch: 60, startTick: 0, durationTick: 240, velocity: 90, effectType: null, effectParams: {} },
+      { pitch: 64, startTick: 240, durationTick: 240, velocity: 90, effectType: null, effectParams: {} },
+    ],
+    240,
+    480,
+    960,
+  );
+  assert.deepEqual(positioned, [
+    { pitch: 60, startTick: 960, durationTick: 480, velocity: 90, effectType: null, effectParams: {} },
+    { pitch: 64, startTick: 1440, durationTick: 480, velocity: 90, effectType: null, effectParams: {} },
+  ]);
 });

@@ -1,12 +1,22 @@
 import { useState } from "react";
 import { ChevronDown } from "lucide-react";
 import { Asset } from "@/components/asset";
-import { InstrumentDialog } from "@/features/composition/instrument-dialog";
-import { partIdForValue, partLabel } from "@/features/composition/instrument-parts";
+import { ProfileInstrumentDialog } from "@/features/composition/instrument-dialog";
+import { profileInstrumentLabels } from "@/features/composition/instrument-parts";
 import { profileErrorMessage } from "@/features/profile/profile-screens";
 import { ApiError } from "@/lib/api/client";
 import { updateProfile } from "@/lib/api/profile";
 import { profileStyles } from "@/styles/profile.styles";
+import {
+  INSTRUMENT_MAX_LENGTH,
+  NICKNAME_MAX_LENGTH,
+  PROFILE_BIO_MAX_LENGTH,
+  clampCodePoints,
+  codePointLength,
+  hasVisibleText,
+  sanitizeMultiline,
+  sanitizeSingleLine,
+} from "@/lib/content-limits";
 
 const setupFields = ["nickname", "instrument", "explanation"] as const;
 
@@ -20,7 +30,7 @@ export type ProfileSetupValues = Record<(typeof setupFields)[number], string>;
 export function useInitialProfileSetup(suggestedNickname: string, onSaved: () => void) {
   const [step, setStep] = useState<ProfileSetupStep>(0);
   const [values, setValues] = useState<ProfileSetupValues>({
-    nickname: suggestedNickname,
+    nickname: clampCodePoints(suggestedNickname, NICKNAME_MAX_LENGTH),
     instrument: "",
     explanation: "",
   });
@@ -29,7 +39,15 @@ export function useInitialProfileSetup(suggestedNickname: string, onSaved: () =>
   const field = setupFields[step];
 
   function change(value: string) {
-    setValues((current) => ({ ...current, [field]: value }));
+    const clamped =
+      field === "nickname"
+        ? clampCodePoints(value, NICKNAME_MAX_LENGTH)
+        : field === "instrument"
+          ? clampCodePoints(value, INSTRUMENT_MAX_LENGTH)
+          : field === "explanation"
+            ? clampCodePoints(value, PROFILE_BIO_MAX_LENGTH)
+            : value;
+    setValues((current) => ({ ...current, [field]: clamped }));
   }
 
   /** Validates the current step's field (`value`, default: the typed one), then moves on or saves. */
@@ -39,27 +57,44 @@ export function useInitialProfileSetup(suggestedNickname: string, onSaved: () =>
     setError(null);
 
     if (step === 0) {
-      if (!next.nickname.trim()) {
+      const nickname = sanitizeSingleLine(next.nickname);
+      if (!nickname || !hasVisibleText(nickname)) {
         setError("이름을 입력해 주세요.");
         return;
       }
+      if (codePointLength(nickname) > NICKNAME_MAX_LENGTH) {
+        setError(`이름은 ${NICKNAME_MAX_LENGTH}자 이내로 입력해 주세요.`);
+        return;
+      }
 
+      setValues((current) => ({ ...current, nickname }));
       setStep(1);
       return;
     }
 
     if (step === 1) {
-      if (!next.instrument.trim()) {
+      const instrument = sanitizeSingleLine(next.instrument);
+      if (!instrument || !hasVisibleText(instrument)) {
         setError("주 악기를 입력해 주세요.");
         return;
       }
+      if (codePointLength(instrument) > INSTRUMENT_MAX_LENGTH) {
+        setError(`주 악기는 ${INSTRUMENT_MAX_LENGTH}자 이내로 입력해 주세요.`);
+        return;
+      }
 
+      setValues((current) => ({ ...current, instrument }));
       setStep(2);
       return;
     }
 
-    if (!next.explanation.trim()) {
+    const explanation = sanitizeMultiline(next.explanation);
+    if (!explanation || !hasVisibleText(explanation)) {
       setError("설명을 입력해 주세요.");
+      return;
+    }
+    if (codePointLength(explanation) > PROFILE_BIO_MAX_LENGTH) {
+      setError(`설명은 ${PROFILE_BIO_MAX_LENGTH}자 이내로 입력해 주세요.`);
       return;
     }
 
@@ -67,9 +102,9 @@ export function useInitialProfileSetup(suggestedNickname: string, onSaved: () =>
 
     try {
       await updateProfile({
-        nickname: next.nickname.trim(),
-        primaryInstrument: next.instrument.trim(),
-        explanation: next.explanation.trim(),
+        nickname: sanitizeSingleLine(next.nickname),
+        primaryInstrument: sanitizeSingleLine(next.instrument),
+        explanation,
       });
 
       onSaved();
@@ -100,10 +135,7 @@ export function InitialProfileSetupScreen({
     onSaved,
   );
   const [instrumentOpen, setInstrumentOpen] = useState(false);
-  const selectedInstrumentId = partIdForValue(values.instrument);
-  const instrumentDisplay = selectedInstrumentId
-    ? partLabel(selectedInstrumentId)
-    : values.instrument;
+  const instrumentDisplay = profileInstrumentLabels(values.instrument).join(", ");
 
   return (
     <form
@@ -127,10 +159,12 @@ export function InitialProfileSetupScreen({
               <input
                 value={values.nickname}
                 onChange={(event) => change(event.target.value)}
-                maxLength={30}
                 autoFocus
                 disabled={saving}
               />
+              <small className="text-right text-caption text-app-muted tabular-nums">
+                {codePointLength(values.nickname)}/{NICKNAME_MAX_LENGTH}자
+              </small>
             </label>
           </>
         )}
@@ -156,21 +190,10 @@ export function InitialProfileSetupScreen({
               </button>
             </label>
             {instrumentOpen && (
-              <InstrumentDialog
-                subtitle="프로필에 표시할 주 악기나 보컬 파트를 선택하세요."
-                hidePreview
-                allowSameConfirm
-                onClear={() => change("")}
-                choice={{
-                  value: selectedInstrumentId,
-                  mode: "audio",
-                  tracks: [],
-                  onPreview: async () => {},
-                  onStopPreview: () => {},
-                  onConfirm: async (id) => {
-                    change(partLabel(id));
-                  },
-                }}
+              <ProfileInstrumentDialog
+                value={values.instrument}
+                allowEmpty={false}
+                onConfirm={(formatted) => change(formatted)}
                 onClose={() => setInstrumentOpen(false)}
               />
             )}
@@ -189,6 +212,9 @@ export function InitialProfileSetupScreen({
                 autoFocus
                 disabled={saving}
               />
+              <small className="text-right text-caption text-app-muted tabular-nums">
+                {codePointLength(values.explanation)}/{PROFILE_BIO_MAX_LENGTH}자
+              </small>
             </label>
           </>
         )}

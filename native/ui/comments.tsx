@@ -23,6 +23,14 @@ import {
 } from "react-native";
 import type { SvgProps } from "react-native-svg";
 
+import {
+  COMMENT_MAX_LENGTH,
+  MODERATION_REASON_MAX_LENGTH,
+  clampCodePoints,
+  codePointLength,
+  hasVisibleText,
+} from "../../src/lib/content-limits";
+
 import HideIcon from "../../public/figma/post-hide.svg";
 import ModerateIcon from "../../public/figma/admin-suspend.svg";
 import ReplyIcon from "../../public/figma/comment-reply.svg";
@@ -339,15 +347,18 @@ function CommentCard({
             multiline
             accessibilityLabel="댓글 내용 수정"
             value={draft}
-            onChangeText={setDraft}
+            onChangeText={(value) => setDraft(clampCodePoints(value, COMMENT_MAX_LENGTH))}
             style={styles.editInput}
           />
+          <Text style={[type.caption, { textAlign: "right" }]}>
+            {codePointLength(draft)}/{COMMENT_MAX_LENGTH}자
+          </Text>
           <View style={styles.inlineButtons}>
             <TextButton label="취소" small onPress={() => setEditing(false)} />
             <TextButton
               label="저장"
               small
-              disabled={comment.busy || !draft.trim()}
+              disabled={comment.busy || !hasVisibleText(draft)}
               onPress={() => act({ type: "comment-edit", id: comment.id, text: draft })}
             />
           </View>
@@ -397,16 +408,17 @@ function CommentCard({
           <TextField
             accessibilityLabel="운영 삭제 사유"
             placeholder="삭제 사유"
-            maxLength={500}
             value={reason}
-            onChangeText={setReason}
+            onChangeText={(value) =>
+              setReason(clampCodePoints(value, MODERATION_REASON_MAX_LENGTH))
+            }
           />
           <View style={styles.inlineButtons}>
             <TextButton label="취소" small onPress={() => setModerating(false)} />
             <TextButton
               label="삭제 확인"
               small
-              disabled={comment.busy || !reason.trim()}
+              disabled={comment.busy || !hasVisibleText(reason)}
               onPress={() => act({ type: "comment-moderate", id: comment.id, reason })}
             />
           </View>
@@ -451,6 +463,7 @@ function CommentCard({
           onPress={() => act({ type: "comment-vote", id: comment.id, vote: "dislike" })}
         >
           <DislikeIcon width={14} height={14} />
+          <Text style={styles.actionText}>{comment.dislikes}</Text>
         </Touchable>
         {reply && (
           <Touchable
@@ -485,7 +498,9 @@ function Composer({
   useOnChange(composer.focus, () => input.current?.focus());
   const signedIn = composer.signedOut === null;
   const sendDisabled =
-    composer.busy || composer.hiding || (signedIn && (!composer.writable || !draft.trim()));
+    composer.busy ||
+    composer.hiding ||
+    (signedIn && (!composer.writable || !hasVisibleText(draft)));
   return (
     <View style={styles.composer}>
       {composer.replyTo !== null && (
@@ -511,6 +526,11 @@ function Composer({
           {composer.hideError}
         </Text>
       )}
+      {signedIn && draft.length > 0 && (
+        <Text style={[type.caption, { textAlign: "right" }]}>
+          {codePointLength(draft)}/{COMMENT_MAX_LENGTH}자
+        </Text>
+      )}
       <View style={styles.inputRow}>
         {signedIn ? (
           // Enter adds a line, as on the web's touch keyboards; the button sends.
@@ -522,7 +542,7 @@ function Composer({
             placeholderTextColor="#9692a6"
             selectionColor={colors.accent}
             value={draft}
-            onChangeText={onDraft}
+            onChangeText={(value) => onDraft(clampCodePoints(value, COMMENT_MAX_LENGTH))}
             editable={!composer.busy && composer.writable}
             style={styles.input}
           />

@@ -196,7 +196,7 @@ const styles = StyleSheet.create({
   },
   alert: { color: colors.fg, fontSize: 14, lineHeight: 20 },
   zoomRow: { width: "100%", maxWidth: 260, flexDirection: "row", alignItems: "center", gap: 8 },
-  caption: { color: colors.muted, fontSize: 14, lineHeight: 20 },
+  caption: { color: colors.muted, fontSize: 12, lineHeight: 18 },
   zoomValue: { width: 36, textAlign: "right", fontVariant: ["tabular-nums"] },
   listRow: { flexDirection: "row", alignItems: "center", gap: 12 },
   small: {

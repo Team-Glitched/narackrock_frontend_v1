@@ -18,7 +18,20 @@ export function canCreateLayer(
   ownProject = false,
 ) {
   if (ownProject && permission.canEdit) return true;
-  return permission.canContribute && !tracks.some((track) => track.ownerId === permission.userId);
+  return (
+    permission.canContribute &&
+    !tracks.some((track) => track.ownerId === permission.userId && track.originOpenSourceId == null)
+  );
+}
+
+/** Places imported open-source sample tracks below all regular participant layers while preserving order. */
+export function orderStudioTracks<T extends Pick<TrackDto, "originOpenSourceId">>(
+  tracks: readonly T[],
+): T[] {
+  return [
+    ...tracks.filter((track) => track.originOpenSourceId == null),
+    ...tracks.filter((track) => track.originOpenSourceId != null),
+  ];
 }
 
 export function shouldShowContributionSubmit(

@@ -63,7 +63,7 @@ export function settingsGroupsFor(operator: boolean): readonly SettingsGroup[] {
 }
 
 const groupClass =
-  "mb-10 [&>h2]:mb-3.5 [&>h2]:text-title [&>h2]:leading-[26px] [&>h2]:font-bold [&>h2]:tracking-[-0.4px] [&>h2]:text-app-fg [&>ul]:m-0 [&>ul]:list-none [&>ul]:p-0 [&_li+li]:border-t [&_li+li]:border-app-surface";
+  "mb-8 [&>h2]:mb-3 [&>h2]:text-label [&>h2]:leading-6 [&>h2]:font-bold [&>h2]:tracking-[-0.2px] [&>h2]:text-app-fg [&>ul]:m-0 [&>ul]:list-none [&>ul]:p-0 [&_li+li]:border-t [&_li+li]:border-app-surface";
 
 export function SettingsScreen({ onNavigate, onLogout }: {
   onNavigate: (path: string) => void;
@@ -120,6 +120,14 @@ export function SettingsScreen({ onNavigate, onLogout }: {
         onClick={onLogout}
       >
         로그아웃
+      </button>
+      <button
+        type="button"
+        className="mt-1 flex min-h-11 w-full items-center justify-between border-0 border-t border-solid border-app-surface bg-transparent py-2.5 text-left text-body leading-5 text-app-muted transition-colors hover:text-app-fg"
+        onClick={() => onNavigate("/settings?migration=1")}
+      >
+        <span>이 브라우저 데이터 이관·복구</span>
+        <ChevronRight size={16} strokeWidth={1.75} aria-hidden="true" />
       </button>
     </section>
   );

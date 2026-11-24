@@ -2,13 +2,14 @@ import type { ClipDto, TrackDto, CompositionView } from "../../lib/api/compositi
 import { supportsMidi } from "./instrument-parts.ts";
 
 type Permission = { userId: number; canEdit: boolean; canContribute: boolean };
-type Layer = Pick<TrackDto, "trackId" | "ownerId" | "instrument" | "approvalStatus"> & {
+type Layer = Pick<TrackDto, "trackId" | "ownerId" | "instrument" | "approvalStatus" | "originOpenSourceId"> & {
   clips: readonly Pick<ClipDto, "clipId" | "clipType">[];
 };
 
 /** Empty tracks reserve the owner's layer while editing; they must remain reachable after leaving. */
 export function emptyLayerEditor(permission: Permission, projectStatus: string, track: Layer) {
-  return track.ownerId === permission.userId &&
+  return track.originOpenSourceId == null &&
+    track.ownerId === permission.userId &&
     track.clips.length === 0 &&
     supportsMidi(track.instrument) &&
     ["DRAFT", "APPROVED"].includes(track.approvalStatus) &&
@@ -29,6 +30,7 @@ export function layerEditorTarget(permission: Permission, projectStatus: string,
 /** Public studio permissions describe note editing; an approved layer's owner can still change its tone. */
 export function canChangeTrackInstrument(userId: number, projectStatus: string, track: Layer) {
   return (
+    track.originOpenSourceId == null &&
     track.ownerId === userId &&
     ["DRAFT", "IN_PROGRESS"].includes(projectStatus) &&
     ["DRAFT", "APPROVED"].includes(track.approvalStatus)

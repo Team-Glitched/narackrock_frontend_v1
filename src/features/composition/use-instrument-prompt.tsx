@@ -72,6 +72,7 @@ export function useInstrumentPrompt(projectId: number | null, options?: { standa
   const dialog: ReactNode =
     choice === null || nativeApp() ? null : <InstrumentDialog choice={choice} onClose={close} />;
   return {
+    open: choice !== null,
     dialog,
     native,
     /** Closes the open chooser; its caller's `ask` rejects with `InstrumentPromptCancelled`. */

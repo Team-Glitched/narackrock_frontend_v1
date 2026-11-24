@@ -1,20 +1,22 @@
 import type { ReactNode } from "react";
-import defaultCover from "@/features/abyss/assets/shortform-default-cover.png";
+import { pickDefaultCover } from "@/lib/default-covers";
 import { cn } from "@/lib/utils";
 import { sharedStyles } from "@/styles/shared.styles";
 
 export function AlbumArtwork({
   src,
   title,
+  seed,
   alt,
   className,
 }: {
   src?: string | null;
   title?: string;
+  seed?: string | number | null;
   alt?: string;
   className?: string;
 }) {
-  const resolvedSrc = src?.trim() || defaultCover;
+  const resolvedSrc = src?.trim() || pickDefaultCover(seed ?? title ?? "music");
   const resolvedAlt = alt ?? (title ? `${title} 앨범 커버` : "기본 앨범 커버");
   return (
     <span
@@ -32,6 +34,7 @@ export function MusicCard({
   title,
   author,
   albumImageUrl,
+  seed,
   onOpen,
   actionsSlot,
   cornerSlot,
@@ -40,6 +43,7 @@ export function MusicCard({
   title: string;
   author?: string | null;
   albumImageUrl?: string | null;
+  seed?: string | number | null;
   onOpen: () => void;
   actionsSlot?: ReactNode;
   cornerSlot?: ReactNode;
@@ -50,6 +54,7 @@ export function MusicCard({
       <AlbumArtwork
         src={albumImageUrl}
         title={title}
+        seed={seed ?? `${title}:${author ?? ""}`}
         className={cn(sharedStyles.songArt, "mb-[10px] size-40 rounded-[10px]")}
       />
       {cornerSlot && <div className="absolute top-2 right-2 z-[2]">{cornerSlot}</div>}

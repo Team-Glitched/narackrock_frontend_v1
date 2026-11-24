@@ -48,6 +48,7 @@ export async function releaseAbandonedLayer(projectId: number) {
   }
   const abandoned = composition.tracks.find(
     (track) =>
+      track.originOpenSourceId == null &&
       track.ownerId === composition.viewerPermission.userId &&
       track.clips.length === 0 &&
       !localDrafts.some((draft) => draft.trackId === track.trackId) &&
@@ -155,9 +156,10 @@ export async function recordingToMidi(
   file: File,
   instrument: string,
   soundKind: AudioTranscriptionMode = "AUTO",
+  selection?: AudioSelection,
 ): Promise<EditorTarget> {
   const [{ wav, durationMs }, composition] = await Promise.all([
-    prepareAudioFile(file),
+    prepareAudioFile(file, selection),
     getComposition(projectId),
   ]);
   if (durationMs > composition.project.maxDurationMs)
@@ -220,17 +222,28 @@ export async function importMidiResource(
   assertMidiNotes(instrument, notes);
   if (notes.some((note) => note.startTick + note.durationTick > composition.project.maxTick))
     throw new Error("선택한 레이어가 곡의 최대 길이를 초과합니다.");
-  if (
-    shortId !== null &&
-    composition.tracks.some((track) => track.ownerId === composition.viewerPermission.userId)
-  )
-    throw new Error("이미 참여한 레이어가 있습니다. 내 피아노롤에서 가져오기를 이용해주세요.");
-  const { trackId } = await createTrack(
-    projectId,
-    resource.title,
-    instrument,
-    composition.tracks.length,
+  const ownTrack = composition.tracks.find(
+    (track) =>
+      track.originOpenSourceId == null &&
+      track.ownerId === composition.viewerPermission.userId &&
+      ["DRAFT", "APPROVED"].includes(track.approvalStatus),
   );
+  if (shortId !== null && ownTrack) {
+    if (ownTrack.clips.length > 0 || !supportsMidi(ownTrack.instrument)) {
+      throw new Error("이미 참여한 레이어가 있습니다. 내 피아노롤에서 가져오기를 이용해주세요.");
+    }
+  }
+  const trackId =
+    shortId !== null && ownTrack
+      ? ownTrack.trackId
+      : (
+          await createTrack(
+            projectId,
+            resource.title,
+            instrument,
+            composition.tracks.length,
+          )
+        ).trackId;
   const durationTick = Math.max(1, ...notes.map((note) => note.startTick + note.durationTick));
   await saveNewLayerDraft(projectId, trackId, { startTick: 0, durationTick, midiNotes: notes });
   rememberWork(await getComposition(projectId), shortId);

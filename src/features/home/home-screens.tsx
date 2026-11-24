@@ -253,7 +253,12 @@ function MySongsChart({ tab, onTabChange, onOpenShort, featuredUserId }: {
             {items.map((song) => (
               <div className={cn(sharedStyles.chartRow, "gap-2")} key={song.shortId}>
                 <button type="button" className="flex min-w-0 flex-1 items-center text-left" onClick={() => onOpenShort(song.shortId)}>
-                  <AlbumArtwork src={song.albumImageUrl} title={song.title} className={sharedStyles.chartArt} />
+                  <AlbumArtwork
+                    src={song.albumImageUrl}
+                    title={song.title}
+                    seed={`short:${song.shortId}`}
+                    className={sharedStyles.chartArt}
+                  />
                   <span className="flex min-w-0 flex-1 flex-col gap-[var(--supporting-copy-gap)]">
                     <strong className="truncate">{song.title}</strong>
                     <small className="truncate">{song.author.nickname}</small>
@@ -339,7 +344,12 @@ function FeaturedSongsChart({
         {sorted.map((song) => (
           <div className={cn(sharedStyles.chartRow, "gap-2")} key={song.shortId}>
             <button type="button" className="flex min-w-0 flex-1 items-center text-left" onClick={() => onOpenShort(song.shortId)}>
-              <AlbumArtwork src={song.albumImageUrl} title={song.title} className={sharedStyles.chartArt} />
+              <AlbumArtwork
+                src={song.albumImageUrl}
+                title={song.title}
+                seed={`short:${song.shortId}`}
+                className={sharedStyles.chartArt}
+              />
               <span className="flex min-w-0 flex-1 flex-col gap-[var(--supporting-copy-gap)]">
                 <strong className="truncate">{song.title}</strong>
                 <small className="truncate">{profileData.nickname}</small>
@@ -398,7 +408,12 @@ function RankedSongsChart({
           selected.items.map((song) => (
             <div className={cn(sharedStyles.chartRow, "gap-2")} key={song.shortId}>
               <button type="button" className="flex min-w-0 flex-1 items-center text-left" onClick={() => onOpenShort(song.shortId)}>
-                <AlbumArtwork src={song.albumImageUrl} title={song.title} className={sharedStyles.chartArt} />
+                <AlbumArtwork
+                  src={song.albumImageUrl}
+                  title={song.title}
+                  seed={`short:${song.shortId}`}
+                  className={sharedStyles.chartArt}
+                />
                 <span className="flex min-w-0 flex-1 flex-col gap-[var(--supporting-copy-gap)]">
                   <strong className="truncate">{song.title}</strong>
                   <small className="truncate">{song.author.nickname}</small>

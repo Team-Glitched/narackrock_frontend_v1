@@ -10,9 +10,14 @@ import type {
   NativeChatInbox,
   NativeChatThread,
 } from "@/lib/native-screens";
+import { relationError } from "@/features/profile/profile-relations";
 import { canSendChatTo } from "./chat-access";
 import { filterChatInbox } from "./chat-inbox";
-import { CHAT_MESSAGE_MAX_LENGTH } from "./chat-messages";
+import {
+  CHAT_MESSAGE_MAX_LENGTH,
+  chatMessageContent,
+  isChatMessageDeleted,
+} from "./chat-messages";
 import { useChatInbox } from "./use-chat-inbox";
 import { useChatPartner } from "./use-chat-partner";
 import { useChatSend, useConversation } from "./use-conversation";
@@ -137,7 +142,13 @@ function NativeChatInboxBridge({ nav }: { nav: ChatNavigation }) {
   );
 }
 
-type ThreadControls = { send: (text: string) => void; older: () => void; retry: () => void };
+type ThreadControls = {
+  send: (text: string) => void;
+  edit: (messageId: number, text: string) => void;
+  remove: (messageId: number) => void;
+  older: () => void;
+  retry: () => void;
+};
 
 function ThreadModel({
   me,
@@ -152,6 +163,8 @@ function ThreadModel({
   const canSend = canSendChatTo(friend);
   const composer = useChatSend(chat.send, canSend);
   const [sent, setSent] = useState(0);
+  const [mutationBusy, setMutationBusy] = useState(false);
+  const [mutationNotice, setMutationNotice] = useState("");
   useLift<NativeChatThread, ThreadControls>(
     {
       loading: !chat.loaded,
@@ -163,11 +176,14 @@ function ThreadModel({
         outgoing: message.senderId === me,
         content: message.content,
         createdAt: message.createdAt,
+        editedAt: message.editedAt ?? null,
+        deleted: isChatMessageDeleted(message),
       })),
       composer: {
-        enabled: canSend,
-        busy: composer.busy,
+        enabled: canSend && !mutationBusy,
+        busy: composer.busy || mutationBusy,
         notice:
+          mutationNotice ||
           composer.error ||
           (canSend ? null : "비공개 계정에는 맞팔로우한 뒤 메시지를 보낼 수 있습니다."),
         sent,
@@ -175,10 +191,38 @@ function ThreadModel({
       },
     },
     {
-      send: (text) =>
+      send: (text) => {
+        setMutationNotice("");
         void composer.submit(text).then((done) => {
           if (done) setSent((count) => count + 1);
-        }),
+        });
+      },
+      edit: (messageId, text) => {
+        const clean = chatMessageContent(text);
+        if (!clean || mutationBusy) return;
+        setMutationBusy(true);
+        setMutationNotice("");
+        void chat
+          .editMessage(messageId, clean)
+          .then(() => {
+            setSent((count) => count + 1);
+          })
+          .catch((cause) => {
+            setMutationNotice(relationError(cause, "메시지를 수정하지 못했습니다."));
+          })
+          .finally(() => setMutationBusy(false));
+      },
+      remove: (messageId) => {
+        if (mutationBusy) return;
+        setMutationBusy(true);
+        setMutationNotice("");
+        void chat
+          .deleteMessage(messageId)
+          .catch((cause) => {
+            setMutationNotice(relationError(cause, "메시지를 삭제하지 못했습니다."));
+          })
+          .finally(() => setMutationBusy(false));
+      },
       older: () => void chat.loadOlder(),
       retry: chat.refresh,
     },
@@ -222,6 +266,10 @@ function NativeChatConversationBridge({
       switch (action.type) {
         case "chat-send":
           return controls.current?.send(action.text);
+        case "chat-edit":
+          return controls.current?.edit(action.messageId, action.text);
+        case "chat-delete":
+          return controls.current?.remove(action.messageId);
         case "chat-older":
           return controls.current?.older();
         case "chat-retry":

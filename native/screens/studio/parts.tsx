@@ -15,13 +15,17 @@ import {
   TextInput,
   View,
   type StyleProp,
+  type TextStyle,
   type ViewStyle,
 } from "react-native";
 
 import {
-  timingDenominators,
+  timingFieldText,
+  timingFieldValue,
   timingProblem,
+  timingSliderBpm,
 } from "../../../src/features/composition/project-timing";
+import { SEARCH_QUERY_MAX_LENGTH, clampCodePoints } from "../../../src/lib/content-limits";
 import type {
   NativeInstrumentPicker,
   NativeSourcePicker,
@@ -138,11 +142,17 @@ export function Slider({
   );
 }
 
-/** The web's DialogNumberInput: commits on submit or blur, clamped and rounded. */
+/**
+ * The web's DialogNumberInput: commits on submit or blur, clamped and rounded. With `clamp={false}`
+ * (timing fields) every keystroke reports the displayed text unrounded (NaN when blank), so Apply
+ * sends what the user sees even while the field still has focus.
+ */
 export function NumberField({
   value,
   min,
   max,
+  clamp = true,
+  style,
   label,
   disabled = false,
   onChange,
@@ -150,14 +160,19 @@ export function NumberField({
   value: number;
   min: number;
   max?: number;
+  clamp?: boolean;
+  style?: StyleProp<TextStyle>;
   label: string;
   disabled?: boolean;
   onChange: (value: number) => void;
 }) {
   const [draft, setDraft] = useState<string | null>(null);
   const commit = () => {
-    if (draft !== null && draft.trim() !== "" && Number.isFinite(Number(draft)))
-      onChange(Math.min(max ?? Number.MAX_SAFE_INTEGER, Math.max(min, Math.round(Number(draft)))));
+    if (!clamp) return;
+    if (draft !== null && draft.trim() !== "" && Number.isFinite(Number(draft))) {
+      const rounded = Math.round(Number(draft));
+      onChange(Math.min(max ?? Number.MAX_SAFE_INTEGER, Math.max(min, rounded)));
+    }
     setDraft(null);
   };
   return (
@@ -167,11 +182,14 @@ export function NumberField({
       keyboardType="number-pad"
       returnKeyType="done"
       selectionColor={colors.accent}
-      value={draft ?? String(value)}
-      onChangeText={setDraft}
+      value={clamp ? (draft ?? String(value)) : timingFieldText(draft, value)}
+      onChangeText={(text) => {
+        setDraft(text);
+        if (!clamp) onChange(timingFieldValue(text));
+      }}
       onBlur={commit}
       onSubmitEditing={commit}
-      style={[styles.number, disabled && styles.disabled]}
+      style={[styles.number, style, disabled && styles.disabled]}
     />
   );
 }
@@ -392,34 +410,29 @@ function TimingDialog({ sheet }: { sheet: NativeTimingSheet }) {
           <NumberField
             value={draft.numerator}
             min={1}
-            max={12}
+            max={16}
+            clamp={false}
+            style={[styles.timingNumber, styles.flex]}
             label="마디당 박 수"
             disabled={!editable}
             onChange={(numerator) => setDraft((old) => ({ ...old, numerator }))}
           />
-          <Text style={styles.label}>/</Text>
-          <View style={styles.row} accessibilityRole="radiogroup" accessibilityLabel="기준 음표">
-            {timingDenominators.map((denominator) => {
-              const checked = draft.denominator === denominator;
-              return (
-                <Touchable
-                  key={denominator}
-                  accessibilityRole="radio"
-                  accessibilityState={{ checked, disabled: !editable }}
-                  disabled={!editable}
-                  style={[styles.part, checked && styles.partChecked, !editable && styles.disabled]}
-                  onPress={() => setDraft((old) => ({ ...old, denominator }))}
-                >
-                  <Text style={styles.partText}>{denominator}</Text>
-                </Touchable>
-              );
-            })}
-          </View>
+          <Text style={styles.signatureSlash}>/</Text>
+          <NumberField
+            value={draft.denominator}
+            min={1}
+            max={16}
+            clamp={false}
+            style={[styles.timingNumber, styles.flex]}
+            label="기준 음표"
+            disabled={!editable}
+            onChange={(denominator) => setDraft((old) => ({ ...old, denominator }))}
+          />
         </View>
       ) : (
-        <View style={styles.volumeRow}>
+        <View style={styles.timingRow}>
           <Slider
-            value={draft.bpm}
+            value={timingSliderBpm(draft.bpm)}
             min={30}
             max={300}
             label="bpm"
@@ -431,6 +444,8 @@ function TimingDialog({ sheet }: { sheet: NativeTimingSheet }) {
             value={draft.bpm}
             min={30}
             max={300}
+            clamp={false}
+            style={styles.timingNumber}
             label="BPM 직접 입력"
             disabled={!editable}
             onChange={(bpm) => setDraft((old) => ({ ...old, bpm }))}
@@ -444,12 +459,18 @@ function TimingDialog({ sheet }: { sheet: NativeTimingSheet }) {
       {sheet.error && <Alert>{sheet.error}</Alert>}
       {editable ? (
         <DialogButton
+          wide
           label={sheet.busy ? "저장 중..." : "적용"}
           disabled={sheet.busy || problem !== null}
           onPress={() => act({ type: "timing-apply", ...draft })}
         />
       ) : (
-        <DialogButton label="닫기" tone="secondary" onPress={() => act({ type: "timing-close" })} />
+        <DialogButton
+          wide
+          label="닫기"
+          tone="secondary"
+          onPress={() => act({ type: "timing-close" })}
+        />
       )}
     </Dialog>
   );
@@ -484,18 +505,31 @@ function SourceDialog({ picker }: { picker: NativeSourcePicker }) {
           <CloseIcon width={14} height={14} />
         </Touchable>
       </View>
-      {picker.tabs.length > 0 && (
-        <View style={styles.row} accessibilityLabel="가져올 자료">
-          {picker.tabs.map((value) => (
-            <DialogButton
-              key={value}
-              label={sourceTabLabels[value]}
-              tone={picker.tab === value ? "primary" : "secondary"}
-              disabled={picker.busy}
-              onPress={() => act({ type: "source-tab", tab: value })}
-            />
-          ))}
-        </View>
+      {picker.tabs.length > 1 && (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.sourceChipScroll}
+          contentContainerStyle={styles.sourceChipRow}
+        >
+          {picker.tabs.map((value) => {
+            const selected = picker.tab === value;
+            return (
+              <Touchable
+                key={value}
+                accessibilityRole="button"
+                accessibilityState={{ selected, disabled: picker.busy }}
+                disabled={picker.busy}
+                style={[styles.sourceChip, selected && styles.sourceChipActive, picker.busy && styles.disabled]}
+                onPress={() => act({ type: "source-tab", tab: value })}
+              >
+                <Text style={[styles.sourceChipText, selected && styles.sourceChipTextActive]}>
+                  {sourceTabLabels[value]}
+                </Text>
+              </Touchable>
+            );
+          })}
+        </ScrollView>
       )}
       {picker.tab === "upload" ? (
         <>
@@ -547,8 +581,9 @@ function SourceList({
         selectionColor={colors.accent}
         value={query}
         onChangeText={(text) => {
-          onQuery(text);
-          act({ type: "source-query", query: text });
+          const clamped = clampCodePoints(text, SEARCH_QUERY_MAX_LENGTH);
+          onQuery(clamped);
+          act({ type: "source-query", query: clamped });
         }}
         style={styles.search}
       />
@@ -639,7 +674,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.bg,
   },
   volumeDialog: {},
-  timingDialog: { gap: 16, alignItems: "flex-start" },
+  timingDialog: { gap: 20, alignItems: "stretch" },
   instrumentDialog: { gap: 16 },
   sourceDialog: { width: 540, gap: 16 },
   dialogTitle: {
@@ -651,14 +686,23 @@ const styles = StyleSheet.create({
   },
   dialogTitleTight: { color: colors.fg, fontSize: 16, lineHeight: 19, fontWeight: "700" },
   dialogHeading: { color: colors.fg, fontSize: 16, lineHeight: 22, fontWeight: "700" },
-  label: { color: colors.fg, fontSize: 16, lineHeight: 20, fontWeight: "500" },
+  label: { color: colors.fg, fontSize: 14, lineHeight: 18, fontWeight: "500" },
   muted: { color: colors.muted, fontSize: 14, lineHeight: 20 },
-  caption: { color: colors.muted, fontSize: 14, lineHeight: 18 },
+  caption: { color: colors.muted, fontSize: 12, lineHeight: 16 },
   alert: { color: colors.error, fontSize: 14, lineHeight: 20 },
   identity: { flexDirection: "row", justifyContent: "space-between", marginBottom: 20 },
   identityText: { flex: 1, gap: 10 },
   identityName: { color: colors.fg, fontSize: 16, lineHeight: 19, fontWeight: "700" },
   volumeRow: { flexDirection: "row", alignItems: "center", gap: 12, alignSelf: "stretch" },
+  timingRow: { flexDirection: "row", alignItems: "center", gap: 16, alignSelf: "stretch" },
+  timingNumber: {
+    width: 72,
+    height: 40,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.border,
+    fontWeight: "600",
+  },
   volumeIcon: { marginRight: 18 },
   instrumentChange: { marginTop: 20 },
   emptyMidiButton: { minHeight: 44, marginTop: 12 },
@@ -715,9 +759,25 @@ const styles = StyleSheet.create({
   },
   partChecked: { backgroundColor: colors.primary },
   partText: { color: colors.fg, fontSize: 14, lineHeight: 20, fontWeight: "500" },
-  signatureRow: { flexDirection: "row", alignItems: "center", gap: 10 },
+  signatureRow: { flexDirection: "row", alignItems: "center", gap: 12, alignSelf: "stretch" },
+  signatureSlash: { color: colors.muted, fontSize: 18, fontWeight: "700" },
   sourceHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   sourceClose: { width: 32, height: 32, alignItems: "center", justifyContent: "center" },
+  sourceChipScroll: { flexGrow: 0 },
+  sourceChipRow: { alignItems: "center", gap: 8, paddingVertical: 4 },
+  sourceChip: {
+    minHeight: 28,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: colors.border,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  sourceChipActive: { borderColor: colors.primary, backgroundColor: colors.primary },
+  sourceChipText: { color: colors.muted, fontSize: 12, lineHeight: 18, fontWeight: "500" },
+  sourceChipTextActive: { color: colors.fg, fontWeight: "500" },
   search: {
     borderRadius: 10,
     paddingVertical: 10,

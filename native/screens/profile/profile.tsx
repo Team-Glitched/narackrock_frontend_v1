@@ -205,7 +205,7 @@ function Works({ works, starBusy }: { works: NativeProfileWorks; starBusy: boole
                     act({ type: "open-short", shortId: song.shortId });
                   }}
                 >
-                  <Cover url={song.albumImageUrl} size={44} radius={6} />
+                  <Cover url={song.albumImageUrl} seed={`short:${song.shortId}`} size={44} radius={6} />
                   <Text style={[type.label, styles.flex]} numberOfLines={1}>
                     {song.title}
                   </Text>
@@ -256,7 +256,7 @@ function SongCard({ song, starBusy }: { song: NativeProfileSong; starBusy: boole
         style={styles.songCardBody}
         onPress={() => act({ type: "open-short", shortId: song.shortId })}
       >
-        <Cover url={song.albumImageUrl} size={160} radius={10} />
+        <Cover url={song.albumImageUrl} seed={`short:${song.shortId}`} size={160} radius={10} />
         <Text style={styles.songTitle} numberOfLines={1}>
           {song.title}
         </Text>
@@ -393,18 +393,18 @@ const styles = StyleSheet.create({
   centerText: { textAlign: "center" },
   stats: { flexDirection: "row", alignSelf: "stretch" },
   stat: { flex: 1, alignItems: "center", paddingVertical: 4 },
-  statLabel: { color: colors.fg, fontSize: 20, lineHeight: 28 },
-  statValue: { color: colors.muted, fontSize: 16, lineHeight: 24 },
+  statLabel: { color: colors.fg, fontSize: 12, lineHeight: 16 },
+  statValue: { color: colors.muted, fontSize: 16, lineHeight: 22, fontWeight: "600" },
   tags: { flexDirection: "row", flexWrap: "wrap", justifyContent: "center", gap: 8 },
   tag: {
     height: 24,
     paddingHorizontal: 12,
-    paddingVertical: 2,
+    paddingVertical: 3,
     borderRadius: 13,
     overflow: "hidden",
     color: colors.fg,
-    fontSize: 16,
-    lineHeight: 20,
+    fontSize: 12,
+    lineHeight: 18,
     backgroundColor: colors.primary,
   },
   sections: { marginTop: 32, gap: 32, paddingHorizontal: gutter },
@@ -412,12 +412,12 @@ const styles = StyleSheet.create({
   sectionTitleRow: { flexDirection: "row", alignItems: "center", gap: 12 },
   heading: {
     color: colors.fg,
-    fontSize: 20,
-    lineHeight: 26,
+    fontSize: 16,
+    lineHeight: 22,
     fontWeight: "700",
-    letterSpacing: -0.4,
+    letterSpacing: -0.2,
   },
-  all: { color: colors.muted, fontSize: 16, lineHeight: 20, fontWeight: "500" },
+  all: { color: colors.muted, fontSize: 14, lineHeight: 20, fontWeight: "500" },
   description: { color: colors.muted, fontSize: 14, lineHeight: 22, paddingVertical: 4 },
   emptyText: { color: colors.muted, fontSize: 14, lineHeight: 20, paddingVertical: 16 },
   workError: { alignItems: "center", gap: 16, paddingHorizontal: 16, paddingVertical: 32 },
@@ -438,8 +438,8 @@ const styles = StyleSheet.create({
   songTitle: { color: colors.fg, fontSize: 16, lineHeight: 20, fontWeight: "700" },
   sheetTitle: {
     color: colors.fg,
-    fontSize: 20,
-    lineHeight: 28,
+    fontSize: 18,
+    lineHeight: 24,
     fontWeight: "600",
     marginBottom: 24,
   },

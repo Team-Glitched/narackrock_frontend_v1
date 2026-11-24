@@ -22,6 +22,7 @@ export function SongRail({
           title={song.title}
           author={song.author.nickname}
           albumImageUrl={song.albumImageUrl}
+          seed={`short:${song.shortId}`}
           onOpen={() => onOpen(song.shortId)}
           cornerSlot={renderCorner?.(song)}
           actionsSlot={

@@ -1,5 +1,6 @@
 import { studioStyles } from "@/styles/studio.styles";
-import { buttonVariants } from "@/styles/variants";
+import { buttonVariants, filterChip, filterChipRow } from "@/styles/variants";
+import { cn } from "@/lib/utils";
 import { useId, useState, type ReactNode } from "react";
 import { CanvasDialog } from "@/components/canvas-dialog";
 import { Asset } from "@/components/asset";
@@ -14,6 +15,7 @@ import type {
 } from "@/lib/native-screens";
 import { jsonNoteFormat } from "./json-note-import";
 import { errorText } from "./studio-helpers";
+import { SEARCH_QUERY_MAX_LENGTH, clampCodePoints } from "@/lib/content-limits";
 
 type Tab = "saved" | "local" | "upload";
 
@@ -27,6 +29,10 @@ type SourceHandlers = {
    * resolves without change when the picker is cancelled.
    */
   onImportJson?: () => Promise<void>;
+  /** True inside the piano roll: shows only MIDI-compatible samples and inserts notes directly. */
+  midiOnly?: boolean;
+  /** Open-source IDs already imported as dedicated tracks in this project (blocked from duplicates). */
+  importedSourceIds?: ReadonlySet<number>;
 };
 
 /** Tab, search and the running import of one opening of the sample picker. */
@@ -74,11 +80,18 @@ function useSavedSources(enabled: boolean) {
 }
 
 /** Saved samples matching the search, with the web's row texts. */
-function savedRows({ state }: SavedSources, keyword: string, busy: string | null) {
+function savedRows(
+  { state }: SavedSources,
+  keyword: string,
+  busy: string | null,
+  midiOnly = false,
+  importedSourceIds?: ReadonlySet<number>,
+) {
   if (!state) return null;
   const sources = state.items.flatMap((item) =>
     item.availability === "AVAILABLE" &&
     item.source &&
+    (!midiOnly || item.source.hasMidiNotes === true) &&
     `${item.source.title} ${item.source.description ?? ""}`.toLocaleLowerCase().includes(keyword)
       ? [item.source]
       : [],
@@ -86,19 +99,32 @@ function savedRows({ state }: SavedSources, keyword: string, busy: string | null
   return {
     sources,
     rows: sources.map(
-      (source): NativeSourcePickerRow => ({
-        key: `saved:${source.openSourceId}`,
-        title: source.title,
-        subtitle: source.writer.nickname,
-        button: busy === `saved:${source.openSourceId}` ? "넣는 중…" : "내 레이어에 넣기",
-        disabled: busy !== null,
-      }),
+      (source): NativeSourcePickerRow => {
+        const alreadyAdded = !midiOnly && Boolean(importedSourceIds?.has(source.openSourceId));
+        return {
+          key: `saved:${source.openSourceId}`,
+          title: source.title,
+          subtitle: source.writer.nickname,
+          button: alreadyAdded
+            ? "추가됨"
+            : busy === `saved:${source.openSourceId}`
+              ? midiOnly
+                ? "불러오는 중…"
+                : "추가 중…"
+              : midiOnly
+                ? "노트 가져오기"
+                : "새 트랙에 추가",
+          disabled: busy !== null || alreadyAdded,
+        };
+      },
     ),
     empty:
       !sources.length && state.next === null && !state.error
         ? keyword
           ? "검색 결과가 없습니다."
-          : "보관한 샘플이 없습니다. 샘플 화면에서 마음에 드는 소리를 보관해 보세요."
+          : midiOnly
+            ? "보관한 샘플 중 피아노롤(MIDI)로 불러올 수 있는 샘플이 없습니다. MIDI로 만든 샘플을 보관하거나 로컬 MIDI·JSON을 이용해 보세요."
+            : "보관한 샘플이 없습니다. 샘플 화면에서 마음에 드는 소리를 보관해 보세요."
         : null,
     failed: state.error !== null,
     more:
@@ -139,7 +165,7 @@ function localRows(resources: Resource[], keyword: string, busy: string | null) 
 
 const pickerText: Record<Tab, { description: string; placeholder: string }> = {
   saved: {
-    description: "보관한 샘플을 현재 재생 위치에 추가할 수 있습니다.",
+    description: "보관한 샘플을 타임라인 아래 새 트랙으로 추가할 수 있습니다.",
     placeholder: "보관한 샘플 검색",
   },
   local: {
@@ -160,6 +186,8 @@ export function useNativeSourcePicker({
   open,
   onOpen,
   onClose,
+  midiOnly = false,
+  importedSourceIds,
   ...handlers
 }: SourceHandlers & { open: boolean; onOpen: () => void; onClose: () => void }): {
   model: NativeSourcePicker | null;
@@ -172,8 +200,15 @@ export function useNativeSourcePicker({
     picker.tab === "upload"
       ? { rows: [], empty: null, failed: false, more: null }
       : picker.showSaved
-        ? savedRows(saved, picker.keyword, picker.busy)
+        ? savedRows(saved, picker.keyword, picker.busy, midiOnly, importedSourceIds)
         : { ...localRows(resources, picker.keyword, picker.busy), failed: false, more: null };
+  const tabCopy =
+    picker.tab === "saved" && midiOnly
+      ? {
+          ...pickerText.saved,
+          description: "보관한 MIDI 샘플의 음표를 현재 피아노롤에 바로 추가할 수 있습니다.",
+        }
+      : pickerText[picker.tab];
   return {
     model: open
       ? {
@@ -184,7 +219,7 @@ export function useNativeSourcePicker({
           ],
           uploading: picker.busy === "upload",
           tab: picker.tab,
-          ...pickerText[picker.tab],
+          ...tabCopy,
           query: picker.query,
           rows: list?.rows ?? null,
           empty: list?.empty ?? null,
@@ -222,10 +257,16 @@ export function useNativeSourcePicker({
         case "source-pick": {
           if (picker.busy !== null) return;
           if (picker.showSaved) {
-            const source = savedRows(saved, picker.keyword, null)?.sources.find(
-              (item) => `saved:${item.openSourceId}` === action.key,
-            );
-            if (source) void picker.pickSaved(source);
+            const source = savedRows(
+              saved,
+              picker.keyword,
+              null,
+              midiOnly,
+              importedSourceIds,
+            )?.sources.find((item) => `saved:${item.openSourceId}` === action.key);
+            if (source && (midiOnly || !importedSourceIds?.has(source.openSourceId))) {
+              void picker.pickSaved(source);
+            }
           } else {
             const resource = localRows(resources, picker.keyword, null).midi.find(
               (item) => `local:${item.id}` === action.key,
@@ -248,6 +289,8 @@ export function useNativeSourcePicker({
 export function StudioSourceDialog({
   onClose,
   localFileImport,
+  midiOnly = false,
+  importedSourceIds,
   ...handlers
 }: SourceHandlers & {
   onClose: () => void;
@@ -257,6 +300,15 @@ export function StudioSourceDialog({
   const id = useId();
   const picker = useSourcePicker(handlers);
   const { tab, busy } = picker;
+  const description =
+    tab === "saved" && midiOnly
+      ? "보관한 MIDI 샘플의 음표를 현재 피아노롤에 바로 추가할 수 있습니다."
+      : pickerText[tab].description;
+  const tabOptions: { value: Tab; label: string }[] = [
+    ...(handlers.onOpenSource ? [{ value: "saved" as const, label: "보관한 샘플" }] : []),
+    { value: "local", label: "이 기기의 MIDI 작업" },
+    ...(localFileImport ? [{ value: "upload" as const, label: "이 기기에서 업로드" }] : []),
+  ];
   return (
     <CanvasDialog
       className={studioStyles.studioSourceDialog}
@@ -271,27 +323,21 @@ export function StudioSourceDialog({
           <Asset name="search-close.svg" />
         </button>
       </header>
-      {(handlers.onOpenSource || localFileImport) && (
-        <div className="flex flex-wrap items-start gap-2" role="group" aria-label="가져올 자료">
-          {(
-            [
-              ...(handlers.onOpenSource ? ([["saved", "보관한 샘플"]] as const) : []),
-              ["local", "이 기기의 MIDI 작업"],
-              ...(localFileImport ? ([["upload", "이 기기에서 업로드"]] as const) : []),
-            ] as const
-          ).map(([value, label]) => (
+      {tabOptions.length > 1 && (
+        <div className={filterChipRow} role="group" aria-label="가져올 자료">
+          {tabOptions.map((option) => (
             <button
-              key={value}
+              key={option.value}
               type="button"
-              aria-pressed={tab === value}
-              className={buttonVariants({
-                tone: tab === value ? "primary" : "secondary",
-                size: "compact",
-              })}
+              className={cn(filterChip, "disabled:opacity-50")}
+              aria-pressed={tab === option.value}
               disabled={busy !== null}
-              onClick={() => picker.setTab(value)}
+              onClick={(event) => {
+                picker.setTab(option.value);
+                event.currentTarget.scrollIntoView({ block: "nearest", inline: "nearest" });
+              }}
             >
-              {label}
+              {option.label}
             </button>
           ))}
         </div>
@@ -300,13 +346,15 @@ export function StudioSourceDialog({
         localFileImport
       ) : (
         <>
-          <p>{pickerText[tab].description}</p>
+          <p>{description}</p>
           <label>
             <input
               aria-label="샘플 검색"
               placeholder={pickerText[tab].placeholder}
               value={picker.query}
-              onChange={(event) => picker.setQuery(event.target.value)}
+              onChange={(event) =>
+                picker.setQuery(clampCodePoints(event.target.value, SEARCH_QUERY_MAX_LENGTH))
+              }
             />
           </label>
           <div className={studioStyles.studioSourceResults}>
@@ -314,6 +362,8 @@ export function StudioSourceDialog({
               <SavedSourceRows
                 keyword={picker.keyword}
                 busy={busy}
+                midiOnly={midiOnly}
+                importedSourceIds={importedSourceIds}
                 onPick={(source) => void picker.pickSaved(source)}
               />
             ) : (
@@ -334,14 +384,18 @@ export function StudioSourceDialog({
 function SavedSourceRows({
   keyword,
   busy,
+  midiOnly,
+  importedSourceIds,
   onPick,
 }: {
   keyword: string;
   busy: string | null;
+  midiOnly: boolean;
+  importedSourceIds?: ReadonlySet<number>;
   onPick: (source: OpenSourceSummary) => void;
 }) {
   const saved = useSavedSources(true);
-  const list = savedRows(saved, keyword, busy);
+  const list = savedRows(saved, keyword, busy, midiOnly, importedSourceIds);
   if (!list) return <p role="status">보관한 샘플을 불러오는 중...</p>;
   return (
     <>

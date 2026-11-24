@@ -1,11 +1,19 @@
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   apiOrigin,
   getCurrentUserId,
   SessionChangedError,
   subscribeCurrentUserId,
 } from "@/lib/api/client";
-import { getChatMessages, sendChatMessage, type ChatMessage } from "@/lib/api/social";
+import {
+  deleteChatMessage,
+  editChatMessage,
+  getChatMessages,
+  sendChatMessage,
+  type ChatMessage,
+} from "@/lib/api/social";
+import { chatKeys } from "@/features/social/chat-queries";
 import { chatMessageContent, mergeChatMessages } from "@/features/social/chat-messages";
 import { createChatRefresh } from "@/features/social/chat-refresh";
 import { useChatRealtime } from "@/features/social/use-chat-realtime";
@@ -14,6 +22,7 @@ import { relationError } from "@/features/profile/profile-relations";
 
 /** REST history/sends with realtime delivery and disconnected REST recovery. */
 export function useConversation(me: number, friendId: number) {
+  const queryClient = useQueryClient();
   const origin = apiOrigin();
   const scope = JSON.stringify([origin, me, friendId]);
   const [state, setState] = useState({
@@ -128,6 +137,23 @@ export function useConversation(me: number, friendId: number) {
       const sent = await sendChatMessage(friendId, content);
       if (!isCurrent()) throw new SessionChangedError();
       merge([sent]);
+      void queryClient.invalidateQueries({ queryKey: chatKeys.all(me) });
+    },
+    async editMessage(messageId: number, content: string) {
+      const isCurrent = currentSession.current;
+      if (!isCurrent?.()) throw new SessionChangedError();
+      const updated = await editChatMessage(friendId, messageId, content);
+      if (!isCurrent()) throw new SessionChangedError();
+      merge([updated]);
+      void queryClient.invalidateQueries({ queryKey: chatKeys.all(me) });
+    },
+    async deleteMessage(messageId: number) {
+      const isCurrent = currentSession.current;
+      if (!isCurrent?.()) throw new SessionChangedError();
+      const removed = await deleteChatMessage(friendId, messageId);
+      if (!isCurrent()) throw new SessionChangedError();
+      merge([removed]);
+      void queryClient.invalidateQueries({ queryKey: chatKeys.all(me) });
     },
   };
 }

@@ -13,6 +13,12 @@ import { useHiddenPosts } from "@/features/community/hidden-posts";
 import { PostUserActionsMenu } from "@/features/posts/post-user-actions-menu";
 import { FigmaSheet } from "@/components/figma-sheet";
 import { ReportReasons } from "@/features/comments/report-reasons";
+import {
+  MODERATION_REASON_MAX_LENGTH,
+  clampCodePoints,
+  hasVisibleText,
+  sanitizeSingleLine,
+} from "@/lib/content-limits";
 import { formatDistanceToNow } from "date-fns";
 import { ko } from "date-fns/locale";
 import { Asset } from "@/components/asset";
@@ -209,8 +215,9 @@ export function usePostDetail(postId: number, onHidden: () => void): PostDetailS
     setConfirmDelete,
     deleting,
     removePost: (reason) => {
-      if (!canModerate || !scope || !reason.trim() || deleting) return;
-      removal.mutate({ galleryId: scope.galleryId, reason: reason.trim() });
+      const cleanReason = sanitizeSingleLine(reason);
+      if (!canModerate || !scope || !cleanReason || !hasVisibleText(cleanReason) || deleting) return;
+      removal.mutate({ galleryId: scope.galleryId, reason: cleanReason });
     },
     focus,
     focusComments: () => {
@@ -391,9 +398,12 @@ function PostCommentsView({
                       <input
                         aria-label="운영 삭제 사유"
                         placeholder="삭제 사유"
-                        maxLength={500}
                         value={moderationReason}
-                        onChange={(event) => setModerationReason(event.target.value)}
+                        onChange={(event) =>
+                          setModerationReason(
+                            clampCodePoints(event.target.value, MODERATION_REASON_MAX_LENGTH),
+                          )
+                        }
                       />
                       <button
                         className={buttonVariants({
@@ -408,7 +418,7 @@ function PostCommentsView({
                         className={buttonVariants({
                           tone: "primary",
                         })}
-                        disabled={deleting || !moderationReason.trim()}
+                        disabled={deleting || !hasVisibleText(moderationReason)}
                         onClick={() => detail.removePost(moderationReason)}
                       >
                         {deleting ? "삭제 중..." : "삭제 확인"}

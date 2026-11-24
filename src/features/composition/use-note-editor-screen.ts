@@ -4,7 +4,6 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useCompositionPlayback } from "./use-composition-playback";
 import {
   deleteEmptyTrack,
-  insertOpenSourceClip,
   updateProjectTiming,
   updateTrackInstrument,
   type CompositionDto,
@@ -22,33 +21,17 @@ import { supportsMidi } from "./instrument-parts";
 import { useCurrentUserId } from "@/features/auth/use-current-user";
 import { useNoteEditor } from "./use-note-editor";
 import { clipLocalTiming, clipPositionTick, projectPositionMs } from "./clip-local-timing";
-import { sameNotes } from "./note-editing";
+import { sameNotes, validateNotes } from "./note-editing";
+import { positionMidiNotes } from "./json-note-import";
 import { canLeaveUnchangedDraft } from "./note-editor-exit";
 import { compositionEndMs } from "./composition-playback-timeline";
 import { compositionKeys, compositionQuery } from "./composition-queries";
-import { getOpenSourcePlayback, type OpenSourceSummary } from "@/lib/api/open-sources";
+import { getOpenSource, type OpenSourceSummary } from "@/lib/api/open-sources";
 import type { Resource } from "@/features/workspace/workspace-store";
 import type { ProjectTiming } from "./project-timing";
 import type { InstrumentChoice } from "./instrument-dialog";
-import { openSourceStartTick, insertThenRefresh } from "./open-source-insertion";
 import { useNextChord } from "./use-next-chord";
 import { useNoteEditorDialogs } from "./use-note-editor-native";
-
-/** The playback answer may omit the length; the audio metadata is read then. */
-async function openSourceDurationMs(openSourceId: number): Promise<number> {
-  const playback = await getOpenSourcePlayback(openSourceId);
-  if (playback.durationMs && playback.durationMs > 0) return playback.durationMs;
-  const { promise, resolve, reject } = Promise.withResolvers<number>();
-  const audio = new Audio();
-  audio.preload = "metadata";
-  audio.onloadedmetadata = () =>
-    Number.isFinite(audio.duration) && audio.duration > 0
-      ? resolve(Math.round(audio.duration * 1000))
-      : reject(new Error("샘플 음원 길이를 확인하지 못했습니다."));
-  audio.onerror = () => reject(new Error("샘플 음원을 불러오지 못했습니다."));
-  audio.src = playback.audioUrl;
-  return promise;
-}
 
 export type NoteEditorLoad =
   | {
@@ -92,6 +75,7 @@ export function useNoteEditorLoad(
     (item) => item.clipId === clipId && item.clipType === "MIDI",
   );
   const canCreateClip =
+    typeof view === "string" &&
     track &&
     composition &&
     track.ownerId === currentUserId &&
@@ -147,6 +131,7 @@ export function useNoteEditorScreen({
   composition,
   trackId,
   requestedClipId,
+  readOnly = false,
   onBack,
   onOpenLayers,
   portrait,
@@ -156,6 +141,7 @@ export function useNoteEditorScreen({
   composition: CompositionDto;
   trackId: number;
   requestedClipId: number | null;
+  readOnly?: boolean;
   onBack: () => void;
   onOpenLayers: () => void;
   portrait: boolean;
@@ -174,6 +160,7 @@ export function useNoteEditorScreen({
   const clip = track.clips.find((item) => item.clipId === targetClipId && item.clipType === "MIDI");
   const clipUnavailable = targetClipId !== null && !clip;
   const editable =
+    !readOnly &&
     !clipUnavailable &&
     track.ownerId === composition.viewerPermission.userId &&
     supportsMidi(track.instrument) &&
@@ -401,26 +388,48 @@ export function useNoteEditorScreen({
     ).catch((cause) => setError(errorText(cause)));
   }
   async function insertOpenSource(source: OpenSourceSummary) {
-    const { projectId, bpm, ppq, maxTick: projectMaxTick } = composition.project;
-    const ticksPerMs = (bpm * ppq) / 60000;
-    const startTick = openSourceStartTick(positionTick, timing, projectMaxTick);
+    if (!editor.editable) return;
     playback.pause();
-    const durationMs = await openSourceDurationMs(source.openSourceId);
-    const durationTick = Math.min(Math.ceil(durationMs * ticksPerMs), projectMaxTick - startTick);
-    const refreshed = await insertThenRefresh(
-      () => insertOpenSourceClip(projectId, trackId, source.openSourceId, startTick, durationTick),
-      () =>
-        queryClient.invalidateQueries(
-          { queryKey: compositionKeys.detail(context.userId, projectId) },
-          { throwOnError: true },
-        ),
+    const detail = await getOpenSource(source.openSourceId);
+    const rawNotes = detail.midiNotes;
+    if (!rawNotes?.length) {
+      throw new Error("이 샘플에는 피아노롤로 불러올 MIDI 노트가 없습니다.");
+    }
+    const midiNotes: MidiNoteDto[] = rawNotes.map((note) => ({
+      pitch: note.pitch,
+      startTick: note.startTick,
+      durationTick: note.durationTick,
+      velocity: note.velocity,
+      effectType: null,
+      effectParams: {},
+    }));
+    const currentNotes = editor.snapshot.notes;
+    const afterTick = Math.max(0, ...currentNotes.map((note) => note.startTick + note.durationTick));
+    const positioned = positionMidiNotes(
+      midiNotes,
+      detail.midiPpq ?? 480,
+      composition.project.ppq,
+      afterTick,
     );
+    const issue = validateNotes([...currentNotes, ...positioned], editor.bounds);
+    if (issue) throw new Error(issue);
+    const instrument = findInstrument(track.instrument);
+    if (
+      !instrument ||
+      invalidPitchesFor(
+        instrument,
+        positioned.map((note) => note.pitch),
+      ).length
+    ) {
+      throw new Error("이 악기에서 지원하지 않는 음이 포함된 MIDI 샘플입니다.");
+    }
+    if (!editor.execute({ type: "insert", notes: positioned })) {
+      throw new Error(
+        "가져올 노트를 추가하지 못했습니다. 음역, 겹침, 곡의 최대 길이를 확인해주세요.",
+      );
+    }
     setShowSources(false);
-    setNotice(
-      refreshed
-        ? `‘${source.title}’을(를) 내 레이어에 오디오로 넣었습니다. 스튜디오에서 확인할 수 있어요.`
-        : `‘${source.title}’ 삽입은 완료되었습니다. 화면을 새로 불러오지 못했으니 스튜디오에서 확인해 주세요.`,
-    );
+    setNotice(`‘${source.title}’의 MIDI 노트를 피아노롤에 추가했습니다.`);
   }
   async function importResource(resource: Resource) {
     const after = Math.max(0, ...notes.map((note) => note.startTick + note.durationTick));
@@ -546,7 +555,10 @@ export function useNoteEditorScreen({
     exportRecovery,
     insertOpenSource,
     importResource,
-    rewind: () => playback.seek(projectPositionMs(0, timing)),
+    rewind: () => {
+      playback.seek(projectPositionMs(0, timing));
+      editor.setViewStartTick(0);
+    },
     seekTick: (tick: number) => playback.seek(projectPositionMs(tick, timing)),
     audition: (pitch: number) => void playback.audition(pitch, track.instrument),
     toggleMetronome: () => playback.setMetronome((value) => !value),

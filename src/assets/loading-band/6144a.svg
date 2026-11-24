@@ -1,0 +1,27 @@
+<svg preserveAspectRatio="none" overflow="visible" style="display: block;" width="208.023" height="108.837" viewBox="0 0 208.023 108.837" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g id="Group 138">
+<ellipse id="Ellipse 56" cx="100.942" cy="27.0553" rx="99.2583" ry="10.6348" transform="rotate(-6.56307 100.942 27.0553)" fill="#7E7E7E"/>
+<ellipse id="Ellipse 58" cx="107.841" cy="86.9267" rx="99.2583" ry="10.6348" transform="rotate(-6.56307 107.841 86.9267)" fill="#7E7E7E"/>
+<rect id="Rectangle 439" x="8.60976" y="92.8516" width="6.90493" height="6.04181" transform="rotate(-6.56307 8.60976 92.8516)" fill="#7E7E7E"/>
+<rect id="Rectangle 440" x="8.31419" y="90.279" width="2.58935" height="8.63116" transform="rotate(-6.56307 8.31419 90.279)" fill="#7E7E7E"/>
+<rect id="Rectangle 441" x="202.1" y="67.9827" width="3.45246" height="7.76804" transform="rotate(-6.56307 202.1 67.9827)" fill="#7E7E7E"/>
+<rect id="Rectangle 442" x="198.967" y="70.9499" width="6.90493" height="5.1787" transform="rotate(-6.56307 198.967 70.9499)" fill="#7E7E7E"/>
+<ellipse id="Ellipse 59" cx="106.954" cy="79.2089" rx="99.2583" ry="10.6348" transform="rotate(-6.56307 106.954 79.2089)" fill="#5A2800"/>
+<rect id="Rectangle 431" x="2.00947" y="35.5527" width="6.90493" height="6.04181" transform="rotate(-6.56307 2.00947 35.5527)" fill="#7E7E7E"/>
+<rect id="Rectangle 449" width="5.1787" height="64.5668" transform="matrix(0.993443 -0.114325 0.114279 0.993449 0 33.1823)" fill="#7E7E7E"/>
+<rect id="Rectangle 450" width="5.1787" height="64.5668" transform="matrix(0.993443 -0.114325 0.114279 0.993449 195.5 10.6837)" fill="#7E7E7E"/>
+<path id="Rectangle 444" d="M163.455 26.6198L172.578 22.8487L179.141 79.9152L170.018 83.6863L163.455 26.6198Z" fill="#7E7E7E"/>
+<path id="Rectangle 445" d="M39.9812 40.8288L30.2403 39.2287L37.4112 96.3213L47.1522 97.9215L39.9812 40.8288Z" fill="#7E7E7E"/>
+<rect id="Rectangle 433" x="1.71293" y="32.9801" width="2.58935" height="8.63116" transform="rotate(-6.56307 1.71293 32.9801)" fill="#7E7E7E"/>
+<rect id="Rectangle 432" x="195.501" y="10.6837" width="3.45246" height="7.76804" transform="rotate(-6.56307 195.501 10.6837)" fill="#7E7E7E"/>
+<rect id="Rectangle 434" x="192.367" y="13.652" width="6.90493" height="5.1787" transform="rotate(-6.56307 192.367 13.652)" fill="#7E7E7E"/>
+<g id="Ellipse 54">
+<ellipse cx="100.353" cy="21.91" rx="99.2583" ry="10.6348" transform="rotate(-6.56307 100.353 21.91)" fill="#F7F7F7"/>
+<mask id="stroke0_0_23" fill="white">
+<path d="M198.961 10.5651C199.632 16.4001 156.028 26.2095 101.569 32.4752C47.109 38.7408 2.41653 39.0899 1.74522 33.255C1.0739 27.42 44.6779 17.6105 99.1375 11.3449C153.597 5.07929 198.29 4.73017 198.961 10.5651Z"/>
+</mask>
+<path d="M198.961 10.5651C199.632 16.4001 156.028 26.2095 101.569 32.4752C47.109 38.7408 2.41653 39.0899 1.74522 33.255C1.0739 27.42 44.6779 17.6105 99.1375 11.3449C153.597 5.07929 198.29 4.73017 198.961 10.5651Z" stroke-width="6" stroke="#FFD000" mask="url(#stroke0_0_23)"/>
+</g>
+<rect id="Rectangle 443" width="12.0398" height="60.5926" transform="matrix(0.993443 -0.114327 0.114278 0.993449 96.0825 36.0287)" fill="#7E7E7E"/>
+</g>
+</svg>

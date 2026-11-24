@@ -18,7 +18,7 @@ const iconButton = "grid size-9 shrink-0 place-items-center rounded-[10px] text-
 const readout =
   "flex h-9 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-[10px] border border-[#32323d] bg-[#23232a] px-3 text-body tabular-nums text-app-fg [&_small]:text-caption [&_small]:text-app-muted";
 const topPill =
-  "flex h-9 min-w-0 items-center gap-1.5 whitespace-nowrap rounded-[10px] border border-[#32323d] bg-[#23232a] px-2.5 text-caption font-medium text-app-fg transition-colors hover:border-[#5b00ff] disabled:opacity-40";
+  "flex h-9 min-w-0 items-center gap-1.5 whitespace-nowrap rounded-[10px] border border-[#32323d] bg-[#23232a] px-2.5 text-caption font-medium text-app-fg transition-colors hover:border-app-primary disabled:opacity-40";
 const rowScroll = "overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden";
 
 /**
@@ -28,6 +28,7 @@ const rowScroll = "overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]
 export function PortraitNoteEditor({
   title, bpm, signature, onTiming, timeMs, instrument, playing, onPlay, onPause, onRewind, metronome,
   onMetronome, onBack, action, onImportSource, onChord, drumToggle, controls, status, tools, roll,
+  rollOverlay,
 }: {
   title: string;
   bpm: number;
@@ -54,6 +55,7 @@ export function PortraitNoteEditor({
   /** Draw/select/erase/pan buttons, shown in the bottom bar. */
   tools: ReactNode;
   roll: ReactNode;
+  rollOverlay?: ReactNode;
 }) {
   const [timingDialog, setTimingDialog] = useState<"bpm" | "beat" | null>(null);
   const [instrumentOpen, setInstrumentOpen] = useState(false);
@@ -140,7 +142,10 @@ export function PortraitNoteEditor({
       </div>
       {controls}
       {status}
-      <div className={studioStyles.portraitRoll}>{roll}</div>
+      <div className={studioStyles.portraitRoll}>
+        {roll}
+        {rollOverlay}
+      </div>
       <div className="mx-4 mt-3 mb-6 flex shrink-0 flex-col gap-4">
         {tools}
         <div className="flex items-center justify-center gap-8">
@@ -149,7 +154,7 @@ export function PortraitNoteEditor({
             aria-label="처음으로"
             onClick={onRewind}
           >
-            <RewindIcon size={20} />
+            <RewindIcon size={18} />
           </button>
           <button
             className="grid size-16 place-items-center rounded-full bg-app-primary [&_img]:size-7"
@@ -159,7 +164,7 @@ export function PortraitNoteEditor({
             {playing ? <span className={sharedStyles.pauseSymbol} /> : <Asset name="play.svg" />}
           </button>
           <button
-            className="grid size-12 place-items-center rounded-full border border-[#32323d] bg-[#23232a] text-[#F2F4F6] transition-colors aria-pressed:border-[#9966ff] aria-pressed:bg-app-primary aria-pressed:text-white"
+            className="grid size-12 place-items-center rounded-full border border-[#32323d] bg-[#23232a] text-[#F2F4F6] transition-colors aria-pressed:border-app-primary aria-pressed:bg-app-primary aria-pressed:text-white"
             aria-label="메트로놈"
             aria-pressed={metronome}
             onClick={onMetronome}
