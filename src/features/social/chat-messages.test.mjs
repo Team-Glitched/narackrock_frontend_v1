@@ -55,3 +55,37 @@ test("stale history packets never resurrect deleted messages or revert newer edi
   assert.equal(afterLateHistoryAndEdit[0].deleted, true);
   assert.equal(afterLateHistoryAndEdit[0].content, "");
 });
+
+test("server revision orders concurrent edits even when editedAt disagrees", () => {
+  const original = { ...message(1, 1, 2), revision: 0 };
+  // Edit A got the earlier timestamp but committed after edit B, so the server stores A at revision 2.
+  const editB = { ...original, content: "edit-b", editedAt: "2026-11-24T01:00:00.200000", revision: 1 };
+  const editA = { ...original, content: "edit-a", editedAt: "2026-11-24T01:00:00.100000", revision: 2 };
+
+  const afterB = mergeChatMessages([original], [editB], 1, 2);
+  const afterA = mergeChatMessages(afterB, [editA], 1, 2);
+  assert.equal(afterA[0].content, "edit-a");
+  assert.equal(afterA[0].revision, 2);
+
+  // A late B delivery or stale history page does not undo the committed revision.
+  const afterLateB = mergeChatMessages(afterA, [editB, original], 1, 2);
+  assert.equal(afterLateB[0].content, "edit-a");
+
+  // Delivered in the other order, the result is the same.
+  const reversed = mergeChatMessages(mergeChatMessages([original], [editA], 1, 2), [editB], 1, 2);
+  assert.equal(reversed[0].content, "edit-a");
+
+  // Deletion stays terminal regardless of revision.
+  const deleted = { ...editA, content: "", deleted: true, revision: 3 };
+  const afterDelete = mergeChatMessages(afterA, [deleted, { ...editA, content: "edit-c", revision: 9 }], 1, 2);
+  assert.equal(afterDelete[0].deleted, true);
+  assert.equal(afterDelete[0].content, "");
+});
+
+test("editedAt ordering still applies when a snapshot lacks a revision", () => {
+  const original = message(1, 1, 2);
+  const newer = { ...original, content: "new", editedAt: "2026-11-24T01:00:00.200000", revision: 2 };
+  const legacy = { ...original, content: "old", editedAt: "2026-11-24T01:00:00.100000" };
+  const merged = mergeChatMessages(mergeChatMessages([original], [newer], 1, 2), [legacy], 1, 2);
+  assert.equal(merged[0].content, "new");
+});

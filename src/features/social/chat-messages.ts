@@ -55,8 +55,17 @@ function preferChatMessage(existing: ChatMessage | undefined, incoming: ChatMess
   // Deletion is terminal so late REST history captured prior to delete never resurrects the message.
   if (existing.deleted) return existing;
   if (next.deleted) return next;
-  // Ignore stale unedited/older-edited snapshots arriving after a newer realtime edit.
-  return compareEditedAt(next.editedAt, existing.editedAt) < 0 ? existing : next;
+  // The server increments `revision` inside the committed update, so it orders concurrent edits even when their
+  // `editedAt` timestamps (taken before the write lock) disagree. Older servers omit it; fall back to `editedAt`.
+  const order =
+    isRevision(next.revision) && isRevision(existing.revision)
+      ? next.revision - existing.revision
+      : compareEditedAt(next.editedAt, existing.editedAt);
+  return order < 0 ? existing : next;
+}
+
+function isRevision(value: number | null | undefined): value is number {
+  return typeof value === "number" && Number.isFinite(value);
 }
 
 /**

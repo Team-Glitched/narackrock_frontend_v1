@@ -23,6 +23,8 @@ export type ChatMessage = {
   content: string;
   createdAt: string;
   editedAt?: string | null;
+  /** Per-message mutation counter: 0 when sent, incremented by every committed edit or delete. */
+  revision?: number | null;
   deleted?: boolean;
   isDeleted?: boolean;
 };
