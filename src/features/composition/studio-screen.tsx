@@ -39,6 +39,7 @@ import {
 } from "@/features/composition/contribution-session";
 import { completedExportShortId } from "@/features/composition/publish-navigation";
 import { pointerAxes, logicalBounds } from "@/features/composition/pointer-coordinates";
+import { OrientationToggleButton } from "@/components/orientation-toggle-button";
 import { StudioSourceDialog } from "@/features/composition/studio-source-dialog";
 import type { Resource } from "@/features/workspace/workspace-store";
 import { signatureGrid, musicalGridBackground } from "@/features/composition/time-signature";
@@ -805,7 +806,15 @@ export function useStudio({
 
 export type Studio = ReturnType<typeof useStudio>;
 
-export function StudioScreen({ studio, portrait = true }: { studio: Studio; portrait?: boolean }) {
+export function StudioScreen({
+  studio,
+  portrait = true,
+  onToggleOrientation,
+}: {
+  studio: Studio;
+  portrait?: boolean;
+  onToggleOrientation?: () => void;
+}) {
   const {
     composition,
     playback,
@@ -916,6 +925,9 @@ export function StudioScreen({ studio, portrait = true }: { studio: Studio; port
           </button>
         )}
       </StudioToolbar>
+      {onToggleOrientation && (
+        <OrientationToggleButton portrait={portrait} onToggle={onToggleOrientation} />
+      )}
       {selectMidiLayer && (
         <p className="m-0 shrink-0 px-4 py-2 text-caption text-app-muted">
           피아노롤에서 열 MIDI 레이어를 선택하세요.

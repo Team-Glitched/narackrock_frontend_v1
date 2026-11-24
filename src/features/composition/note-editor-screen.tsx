@@ -16,6 +16,7 @@ import { PortraitNoteEditor } from "./note-editor-portrait";
 import { useNoteEditorLoad, useNoteEditorScreen } from "./use-note-editor-screen";
 import { NativeNoteEditorBridge, NativeNoteEditorStateBridge } from "./native-note-editor-bridge";
 import { LocateFixed } from "lucide-react";
+import { OrientationToggleButton } from "@/components/orientation-toggle-button";
 
 export function NoteEditorScreen({
   conversionNotice,
@@ -26,6 +27,7 @@ export function NoteEditorScreen({
   onBack,
   onOpenLayers,
   portrait = true,
+  onToggleOrientation,
 }: {
   conversionNotice?: string;
   projectId: number | null;
@@ -36,6 +38,7 @@ export function NoteEditorScreen({
   onOpenLayers: () => void;
   /** Upright 390×844 layout instead of the landscape canvas; the page owns the choice. */
   portrait?: boolean;
+  onToggleOrientation?: () => void;
 }) {
   const load = useNoteEditorLoad(projectId, trackId, clipId, view);
   if (!load.composition) {
@@ -68,6 +71,7 @@ export function NoteEditorScreen({
       onBack={onBack}
       onOpenLayers={onOpenLayers}
       portrait={portrait}
+      onToggleOrientation={onToggleOrientation}
     />
   );
 }
@@ -80,6 +84,7 @@ function LoadedNoteEditor({
   onBack,
   onOpenLayers,
   portrait,
+  onToggleOrientation,
 }: {
   conversionNotice?: string;
   /** The live project; working notes and their base snapshot are kept apart from it. */
@@ -89,6 +94,7 @@ function LoadedNoteEditor({
   onBack: () => void;
   onOpenLayers: () => void;
   portrait: boolean;
+  onToggleOrientation?: () => void;
 }) {
   const screen = useNoteEditorScreen({
     conversionNotice,
@@ -262,6 +268,11 @@ function LoadedNoteEditor({
           status={statusRow}
           tools={editable && <NoteTools editor={editor} large />}
           roll={roll}
+          rollOverlay={
+            onToggleOrientation && (
+              <OrientationToggleButton portrait onToggle={onToggleOrientation} />
+            )
+          }
         />
       ) : (
         <>
@@ -309,6 +320,9 @@ function LoadedNoteEditor({
         </div>
       )}
       {!editable && <p>내 MIDI 레이어만 수정할 수 있습니다.</p>}
+      {!portrait && onToggleOrientation && (
+        <OrientationToggleButton portrait={false} onToggle={onToggleOrientation} />
+      )}
       {screen.showSources && editor.editable && (
         <StudioSourceDialog
           localFileImport={

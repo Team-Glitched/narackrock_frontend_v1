@@ -1,4 +1,4 @@
-import { useDevicePortrait } from "@/hooks/use-device-portrait";
+import { useCanvasOrientation } from "@/hooks/use-canvas-orientation";
 import { DesignViewport } from "@/components/design-viewport";
 import { PageState } from "@/components/page-state";
 import { NoteEditorScreen } from "@/features/composition/note-editor-screen";
@@ -9,7 +9,7 @@ import { NativeNoteEditorStateBridge } from "@/features/composition/native-note-
 
 export default function NoteEditorPage() {
   const route = useRouteComposition();
-  const portrait = useDevicePortrait();
+  const { portrait, toggle } = useCanvasOrientation();
   return (
     <DesignViewport landscape={!portrait}>
       {route.projectId === null || readId(route.params.trackId) === null ? (
@@ -38,6 +38,7 @@ export default function NoteEditorPage() {
             })
           }
           portrait={portrait}
+          onToggleOrientation={toggle}
         />
       )}
     </DesignViewport>

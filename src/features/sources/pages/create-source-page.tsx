@@ -1,4 +1,4 @@
-import { useDevicePortrait } from "@/hooks/use-device-portrait";
+import { useCanvasOrientation } from "@/hooks/use-canvas-orientation";
 import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router";
 import { SocialCreate, type SocialCreateProps } from "@/features/community/create-content";
@@ -40,7 +40,7 @@ export default function CreateSourcePage() {
   const signedIn = userId !== null;
   const stage = sourceStage(query.get("stage"));
   const pianoMode = stage === "note";
-  const portrait = useDevicePortrait();
+  const { portrait } = useCanvasOrientation(pianoMode);
   const galleryId = readId(params.galleryId) ?? readId(query.get("galleryId"));
   const scope = resolveSearchScope(query.get("scope"), "songs", Boolean(galleryId));
   const search = () => to(withQuery("/search", { scope, galleryId }));

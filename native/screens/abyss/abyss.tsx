@@ -277,26 +277,32 @@ function Short({ model, px }: { model: NativeAbyssReady; px: Px }) {
             </Text>
           </View>
         )}
-        {model.join && (
-          <Touchable
-            accessibilityRole="button"
-            accessibilityState={{ disabled: model.join.busy }}
-            disabled={model.join.busy}
-            style={[
-              styles.join,
-              { width: px(216), height: px(44), borderRadius: px(37) },
-              model.join.secondary && styles.joined,
-            ]}
-            onPress={() => act({ type: "abyss-join" })}
-          >
-            <Text
-              allowFontScaling={false}
-              style={[text(px, 16, 22, model.join.secondary ? "500" : "600"), styles.white]}
+        <View
+          style={[styles.joinSlot, { width: px(216), height: px(44) }]}
+          accessibilityElementsHidden={!model.join}
+          importantForAccessibility={model.join ? "auto" : "no-hide-descendants"}
+        >
+          {model.join && (
+            <Touchable
+              accessibilityRole="button"
+              accessibilityState={{ disabled: model.join.busy }}
+              disabled={model.join.busy}
+              style={[
+                styles.join,
+                { width: px(216), height: px(44), borderRadius: px(37) },
+                model.join.secondary && styles.joined,
+              ]}
+              onPress={() => act({ type: "abyss-join" })}
             >
-              {model.join.label}
-            </Text>
-          </Touchable>
-        )}
+              <Text
+                allowFontScaling={false}
+                style={[text(px, 16, 22, model.join.secondary ? "500" : "600"), styles.white]}
+              >
+                {model.join.label}
+              </Text>
+            </Touchable>
+          )}
+        </View>
       </View>
     </ScrollView>
   );
@@ -832,6 +838,7 @@ const styles = StyleSheet.create({
   absolute: { position: "absolute" },
   pauseCover: { ...StyleSheet.absoluteFill, backgroundColor: "#ffffff" },
   feedback: { position: "absolute", left: 0, right: 0, backgroundColor: colors.surface },
+  joinSlot: { alignSelf: "center" },
   join: {
     alignSelf: "center",
     alignItems: "center",

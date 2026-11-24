@@ -70,11 +70,13 @@ export default ({ config }: ConfigContext): ExpoConfig => ({
     bundleIdentifier: appId,
     buildNumber: String(buildNumber),
     supportsTablet: true,
+    requireFullScreen: true,
     infoPlist: {
       NSMicrophoneUsageDescription: microphoneUsage,
     },
   },
   plugins: [
+    ["expo-screen-orientation", { initialOrientation: "PORTRAIT_UP" }],
     "./plugins/with-web-bundle",
     "./plugins/with-android-network-security",
     "./plugins/with-android-release-signing",
