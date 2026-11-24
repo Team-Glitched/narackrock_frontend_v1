@@ -11,6 +11,14 @@ import {
   subscribeCanvasOrientation,
   toggleCanvasOrientation,
 } from "./canvas-orientation.ts";
+import {
+  initialNativeOrientation,
+  reduceNativeOrientation,
+  resolveNativeLockMode,
+  runWithPortraitAllowed,
+  type NativeLockMode,
+  type NativeOrientationState,
+} from "../../native/orientation.ts";
 
 const rootDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..", "..");
 
@@ -158,4 +166,130 @@ test("native locks non-canvas screens to portrait and renders OrientationFab on 
   assert.equal(nativeToggleSource.includes("#241e33"), false);
   assert.equal(nativeToggleSource.includes("153, 102, 255"), false);
   assert.equal(portraitNoteSource.includes("{rollOverlay}"), true);
+
+  const bridgeSource = readFileSync(path.join(rootDir, "native", "bridge.ts"), "utf8");
+  assert.equal(bridgeSource.includes("host.withPortraitAllowed("), true);
+});
+
+test("native orientation keeps manual canvas selection across empty view gaps and resets on non-canvas", () => {
+  // Initial launch before any screen reports a view stays locked to portrait.
+  let state = reduceNativeOrientation(initialNativeOrientation, null);
+  assert.deepEqual(state, { allowsLandscape: false, manualOrientation: null });
+  assert.equal(resolveNativeLockMode(state), "portrait");
+
+  // Studio mounts and user toggles manually to landscape.
+  state = reduceNativeOrientation(state, true);
+  state = { ...state, manualOrientation: "landscape" };
+  assert.equal(resolveNativeLockMode(state), "landscape");
+
+  // Outgoing Studio sends `view: null` before Piano Roll (or loading -> ready bridge) reports its view:
+  // `isCanvas === null` must preserve both canvas capability and manual landscape lock.
+  state = reduceNativeOrientation(state, null);
+  assert.deepEqual(state, { allowsLandscape: true, manualOrientation: "landscape" });
+  assert.equal(resolveNativeLockMode(state), "landscape");
+
+  // Confirming the next canvas (e.g., Piano Roll) keeps the manual landscape choice.
+  state = reduceNativeOrientation(state, true);
+  assert.deepEqual(state, { allowsLandscape: true, manualOrientation: "landscape" });
+  assert.equal(resolveNativeLockMode(state), "landscape");
+
+  // Confirming a non-canvas screen clears the manual choice and locks to portrait.
+  state = reduceNativeOrientation(state, false);
+  assert.deepEqual(state, { allowsLandscape: false, manualOrientation: null });
+  assert.equal(resolveNativeLockMode(state), "portrait");
+});
+
+test("native temporarily permits portrait for image picker without erasing canvas landscape lock", async () => {
+  const state: NativeOrientationState = { allowsLandscape: true, manualOrientation: "landscape" };
+  const countRef = { current: 0 };
+  const counts: number[] = [];
+  const events: string[] = [];
+
+  const picked = await runWithPortraitAllowed({
+    getState: () => state,
+    countRef,
+    onCountChange: (count) => counts.push(count),
+    applyLock: async (mode: NativeLockMode) => {
+      events.push(`lock:${mode}`);
+    },
+    task: async () => {
+      events.push("task:start");
+      assert.equal(resolveNativeLockMode(state, countRef.current), "default");
+      events.push("task:end");
+      return "image.jpg";
+    },
+  });
+
+  assert.equal(picked, "image.jpg");
+  assert.deepEqual(events, ["lock:default", "task:start", "task:end", "lock:landscape"]);
+  assert.deepEqual(counts, [1, 0]);
+  assert.deepEqual(state, { allowsLandscape: true, manualOrientation: "landscape" });
+
+  // Also restores landscape lock if the picker throws / fails.
+  const failEvents: string[] = [];
+  await assert.rejects(
+    runWithPortraitAllowed({
+      getState: () => state,
+      countRef,
+      applyLock: async (mode) => {
+        failEvents.push(`lock:${mode}`);
+      },
+      task: async () => {
+        failEvents.push("task:throw");
+        throw new Error("picker failed");
+      },
+    }),
+    /picker failed/,
+  );
+  assert.deepEqual(failEvents, ["lock:default", "task:throw", "lock:landscape"]);
+  assert.equal(countRef.current, 0);
+
+  // Overlapping concurrent calls keep portrait allowed until the last request finishes.
+  const overlapEvents: string[] = [];
+  let releaseFirst!: () => void;
+  const first = runWithPortraitAllowed({
+    getState: () => state,
+    countRef,
+    applyLock: async (mode) => {
+      overlapEvents.push(`lock:${mode}`);
+    },
+    task: () =>
+      new Promise<void>((resolve) => {
+        overlapEvents.push("first:open");
+        releaseFirst = resolve;
+      }),
+  });
+  // Allow first microtask turn (`applyLock("default")`) before second call starts.
+  await Promise.resolve();
+  const second = runWithPortraitAllowed({
+    getState: () => state,
+    countRef,
+    applyLock: async (mode) => {
+      overlapEvents.push(`lock:${mode}`);
+    },
+    task: async () => {
+      overlapEvents.push("second:run");
+    },
+  });
+  await second;
+  assert.equal(overlapEvents.includes("lock:landscape"), false);
+  releaseFirst();
+  await first;
+  assert.equal(overlapEvents.at(-1), "lock:landscape");
+  assert.equal(countRef.current, 0);
+
+  // On a non-canvas screen, portrait lock stays "portrait" throughout without unlocking landscape.
+  const nonCanvas: NativeOrientationState = { allowsLandscape: false, manualOrientation: null };
+  const nonCanvasLocks: NativeLockMode[] = [];
+  await runWithPortraitAllowed({
+    getState: () => nonCanvas,
+    countRef,
+    applyLock: async (mode) => {
+      nonCanvasLocks.push(mode);
+    },
+    task: async () => {
+      assert.equal(resolveNativeLockMode(nonCanvas, countRef.current), "portrait");
+    },
+  });
+  assert.deepEqual(nonCanvasLocks, ["portrait"]);
 });

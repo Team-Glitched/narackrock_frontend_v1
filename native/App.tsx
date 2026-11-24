@@ -53,6 +53,14 @@ import {
   screenActionScript,
   userAgentToken,
 } from "./bridge";
+import {
+  initialNativeOrientation,
+  reduceNativeOrientation,
+  resolveNativeLockMode,
+  runWithPortraitAllowed,
+  type NativeLockMode,
+  type NativeOrientationState,
+} from "./orientation";
 import { canvasKinds, emptyStack, reduceStack, ScreenStack } from "./screen-stack";
 import { footerFrame, headerTop, TabBar, type Viewport } from "./tab-bar";
 
@@ -160,6 +168,12 @@ function useLocalWebServer() {
   return { origin, error, retry };
 }
 
+function toExpoOrientationLock(mode: NativeLockMode): ScreenOrientation.OrientationLock {
+  if (mode === "landscape") return ScreenOrientation.OrientationLock.LANDSCAPE;
+  if (mode === "default") return ScreenOrientation.OrientationLock.DEFAULT;
+  return ScreenOrientation.OrientationLock.PORTRAIT_UP;
+}
+
 function WebShell() {
   const { origin, error, retry } = useLocalWebServer();
   const webView = useRef<WebView<object>>(null);
@@ -179,27 +193,34 @@ function WebShell() {
   shownScreen.current = overlayStack.current ?? stack.current;
   const activeStack = overlayStack.current !== null ? overlayStack : stack;
   const activeView = activeStack.entries.find((entry) => entry.key === activeStack.current)?.view;
-  const allowsLandscape = activeView !== undefined && canvasKinds.has(activeView.kind);
-  const [manualOrientation, setManualOrientation] = useState<"portrait" | "landscape" | null>(null);
-  const [wasCanvas, setWasCanvas] = useState(allowsLandscape);
-  if (wasCanvas !== allowsLandscape) {
-    setWasCanvas(allowsLandscape);
-    if (!allowsLandscape && manualOrientation !== null) setManualOrientation(null);
-  }
+  const reportedCanvas = activeView === undefined ? null : canvasKinds.has(activeView.kind);
+  const [orientation, setOrientation] = useState<NativeOrientationState>(initialNativeOrientation);
+  const nextOrientation = reduceNativeOrientation(orientation, reportedCanvas);
+  if (nextOrientation !== orientation) setOrientation(nextOrientation);
+  const orientationRef = useRef<NativeOrientationState>(nextOrientation);
+  orientationRef.current = nextOrientation;
+  const [portraitRequests, setPortraitRequests] = useState(0);
+  const portraitRequestsRef = useRef(0);
   const toggleOrientation = useCallback(() => {
     const { width, height } = Dimensions.get("screen");
-    setManualOrientation(height >= width ? "landscape" : "portrait");
+    const nextManual = height >= width ? "landscape" : "portrait";
+    setOrientation((current) => ({ ...current, manualOrientation: nextManual }));
   }, []);
+  const lockMode = resolveNativeLockMode(nextOrientation, portraitRequests);
   useEffect(() => {
-    const lock = !allowsLandscape
-      ? ScreenOrientation.OrientationLock.PORTRAIT_UP
-      : manualOrientation === "landscape"
-        ? ScreenOrientation.OrientationLock.LANDSCAPE
-        : manualOrientation === "portrait"
-          ? ScreenOrientation.OrientationLock.PORTRAIT_UP
-          : ScreenOrientation.OrientationLock.DEFAULT;
-    void ScreenOrientation.lockAsync(lock).catch(() => {});
-  }, [allowsLandscape, manualOrientation]);
+    void ScreenOrientation.lockAsync(toExpoOrientationLock(lockMode)).catch(() => {});
+  }, [lockMode]);
+  const withPortraitAllowed = useCallback(
+    <T,>(task: () => Promise<T>) =>
+      runWithPortraitAllowed({
+        getState: () => orientationRef.current,
+        countRef: portraitRequestsRef,
+        onCountChange: setPortraitRequests,
+        applyLock: (mode) => ScreenOrientation.lockAsync(toExpoOrientationLock(mode)),
+        task,
+      }),
+    [],
+  );
   const launched = stack.current !== null || error !== null;
   useEffect(() => {
     if (launched) SplashScreen.hide();
@@ -214,6 +235,7 @@ function WebShell() {
     setStack(emptyStack);
     setOverlayStack(emptyStack);
     setDialogs([]);
+    setOrientation(initialNativeOrientation);
     canGoBack.current = false;
     webView.current?.reload();
   }, []);
@@ -310,9 +332,10 @@ function WebShell() {
           disposeAudioEngines();
           cancelRecording();
         },
+        withPortraitAllowed,
       }).then((response) => webView.current?.injectJavaScript(responseScript(response)));
     },
-    [origin],
+    [origin, withPortraitAllowed],
   );
 
   if (error) {
