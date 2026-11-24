@@ -20,6 +20,45 @@ export function isChatMessageDeleted(
   return Boolean(message.deleted ?? message.isDeleted);
 }
 
+function parseTimestamp(value?: string | null): { ms: number; subNs: number } | null {
+  if (!value) return null;
+  const ms = Date.parse(value);
+  if (!Number.isFinite(ms)) return null;
+  const fraction = /\.(\d+)/.exec(value)?.[1] ?? "";
+  const subNs = Number(fraction.slice(0, 9).padEnd(9, "0").slice(3));
+  return { ms, subNs };
+}
+
+function compareEditedAt(a?: string | null, b?: string | null): number {
+  if (!a && !b) return 0;
+  if (a && !b) return 1;
+  if (!a && b) return -1;
+  if (a === b) return 0;
+  const parsedA = parseTimestamp(a);
+  const parsedB = parseTimestamp(b);
+  if (parsedA && parsedB) {
+    if (parsedA.ms !== parsedB.ms) return parsedA.ms < parsedB.ms ? -1 : 1;
+    if (parsedA.subNs !== parsedB.subNs) return parsedA.subNs < parsedB.subNs ? -1 : 1;
+    return 0;
+  }
+  return a! < b! ? -1 : a! > b! ? 1 : 0;
+}
+
+function normalizeChatMessage(message: ChatMessage): ChatMessage {
+  const deleted = isChatMessageDeleted(message);
+  return { ...message, deleted, content: deleted ? "" : message.content };
+}
+
+function preferChatMessage(existing: ChatMessage | undefined, incoming: ChatMessage): ChatMessage {
+  const next = normalizeChatMessage(incoming);
+  if (!existing) return next;
+  // Deletion is terminal so late REST history captured prior to delete never resurrects the message.
+  if (existing.deleted) return existing;
+  if (next.deleted) return next;
+  // Ignore stale unedited/older-edited snapshots arriving after a newer realtime edit.
+  return compareEditedAt(next.editedAt, existing.editedAt) < 0 ? existing : next;
+}
+
 /**
  * Merges REST pages, send responses and STOMP deliveries for one conversation. The same message arrives through
  * several paths (send response + socket, reconnect backfill, polling), so messages are keyed by server ID and kept
@@ -32,17 +71,14 @@ export function mergeChatMessages(
   friendId: number,
 ): ChatMessage[] {
   const byId = new Map(
-    current.map((message) => [
-      message.id,
-      { ...message, deleted: isChatMessageDeleted(message) },
-    ]),
+    current.map((message) => [message.id, normalizeChatMessage(message)]),
   );
   for (const message of incoming) {
     const inConversation =
       (message.senderId === me && message.recipientId === friendId) ||
       (message.senderId === friendId && message.recipientId === me);
     if (inConversation) {
-      byId.set(message.id, { ...message, deleted: isChatMessageDeleted(message) });
+      byId.set(message.id, preferChatMessage(byId.get(message.id), message));
     }
   }
   return [...byId.values()].sort((a, b) => a.id - b.id);

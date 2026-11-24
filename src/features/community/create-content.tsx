@@ -44,6 +44,7 @@ import {
 } from "react";
 import { getCurrentUserId } from "@/lib/api/client";
 import {
+  type RenderedMidiSnapshot,
   readCreationDraft,
   restoreCreationDraft,
   rememberCreationDraft,
@@ -119,7 +120,7 @@ export type SocialCreateState = {
   /** A retried sample publication reuses the uploaded audio. */
   sourceAudioLocked: boolean;
   selectAudio: (file: File, selection?: AudioSelection) => Promise<void>;
-  saveSelectedAudio: (file: File) => void;
+  saveSelectedAudio: (file: File, midi: RenderedMidiSnapshot) => void;
   pianoNotes: MidiNoteDto[];
   setPianoNotes: Dispatch<SetStateAction<MidiNoteDto[]>>;
   pianoBpm: number;
@@ -192,6 +193,9 @@ export function useSocialCreate({
     initial?.image ? { file: initial.image, url: URL.createObjectURL(initial.image) } : null,
   );
   const [audio, setAudio] = useState<File | null>(() => initial?.audio ?? null);
+  const [renderedMidi, setRenderedMidi] = useState<RenderedMidiSnapshot | null>(() =>
+    initial?.audio ? (initial.renderedMidi ?? null) : null,
+  );
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [sourceVisibility, setSourceVisibility] = useState<"PRIVATE" | "PUBLIC">(() =>
@@ -233,6 +237,7 @@ export function useSocialCreate({
       content,
       image: image?.file ?? null,
       audio,
+      renderedMidi,
       notes: pianoNotes,
       bpm: pianoBpm,
       pianoInstrument,
@@ -246,6 +251,7 @@ export function useSocialCreate({
       content,
       image,
       audio,
+      renderedMidi,
       pianoNotes,
       pianoBpm,
       pianoInstrument,
@@ -269,6 +275,7 @@ export function useSocialCreate({
         setTitle(draft.title);
         setContent(draft.content);
         setAudio(draft.audio);
+        setRenderedMidi(draft.audio ? (draft.renderedMidi ?? null) : null);
         setPianoNotes(draft.notes);
         setPianoBpm(draft.bpm);
         setPianoInstrument(draft.pianoInstrument ?? null);
@@ -356,10 +363,11 @@ export function useSocialCreate({
         setError(sourceError(cause, "악기를 선택하지 못했습니다."));
     }
   }
-  function saveSelectedAudio(file: File) {
+  function saveSelectedAudio(file: File, midi: RenderedMidiSnapshot) {
     if (readSourceAudioId() === null) {
       setAudio(file);
       setSourceInstrument(pianoInstrument);
+      setRenderedMidi(midi);
     }
     setAudioStage("details");
   }
@@ -375,6 +383,7 @@ export function useSocialCreate({
     setAudio(prepared);
     setSourceInstrument(id);
     setPianoNotes([]);
+    setRenderedMidi(null);
     setAudioStage("details");
   }
   function pickImage(file: File) {
@@ -440,20 +449,24 @@ export function useSocialCreate({
           await withSourcePublicationLock({ userId, draftKey, draftRevision }, async () => {
             // The original stays in the draft; only the framed thumbnail is uploaded.
             const thumbnail = image ? await renderThumbnail(image.file, imageCrop) : null;
+            const midi =
+              renderedMidi && renderedMidi.notes.length > 0
+                ? {
+                    midiPpq: renderedMidi.ppq,
+                    midiBpm: renderedMidi.bpm,
+                    midiNotes: renderedMidi.notes.map(
+                      ({ pitch, startTick, durationTick, velocity }) => ({
+                        pitch,
+                        startTick,
+                        durationTick,
+                        velocity,
+                      }),
+                    ),
+                  }
+                : {};
             await publishSource({
               instrument: sourceInstrument,
-              ...(pianoNotes.length > 0
-                ? {
-                    midiPpq: 480,
-                    midiBpm: pianoBpm,
-                    midiNotes: pianoNotes.map(({ pitch, startTick, durationTick, velocity }) => ({
-                      pitch,
-                      startTick,
-                      durationTick,
-                      velocity,
-                    })),
-                  }
-                : {}),
+              ...midi,
               userId,
               draftKey,
               title: cleanTitle,

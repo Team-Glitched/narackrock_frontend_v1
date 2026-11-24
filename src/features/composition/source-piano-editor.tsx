@@ -11,6 +11,7 @@ import {
   type SetStateAction,
 } from "react";
 import type { MidiNoteDto } from "@/lib/api/composition";
+import type { RenderedMidiSnapshot } from "@/features/community/creation-draft";
 import { StudioToolbar } from "@/features/composition/studio-toolbar";
 import { LoadingOverlay } from "@/components/loading-overlay";
 import { NoteSettingsDialog } from "@/features/composition/note-settings-dialog";
@@ -49,7 +50,7 @@ export type SourcePianoProps = {
   bpm: number;
   onBpm: (bpm: number) => void;
   onBack: () => void;
-  onSave: (file: File) => void;
+  onSave: (file: File, midi: RenderedMidiSnapshot) => void;
 };
 
 /**
@@ -169,11 +170,17 @@ export function useSourcePiano({
       setError("피아노롤에 노트를 추가해주세요.");
       return;
     }
+    const snapshotNotes = notes.map((note) => ({
+      ...note,
+      effectParams: note.effectParams ? { ...note.effectParams } : note.effectParams,
+    }));
+    const snapshotBpm = bpm;
     player.pause();
     setPending(true);
     setError(null);
     try {
-      onSave(await renderPianoAudio(notes, bpm, instrument.id));
+      const rendered = await renderPianoAudio(snapshotNotes, snapshotBpm, instrument.id);
+      onSave(rendered, { ppq: 480, bpm: snapshotBpm, notes: snapshotNotes });
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "오디오를 만들지 못했습니다.");
     } finally {

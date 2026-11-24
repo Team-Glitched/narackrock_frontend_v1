@@ -17,6 +17,23 @@ const matches = (file: File | null | undefined, identity: FileIdentity | null) =
     file.size === identity.size &&
     file.lastModified === identity.lastModified,
   );
+export type RenderedMidiSnapshot = {
+  ppq: number;
+  bpm: number;
+  notes: MidiNoteDto[];
+};
+function parseRenderedMidi(value: unknown): RenderedMidiSnapshot | null {
+  if (!value || typeof value !== "object") return null;
+  const candidate = value as Partial<RenderedMidiSnapshot>;
+  if (!Number.isFinite(candidate.ppq) || !Number.isFinite(candidate.bpm) || !Array.isArray(candidate.notes)) {
+    return null;
+  }
+  return {
+    ppq: candidate.ppq!,
+    bpm: candidate.bpm!,
+    notes: candidate.notes,
+  };
+}
 export type CreationDraft = {
   sourceInstrument?: string | null;
   pianoInstrument?: string | null;
@@ -28,6 +45,8 @@ export type CreationDraft = {
   content: string;
   image: File | null;
   audio: File | null;
+  /** Snapshot of the MIDI notes/PPQ/BPM that produced the currently attached WAV. */
+  renderedMidi?: RenderedMidiSnapshot | null;
   notes: MidiNoteDto[];
   bpm: number;
 };
@@ -52,7 +71,12 @@ export function readCreationDraft(
       !Number.isFinite(value.bpm)
     )
       return undefined;
-    return { ...value, image: null, audio: null };
+    return {
+      ...value,
+      renderedMidi: parseRenderedMidi(value.renderedMidi),
+      image: null,
+      audio: null,
+    };
   } catch {
     return undefined;
   }
@@ -91,6 +115,7 @@ export async function restoreCreationDraft(key: string) {
     image,
     imageRestoreFailed,
     audio,
+    renderedMidi: audio ? (text.renderedMidi ?? null) : null,
     restorationWarning: missing
       ? "일부 첨부 파일을 복원하지 못했습니다. 다시 첨부해주세요."
       : undefined,
@@ -113,6 +138,7 @@ export function rememberCreationDraft(key: string, draft: CreationDraft): Promis
           imageRestoreFailed: draft.imageRestoreFailed || undefined,
           title: draft.title,
           content: draft.content,
+          renderedMidi: draft.audio ? (draft.renderedMidi ?? null) : null,
           notes: draft.notes,
           bpm: draft.bpm,
           attachments: { image: identify(draft.image), audio: identify(draft.audio) },

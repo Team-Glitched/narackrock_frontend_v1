@@ -28,3 +28,30 @@ test("realtime edit and soft-delete events overwrite existing messages by server
   assert.equal(afterDelete[0].deleted, true);
   assert.equal(afterDelete[0].content, "");
 });
+
+test("stale history packets never resurrect deleted messages or revert newer edits", () => {
+  const original = message(1, 1, 2);
+  const editedV1 = { ...original, content: "edit-1", editedAt: "2026-11-24T01:00:00.100000" };
+  const editedV2 = { ...original, content: "edit-2", editedAt: "2026-11-24T01:00:00.200000" };
+
+  // Newer edit stays intact when pre-edit or older-edit history arrives afterwards.
+  const afterNewerEdit = mergeChatMessages([original], [editedV2], 1, 2);
+  const afterStaleHistory = mergeChatMessages(afterNewerEdit, [original, editedV1], 1, 2);
+  assert.equal(afterStaleHistory[0].content, "edit-2");
+  assert.equal(afterStaleHistory[0].editedAt, "2026-11-24T01:00:00.200000");
+
+  // Even a later editedAt cannot un-delete a terminal soft-delete tombstone.
+  const deleted = { ...editedV2, content: "leftover", deleted: true };
+  const afterDelete = mergeChatMessages(afterStaleHistory, [deleted], 1, 2);
+  assert.equal(afterDelete[0].deleted, true);
+  assert.equal(afterDelete[0].content, "");
+
+  const afterLateHistoryAndEdit = mergeChatMessages(
+    afterDelete,
+    [original, { ...original, content: "late-edit", editedAt: "2026-11-24T02:00:00" }],
+    1,
+    2,
+  );
+  assert.equal(afterLateHistoryAndEdit[0].deleted, true);
+  assert.equal(afterLateHistoryAndEdit[0].content, "");
+});
