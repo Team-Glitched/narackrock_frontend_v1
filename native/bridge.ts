@@ -111,6 +111,8 @@ export type BridgeHost = {
   setCanGoBack(canGoBack: boolean): void;
   /** A new document started: the previous document's audio scopes end. */
   documentStart(): void;
+  /** Temporarily permits portrait orientation while presenting a portrait-only native UI (e.g. iOS image crop picker). */
+  withPortraitAllowed<T>(task: () => Promise<T>): Promise<T>;
 };
 
 const footerTabs: readonly unknown[] = [
@@ -365,7 +367,7 @@ async function run(
       return { shared: action === Share.sharedAction };
     }
     case "pick-image":
-      return { image: await pickImage(request.crop) };
+      return { image: await host.withPortraitAllowed(() => pickImage(request.crop)) };
     case "pick-audio":
       return { audio: await pickAudio() };
     case "pick-json":

@@ -23,6 +23,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { queryScope } from "@/lib/query";
 import { PublishConfirmation } from "@/features/composition/publish-confirmation";
 import { CanvasDialog } from "@/components/canvas-dialog";
+import { LoadingOverlay } from "@/components/loading-overlay";
 import { VolumeDialog } from "@/features/composition/volume-dialog";
 import { InstrumentDialog, type InstrumentChoice } from "@/features/composition/instrument-dialog";
 import { findInstrument, invalidPitchesFor } from "@/features/composition/instrument-catalog";
@@ -42,6 +43,7 @@ import {
 } from "@/features/composition/contribution-session";
 import { completedExportShortId } from "@/features/composition/publish-navigation";
 import { pointerAxes, logicalBounds } from "@/features/composition/pointer-coordinates";
+import { OrientationToggleButton } from "@/components/orientation-toggle-button";
 import { StudioSourceDialog } from "@/features/composition/studio-source-dialog";
 import type { Resource } from "@/features/workspace/workspace-store";
 import { signatureGrid, musicalGridBackground } from "@/features/composition/time-signature";
@@ -144,6 +146,7 @@ export function useStudio({
   const originalAudio = useRef(new Map<string, Promise<File>>());
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [busyMessage, setBusyMessage] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const [showSubmitForm, setShowSubmitForm] = useState(false);
   const [showPublishConfirmation, setShowPublishConfirmation] = useState(false);
@@ -329,6 +332,7 @@ export function useStudio({
   async function addAudio(trackId: number, file: File, selection: AudioSelection) {
     if (!composition || busy) throw new Error("잠시 후 다시 시도해 주세요.");
     setBusy(true);
+    setBusyMessage("오디오를 레이어에 저장하는 중입니다.");
     setError(null);
     try {
       const { wav, durationMs } = await prepareAudioFile(file, selection);
@@ -343,6 +347,7 @@ export function useStudio({
       await refresh();
     } finally {
       setBusy(false);
+      setBusyMessage(null);
     }
   }
 
@@ -350,6 +355,7 @@ export function useStudio({
     const cleanComment = sanitizeSingleLine(comment);
     if (!composition || busy || !cleanComment || !hasVisibleText(cleanComment)) return;
     setBusy(true);
+    setBusyMessage("작업을 제출하는 중입니다.");
     setError(null);
     setStatus(null);
     try {
@@ -382,6 +388,7 @@ export function useStudio({
       }
     } finally {
       setBusy(false);
+      setBusyMessage(null);
     }
   }
 
@@ -404,6 +411,7 @@ export function useStudio({
   async function savePrivateDraft(title?: string) {
     if (!composition || busy || !canSavePrivate) return;
     setBusy(true);
+    setBusyMessage("비공개로 저장하는 중입니다.");
     setError(null);
     setStatus(null);
     try {
@@ -419,12 +427,14 @@ export function useStudio({
     } finally {
       void queryClient.invalidateQueries({ queryKey: compositionKeys.all(userId) });
       setBusy(false);
+      setBusyMessage(null);
     }
   }
 
   async function publish() {
     if (!composition || busy) return;
     setBusy(true);
+    setBusyMessage("숏폼 음원을 생성하는 중입니다.");
     setError(null);
     setStatus("숏폼 음원을 생성하는 중입니다.");
     try {
@@ -482,6 +492,7 @@ export function useStudio({
       void queryClient.invalidateQueries({ queryKey: [...queryScope(userId), "songs"] });
       void queryClient.invalidateQueries({ queryKey: [...queryScope(userId), "shorts"] });
       setBusy(false);
+      setBusyMessage(null);
     }
   }
 
@@ -504,6 +515,7 @@ export function useStudio({
       return;
     }
     setBusy(true);
+    setBusyMessage("곡 정보를 저장하는 중입니다.");
     setError(null);
     try {
       const imageId = publishImage ? await uploadMedia(publishImage, "IMAGE") : null;
@@ -515,6 +527,7 @@ export function useStudio({
       setError(errorText(cause));
     } finally {
       setBusy(false);
+      setBusyMessage(null);
     }
   }
 
@@ -782,6 +795,7 @@ export function useStudio({
     tracks,
     playback,
     busy,
+    busyMessage,
     error,
     setError,
     status,
@@ -799,9 +813,14 @@ export function useStudio({
     showSources,
     setShowSources,
     importResource: async (resource: Resource) => {
-      await onImportResource(resource);
-      await refresh();
-      setShowSources(false);
+      setBusyMessage("샘플을 불러오는 중입니다.");
+      try {
+        await onImportResource(resource);
+        await refresh();
+        setShowSources(false);
+      } finally {
+        setBusyMessage(null);
+      }
     },
     importOpenSource,
     showSubmitForm,
@@ -870,7 +889,15 @@ export function useStudio({
 
 export type Studio = ReturnType<typeof useStudio>;
 
-export function StudioScreen({ studio, portrait = true }: { studio: Studio; portrait?: boolean }) {
+export function StudioScreen({
+  studio,
+  portrait = true,
+  onToggleOrientation,
+}: {
+  studio: Studio;
+  portrait?: boolean;
+  onToggleOrientation?: () => void;
+}) {
   const {
     composition,
     playback,
@@ -895,10 +922,16 @@ export function StudioScreen({ studio, portrait = true }: { studio: Studio; port
     return (
       <div
         className={cn(studioStyles.studio, studioStyles.studioState, portrait && studioStyles.studioUpright)}
-        role={message ? "alert" : "status"}
+        role={message ? "alert" : undefined}
       >
-        <p>{message ?? "작곡 데이터를 불러오는 중입니다."}</p>
-        {message && <button onClick={studio.onExit}>돌아가기</button>}
+        {message ? (
+          <>
+            <p>{message}</p>
+            <button onClick={studio.onExit}>돌아가기</button>
+          </>
+        ) : (
+          <LoadingOverlay message="작곡 데이터를 불러오는 중입니다." />
+        )}
       </div>
     );
   }
@@ -977,6 +1010,9 @@ export function StudioScreen({ studio, portrait = true }: { studio: Studio; port
           )
         ) : null}
       </StudioToolbar>
+      {onToggleOrientation && (
+        <OrientationToggleButton portrait={portrait} onToggle={onToggleOrientation} />
+      )}
       {selectMidiLayer && (
         <p className="m-0 shrink-0 px-4 py-2 text-caption text-app-muted">
           피아노롤에서 열 MIDI 레이어를 선택하세요.
@@ -1127,6 +1163,7 @@ export function StudioScreen({ studio, portrait = true }: { studio: Studio; port
               }}
               enableSplice
               saveLabel="선택 구간을 레이어에 저장"
+              suppressLoadingOverlay
               onCancel={() => studio.setPendingAudio(null)}
               onSave={async (selection) => {
                 await studio.addAudio(pendingAudio.trackId, pendingAudio.file, selection);
@@ -1351,6 +1388,18 @@ export function StudioScreen({ studio, portrait = true }: { studio: Studio; port
           ))}
         </div>
       </div>
+      {studio.analysisBusy ? (
+        <LoadingOverlay message="오디오 음을 분석하는 중입니다." submessage="잠시만 기다려 주세요." />
+      ) : studio.busyMessage ? (
+        <LoadingOverlay
+          message={studio.busyMessage}
+          submessage={
+            studio.busyMessage.includes("숏폼") ? "음원 믹싱에 잠시 시간이 걸릴 수 있어요." : undefined
+          }
+        />
+      ) : playback.preparing ? (
+        <LoadingOverlay message="악기와 오디오를 준비하는 중입니다." />
+      ) : null}
     </div>
   );
 }

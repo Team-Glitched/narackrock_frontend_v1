@@ -1,0 +1,20 @@
+<svg preserveAspectRatio="none" overflow="visible" style="display: block;" width="43.0772" height="119.001" viewBox="0 0 43.0772 119.001" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g id="Group 130">
+<circle id="Ellipse 48" cx="21.9999" cy="20" r="20" fill="#BABABA"/>
+<path id="Union" d="M41.1543 17.6932C42.2161 17.6934 43.0771 18.5542 43.0772 19.616C43.0772 20.2577 42.7613 20.8243 42.2783 21.1736C42.2682 21.8021 41.7559 22.3084 41.125 22.3084H1.95118C1.32048 22.3082 0.808003 21.802 0.797857 21.1736C0.315118 20.8243 5.25717e-06 20.2575 5.25717e-06 19.616C8.64071e-05 18.5541 0.860924 17.6933 1.92286 17.6932H41.1543Z" fill="#D2D2D2"/>
+<path id="Rectangle 422" d="M7.30395 37.2663C7.14289 36.0667 8.07585 35.0002 9.28616 35.0002H33.7132C34.9235 35.0002 35.8565 36.0667 35.6954 37.2663L33.0103 57.2663C32.877 58.2591 32.0298 59.0002 31.028 59.0002H11.9713C10.9696 59.0002 10.1224 58.2591 9.98913 57.2663L7.30395 37.2663Z" fill="#262626"/>
+<path id="Rectangle 425" d="M10.436 58.4117C10.1995 54.3911 13.3963 51.0007 17.4239 51.0007H25.6784C29.6678 51.0007 32.8505 54.3296 32.6714 58.3149L30.2449 112.315C30.0769 116.055 26.9958 119.001 23.252 119.001H20.6004C16.894 119.001 13.8301 116.112 13.6125 112.412L10.436 58.4117Z" fill="#262626"/>
+<rect id="Rectangle 423" x="6" y="35.0004" width="31" height="2" rx="1" fill="url(#paint0_linear_0_278)"/>
+<rect id="Rectangle 424" x="5" y="32.0004" width="33" height="3" rx="1.5" fill="url(#paint1_linear_0_278)"/>
+</g>
+<defs>
+<linearGradient id="paint0_linear_0_278" x1="21.5" y1="35.0004" x2="21.5" y2="37.0004" gradientUnits="userSpaceOnUse">
+<stop stop-color="#FAFAFA"/>
+<stop offset="1" stop-color="#949494"/>
+</linearGradient>
+<linearGradient id="paint1_linear_0_278" x1="21.5" y1="32.0004" x2="21.5" y2="35.0004" gradientUnits="userSpaceOnUse">
+<stop stop-color="#FAFAFA"/>
+<stop offset="1" stop-color="#949494"/>
+</linearGradient>
+</defs>
+</svg>

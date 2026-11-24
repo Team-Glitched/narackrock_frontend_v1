@@ -197,6 +197,7 @@ export default function RecordPage() {
               timeSignature={timeSignature}
               onTiming={onTiming}
               timingMode={timingMode}
+              suppressLoadingOverlay={instrument.open}
             />
           )}
         </div>

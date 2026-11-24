@@ -5,6 +5,7 @@ import type { NativeNoteEditor, NativeTransport } from "../../../src/lib/native-
 import PlayIcon from "../../../public/figma/play.svg";
 import ReturnIcon from "../../../public/figma/return.svg";
 import { Touchable } from "../../ui/kit";
+import { OrientationFab } from "../../ui/orientation-fab";
 import { useScreen } from "../../ui/screen-context";
 import { useDevicePortrait } from "../../ui/use-device-portrait";
 import { colors } from "../../ui/theme";
@@ -67,6 +68,7 @@ export function NoteEditorScreen({ model }: ScreenProps<"editor-notes">) {
         <StatusRow model={model} />
         <Notices model={model} />
         <NoteRoll roll={model.roll} />
+        <OrientationFab />
         <Overlays model={model} />
       </View>
     </StudioCanvas>
@@ -172,6 +174,7 @@ function Portrait({ model }: { model: Ready }) {
       <Notices model={model} />
       <View style={styles.portraitRoll}>
         <NoteRoll roll={model.roll} rowHeight={40} keyWidth={44} />
+        <OrientationFab />
       </View>
       <View style={styles.portraitBottom}>
         {model.editable && <NoteTools roll={model.roll} large />}
@@ -529,7 +532,7 @@ const styles = StyleSheet.create({
   readoutSmall: { color: colors.muted, fontSize: 14, lineHeight: 20 },
   readoutPlus: { color: colors.fg, fontSize: 14, lineHeight: 20 },
   readoutValue: { color: colors.fg, fontSize: 14, lineHeight: 20, fontVariant: ["tabular-nums"] },
-  portraitRoll: { flex: 1, minHeight: 0 },
+  portraitRoll: { position: "relative", flex: 1, minHeight: 0 },
   portraitBottom: { marginHorizontal: 16, marginTop: 12, marginBottom: 24, gap: 16 },
   transport: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 32 },
   round: {

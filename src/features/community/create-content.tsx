@@ -50,6 +50,7 @@ import {
   clearCreationDraft,
 } from "@/features/community/creation-draft";
 import { CanvasDialog } from "@/components/canvas-dialog";
+import { LoadingOverlay } from "@/components/loading-overlay";
 import { NativeDialog } from "@/components/native-dialog";
 import { nativeApp } from "@/lib/native-app";
 import { createPost, proposeGallery } from "@/lib/api/community";
@@ -710,6 +711,7 @@ function SocialCreateFormContent({ form }: { form: SocialCreateState }) {
             saveLabel="오디오 선택 완료"
             onBack={() => setAudioStage("choose")}
             onSave={selectAudio}
+            suppressLoadingOverlay={form.instrumentPrompt.open}
           />
         ) : audioStage === "note" ? (
           <SourcePianoEditor
@@ -734,6 +736,7 @@ function SocialCreateFormContent({ form }: { form: SocialCreateState }) {
             saveLabel="녹음 선택 완료"
             onBack={() => setAudioStage("choose")}
             onSave={selectAudio}
+            suppressLoadingOverlay={form.instrumentPrompt.open}
           />
         )}
       </div>
@@ -994,6 +997,7 @@ function SocialCreateFormContent({ form }: { form: SocialCreateState }) {
           </div>
         </CanvasDialog>
       )}
+      {kind === "source" && busy && <LoadingOverlay message="샘플을 등록하는 중입니다." />}
     </form>
   );
 }

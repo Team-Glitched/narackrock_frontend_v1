@@ -266,7 +266,7 @@ export const studioStyles = {
     // The narrow key column leaves no room beside a black key for its name.
     "[&_.piano-key.black_span]:invisible",
   ].join(" "),
-  portraitRoll: ["portrait-roll", "flex min-h-0 flex-1 flex-col"].join(" "),
+  portraitRoll: ["portrait-roll", "relative flex min-h-0 flex-1 flex-col"].join(" "),
   studioToolbar: [
     "studio-toolbar",
     "h-auto bg-[#201d1e] bg-none flex items-center gap-2 p-[5px_10px] min-h-11 flex-[0_0_auto] flex-wrap",

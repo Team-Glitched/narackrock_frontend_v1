@@ -28,6 +28,7 @@ import {
   Trash2,
   Undo2,
 } from "lucide-react";
+import { LoadingOverlay } from "@/components/loading-overlay";
 import type { AudioSelection } from "@/features/composition/prepare-audio-file";
 import {
   centerAudioSelection,
@@ -435,6 +436,7 @@ export function AudioTrimPicker({
   onPreviewStateChange,
   previewControlRef,
   saveLabel,
+  suppressLoadingOverlay = false,
 }: {
   url: string;
   onSave: (selection: AudioSelection) => Promise<void>;
@@ -448,6 +450,7 @@ export function AudioTrimPicker({
   onPreviewStateChange?: (playing: boolean) => void;
   previewControlRef?: MutableRefObject<{ toggle: () => void; stop: () => void } | null>;
   saveLabel: string;
+  suppressLoadingOverlay?: boolean;
 }) {
   const audioRef = useRef<HTMLAudioElement>(null);
   const waveformRef = useRef<HTMLDivElement>(null);
@@ -723,6 +726,7 @@ export function AudioTrimPicker({
 
   return (
     <div className={studioStyles.audioTrimPicker}>
+      {busy && !suppressLoadingOverlay && <LoadingOverlay message="오디오를 올리는 중입니다." />}
       <audio
         ref={audioRef}
         src={url}

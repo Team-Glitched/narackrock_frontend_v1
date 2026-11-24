@@ -27,6 +27,7 @@ import type {
 import SoundMutedIcon from "../../../public/figma/sound-muted.svg";
 import SoundIcon from "../../../public/figma/sound.svg";
 import { Avatar, Touchable } from "../../ui/kit";
+import { OrientationFab } from "../../ui/orientation-fab";
 import { useScreen } from "../../ui/screen-context";
 import { ScreenModal } from "../../ui/screen-modal";
 import { colors } from "../../ui/theme";
@@ -136,6 +137,7 @@ function Studio({ model }: { model: NativeStudio }) {
           {model.status}
         </Text>
       )}
+      <OrientationFab />
       {model.submit && (
         <SubmitForm submit={model.submit} comment={comment} onComment={setComment} />
       )}

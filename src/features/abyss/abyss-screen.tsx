@@ -795,8 +795,11 @@ function AbyssView({ abyss }: { abyss: AbyssState }) {
           open={sheet === "comments"}
           onClose={abyss.closeSheet}
         />
-        {participation && current.projectId != null && (
-          <div className={abyssStyles.abyssJoinSlot}>
+        <div
+          className={abyssStyles.abyssJoinSlot}
+          aria-hidden={!(participation && current.projectId != null) || undefined}
+        >
+          {participation && current.projectId != null && (
             <button
               className={cn(
                 abyssStyles.abyssJoin,
@@ -807,8 +810,8 @@ function AbyssView({ abyss }: { abyss: AbyssState }) {
             >
               {participationLabel[participation]}
             </button>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </div>
   );

@@ -151,6 +151,7 @@ export default function UploadPage() {
               signature={signature}
               onTiming={onTiming}
               timingMode={timingMode}
+              suppressLoadingOverlay={instrument.open}
             />
           )}
         </div>

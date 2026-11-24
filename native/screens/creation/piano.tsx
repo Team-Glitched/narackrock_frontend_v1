@@ -1,6 +1,7 @@
 import { StyleSheet, Text, View } from "react-native";
 
 import { useDevicePortrait } from "../../ui/use-device-portrait";
+import { OrientationFab } from "../../ui/orientation-fab";
 import { useScreen } from "../../ui/screen-context";
 import { colors } from "../../ui/theme";
 import { NoteControls, NoteRoll, NoteRollSheets } from "../editor/roll";
@@ -53,6 +54,7 @@ export function CreationPianoScreen({ model }: ScreenProps<"creation-piano">) {
             </Text>
           )
         )}
+        <OrientationFab />
       </View>
       <NoteRollSheets roll={model.roll} />
       <TimingSheet sheet={model.timing} />

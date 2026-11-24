@@ -7,6 +7,7 @@ import { useCallback, useEffect, useEffectEvent, useMemo, useRef, useState } fro
 import { Mic, RotateCcw, Square } from "lucide-react";
 import { Asset } from "@/components/asset";
 import { Dropdown } from "@/components/dropdown";
+import { LoadingOverlay } from "@/components/loading-overlay";
 import { AudioTrimPicker, formatTrimTime } from "@/features/composition/audio-trim-picker";
 import {
   CreationTimingBar,
@@ -118,6 +119,7 @@ export function CompositionUploadScreen({
   onTiming,
   timingMode = onTiming ? "editable" : "locked",
   saveLabel = "선택 구간을 레이어에 저장",
+  suppressLoadingOverlay = false,
 }: {
   onSave: (file: File, selection: AudioSelection) => Promise<void>;
   bpm?: number;
@@ -126,6 +128,7 @@ export function CompositionUploadScreen({
   timingMode?: CreationTimingMode;
   saveLabel?: string;
   onBack: () => void;
+  suppressLoadingOverlay?: boolean;
 }) {
   const [selected, select] = useSelectedAudio();
   return (
@@ -178,6 +181,7 @@ export function CompositionUploadScreen({
             enableSplice
             onSave={(selection) => onSave(selected.file, selection)}
             saveLabel={saveLabel}
+            suppressLoadingOverlay={suppressLoadingOverlay}
           />
         </div>
       )}
@@ -318,6 +322,7 @@ export function useCompositionRecorder({
   const [countdown, setCountdown] = useState<number | null>(null);
   const [recording, setRecording] = useState(false);
   const [pending, setPending] = useState(false);
+  const [pendingKind, setPendingKind] = useState<"permission" | "save" | "transform" | null>(null);
   const [soundKind, setSoundKind] = useState<AudioTranscriptionMode>("AUTO");
   const [pendingLabel, setPendingLabel] = useState("처리 중");
   const [file, setFile] = useState<File | null>(null);
@@ -364,6 +369,7 @@ export function useCompositionRecorder({
       const startedAt = nativeStartedAt.current;
       nativeStartedAt.current = null;
       setRecording(false);
+      setPendingKind("permission");
       setPending(true);
       try {
         const recorded = await recordNativeAudio("stop");
@@ -374,10 +380,12 @@ export function useCompositionRecorder({
       } catch (cause) {
         setError(cause instanceof Error ? cause.message : "녹음을 저장하지 못했습니다.");
       } finally {
+        setPendingKind(null);
         setPending(false);
       }
       return;
     }
+    setPendingKind("permission");
     setPending(true);
     setError("");
     setFile(null);
@@ -394,6 +402,7 @@ export function useCompositionRecorder({
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "마이크 권한을 확인해 주세요.");
     } finally {
+      setPendingKind(null);
       setPending(false);
     }
   }
@@ -410,6 +419,7 @@ export function useCompositionRecorder({
       setLiveStream(null);
       return;
     }
+    setPendingKind("permission");
     setPending(true);
     setError("");
     setFile(null);
@@ -487,12 +497,14 @@ export function useCompositionRecorder({
       cancelCountdown();
       setError(cause instanceof Error ? cause.message : "마이크 권한을 확인해 주세요.");
     } finally {
+      setPendingKind(null);
       setPending(false);
     }
   }
   async function save() {
     if (!file || pending) return;
     setPendingLabel("저장 중");
+    setPendingKind("save");
     setPending(true);
     setError("");
     // The chooser auditions the recording itself; the native player must not play over it.
@@ -502,12 +514,14 @@ export function useCompositionRecorder({
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "녹음을 저장하지 못했습니다.");
     } finally {
+      setPendingKind(null);
       setPending(false);
     }
   }
   async function transform() {
     if (!file || pending || !onTransform) return;
     setPendingLabel("소리 분석 및 MIDI 변환 중");
+    setPendingKind("transform");
     setPending(true);
     setError("");
     beforeSubmit?.();
@@ -516,6 +530,7 @@ export function useCompositionRecorder({
     } catch (cause) {
       setError(cause instanceof Error ? cause.message : "녹음을 MIDI로 변환하지 못했습니다.");
     } finally {
+      setPendingKind(null);
       setPending(false);
     }
   }
@@ -551,6 +566,7 @@ export function useCompositionRecorder({
     countdown,
     recording,
     pending,
+    pendingKind,
     file,
     durationMs,
     url,
@@ -573,6 +589,7 @@ export function CompositionRecordScreen({
   signature,
   onTiming,
   timingMode = onTiming ? "editable" : "locked",
+  suppressLoadingOverlay = false,
 }: {
   onSave: (file: File, selection?: AudioSelection) => Promise<void>;
   onTransform?: (
@@ -587,6 +604,7 @@ export function CompositionRecordScreen({
   signature?: TimeSignature;
   onTiming?: (timing: ProjectTiming) => Promise<void>;
   timingMode?: CreationTimingMode;
+  suppressLoadingOverlay?: boolean;
 }) {
   const parsedSignature = useMemo(
     () => signature ?? parseSignature(timeSignature ?? "4/4"),
@@ -620,6 +638,7 @@ export function CompositionRecordScreen({
     countdown,
     recording,
     pending,
+    pendingKind,
     file,
     url,
     error,
@@ -656,6 +675,12 @@ export function CompositionRecordScreen({
         "[scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
       )}
     >
+      {(pendingKind === "transform" || pendingKind === "save") && !suppressLoadingOverlay && (
+        <LoadingOverlay
+          message={pendingKind === "transform" ? "소리 분석 및 MIDI 변환 중" : "녹음을 저장하는 중입니다."}
+          submessage={pendingKind === "transform" ? "오디오 길이에 따라 잠시 걸릴 수 있어요." : undefined}
+        />
+      )}
       <CreationTimingBar
         bpm={bpm}
         signature={parsedSignature}
@@ -736,6 +761,7 @@ export function CompositionRecordScreen({
               onPreviewStateChange={setPreviewPlaying}
               onSave={async () => {}}
               saveLabel={saveLabel}
+              suppressLoadingOverlay={suppressLoadingOverlay}
             />
             {file && onTransform && (
               <div className={studioStyles.recordConvert}>

@@ -1,6 +1,7 @@
 import { studioStyles } from "@/styles/studio.styles";
 import { cn } from "@/lib/utils";
 import { CanvasDialog } from "@/components/canvas-dialog";
+import { LoadingOverlay } from "@/components/loading-overlay";
 import { nativeApp } from "@/lib/native-app";
 import { NoteSettingsDialog } from "./note-settings-dialog";
 import { StudioSourceDialog } from "./studio-source-dialog";
@@ -15,6 +16,7 @@ import { PortraitNoteEditor } from "./note-editor-portrait";
 import { useNoteEditorLoad, useNoteEditorScreen } from "./use-note-editor-screen";
 import { NativeNoteEditorBridge, NativeNoteEditorStateBridge } from "./native-note-editor-bridge";
 import { LocateFixed } from "lucide-react";
+import { OrientationToggleButton } from "@/components/orientation-toggle-button";
 
 export function NoteEditorScreen({
   conversionNotice,
@@ -25,6 +27,7 @@ export function NoteEditorScreen({
   onBack,
   onOpenLayers,
   portrait = true,
+  onToggleOrientation,
 }: {
   conversionNotice?: string;
   projectId: number | null;
@@ -35,6 +38,7 @@ export function NoteEditorScreen({
   onOpenLayers: () => void;
   /** Upright 390×844 layout instead of the landscape canvas; the page owns the choice. */
   portrait?: boolean;
+  onToggleOrientation?: () => void;
 }) {
   const load = useNoteEditorLoad(projectId, trackId, clipId, view);
   if (!load.composition) {
@@ -48,7 +52,11 @@ export function NoteEditorScreen({
       );
     return (
       <div className={cn(studioStyles.studio, studioStyles.studioState, portrait && studioStyles.studioPortrait)}>
-        <p role={load.state === "error" ? "alert" : "status"}>{load.message}</p>
+        {load.state === "loading" ? (
+          <LoadingOverlay message={load.message} />
+        ) : (
+          <p role={load.state === "error" ? "alert" : "status"}>{load.message}</p>
+        )}
         <button onClick={onBack}>돌아가기</button>
       </div>
     );
@@ -64,6 +72,7 @@ export function NoteEditorScreen({
       onBack={onBack}
       onOpenLayers={onOpenLayers}
       portrait={portrait}
+      onToggleOrientation={onToggleOrientation}
     />
   );
 }
@@ -77,6 +86,7 @@ function LoadedNoteEditor({
   onBack,
   onOpenLayers,
   portrait,
+  onToggleOrientation,
 }: {
   conversionNotice?: string;
   /** The live project; working notes and their base snapshot are kept apart from it. */
@@ -87,6 +97,7 @@ function LoadedNoteEditor({
   onBack: () => void;
   onOpenLayers: () => void;
   portrait: boolean;
+  onToggleOrientation?: () => void;
 }) {
   const screen = useNoteEditorScreen({
     conversionNotice,
@@ -261,6 +272,11 @@ function LoadedNoteEditor({
           status={statusRow}
           tools={editable && <NoteTools editor={editor} large />}
           roll={roll}
+          rollOverlay={
+            onToggleOrientation && (
+              <OrientationToggleButton portrait onToggle={onToggleOrientation} />
+            )
+          }
         />
       ) : (
         <>
@@ -308,6 +324,9 @@ function LoadedNoteEditor({
         </div>
       )}
       {!editable && <p>내 MIDI 레이어만 수정할 수 있습니다.</p>}
+      {!portrait && onToggleOrientation && (
+        <OrientationToggleButton portrait={false} onToggle={onToggleOrientation} />
+      )}
       {screen.showSources && editor.editable && (
         <StudioSourceDialog
           midiOnly
@@ -410,6 +429,11 @@ function LoadedNoteEditor({
           />
         )}
       {!portrait && roll}
+      {busy ? (
+        <LoadingOverlay message="작업을 처리하는 중입니다." />
+      ) : playback.preparing ? (
+        <LoadingOverlay message="악기를 준비하는 중입니다." />
+      ) : null}
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import { useDevicePortrait } from "@/hooks/use-device-portrait";
+import { useCanvasOrientation } from "@/hooks/use-canvas-orientation";
 import { studioStyles } from "@/styles/studio.styles";
 import { cn } from "@/lib/utils";
 import {
@@ -12,6 +12,7 @@ import {
 } from "react";
 import type { MidiNoteDto } from "@/lib/api/composition";
 import { StudioToolbar } from "@/features/composition/studio-toolbar";
+import { LoadingOverlay } from "@/components/loading-overlay";
 import { NoteSettingsDialog } from "@/features/composition/note-settings-dialog";
 import { TeamPianoRoll } from "./team-piano-roll";
 import { useCompositionPlayback, type PlaybackComposition } from "./use-composition-playback";
@@ -32,6 +33,7 @@ import { useNativeInstrumentPicker, type InstrumentChoice } from "./instrument-d
 import { resolveSampleInstrument } from "./piano-render-plan";
 import type { NativeCreationPiano, NativeCreationPianoAction } from "@/lib/native-screens";
 import { isNativeNoteRollAction } from "@/lib/native-screens/editor";
+import { OrientationToggleButton } from "@/components/orientation-toggle-button";
 import {
   isNativeInstrumentAction,
   isNativeTimingAction,
@@ -277,7 +279,7 @@ export function useNativeSourcePiano(props: SourcePianoProps): {
 
 export function SourcePianoEditor(props: SourcePianoProps) {
   const { bpm, onBack } = props;
-  const portrait = useDevicePortrait();
+  const { portrait, toggle } = useCanvasOrientation();
   const piano = useSourcePiano(props);
   const { maxTick, signature, player, pending, error, positionTick, editor, dialogs, play } = piano;
   const jsonInput = useRef<HTMLInputElement>(null);
@@ -422,6 +424,7 @@ export function SourcePianoEditor(props: SourcePianoProps) {
           status={status}
           tools={<NoteTools editor={editor} large />}
           roll={roll}
+          rollOverlay={<OrientationToggleButton portrait onToggle={toggle} />}
         />
       ) : (
         <>
@@ -461,6 +464,7 @@ export function SourcePianoEditor(props: SourcePianoProps) {
           if (file) void importJson(file);
         }}
       />
+      {!portrait && <OrientationToggleButton portrait={false} onToggle={toggle} />}
       {showChords && editor.editable && (
         <ChordPickerDialog
           editor={editor}
@@ -479,6 +483,11 @@ export function SourcePianoEditor(props: SourcePianoProps) {
           instrument={piano.instrumentId}
           onClose={() => setSettings(null)}
           onApply={(note) => editor.execute({ type: "replace", index: settings, note })}
+        />
+      )}
+      {(pending || importing) && (
+        <LoadingOverlay
+          message={importing ? "JSON 파일을 읽는 중입니다." : "오디오를 만드는 중입니다."}
         />
       )}
     </div>

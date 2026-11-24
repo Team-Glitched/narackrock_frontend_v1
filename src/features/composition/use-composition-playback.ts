@@ -68,6 +68,7 @@ export type CompositionPlayback = {
   setTrackVolume: (trackId: number, volume: number) => void;
   mutedTrackIds: Set<number>;
   toggleTrackMute: (trackId: number) => void;
+  preparing: boolean;
   playing: boolean;
   positionMs: number;
   error: string | null;
@@ -91,6 +92,7 @@ function useToneCompositionPlayback(
   options?: CompositionPlaybackOptions,
 ): CompositionPlayback {
   const signature = useMemo(() => projectSignature(composition), [composition]);
+  const [preparing, setPreparing] = useState(false);
   const [playing, setPlaying] = useState(false);
   const [metronome, setMetronome] = useState(false);
   const metronomeRef = useRef(false);
@@ -147,6 +149,7 @@ function useToneCompositionPlayback(
     if (mounted.current) {
       setPositionMs(positionRef.current);
       setPlaying(false);
+      setPreparing(false);
     }
   }, []);
 
@@ -223,6 +226,7 @@ function useToneCompositionPlayback(
     const endMs = playbackEndMs(input, optionsRef.current?.durationMs);
     if (endMs <= 0) return;
     const position = positionRef.current >= endMs ? 0 : positionRef.current;
+    setPreparing(true);
     try {
       await Tone.start();
       if (!live()) return;
@@ -243,6 +247,7 @@ function useToneCompositionPlayback(
         return { track, bank, audio };
       }));
       if (!live()) return;
+      setPreparing(false);
       const generation = new PlaybackGeneration(master());
       mainRef.current = generation;
       generation.positionMs = position;
@@ -293,6 +298,7 @@ function useToneCompositionPlayback(
       if (!live()) return;
       mainRef.current?.stop();
       mainRef.current = null;
+      setPreparing(false);
       setPlaying(false);
       setError(message(cause));
     }
@@ -431,7 +437,7 @@ function useToneCompositionPlayback(
 
   return {
     signature, metronome, setMetronome, trackVolumes, setTrackVolume, mutedTrackIds, toggleTrackMute,
-    playing, positionMs, error, play, pause, seek, audition, previewInstrument,
+    preparing, playing, positionMs, error, play, pause, seek, audition, previewInstrument,
     previewAudio, stopPreview, nativeEngine: null,
   };
 }
@@ -704,7 +710,7 @@ function useNativeCompositionPlayback(
 
   return {
     signature, metronome, setMetronome, trackVolumes, setTrackVolume, mutedTrackIds, toggleTrackMute,
-    playing, positionMs, error, play, pause, seek, audition, previewInstrument,
+    preparing: false, playing, positionMs, error, play, pause, seek, audition, previewInstrument,
     previewAudio, stopPreview, nativeEngine: engine,
   };
 }
