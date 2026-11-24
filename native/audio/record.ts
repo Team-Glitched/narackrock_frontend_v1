@@ -124,6 +124,26 @@ export function cancelRecording(): void {
 }
 
 /**
+ * Record screen count-in: asks for the microphone and opens the iOS recording session before the
+ * first click, so Start after the last beat only has to open the input.
+ */
+export async function prepareRecording(): Promise<void> {
+  if ((await AudioManager.requestRecordingPermissions()) !== "Granted")
+    throw new Error("마이크 권한을 확인해 주세요.");
+  setRecordingSession(true);
+}
+
+/** A cancelled count-in returns the session to playback unless a recording owns it. */
+export function releasePreparedRecording(): void {
+  if (!recorder) setRecordingSession(false);
+}
+
+/** The count-in's recheck before Start: the permission can be revoked while counting. */
+export async function microphoneGranted(): Promise<boolean> {
+  return (await AudioManager.checkRecordingPermissions()) === "Granted";
+}
+
+/**
  * App launch: asks for the microphone up front. Recording still asks when it is missing (denied
  * here, or revoked later); the OS stops showing the prompt once the user chose "don't ask again".
  */

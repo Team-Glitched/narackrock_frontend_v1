@@ -19,6 +19,8 @@ import type { ProjectTiming } from "@/features/composition/project-timing";
 import {
   RECORD_COUNTDOWN_START,
   countdownBeatMs,
+  countdownCaption,
+  startRecorderAfterCountIn,
 } from "@/features/composition/record-countdown";
 import {
   defaultSignature,
@@ -483,7 +485,14 @@ export function useCompositionRecorder({
           clickPlayer.current?.close();
           clickPlayer.current = null;
           setCountdown(null);
-          next.start();
+          // Runs outside the enclosing try: the microphone can vanish during the count-in.
+          const startError = startRecorderAfterCountIn(next, nextStream);
+          if (startError) {
+            if (recorder.current === next) recorder.current = null;
+            if (stream.current === nextStream) stream.current = null;
+            setError(startError);
+            return;
+          }
           setLiveStream(nextStream);
           setRecording(true);
         }, beatMs * RECORD_COUNTDOWN_START);
@@ -702,12 +711,15 @@ export function CompositionRecordScreen({
               <div className="flex size-28 items-center justify-center rounded-full border-2 border-app-primary bg-app-primary/15">
                 <strong
                   aria-live="assertive"
-                  aria-label={`녹음 시작 ${countdown}초 전`}
+                  aria-label={countdownCaption(countdown)}
                   className="tabular-nums text-[56px] leading-none font-extrabold text-white"
                 >
                   {countdown}
                 </strong>
               </div>
+              <p aria-hidden="true" className="mt-3 mb-0 text-caption text-white/70">
+                {countdownCaption(countdown)}
+              </p>
             </div>
           ) : (
             <div className="my-auto flex w-full flex-col items-center gap-5">

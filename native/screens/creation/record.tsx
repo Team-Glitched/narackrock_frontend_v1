@@ -10,9 +10,16 @@ import {
 import {
   RECORD_COUNTDOWN_START,
   countdownBeatMs,
+  countdownCaption,
+  nativeCountInBlocker,
 } from "../../../src/features/composition/record-countdown";
 import PlayIcon from "../../../public/figma/play.svg";
-import { useRecordingLevels } from "../../audio";
+import {
+  microphoneGranted,
+  prepareRecording,
+  releasePreparedRecording,
+  useRecordingLevels,
+} from "../../audio";
 import { runningContext } from "../../audio/graph";
 import { clickSamples } from "../../audio/logic";
 import { AppHeader } from "../../ui/header";
@@ -67,6 +74,8 @@ const idleBarHeights = Array.from(
   (_, index) => Math.round(14 + Math.abs(Math.sin((index + 1) * 0.65)) * 42),
 );
 
+type CountInPhase = "idle" | "preparing" | "counting";
+
 /** Unified Native Record Screen with Portrait Piano Roll-style bottom transport bar. */
 export function CreationRecordScreen({ model, header }: ScreenProps<"creation-record">) {
   const { act, bottomInset, active } = useScreen();
@@ -74,7 +83,14 @@ export function CreationRecordScreen({ model, header }: ScreenProps<"creation-re
   const [appActive, setAppActive] = useState(AppState.currentState === "active");
   const [elapsedMs, setElapsedMs] = useState(0);
   const [countdown, setCountdown] = useState<number | null>(null);
+  const [preparing, setPreparing] = useState(false);
+  const [countInError, setCountInError] = useState<string | null>(null);
   const countdownTimersRef = useRef<ReturnType<typeof setTimeout>[]>([]);
+  // Bumped by every start and cancel; an async step of an older count-in sees the change and stops.
+  const countInRef = useRef(0);
+  // "counting" means prepareRecording switched the session and Start has not been dispatched yet.
+  const countInPhaseRef = useRef<CountInPhase>("idle");
+  const activeRef = useRef(active);
 
   const bpm = model.bpm ?? 120;
   const timeSignature = model.timeSignature ?? "4/4";
@@ -99,21 +115,29 @@ export function CreationRecordScreen({ model, header }: ScreenProps<"creation-re
   }, []);
 
   const cancelCountdown = useCallback(() => {
+    countInRef.current += 1;
     for (const timer of countdownTimersRef.current) clearTimeout(timer);
     countdownTimersRef.current = [];
     setCountdown(null);
+    setPreparing(false);
+    if (countInPhaseRef.current === "counting") releasePreparedRecording();
+    countInPhaseRef.current = "idle";
   }, []);
 
   useEffect(() => {
-    const subscription = AppState.addEventListener("change", (state) =>
-      setAppActive(state === "active"),
-    );
+    const subscription = AppState.addEventListener("change", (state) => {
+      setAppActive(state === "active");
+      // A count-in must not survive foreground loss and dispatch Start on resume. While preparing,
+      // the permission prompt itself makes iOS inactive, so only a running count is cancelled here.
+      if (state !== "active" && countInPhaseRef.current === "counting") cancelCountdown();
+    });
     return () => subscription.remove();
-  }, []);
+  }, [cancelCountdown]);
 
   useEffect(() => () => cancelCountdown(), [cancelCountdown]);
 
   useEffect(() => {
+    activeRef.current = active;
     if (!active) {
       cancelCountdown();
       setMetronomeOn(false);
@@ -140,9 +164,35 @@ export function CreationRecordScreen({ model, header }: ScreenProps<"creation-re
     };
   }, [metronomeOn, model.recording, active, appActive, bpm, timeSignature, beatsPerBar, playIsolatedClick]);
 
-  const startCountdown = useCallback(() => {
+  const startCountdown = useCallback(async () => {
     cancelCountdown();
+    const session = countInRef.current;
+    countInPhaseRef.current = "preparing";
+    setCountInError(null);
     setElapsedMs(0);
+    setPreparing(true);
+    // Permission and the recording session first, so the last click is not spent on them.
+    try {
+      await prepareRecording();
+    } catch (cause) {
+      if (session !== countInRef.current) return;
+      countInPhaseRef.current = "idle";
+      setPreparing(false);
+      setCountInError(cause instanceof Error ? cause.message : "마이크 권한을 확인해 주세요.");
+      return;
+    }
+    if (session !== countInRef.current) {
+      // Cancelled while preparing; hand the session back unless a newer count-in is using it. (The
+      // cast drops the "preparing" narrowing TS keeps across the await.)
+      if ((countInPhaseRef.current as CountInPhase) === "idle") releasePreparedRecording();
+      return;
+    }
+    countInPhaseRef.current = "counting";
+    if (!activeRef.current || AppState.currentState === "background") {
+      cancelCountdown();
+      return;
+    }
+    setPreparing(false);
     const beatMs = countdownBeatMs(bpm, timeSignature);
     setCountdown(RECORD_COUNTDOWN_START);
     playIsolatedClick(false);
@@ -156,14 +206,28 @@ export function CreationRecordScreen({ model, header }: ScreenProps<"creation-re
     }
     const finishTimer = setTimeout(() => {
       countdownTimersRef.current = [];
-      setCountdown(null);
-      setElapsedMs(0);
-      act({ type: "creation-record-toggle" });
+      void nativeCountInBlocker({
+        screenActive: () => activeRef.current,
+        appActive: () => AppState.currentState === "active",
+        microphoneGranted,
+      }).then((blocker) => {
+        if (session !== countInRef.current) return;
+        if (blocker !== null) {
+          cancelCountdown();
+          if (blocker) setCountInError(blocker);
+          return;
+        }
+        // The recorder owns the prepared session from here.
+        countInPhaseRef.current = "idle";
+        setCountdown(null);
+        setElapsedMs(0);
+        act({ type: "creation-record-toggle" });
+      });
     }, beatMs * RECORD_COUNTDOWN_START);
     countdownTimersRef.current.push(finishTimer);
   }, [act, bpm, cancelCountdown, playIsolatedClick, timeSignature]);
 
-  const countingDown = countdown !== null;
+  const countingDown = preparing || countdown !== null;
   const recorded = model.recorded && !model.recording;
   const canRetry = !model.pending && (countingDown || model.recording || recorded);
 
@@ -194,19 +258,27 @@ export function CreationRecordScreen({ model, header }: ScreenProps<"creation-re
               {model.error}
             </Text>
           )}
+          {countInError && (
+            <Text accessibilityRole="alert" style={styles.error}>
+              {countInError}
+            </Text>
+          )}
 
           {!recorded ? (
-            countingDown ? (
+            countdown !== null ? (
               <View style={styles.countdownWrap}>
                 <View style={styles.countdownRing}>
                   <Text
                     accessibilityLiveRegion="assertive"
-                    accessibilityLabel={`녹음 시작 ${countdown}초 전`}
+                    accessibilityLabel={countdownCaption(countdown)}
                     style={styles.countdownText}
                   >
                     {countdown}
                   </Text>
                 </View>
+                <Text importantForAccessibility="no" style={styles.countdownCaption}>
+                  {countdownCaption(countdown)}
+                </Text>
               </View>
             ) : (
               <View style={styles.stage}>
@@ -349,7 +421,7 @@ export function CreationRecordScreen({ model, header }: ScreenProps<"creation-re
                   act({ type: "creation-record-toggle" });
                   return;
                 }
-                startCountdown();
+                void startCountdown();
               }}
             >
               {model.recording || countingDown ? <View style={styles.stopSquare} /> : <MicGlyph />}
@@ -448,6 +520,12 @@ const styles = StyleSheet.create({
     lineHeight: 62,
     fontWeight: "800",
     fontVariant: ["tabular-nums"],
+  },
+  countdownCaption: {
+    marginTop: 12,
+    color: "rgba(255, 255, 255, 0.7)",
+    fontSize: 13,
+    lineHeight: 18,
   },
   error: {
     borderRadius: 12,
