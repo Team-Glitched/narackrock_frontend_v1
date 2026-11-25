@@ -1,7 +1,9 @@
 import { useCurrentUserId } from "@/features/auth/use-current-user";
 import { useLoginPrompt } from "@/features/auth/login-prompt";
 import { useNativeScreen } from "@/features/navigation/use-native-screen";
+import { compositionDurationMs } from "@/features/composition/playback-duration";
 import {
+  idlePlayback,
   nativeSavedSources,
   playerKey,
   SavedSourcePlayers,
@@ -15,6 +17,9 @@ import type { NativeLibrary } from "@/lib/native-screens";
 import { uiLabels } from "@/lib/ui-labels";
 import { useSourceLibraryActions } from "./source-library-content";
 import { useClipPlayer, useSourceLibrary } from "./workspace-screens";
+
+/** The web ClipPlayer label of a local MIDI work. */
+const clipLabel = (title: string) => `${title} 미리듣기`;
 
 /** A local MIDI work's preview (the web's ClipPlayer), played by this page. */
 function ClipPlayerReporter({
@@ -106,13 +111,18 @@ export function NativeLibraryBridge({
       local:
         filter === "LOCAL"
           ? {
-              items: items.map((r) => ({
-                id: r.id,
-                title: r.title,
-                description: r.description,
-                saved: r.saved,
-                player: players[playerKey({ kind: "local", id: r.id })] ?? null,
-              })),
+              items: items.map((r) => {
+                const durationMs = compositionDurationMs(r.composition);
+                return {
+                  id: r.id,
+                  title: r.title,
+                  description: r.description,
+                  saved: r.saved,
+                  player:
+                    players[playerKey({ kind: "local", id: r.id })] ??
+                    idlePlayback(clipLabel(r.title), durationMs, durationMs === 0),
+                };
+              }),
               empty:
                 items.length === 0
                   ? "이 기기에 남아 있는 MIDI 작업이 없습니다. 이전 작업은 설정의 데이터 이관·복구에서 내보낼 수 있습니다."
@@ -126,7 +136,10 @@ export function NativeLibraryBridge({
   }
 
   const node = useNativeScreen("workspace-library", model, {
-    header: { left: "back", actions: ["notifications", "chat", "search", "account"] },
+    // /studio/:projectId/import keeps the web's minimal Header (back only).
+    header: importing
+      ? { left: "back", actions: [] }
+      : { left: "back", actions: ["notifications", "chat", "search", "account"] },
     onBack,
     onSearch,
     onAction: (action) => {
@@ -181,7 +194,7 @@ export function NativeLibraryBridge({
             key={r.id}
             id={r.id}
             composition={r.composition}
-            label={`${r.title} 미리듣기`}
+            label={clipLabel(r.title)}
             report={report}
           />
         ))}

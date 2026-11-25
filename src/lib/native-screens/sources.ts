@@ -32,8 +32,8 @@ export type NativeSourceCard = {
   saveError: string | null;
   /** False: "이 샘플은 현재 미리듣기를 사용할 수 없습니다." */
   canPreview: boolean;
-  /** Null until the page's player reports. */
-  player: NativePlayback | null;
+  /** The play bar: idle until the page's player reports, as the web shows it at once. */
+  player: NativePlayback;
 };
 
 /** A vertical discovery section of the 탐색 tab ("인기 샘플", "추천 샘플"). */
@@ -105,6 +105,8 @@ export type NativeSourcePublications =
       notice: string | null;
       /** The edited sample; the app resets its fields when it changes. */
       openSourceId: number;
+      /** "악기: …"; null when the sample has no instrument. */
+      instrumentLabel: string | null;
       public: boolean;
       title: string;
       description: string;
@@ -139,7 +141,7 @@ export type NativeSourcesAction =
   | { type: "sources-home" }
   | { type: "sources-tab"; tab: NativeSources["tab"] }
   | { type: "sources-create" }
-  | { type: "sources-open"; openSourceId: number; comments?: boolean }
+  | { type: "sources-open"; openSourceId: number }
   | { type: "sources-profile"; userId: number }
   | { type: "sources-section-retry"; section: "popular" | "recommended" }
   | { type: "sources-save"; key: string }
@@ -189,7 +191,7 @@ export type NativeSourceDetail =
       busy: boolean;
       /** Reaction/share result ("링크를 복사했습니다.", failures). */
       notice: string | null;
-      /** Null until the page's player reports (or when previews are unavailable). */
+      /** Null when previews are unavailable; idle until the page's player reports. */
       player: NativePlayback | null;
       comments: NativeComments;
       /** Opened as /comments: the comment input takes focus once shown. */

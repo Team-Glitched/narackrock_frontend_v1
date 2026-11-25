@@ -11,11 +11,14 @@ export function ContentMenu({
   canReport,
   onClose,
   onChoose,
+  onDismiss,
 }: {
   target: MenuTarget | null;
   canReport: boolean;
   onClose: () => void;
   onChoose: (type: "share" | "report", target: MenuTarget) => void;
+  /** iOS: the menu's modal has finished dismissing (a modal that presented it may close now). */
+  onDismiss?: () => void;
 }) {
   const choose = (type: "share" | "report") => {
     if (!target) return;
@@ -29,6 +32,7 @@ export function ContentMenu({
       animationType="fade"
       statusBarTranslucent
       onRequestClose={onClose}
+      onDismiss={onDismiss}
     >
       <View style={styles.root}>
         <Pressable

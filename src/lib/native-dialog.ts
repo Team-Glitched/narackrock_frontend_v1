@@ -4,6 +4,9 @@ export type NativeDialogField = {
   label: string;
   value: string;
   multiline?: boolean;
+  placeholder?: string;
+  /** Limit in code points; the field shows the web's `N/{maxLength}자` counter under it. */
+  maxLength?: number;
   keyboard?: "default" | "numeric";
   options?: { value: string; label: string }[];
   disabled?: boolean;

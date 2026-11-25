@@ -53,8 +53,6 @@ export type NativeAudioTrim = {
   busy: boolean;
   error: string | null;
   saveLabel: string;
-  /** Shows the "취소" button. */
-  cancel: boolean;
 };
 
 export type NativeAudioTrimAction =
@@ -72,8 +70,7 @@ export type NativeAudioTrimAction =
   | { type: "trim-reorder-segment"; direction: -1 | 1 }
   | { type: "trim-undo" }
   | { type: "trim-reset" }
-  | { type: "trim-save" }
-  | { type: "trim-cancel" };
+  | { type: "trim-save" };
 
 const trimActions: Record<NativeAudioTrimAction["type"], true> = {
   "trim-select": true,
@@ -88,7 +85,6 @@ const trimActions: Record<NativeAudioTrimAction["type"], true> = {
   "trim-undo": true,
   "trim-reset": true,
   "trim-save": true,
-  "trim-cancel": true,
 };
 
 export function isNativeAudioTrimAction(action: { type: string }): action is NativeAudioTrimAction {
@@ -121,8 +117,11 @@ export type NativeCreationRecord = {
   recording: boolean;
   /** Starting, saving or converting: every button is disabled. */
   pending: boolean;
-  /** The status line: "녹음 중", the pending label, "녹음 완료" or "". */
-  status: string;
+  /**
+   * The web's LoadingOverlay while saving ("녹음을 저장하는 중입니다.") or converting ("소리 분석 및
+   * MIDI 변환 중" with its submessage); null otherwise and while the instrument prompt is open.
+   */
+  loading: { message: string; submessage: string | null } | null;
   error: string | null;
   /** A finished recording exists (save buttons and the player are shown). */
   recorded: boolean;
@@ -157,9 +156,13 @@ export type NativeCreationRecordAction =
 export type NativeCreationPiano = {
   title: string;
   addLabel: string;
-  /** Rendering the audio ("오디오를 만드는 중..."): editing, timing and back are disabled. */
+  /** Rendering the audio ("오디오를 만드는 중..."): editing and the instrument are disabled. */
   pending: boolean;
-  /** The page's, the player's or the editor's error. */
+  /** Reading a "+ JSON으로 추가" file ("JSON 파일을 읽는 중..."). */
+  importing: boolean;
+  /** The status line's "N개 노트". */
+  noteCount: number;
+  /** The import's, the page's, the player's or the editor's error. */
   error: string | null;
   transport: NativeTransport;
   timing: NativeTimingSheet | null;
@@ -173,6 +176,8 @@ export type NativeCreationPianoAction =
   | { type: "creation-piano-rewind" }
   | { type: "creation-piano-save" }
   | { type: "creation-piano-instrument-open" }
+  /** "+ JSON으로 추가": the app's JSON file picker, then the web's note import. */
+  | { type: "creation-piano-import-json" }
   | NativeTransportAction
   | NativeTimingAction
   | NativeNoteRollAction

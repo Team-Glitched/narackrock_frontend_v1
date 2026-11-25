@@ -109,6 +109,7 @@ export function SearchScreen({ model: search }: ScreenProps<"search">) {
                   title={row.item.title}
                   subtitle={row.item.author}
                   coverUrl={row.item.thumbnailUrl}
+                  seed={`source:${row.item.openSourceId}`}
                   onOpen={() => act({ type: "open-source", openSourceId: row.item.openSourceId })}
                 />
               );
@@ -205,7 +206,7 @@ function Message({ search }: { search: NativeSearch }) {
     return (
       <View style={styles.signIn}>
         <Text style={[type.muted, styles.center]}>{message.text}</Text>
-        <Button label="로그인" onPress={() => act({ type: "login" })} />
+        <Button label="로그인" onPress={() => act({ type: "sign-in" })} />
       </View>
     );
   if (message?.tone === "error")

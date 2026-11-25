@@ -1,32 +1,43 @@
-import { useCallback, useEffect, useRef, useState, type RefObject } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode, type RefObject } from "react";
 import { useLoginPrompt } from "@/features/auth/login-prompt";
 import { useComments } from "@/features/comments/use-comments";
 import { useNativeComments } from "@/features/comments/use-native-comments";
+import { useNativeAlbumCrop } from "@/features/composition/native-album-crop";
+import { useProjectMetadataSave } from "@/features/composition/project-metadata-editor";
+import { errorText } from "@/features/composition/studio-helpers";
 import { useNativeScreen } from "@/features/navigation/use-native-screen";
 import type { ShortItemDto } from "@/lib/api/contracts";
+import { pickNativeImage } from "@/lib/native-app";
 import type {
   NativeAbyss,
   NativeAbyssAction,
   NativeAbyssCover,
+  NativeAbyssMetadata,
   NativeAbyssParticipants,
   NativeAbyssSheet,
   NativeHeader,
 } from "@/lib/native-screens";
 import { isNativeCommentAction } from "@/lib/native-screens/comments";
+import { isNativeAlbumAction } from "@/lib/native-screens/studio";
 import { reportedPositionMs } from "@/lib/playback-progress";
 import type { AbyssState } from "./abyss-screen";
 import { useShortCommentAdapter } from "./abyss-comments";
+import { useAbyssPlaybackPreferences } from "./playback-preferences";
 import { participantRole, useShortParticipants } from "./short-participants";
 import { participationLabel } from "./short-participation";
 
-/** The abyss page's Header: back button, notifications, chat, search, account. */
-const header: NativeHeader = { left: "back", actions: ["notifications", "chat", "search", "account"] };
+/**
+ * The abyss page's Header: the sound toggle in place of the logo (the screen draws it from `muted`),
+ * notifications, chat, search, account.
+ */
+const header: NativeHeader = { left: "none", actions: ["notifications", "chat", "search", "account"] };
 
 /** Swiping rewrites /abyss/:shortId with `replace`; one app entry keeps the screen (and its carousel) mounted. */
 const path = "/abyss";
 
-type SheetHandler = RefObject<((action: NativeAbyssAction) => void) | null>;
+type Handler = RefObject<((action: NativeAbyssAction) => void) | null>;
 type SheetReport = (sheet: NativeAbyssSheet | null) => void;
+type MetadataReport = (metadata: NativeAbyssMetadata | null) => void;
 
 const cover = (short: ShortItemDto): NativeAbyssCover => ({
   shortId: short.shortId,
@@ -34,10 +45,19 @@ const cover = (short: ShortItemDto): NativeAbyssCover => ({
   albumImageUrl: short.albumImageUrl?.trim() || null,
 });
 
-function abyssModel(abyss: AbyssState, sheet: NativeAbyssSheet | null): NativeAbyss {
+/** The viewer owns the song: the web PostActions shows "곡 정보 수정". */
+const ownsSong = (abyss: AbyssState, short: ShortItemDto) =>
+  short.projectId != null && short.author.userId === abyss.currentUserId;
+
+function abyssModel(
+  abyss: AbyssState,
+  muted: boolean,
+  sheet: NativeAbyssSheet | null,
+  metadata: NativeAbyssMetadata | null,
+): NativeAbyss {
   const { selectedShort: current, playback, shorts, index, participation } = abyss;
   if (abyss.status !== "ready" || !current)
-    return { status: abyss.status === "ready" ? "empty" : abyss.status };
+    return { muted, status: abyss.status === "ready" ? "empty" : abyss.status };
   const messages: { text: string; alert: boolean }[] = [];
   if (playback.selection !== null)
     messages.push({
@@ -55,6 +75,7 @@ function abyssModel(abyss: AbyssState, sheet: NativeAbyssSheet | null): NativeAb
   const totalMs = Math.max(0, playback.totalMs);
   const positionMs = Math.min(Math.max(0, playback.positionMs), totalMs || Infinity);
   return {
+    muted,
     status: "ready",
     short: {
       ...cover(current),
@@ -64,6 +85,7 @@ function abyssModel(abyss: AbyssState, sheet: NativeAbyssSheet | null): NativeAb
       commentCount: current.commentCount,
       vote: current.isLiked ? "like" : current.isDisliked ? "dislike" : null,
       saved: current.isBookmarked,
+      editable: ownsSong(abyss, current),
     },
     previous: index > 0 ? cover(shorts[index - 1]) : null,
     next: index < shorts.length - 1 ? cover(shorts[index + 1]) : null,
@@ -91,80 +113,112 @@ function abyssModel(abyss: AbyssState, sheet: NativeAbyssSheet | null): NativeAb
           }
         : null,
     sheet: sheet && sheet.kind === abyss.sheet ? sheet : null,
+    metadata,
   };
 }
 
 /**
  * In the app the abyss page is drawn natively (native/screens/abyss). The page keeps the feed and the playback: the
  * `<audio>` and the owner-subset engine stay in the (hidden) web view and the native screen sends the controls.
+ * As on the web, an open sheet (comments, participants, "곡 정보 수정") covers the footer, so the footer leaves
+ * the screen meanwhile.
  */
 export function NativeAbyssBridge({
   abyss,
   onSearch,
+  footer,
 }: {
   abyss: AbyssState;
   onSearch: () => void;
+  footer: ReactNode;
 }) {
+  const { muted, setMuted } = useAbyssPlaybackPreferences();
   const [sheet, setSheet] = useState<NativeAbyssSheet | null>(null);
   const report = useCallback<SheetReport>((next) => setSheet(next), []);
-  const sheetHandler: SheetHandler = useRef(null);
+  const sheetHandler: Handler = useRef(null);
+  // "곡 정보 수정" stays open only for the short it was opened on (the web's `metadataTarget`).
+  const [metadataTarget, setMetadataTarget] = useState<number | null>(null);
+  const [metadata, setMetadata] = useState<NativeAbyssMetadata | null>(null);
+  const metadataHandler: Handler = useRef(null);
   const { selectedShort: current, playback } = abyss;
+  const editing =
+    current && metadataTarget === current.shortId && ownsSong(abyss, current) ? current : null;
   const sheetOpen = (kind: NativeAbyssSheet["kind"]) =>
     sheet?.kind === kind && abyss.sheet === kind;
-  const node = useNativeScreen("abyss", abyssModel(abyss, sheet), {
-    header,
-    onSearch,
-    path,
-    onAction: (action) => {
-      if (isNativeCommentAction(action)) {
-        if (sheetOpen("comments")) sheetHandler.current?.(action);
-        return;
-      }
-      switch (action.type) {
-        case "abyss-retry":
-          return abyss.retry();
-        case "abyss-previous":
-          return abyss.selectPrevious();
-        case "abyss-next":
-          return void abyss.selectNext();
-        case "abyss-toggle":
-          if (playback.canPlay) void playback.toggle();
+  const node = useNativeScreen(
+    "abyss",
+    abyssModel(abyss, muted, sheet, editing ? metadata : null),
+    {
+      header,
+      onSearch,
+      path,
+      onAction: (action) => {
+        if (isNativeCommentAction(action)) {
+          if (sheetOpen("comments")) sheetHandler.current?.(action);
           return;
-        case "abyss-seek":
-          if (playback.totalMs > 0)
-            playback.seek(Math.min(Math.max(0, action.ms), playback.totalMs));
+        }
+        if (isNativeAlbumAction(action)) {
+          if (editing) metadataHandler.current?.(action);
           return;
-        case "abyss-vote":
-          return abyss.vote(action.vote);
-        case "abyss-save":
-          return abyss.bookmark();
-        case "abyss-share":
-          return abyss.share();
-        case "abyss-report":
-          return abyss.openReport();
-        case "abyss-profile":
-          return abyss.openProfile(action.userId);
-        case "abyss-join":
-          if (!abyss.requestBusy) abyss.join();
-          return;
-        case "abyss-comments":
-          return abyss.openComments();
-        case "abyss-participants":
-          return abyss.openParticipants();
-        case "abyss-close-sheet":
-          if (abyss.sheet === "participants") abyss.closeParticipants();
-          else if (abyss.sheet === "comments") abyss.closeSheet();
-          return;
-        case "abyss-participants-op":
-        case "abyss-participant-toggle":
-          if (sheetOpen("participants")) sheetHandler.current?.(action);
-          return;
-      }
+        }
+        switch (action.type) {
+          case "abyss-retry":
+            return abyss.retry();
+          case "abyss-mute":
+            return setMuted((value) => !value);
+          case "abyss-previous":
+            return abyss.selectPrevious();
+          case "abyss-next":
+            return void abyss.selectNext();
+          case "abyss-toggle":
+            if (playback.canPlay) void playback.toggle();
+            return;
+          case "abyss-seek":
+            if (playback.totalMs > 0)
+              playback.seek(Math.min(Math.max(0, action.ms), playback.totalMs));
+            return;
+          case "abyss-vote":
+            return abyss.vote(action.vote);
+          case "abyss-save":
+            return abyss.bookmark();
+          case "abyss-share":
+            return abyss.share();
+          case "abyss-report":
+            return abyss.openReport();
+          case "abyss-profile":
+            return abyss.openProfile(action.userId);
+          case "abyss-join":
+            if (!abyss.requestBusy) abyss.join();
+            return;
+          case "abyss-comments":
+            return abyss.openComments();
+          case "abyss-participants":
+            return abyss.openParticipants();
+          case "abyss-close-sheet":
+            if (abyss.sheet === "participants") abyss.closeParticipants();
+            else if (abyss.sheet === "comments") abyss.closeSheet();
+            return;
+          case "abyss-participants-op":
+          case "abyss-participant-toggle":
+            if (sheetOpen("participants")) sheetHandler.current?.(action);
+            return;
+          case "abyss-edit":
+            if (!current || !ownsSong(abyss, current)) return;
+            if (playback.playing) void playback.toggle();
+            return setMetadataTarget(current.shortId);
+          case "abyss-metadata-image":
+          case "abyss-metadata-save":
+          case "abyss-metadata-close":
+            if (editing) metadataHandler.current?.(action);
+            return;
+        }
+      },
     },
-  });
+  );
   return (
     <>
       {node}
+      {abyss.sheet !== "comments" && abyss.sheet !== "participants" && !editing && footer}
       {current && abyss.sheet === "comments" && (
         <CommentsSource
           key={`${current.shortId}:${abyss.currentUserId ?? "guest"}`}
@@ -183,23 +237,89 @@ export function NativeAbyssBridge({
           onSheet={report}
         />
       )}
+      {editing?.projectId != null && (
+        <MetadataSource
+          key={`${abyss.currentUserId}:${editing.projectId}`}
+          projectId={editing.projectId}
+          short={editing}
+          handler={metadataHandler}
+          onMetadata={setMetadata}
+          onClose={() => setMetadataTarget(null)}
+        />
+      )}
     </>
   );
 }
 
 /** Reports a sheet's model when it changes and routes its actions while it is mounted. */
-function useSheetReport(
-  sheet: NativeAbyssSheet,
+function useSheetReport<M>(
+  model: M,
   act: (action: NativeAbyssAction) => void,
-  handlerRef: SheetHandler,
-  onSheet: SheetReport,
+  handlerRef: Handler,
+  onModel: (model: M | null) => void,
 ) {
-  const json = JSON.stringify(sheet);
+  const json = JSON.stringify(model);
   useEffect(() => {
     handlerRef.current = act;
   });
-  useEffect(() => onSheet(JSON.parse(json) as NativeAbyssSheet), [json, onSheet]);
-  useEffect(() => () => onSheet(null), [onSheet]);
+  useEffect(() => onModel(JSON.parse(json) as M), [json, onModel]);
+  useEffect(() => () => onModel(null), [onModel]);
+}
+
+/** The owner's "곡 정보 수정" (the web's ProjectMetadataEditor in a FigmaSheet) for the native sheet. */
+function MetadataSource({
+  projectId,
+  short,
+  handler,
+  onMetadata,
+  onClose,
+}: {
+  projectId: number;
+  short: ShortItemDto;
+  handler: Handler;
+  onMetadata: MetadataReport;
+  onClose: () => void;
+}) {
+  const [image, setImage] = useState<File | null>(null);
+  // The system picker failed (the web's file input cannot); shown where the crop errors show.
+  const [pickError, setPickError] = useState<string | null>(null);
+  const { busy, error, save } = useProjectMetadataSave(projectId, { onSaved: onClose });
+  const album = useNativeAlbumCrop({ file: image, onApply: setImage });
+  useSheetReport<NativeAbyssMetadata>(
+    {
+      title: short.title,
+      albumImageUrl: short.albumImageUrl?.trim() || null,
+      album: { ...album.model, error: album.model.error ?? pickError },
+      busy,
+      error,
+    },
+    (action) => {
+      if (isNativeAlbumAction(action)) {
+        // The web disables the cover field while saving; an open crop dialog keeps its own state.
+        if (action.type !== "album-edit" || !busy) album.act(action);
+        return;
+      }
+      switch (action.type) {
+        case "abyss-metadata-image":
+          if (busy) return;
+          setPickError(null);
+          void pickNativeImage()
+            .then((file) => {
+              if (file) album.select(file);
+            })
+            .catch((cause: unknown) => setPickError(errorText(cause)));
+          return;
+        case "abyss-metadata-save":
+          return void save(action.title, image);
+        case "abyss-metadata-close":
+          if (!busy) onClose();
+          return;
+      }
+    },
+    handler,
+    onMetadata,
+  );
+  return null;
 }
 
 /** The short's comments (the web's AbyssComments sheet) for the native sheet. */
@@ -211,7 +331,7 @@ function CommentsSource({
 }: {
   abyss: AbyssState;
   shortId: number;
-  handler: SheetHandler;
+  handler: Handler;
   onSheet: SheetReport;
 }) {
   const adapter = useShortCommentAdapter(shortId);
@@ -222,7 +342,7 @@ function CommentsSource({
   });
   // The web sheet has no profile links on comments.
   const native = useNativeComments(comments, {});
-  useSheetReport(
+  useSheetReport<NativeAbyssSheet>(
     { kind: "comments", comments: native.model },
     (action) => {
       if (isNativeCommentAction(action)) native.act(action);
@@ -242,7 +362,7 @@ function ParticipantsSource({
 }: {
   abyss: AbyssState;
   short: ShortItemDto;
-  handler: SheetHandler;
+  handler: Handler;
   onSheet: SheetReport;
 }) {
   const { requestLogin } = useLoginPrompt();
@@ -273,7 +393,7 @@ function ParticipantsSource({
           })),
           empty: state.empty,
         };
-  useSheetReport(
+  useSheetReport<NativeAbyssSheet>(
     { kind: "participants", participants },
     (action) => {
       if (action.type === "abyss-participant-toggle") {
@@ -308,5 +428,17 @@ function ParticipantsSource({
 
 /** A malformed abyss address ("올바르지 않은 페이지 주소입니다."). */
 export function NativeInvalidAbyssBridge({ onSearch }: { onSearch: () => void }) {
-  return useNativeScreen("abyss", { status: "invalid" }, { header, onSearch, path });
+  const { muted, setMuted } = useAbyssPlaybackPreferences();
+  return useNativeScreen(
+    "abyss",
+    { muted, status: "invalid" },
+    {
+      header,
+      onSearch,
+      path,
+      onAction: (action) => {
+        if (action.type === "abyss-mute") setMuted((value) => !value);
+      },
+    },
+  );
 }

@@ -92,6 +92,11 @@ function Form({
               <AddIcon width={48} height={48} />
             </View>
           </Touchable>
+          {model.imageError && (
+            <Text accessibilityRole="alert" style={styles.error}>
+              {model.imageError}
+            </Text>
+          )}
           <Field label="이름">
             <TextInput
               value={nickname}

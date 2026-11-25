@@ -90,7 +90,8 @@ function useRankedChart(kind: "popular" | "recommended") {
     hint: null,
     notice: null,
     status: selected.status,
-    error: selected.status === "error" ? songStatus.error : null,
+    // The web retries only the recommended list; the popular chart shows the bare status line.
+    error: selected.status === "error" && kind === "recommended" ? songStatus.error : null,
     items: selected.items.map((song) => ({ ...nativeSong(song), star: null })),
     emptyMessage: "아직 표시할 곡이 없어요.",
     menu: true,
@@ -112,6 +113,7 @@ function useRankedChart(kind: "popular" | "recommended") {
           }
         : null,
   };
+  // Only the recommended list has a retry button (`chart.error` is null for popular).
   return { chart, more: recommended.loadMore, retry: recommended.retry };
 }
 

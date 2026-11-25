@@ -14,7 +14,51 @@
  * App sheets live in native/screens/studio/parts.tsx.
  */
 import type { AudioSoundKind } from "../api/composition.ts";
-import type { NativeAudioTrim, NativeAudioTrimAction } from "./creation.ts";
+
+/** A square album framing (src/features/images/image-crop.ts ThumbnailCrop). */
+export type NativeAlbumCrop = { zoom: number; x: number; y: number };
+
+/**
+ * An optional album image (the web's ImageCropInput / NewProject album field over `useImageCrop`):
+ * the original stays in the page for "크기·위치 조절"; only "적용" replaces the form's file.
+ */
+export type NativeAlbumImage = {
+  /** The applied (cropped) image as a small JPEG data URL; null without an image. */
+  url: string | null;
+  /** "크기·위치 조절" reopens the editor on the original picture. */
+  canEdit: boolean;
+  error: string | null;
+  /** The "앨범 이미지 편집" dialog; null while closed. */
+  editor: {
+    /** A downscaled preview of the original; `width`/`height` are the original's pixels. */
+    image:
+      | { status: "loading" }
+      | { status: "failed" }
+      | { status: "ready"; uri: string; width: number; height: number };
+    crop: NativeAlbumCrop;
+    /** "GIF는 첫 프레임의 정지 이미지로 저장됩니다." */
+    gif: boolean;
+    busy: boolean;
+    error: string | null;
+  } | null;
+};
+
+export type NativeAlbumAction =
+  /** "크기·위치 조절". */
+  | { type: "album-edit" }
+  /** "적용" with the edited framing; the page renders the square image. */
+  | { type: "album-apply"; crop: NativeAlbumCrop }
+  | { type: "album-cancel" };
+
+const albumActions: Record<NativeAlbumAction["type"], true> = {
+  "album-edit": true,
+  "album-apply": true,
+  "album-cancel": true,
+};
+
+export function isNativeAlbumAction(action: { type: string }): action is NativeAlbumAction {
+  return Object.hasOwn(albumActions, action.type);
+}
 
 /** Transport readouts of the studio toolbar (the web's StudioToolbar). */
 export type NativeTransport = {
@@ -204,8 +248,8 @@ export type NativeStudioTrack = {
   /** The avatar button's accessibility label: "{name} 피아노롤 열기" or "{name} 트랙 설정". */
   settingsLabel: string;
   clips: NativeStudioClip[];
-  /** Own-track "+ 노트" and "+ 파일"; other participants do not expose append actions. */
-  add: { notes: boolean; audioDisabled: boolean } | null;
+  /** The web's "+ 노트 · 이어서 편집" on an empty own layer (`emptyLayerEditor`); sends `studio-empty-layer`. */
+  emptyLayerEditor: boolean;
 };
 
 /** The toolbar's right button: "제출하기", or the round add button ("곡 올리기" / "레이어 추가"). */
@@ -237,6 +281,8 @@ export type NativeStudio = {
   /** Contribution request banner text with an optional "다시 시도". */
   contribution: { text: string; retry: boolean } | null;
   busy: boolean;
+  /** The web's LoadingOverlay over the studio (audio analysis or `busyMessage`); null otherwise. */
+  overlay: { message: string; submessage: string | null } | null;
   /** The studio's or the playback's error (the app hides it while the submit form shows `submit.error`). */
   error: string | null;
   status: string | null;
@@ -245,21 +291,28 @@ export type NativeStudio = {
   submit: { busy: boolean; error: string | null } | null;
   /** "정말로 올리시겠습니까?" */
   publishConfirm: boolean;
-  /** "곡 올리기" metadata form (title + optional album image picked natively). */
+  /** "곡 올리기" metadata form (title + optional album image). */
   publishForm: {
     action: "save" | "publish";
     busy: boolean;
     error: string | null;
-    imageName: string | null;
+    album: NativeAlbumImage;
   } | null;
   /** Audio-analysis dialog for the viewer's own recorded/uploaded clip (chord recommendation input). */
-  audioAnalysis?: { busy: boolean; error: string | null; cachedKind: AudioSoundKind | null; noteCount: number };
-  /** A chosen file appended to an existing track, trimmed before saving. */
-  audioTrim: { fileName: string; picker: NativeAudioTrim } | null;
+  audioAnalysis?: {
+    busy: boolean;
+    error: string | null;
+    /** The saved analysis ("저장된 분석 · N음"); its kind is preselected. */
+    cached: { kind: AudioSoundKind; noteCount: number } | null;
+  };
   /** Track settings (volume + "악기/보컬 변경"). */
   trackSettings: {
     trackId: number;
-    name: string;
+    /** The owner's nickname, "사용자 이름 확인 중..." or "이름을 불러오지 못했습니다.". */
+    ownerName: string;
+    /** "사용자 이름 다시 불러오기" (sends `studio-track-owner-retry`). */
+    ownerRetry: boolean;
+    ownerImageUrl: string | null;
     part: string;
     volume: number;
     canChangeInstrument: boolean;
@@ -276,7 +329,7 @@ export type NativeStudioAction =
   | NativeInstrumentAction
   | NativeTimingAction
   | NativeSourcePickerAction
-  | NativeAudioTrimAction
+  | NativeAlbumAction
   | { type: "studio-analysis-run"; kind: AudioSoundKind }
   | { type: "studio-analysis-close" }
   | { type: "studio-exit" }
@@ -284,13 +337,13 @@ export type NativeStudioAction =
   | { type: "studio-primary" }
   | { type: "studio-private-save" }
   | { type: "studio-track"; trackId: number }
-  | { type: "studio-track-notes"; trackId: number }
-  | { type: "studio-track-audio"; trackId: number }
+  | { type: "studio-empty-layer"; trackId: number }
   /** A single tap opens MIDI editing (`edit` true) or audio track settings (`edit` false). */
   | { type: "studio-clip"; trackId: number; clipId: number; edit: boolean }
   | { type: "studio-move-clip"; trackId: number; clipId: number; startTick: number }
   | { type: "studio-mute"; trackId: number }
   | { type: "studio-track-volume"; trackId: number; value: number }
+  | { type: "studio-track-owner-retry" }
   | { type: "studio-track-close" }
   | { type: "studio-change-instrument" }
   | { type: "studio-submit"; comment: string }
@@ -306,13 +359,14 @@ export type NativeStudioNew = {
   /** Suggested title; a new suggestion ("다른 제목") moves `suggestionCount`. */
   suggestion: string;
   suggestionCount: number;
-  imageUrl: string | null;
+  album: NativeAlbumImage;
   canResume: boolean;
   busy: boolean;
   error: string | null;
 };
 
 export type NativeStudioNewAction =
+  | NativeAlbumAction
   | { type: "studio-new-suggest" }
   | { type: "studio-new-image" }
   | { type: "studio-new-start"; title: string }

@@ -85,6 +85,10 @@ export function ReportReasons({
                     label: needsDescription ? "신고 내용 (필수)" : "신고 내용 (선택)",
                     value: description,
                     multiline: true,
+                    placeholder: needsDescription
+                      ? "어떤 문제인지 적어주세요."
+                      : "추가로 알릴 내용이 있으면 적어주세요.",
+                    maxLength: REPORT_DESCRIPTION_MAX_LENGTH,
                     disabled: busy,
                   },
                 ],

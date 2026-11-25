@@ -7,7 +7,6 @@
  */
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type RefObject } from "react";
 import {
-  AccessibilityInfo,
   Animated,
   Easing,
   PanResponder,
@@ -19,12 +18,15 @@ import {
   type TextStyle,
 } from "react-native";
 import type { FC } from "react";
+import Svg, { Path } from "react-native-svg";
 import type { SvgProps } from "react-native-svg";
 
 import PlayerIcon from "../../../public/figma/abyss-player.svg";
 import CommentIcon from "../../../public/figma/post-comment.svg";
 import ShareIcon from "../../../public/figma/post-share.svg";
 import ReportIcon from "../../../public/figma/short-report.svg";
+import SoundOffIcon from "../../../public/figma/sound-off.svg";
+import SoundIcon from "../../../public/figma/sound.svg";
 import DislikeOffIcon from "../../../public/figma/v3-post-dislike-off.svg";
 import DislikeOnIcon from "../../../public/figma/v3-post-dislike-on.svg";
 import LikeOffIcon from "../../../public/figma/v3-post-like-off.svg";
@@ -34,12 +36,15 @@ import SaveOnIcon from "../../../public/figma/v3-post-save-on.svg";
 import type { NativeAbyssCover, NativeAbyssReady } from "../../../src/lib/native-screens";
 import { Cover } from "../../ui/cards";
 import { Comments } from "../../ui/comments";
-import { AppHeader } from "../../ui/header";
+import { AppHeader, HeaderButton } from "../../ui/header";
 import { Touchable } from "../../ui/kit";
+import { useReducedMotion } from "../../ui/reduced-motion";
 import { useScreen } from "../../ui/screen-context";
 import { useSmoothPlaybackMs } from "../../ui/smooth-playback";
 import { colors, fontFamily } from "../../ui/theme";
 import type { ScreenProps } from "../types";
+import { AlbumCropDialog } from "../studio/album-crop";
+import { MetadataEditor } from "./metadata";
 import { Participants } from "./participants";
 import { AbyssSheet } from "./sheet";
 
@@ -63,9 +68,11 @@ export function AbyssScreen({ model, header }: ScreenProps<"abyss">) {
   if (bottomInset > 0 && inset !== bottomInset) setInset(bottomInset);
   const scale = size ? Math.min(1, size.width / DESIGN.width, size.height / DESIGN.height) : 0;
   const px: Px = (value) => value * scale;
+  const ready = model.status === "ready" && scale > 0 ? model : null;
+  const sheetOpen = Boolean(ready?.sheet || ready?.metadata);
   return (
     <View style={styles.root}>
-      {header && <AppHeader header={header} />}
+      {header && <AppHeader header={header} start={<MuteButton muted={model.muted} />} />}
       <View
         style={[styles.root, { marginBottom: inset }]}
         onLayout={(event) => {
@@ -80,20 +87,56 @@ export function AbyssScreen({ model, header }: ScreenProps<"abyss">) {
             <State px={px} status={model.status} onRetry={() => act({ type: "abyss-retry" })} />
           ))}
       </View>
-      {model.status === "ready" && model.sheet && scale > 0 && (
+      {ready?.sheet && (
         <AbyssSheet
-          title={model.sheet.kind === "comments" ? "댓글" : "작곡 참여자"}
+          title={ready.sheet.kind === "comments" ? "댓글" : "작곡 참여자"}
           px={px}
+          resizable={ready.sheet.kind === "comments"}
           onClose={() => act({ type: "abyss-close-sheet" })}
         >
-          {model.sheet.kind === "comments" ? (
-            <Comments comments={model.sheet.comments} />
+          {ready.sheet.kind === "comments" ? (
+            <Comments comments={ready.sheet.comments} />
           ) : (
-            <Participants participants={model.sheet.participants} />
+            <Participants participants={ready.sheet.participants} />
           )}
         </AbyssSheet>
       )}
+      {ready?.metadata && !ready.sheet && (
+        <AbyssSheet
+          title="곡 정보 수정"
+          px={px}
+          onClose={() => act({ type: "abyss-metadata-close" })}
+        >
+          <MetadataEditor key={ready.short.shortId} metadata={ready.metadata} />
+        </AbyssSheet>
+      )}
+      {header && sheetOpen && (
+        // The web keeps the sound toggle usable above an open sheet's backdrop.
+        <View style={styles.muteAbove}>
+          <MuteButton muted={model.muted} />
+        </View>
+      )}
+      {ready?.metadata && !ready.sheet && <AlbumCropDialog editor={ready.metadata.album.editor} />}
     </View>
+  );
+}
+
+/** The web header's sound toggle on the abyss page ("무음", pressed while muted). */
+function MuteButton({ muted }: { muted: boolean }) {
+  const { act } = useScreen();
+  return (
+    <HeaderButton
+      label="무음"
+      pressed={muted}
+      hint={muted ? "소리 켜기" : "소리 끄기"}
+      onPress={() => act({ type: "abyss-mute" })}
+    >
+      {muted ? (
+        <SoundOffIcon width={22} height={18.5858} />
+      ) : (
+        <SoundIcon width={22} height={18.5858} />
+      )}
+    </HeaderButton>
   );
 }
 
@@ -174,7 +217,14 @@ function Short({ model, px }: { model: NativeAbyssReady; px: Px }) {
       showsVerticalScrollIndicator={false}
     >
       <View style={{ gap: px(12) }}>
-        <Carousel model={model} px={px} direction={direction} onPrevious={previous} onNext={next} />
+        <Carousel
+          model={model}
+          px={px}
+          direction={direction}
+          onPrevious={previous}
+          onNext={next}
+          onToggle={() => act({ type: "abyss-toggle" })}
+        />
         <View style={{ gap: px(4) }}>
           <MarqueeTitle key={short.shortId} title={short.title} px={px} />
           <View style={[styles.row, { gap: px(8) }]}>
@@ -310,7 +360,8 @@ function Short({ model, px }: { model: NativeAbyssReady; px: Px }) {
 
 /**
  * The web AlbumCarousel: only the current cover shows; a horizontal drag pulls the track with
- * resistance and a 40px swipe moves on, the new cover sliding in from that side.
+ * resistance and a 40px swipe moves on, the new cover sliding in from that side. A tap on the current
+ * cover (or the screen reader's activate, the web's Enter/Space) plays or pauses while playback is available.
  */
 function Carousel({
   model,
@@ -318,17 +369,20 @@ function Carousel({
   direction,
   onPrevious,
   onNext,
+  onToggle,
 }: {
   model: NativeAbyssReady;
   px: Px;
   direction: RefObject<"next" | "previous" | null>;
   onPrevious: () => void;
   onNext: () => void;
+  onToggle: () => void;
 }) {
   const shift = useRef(new Animated.Value(0)).current;
   const reduced = useReducedMotion();
   const latest = useRef({ px, onPrevious, onNext });
   latest.current = { px, onPrevious, onNext };
+  const canToggle = model.playback.canPlay;
   // The cover that was showing while the new one slides in, on the side it leaves to.
   const [shown, setShown] = useState<NativeAbyssCover>(model.short);
   const [leaving, setLeaving] = useState<{ cover: NativeAbyssCover; to: "left" | "right" } | null>(
@@ -401,10 +455,17 @@ function Carousel({
       accessibilityRole="adjustable"
       accessibilityLabel="숏폼 앨범"
       accessibilityValue={{ text: `${model.position} / ${model.count}, ${model.short.title}` }}
-      accessibilityActions={[{ name: "increment" }, { name: "decrement" }]}
-      onAccessibilityAction={(event) =>
-        event.nativeEvent.actionName === "increment" ? onNext() : onPrevious()
-      }
+      accessibilityActions={[
+        { name: "increment" },
+        { name: "decrement" },
+        ...(canToggle ? [{ name: "activate" }] : []),
+      ]}
+      onAccessibilityAction={(event) => {
+        const action = event.nativeEvent.actionName;
+        if (action === "increment") onNext();
+        else if (action === "decrement") onPrevious();
+        else if (action === "activate" && canToggle) onToggle();
+      }}
       {...gesture.panHandlers}
     >
       <Animated.View
@@ -422,29 +483,24 @@ function Carousel({
         {covers.map(
           ([cover, slot]) =>
             cover && (
-              <View key={slot} style={[styles.cover, { left: px(slot * COVER.step) }]}>
+              <Pressable
+                key={slot}
+                disabled={slot !== 0 || !canToggle}
+                style={[styles.cover, { left: px(slot * COVER.step) }]}
+                onPress={onToggle}
+              >
                 <Cover
                   url={cover.albumImageUrl}
                   seed={`short:${cover.shortId}`}
                   size={size}
                   radius={px(16)}
                 />
-              </View>
+              </Pressable>
             ),
         )}
       </Animated.View>
     </View>
   );
-}
-
-function useReducedMotion() {
-  const [reduced, setReduced] = useState(false);
-  useEffect(() => {
-    void AccessibilityInfo.isReduceMotionEnabled().then(setReduced);
-    const subscription = AccessibilityInfo.addEventListener("reduceMotionChanged", setReduced);
-    return () => subscription.remove();
-  }, []);
-  return reduced;
 }
 
 /** The web title: one line that scrolls (12s loop, still for the first 12%) when it overflows. */
@@ -603,6 +659,30 @@ function Reactions({ model, px }: { model: NativeAbyssReady; px: Px }) {
           <SaveOffIcon width={px(14)} height={px(18)} />
         )}
       </Touchable>
+      {short.editable && (
+        <Touchable
+          accessibilityRole="button"
+          accessibilityLabel="곡 정보 수정"
+          hitSlop={hitSlop}
+          style={[styles.iconButton, styles.surface, pill, { width: px(32) }]}
+          onPress={() => act({ type: "abyss-edit" })}
+        >
+          {/* lucide Pencil (size-4), as on the web. */}
+          <Svg
+            width={px(16)}
+            height={px(16)}
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke={colors.fg}
+            strokeWidth={2}
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <Path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z" />
+            <Path d="m15 5 4 4" />
+          </Svg>
+        </Touchable>
+      )}
       <Touchable
         accessibilityRole="button"
         accessibilityLabel="신고"
@@ -802,6 +882,8 @@ function text(
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
+  /** The header's sound toggle spot (48px header, `pl-1.5`), drawn above an open sheet. */
+  muteAbove: { position: "absolute", top: 0, left: 6, height: 48, justifyContent: "center" },
   view: { flexGrow: 1, alignSelf: "center" },
   row: { flexDirection: "row", alignItems: "center" },
   shrink: { flexShrink: 1, minWidth: 0 },

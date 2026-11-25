@@ -173,7 +173,13 @@ export function useNativeRecord({
   const model: NativeCreationRecord = {
     recording: recorder.recording,
     pending: recorder.pending,
-    status: recorder.status,
+    // The web's LoadingOverlay, hidden while the instrument prompt is open (`suppressLoadingOverlay`).
+    loading:
+      (recorder.pendingKind === "transform" || recorder.pendingKind === "save") && !instrument?.model
+        ? recorder.pendingKind === "transform"
+          ? { message: "소리 분석 및 MIDI 변환 중", submessage: "오디오 길이에 따라 잠시 걸릴 수 있어요." }
+          : { message: "녹음을 저장하는 중입니다.", submessage: null }
+        : null,
     error: recorder.error || null,
     recorded: recorder.file !== null,
     previewing: trim.previewing,

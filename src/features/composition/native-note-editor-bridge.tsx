@@ -9,7 +9,7 @@ import {
   isNativeTimingAction,
   isNativeTransportAction,
 } from "@/lib/native-screens/studio";
-import { partLabel } from "./instrument-parts";
+import { findInstrument } from "./instrument-catalog";
 import { useNativeInstrumentPicker } from "./instrument-dialog";
 import { importJsonNoteFile } from "./json-note-import";
 import { useNativeSourcePicker } from "./studio-source-dialog";
@@ -96,13 +96,20 @@ export function NativeNoteEditorBridge({ screen, onBack }: {
         } : undefined,
         timingEditable: Boolean(screen.onTiming),
         timing: timing.model,
-        instrument: screen.instrumentChoice ? { label: partLabel(track.instrument) } : null,
+        // The web toolbar's "악기" button (`studio-toolbar.tsx`, `note-editor-portrait.tsx`).
+        instrument: screen.instrumentChoice
+          ? {
+              label: findInstrument(screen.instrumentChoice.value)?.label ?? "선택",
+              disabled: Boolean(screen.instrumentChoice.disabled),
+            }
+          : null,
         instrumentPicker: instrument.model,
         canImportSource: Boolean(screen.openSources),
         sources: sources.model,
         editable,
         statusText: screen.statusText,
         error: screen.shownError,
+        recommendationError: suggestion.error,
         retryLoad: Boolean(draft.loadError && !draft.session),
         conflict: draft.state?.status === "conflict",
         busy,
@@ -138,7 +145,7 @@ export function NativeNoteEditorBridge({ screen, onBack }: {
       case "editor-layers":
         return screen.openLayerList();
       case "editor-instrument-open":
-        if (screen.instrumentChoice) setInstrumentOpen(true);
+        if (screen.instrumentChoice && !screen.instrumentChoice.disabled) setInstrumentOpen(true);
         return;
       case "editor-retry-load":
         return draft.retryLoad();

@@ -12,12 +12,25 @@ import { Avatar, Touchable } from "./kit";
 import { useScreen } from "./screen-context";
 import { colors, type } from "./theme";
 
-/** The web Header (src/features/navigation/header.tsx) drawn natively from the session. */
-export function AppHeader({ header, onLogo }: { header: NativeHeader; onLogo?: () => void }) {
+/**
+ * The web Header (src/features/navigation/header.tsx) drawn natively from the session. `start` replaces the
+ * left control where the page draws its own (the abyss sound toggle).
+ */
+export function AppHeader({
+  header,
+  onLogo,
+  start,
+}: {
+  header: NativeHeader;
+  onLogo?: () => void;
+  start?: ReactNode;
+}) {
   const { act, session, uri } = useScreen();
   const signedIn = session.userId !== null;
   return (
-    <View style={[styles.header, header.left === "back" && styles.headerBack]}>
+    <View
+      style={[styles.header, (header.left === "back" || start !== undefined) && styles.headerBack]}
+    >
       {header.left === "logo" && (
         <Touchable accessibilityRole="button" accessibilityLabel="맨 위로" onPress={onLogo}>
           <Logo width={68} height={43} />
@@ -28,6 +41,7 @@ export function AppHeader({ header, onLogo }: { header: NativeHeader; onLogo?: (
           <BackIcon width={22} height={22} />
         </HeaderButton>
       )}
+      {start}
       <Text style={[type.label, styles.title]} numberOfLines={1} accessibilityRole="header">
         {header.title ?? ""}
       </Text>
@@ -97,21 +111,28 @@ export function AppHeader({ header, onLogo }: { header: NativeHeader; onLogo?: (
   );
 }
 
+/** `pressed` makes it a toggle (the web's `aria-pressed`); `hint` is the web's `title`. */
 export function HeaderButton({
   label,
   count = 0,
+  pressed,
+  hint,
   onPress,
   children,
 }: {
   label: string;
   count?: number;
+  pressed?: boolean;
+  hint?: string;
   onPress: () => void;
   children: ReactNode;
 }) {
   return (
     <Touchable
-      accessibilityRole="button"
+      accessibilityRole={pressed === undefined ? "button" : "togglebutton"}
       accessibilityLabel={label}
+      accessibilityHint={hint}
+      accessibilityState={pressed === undefined ? undefined : { checked: pressed }}
       style={styles.button}
       onPress={onPress}
     >

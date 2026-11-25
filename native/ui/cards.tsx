@@ -281,6 +281,7 @@ export function PostRow({
       <Touchable
         accessibilityRole="button"
         accessibilityLabel={`${post.title} 게시글 열기`}
+        accessibilityHint={post.community ? `커뮤니티 ${post.community}` : undefined}
         style={styles.rowMain}
         onPress={onOpen}
       >

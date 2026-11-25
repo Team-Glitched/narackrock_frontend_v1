@@ -1,4 +1,5 @@
 import { useCurrentUserId } from "@/features/auth/use-current-user";
+import { useHiddenPosts } from "@/features/community/hidden-posts";
 import { memberLabel, type Community } from "@/features/community/community-card";
 import { useCommunityMembership } from "@/features/community/community-membership";
 import { relativeTime } from "@/features/posts/post-utils";
@@ -30,7 +31,15 @@ export function nativePost(post: PostListItem & { content?: string }): NativePos
     likeCount: post.likeCount,
     dislikeCount: post.dislikeCount ?? 0,
     commentCount: post.commentCount,
+    community: post.gallery?.name ?? null,
   };
+}
+
+/** Maps posts to native rows, dropping the ones the viewer hid like the web's MiniPost does. */
+export function useNativePosts() {
+  const hidden = useHiddenPosts();
+  return (posts: readonly (PostListItem & { content?: string })[]): NativePost[] =>
+    posts.filter((post) => !hidden.ids.has(post.postId)).map(nativePost);
 }
 
 export function nativeSourceRow(source: OpenSourceSummary): NativeSourceRow {
@@ -52,6 +61,7 @@ export function useNativeCommunities() {
       name: community.name,
       description: community.description,
       imageUrl: community.imageUrl,
+      bannerImageUrl: community.bannerImageUrl ?? null,
       memberLabel: memberLabel(community.memberCount),
       join:
         userId !== null && community.ownerId === userId

@@ -69,6 +69,11 @@ export type NativeChatThread = {
     sent: number;
     maxLength: number;
   };
+  /**
+   * The "메시지를 삭제할까요?" dialog; null while closed. It stays open while deleting. `busy` is any
+   * edit or delete in flight ("삭제 중...", buttons disabled); `error` is the failed delete.
+   */
+  confirmDelete: { busy: boolean; error: string | null } | null;
 };
 
 /** /chat?userId=: a conversation (the web's Conversation in src/features/social/chat-screen.tsx). */
@@ -92,7 +97,14 @@ export type NativeChatConversation = {
 export type NativeChatConversationAction =
   | { type: "chat-send"; text: string }
   | { type: "chat-edit"; messageId: number; text: string }
-  | { type: "chat-delete"; messageId: number }
+  /** "삭제" in the message options: opens the delete dialog. */
+  | { type: "chat-delete-ask"; messageId: number }
+  /** "삭제" in the dialog. */
+  | { type: "chat-delete" }
+  /** "취소" or a tap outside the dialog; ignored while busy. */
+  | { type: "chat-delete-cancel" }
+  /** The message options opened or the edit was cancelled: the web clears its action error. */
+  | { type: "chat-clear-notice" }
   | { type: "chat-older" }
   | { type: "chat-retry" }
   /** The partner in the top bar: their profile. */

@@ -192,8 +192,11 @@ export type NativeNoteEditor =
       /** The viewer may change bpm/time signature. */
       timingEditable: boolean;
       timing: NativeTimingSheet | null;
-      /** The "악기" button with the current part label; null when the instrument cannot change. */
-      instrument: { label: string } | null;
+      /**
+       * The "악기" button: the instrument's label (or "선택"), disabled when the choice is; null when the
+       * instrument cannot change.
+       */
+      instrument: { label: string; disabled: boolean } | null;
       instrumentPicker: NativeInstrumentPicker | null;
       /** The "샘플 추가" button is offered. */
       canImportSource: boolean;
@@ -204,6 +207,8 @@ export type NativeNoteEditor =
       statusText: string | null;
       /** The page's error banner (action, playback, editor or draft error). */
       error: string | null;
+      /** The chord recommendation preview's error (shown over the banner, like the web). */
+      recommendationError: string | null;
       /** "초안 다시 불러오기" is offered. */
       retryLoad: boolean;
       /** Draft conflict actions ("서버본 열기" …). */

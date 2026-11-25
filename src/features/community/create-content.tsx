@@ -581,7 +581,9 @@ export function useSocialCreate({
       ? "초안을 저장하는 중..."
       : storageError
         ? "초안을 저장하지 못했습니다."
-        : "이 브라우저에 초안이 임시 저장됩니다.",
+        : nativeApp()
+          ? "이 기기에 초안이 임시 저장됩니다."
+          : "이 브라우저에 초안이 임시 저장됩니다.",
     targetNotice:
       kind === "post" && postTargetStatus !== "ready"
         ? {
@@ -677,9 +679,10 @@ function SocialCreateFormContent({ form }: { form: SocialCreateState }) {
           title: "작성 중인 내용을 삭제할까요?",
           message: "제목, 본문 및 첨부 파일이 삭제됩니다.",
           error: error ?? undefined,
-          dismissible: !busy,
+          // Like the web CanvasDialog, "계속 작성" and closing stay available while busy.
+          dismissible: true,
           actions: [
-            { id: "continue", label: "계속 작성", disabled: busy },
+            { id: "continue", label: "계속 작성" },
             { id: "discard", label: "삭제하고 나가기", destructive: true, disabled: busy },
           ],
         }}

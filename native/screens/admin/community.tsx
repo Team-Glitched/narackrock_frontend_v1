@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import { StyleSheet, Text, View } from "react-native";
+import { Image, StyleSheet, Text, View } from "react-native";
 
 import BackIcon from "../../../public/figma/search-back.svg";
 import SearchIcon from "../../../public/figma/search-input.svg";
@@ -149,6 +149,73 @@ function Row({
   );
 }
 
+/** The web's CommunityImagesEditor: icon and banner previews, file pick, remove, save. */
+function CommunityImages({ images }: { images: NativeAdminMembers["images"] }) {
+  const { act, uri } = useScreen();
+  const { busy } = images;
+  return (
+    <View style={styles.images}>
+      {images.items.map((item) => {
+        const preview = uri(item.previewUrl);
+        return (
+          <View key={item.key} style={styles.imageField} accessibilityLabel={item.label}>
+            <Text style={styles.imageLegend}>{item.label}</Text>
+            {item.hasImage ? (
+              <View style={item.key === "icon" ? styles.iconPreview : styles.bannerPreview}>
+                {preview && (
+                  <Image
+                    source={{ uri: preview }}
+                    style={StyleSheet.absoluteFill}
+                    resizeMode="cover"
+                    accessibilityLabel={`${item.label} 미리보기`}
+                  />
+                )}
+              </View>
+            ) : (
+              <Text style={type.caption}>등록된 이미지가 없습니다.</Text>
+            )}
+            <View style={styles.imageButton}>
+              <CardButton
+                label="파일 선택"
+                accessibilityLabel={`${item.label} 파일 선택`}
+                disabled={busy}
+                onPress={() => act({ type: "pick-community-image", key: item.key })}
+              />
+            </View>
+            {item.hasImage && (
+              <Touchable
+                accessibilityRole="button"
+                accessibilityState={{ disabled: busy }}
+                disabled={busy}
+                hitSlop={8}
+                style={styles.imageRemove}
+                onPress={() => act({ type: "remove-community-image", key: item.key })}
+              >
+                <Text style={type.caption}>{item.label} 제거</Text>
+              </Touchable>
+            )}
+          </View>
+        );
+      })}
+      {images.error && (
+        <Text accessibilityRole="alert" style={styles.imageNotice}>
+          {images.error}
+        </Text>
+      )}
+      {images.saved && (
+        <Text accessibilityLiveRegion="polite" style={type.caption}>
+          커뮤니티 이미지를 저장했습니다.
+        </Text>
+      )}
+      <Button
+        label={busy ? "이미지 저장 중..." : "이미지 저장"}
+        disabled={!images.canSave}
+        onPress={() => act({ type: "save-community-images" })}
+      />
+    </View>
+  );
+}
+
 function Members({ members }: { members: NativeAdminMembers }) {
   const { act } = useScreen();
   const [description, setDescription] = useState(members.description);
@@ -253,6 +320,9 @@ function Members({ members }: { members: NativeAdminMembers }) {
             />
           )}
         </Section>
+        <Section title="커뮤니티 이미지">
+          <CommunityImages images={members.images} />
+        </Section>
         <Section title="커뮤니티 설명">
           <TextField
             accessibilityLabel="커뮤니티 설명"
@@ -350,6 +420,27 @@ const styles = StyleSheet.create({
   // communityMembersContent: sections 40 apart.
   body: { paddingHorizontal: gutter, paddingTop: 20, paddingBottom: 40, gap: 40 },
   section: { gap: 12 },
+  // CommunityImagesEditor: fieldsets 16 apart, 12 inside; icon 80 round, banner 3:1.
+  images: { gap: 16 },
+  imageField: { gap: 12 },
+  imageLegend: { ...type.body, fontWeight: "600" },
+  iconPreview: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    overflow: "hidden",
+    backgroundColor: colors.surface,
+  },
+  bannerPreview: {
+    width: "100%",
+    aspectRatio: 3,
+    borderRadius: 12,
+    overflow: "hidden",
+    backgroundColor: colors.surface,
+  },
+  imageButton: { alignSelf: "flex-start" },
+  imageRemove: { alignSelf: "flex-start" },
+  imageNotice: { ...type.caption, color: colors.fg },
   // communityMemberRow / communityMemberProfile.
   row: { minHeight: 56, paddingVertical: 6, flexDirection: "row", alignItems: "center", gap: 12 },
   rowText: { flex: 1, minWidth: 0, gap: 4 },

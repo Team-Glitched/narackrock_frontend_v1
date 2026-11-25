@@ -1,10 +1,16 @@
 import type { ReactNode } from "react";
 import { useLoginPrompt } from "@/features/auth/login-prompt";
 import type { Community } from "@/features/community/community-card";
+import {
+  communityImageLabels,
+  useCommunityImagesEditor,
+} from "@/features/community/community-images-editor";
 import { useCommunityManagementNavigation } from "@/features/community/community-management-content";
 import { useRouteCommunity } from "@/features/community/use-route-community";
+import { previewDataUrl, usePickedPreview } from "@/features/images/image-preview";
 import { useNativeScreen } from "@/features/navigation/use-native-screen";
 import { reportActions } from "@/lib/api/admin";
+import { pickNativeImage } from "@/lib/native-app";
 import type {
   NativeAdminCommunity,
   NativeAdminCommunityAction,
@@ -22,6 +28,7 @@ import {
   proposalMeta,
   reportActionLabels,
   reportMeta,
+  reportTargetPath,
   reportTarget,
   useAdminReview,
   useCommunityAdminGate,
@@ -53,9 +60,12 @@ function nativeList<T, N>(list: CursorList<T>, map: (item: T) => N): NativeAdmin
 export function NativeAdminReviewBridge({
   onBack,
   onSearch,
+  onNavigate,
 }: {
   onBack: () => void;
   onSearch: () => void;
+  /** In-app navigation for "대상 보기" (the web's Link). */
+  onNavigate: (path: string) => void;
 }) {
   const review = useAdminReview();
   const { requestLogin } = useLoginPrompt();
@@ -76,6 +86,7 @@ export function NativeAdminReviewBridge({
       description: report.description || null,
       contentSummary: report.contentSummary || null,
       meta: reportMeta(report),
+      targetLink: reportTargetPath(report) !== null,
       actions: reportActions(report.targetType).map((value) => ({
         value,
         label: reportActionLabels[value],
@@ -119,6 +130,12 @@ export function NativeAdminReviewBridge({
                 },
             reason,
           );
+          return;
+        }
+        case "open-report-target": {
+          const report = review.reports.items.find((item) => item.reportId === action.reportId);
+          const path = report ? reportTargetPath(report) : null;
+          if (path) onNavigate(path);
           return;
         }
       }
@@ -276,6 +293,10 @@ function GateBridge({
   );
 }
 
+// The web shows the icon at 80px round and the banner at 3:1.
+const iconPreview = (file: File) => previewDataUrl(file, { width: 160, height: 160 });
+const bannerPreview = (file: File) => previewDataUrl(file, { width: 600, height: 200 });
+
 function MembersBridge({
   community,
   onLeave,
@@ -287,10 +308,27 @@ function MembersBridge({
 }) {
   const moderation = useCommunityModeration(community);
   const managers = useGalleryManagers(community);
+  const images = useCommunityImagesEditor(community);
+  const previews = {
+    icon: usePickedPreview(images.file("icon"), iconPreview),
+    banner: usePickedPreview(images.file("banner"), bannerPreview),
+  };
   const view: NativeAdminCommunity["view"] = {
     type: "members",
     galleryId: community.galleryId,
     name: community.name,
+    images: {
+      items: (["icon", "banner"] as const).map((key) => ({
+        key,
+        label: communityImageLabels[key],
+        hasImage: images.preview(key) !== null,
+        previewUrl: images.file(key) ? previews[key] : images.preview(key),
+      })),
+      busy: images.busy,
+      error: images.error,
+      saved: images.saved,
+      canSave: images.canSave,
+    },
     description: community.description ?? "",
     saving: moderation.saving,
     notice: moderation.notice,
@@ -355,6 +393,21 @@ function MembersBridge({
           case "revoke-manager":
             if (!managers.busy) managers.revoke(action.userId);
             return;
+          case "pick-community-image":
+            if (images.busy) return;
+            void pickNativeImage()
+              .then((file) => {
+                if (file) images.select(action.key, file);
+              })
+              .catch((cause: unknown) =>
+                images.fail(cause instanceof Error ? cause.message : String(cause)),
+              );
+            return;
+          case "remove-community-image":
+            if (!images.busy) images.remove(action.key);
+            return;
+          case "save-community-images":
+            return void images.save();
           case "leave":
             return onLeave();
         }

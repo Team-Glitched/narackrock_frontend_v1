@@ -1,11 +1,12 @@
-import { useState } from "react";
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from "react-native";
+import { useMemo, useRef, useState } from "react";
+import { ActivityIndicator, PanResponder, Pressable, StyleSheet, Text, View } from "react-native";
 import Svg, { Rect } from "react-native-svg";
 
 import PlayIcon from "../../../public/figma/play.svg";
 import MutedIcon from "../../../public/figma/sound-muted.svg";
 import SoundIcon from "../../../public/figma/sound.svg";
 import type { NativePlayback } from "../../../src/lib/native-screens";
+import { keyboardSeekMs } from "../../../src/lib/playback-progress";
 import { Touchable } from "../../ui/kit";
 import { useSmoothPlaybackMs } from "../../ui/smooth-playback";
 import { colors } from "../../ui/theme";
@@ -15,9 +16,13 @@ function clock(ms: number) {
   return `${Math.floor(value / 60)}:${String(value % 60).padStart(2, "0")}`;
 }
 
+/** Horizontal movement (dp) before a touch on the track becomes a seek drag. */
+const dragSlop = 6;
+
 /**
  * The web's AudioPlaybackBar drawn from the page's player state; the audio plays in the web page.
- * Tapping the track seeks there.
+ * The track works like the web's range input: touching it seeks there and dragging keeps seeking;
+ * screen readers adjust it by the web's arrow-key step (`keyboardSeekMs`).
  */
 export function PlaybackBar({
   player,
@@ -31,17 +36,59 @@ export function PlaybackBar({
   onMute: () => void;
 }) {
   const [width, setWidth] = useState(0);
+  // The position under the finger while the track is held; the page's reports follow each seek.
+  const [dragMs, setDragMs] = useState<number | null>(null);
   const { durationMs, label } = player;
   // The clamped display position; it moves only while the audio actually plays (not while loading).
-  const position = useSmoothPlaybackMs(
+  const smooth = useSmoothPlaybackMs(
     player.positionMs,
     durationMs,
     player.playing && !player.loading,
   );
+  const position = dragMs ?? smooth;
   const elapsed = clock(position);
   const total = durationMs === null ? "‒:‒" : clock(durationMs);
   const seekDisabled = player.disabled || player.loading || !durationMs;
   const fraction = durationMs ? position / durationMs : 0;
+  const latest = useRef({ width, durationMs, seekDisabled, onSeek, position });
+  latest.current = { width, durationMs, seekDisabled, onSeek, position };
+  const startX = useRef(0);
+  // The position before a drag: restored when a parent (a scrolling rail) takes the touch away.
+  const dragStart = useRef<number | null>(null);
+  // Taps seek through the track's Pressable; the track claims the touch only for a horizontal drag,
+  // so swipes that start on it still scroll the rail or list, and it yields when a parent asks.
+  const { responder, seekTo } = useMemo(() => {
+    const seekTo = (x: number, hold = true) => {
+      const { width: trackWidth, durationMs: totalMs, seekDisabled: disabled } = latest.current;
+      if (disabled || !totalMs || trackWidth <= 0) return;
+      const ms = Math.round(Math.min(1, Math.max(0, x / trackWidth)) * totalMs);
+      if (hold) setDragMs(ms);
+      latest.current.onSeek(ms);
+    };
+    const responder = PanResponder.create({
+      onMoveShouldSetPanResponder: (_, gesture) =>
+        !latest.current.seekDisabled &&
+        Math.abs(gesture.dx) > dragSlop &&
+        Math.abs(gesture.dx) > Math.abs(gesture.dy),
+      onPanResponderTerminationRequest: () => true,
+      onPanResponderGrant: (event, gesture) => {
+        dragStart.current = latest.current.position;
+        startX.current = event.nativeEvent.locationX - gesture.dx;
+        seekTo(event.nativeEvent.locationX);
+      },
+      onPanResponderMove: (_, gesture) => seekTo(startX.current + gesture.dx),
+      onPanResponderRelease: () => {
+        dragStart.current = null;
+        setDragMs(null);
+      },
+      onPanResponderTerminate: () => {
+        if (dragStart.current !== null) latest.current.onSeek(dragStart.current);
+        dragStart.current = null;
+        setDragMs(null);
+      },
+    });
+    return { responder, seekTo };
+  }, []);
   return (
     <View style={styles.bar} accessibilityLabel={`${label} 재생바`}>
       <Touchable
@@ -71,30 +118,46 @@ export function PlaybackBar({
       <Text style={styles.time}>
         {elapsed} / {total}
       </Text>
-      <Pressable
+      <View
+        accessible
         accessibilityRole="adjustable"
         accessibilityLabel={`${label} 재생 위치`}
         accessibilityValue={{
           text: `${elapsed} / ${durationMs === null ? "재생 시간 정보 없음" : total}`,
         }}
         accessibilityState={{ disabled: seekDisabled }}
-        disabled={seekDisabled}
+        accessibilityActions={[{ name: "increment" }, { name: "decrement" }]}
+        onAccessibilityAction={(event) => {
+          if (seekDisabled || !durationMs) return;
+          const key =
+            event.nativeEvent.actionName === "increment"
+              ? "ArrowRight"
+              : event.nativeEvent.actionName === "decrement"
+                ? "ArrowLeft"
+                : null;
+          const next = key && keyboardSeekMs(key, position, durationMs);
+          if (next !== null) onSeek(next);
+        }}
         style={styles.track}
         onLayout={(event) => setWidth(event.nativeEvent.layout.width)}
-        onPress={(event) => {
-          if (durationMs && width > 0)
-            onSeek(
-              Math.round(
-                Math.min(1, Math.max(0, event.nativeEvent.locationX / width)) * durationMs,
-              ),
-            );
-        }}
+        {...responder.panHandlers}
       >
-        <View style={styles.rail}>
-          <View style={[styles.fill, { width: `${fraction * 100}%` }]} />
-        </View>
-        <View style={[styles.thumb, { left: Math.max(0, fraction * width - 5) }]} />
-      </Pressable>
+        <Pressable
+          accessible={false}
+          importantForAccessibility="no"
+          disabled={seekDisabled}
+          style={styles.hit}
+          onPress={(event) => seekTo(event.nativeEvent.locationX, false)}
+        >
+          <View style={styles.rail} pointerEvents="none">
+            <View style={[styles.fill, { width: `${fraction * 100}%` }]} />
+          </View>
+          <View
+            pointerEvents="none"
+            style={[styles.thumb, { left: Math.max(0, fraction * width - 5) }]}
+          />
+        </Pressable>
+      </View>
       <Touchable
         accessibilityRole="button"
         accessibilityLabel={player.muted ? `${label} 소리 켜기` : `${label} 음소거`}
@@ -123,7 +186,8 @@ const styles = StyleSheet.create({
   toggle: { width: 24, height: "100%", alignItems: "center", justifyContent: "center" },
   disabled: { opacity: 0.5 },
   time: { color: colors.fg, fontSize: 14, lineHeight: 20, fontVariant: ["tabular-nums"] },
-  track: { flex: 1, height: "100%", justifyContent: "center" },
+  track: { flex: 1, height: "100%" },
+  hit: { ...StyleSheet.absoluteFill, justifyContent: "center" },
   rail: { height: 4, borderRadius: 2, overflow: "hidden", backgroundColor: colors.line },
   fill: { height: 4, backgroundColor: colors.primary },
   thumb: {

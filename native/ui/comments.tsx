@@ -10,15 +10,27 @@
  *
  * `MenuSheet` is the bottom sheet used for the comment and post "더보기" menus.
  */
-import { useEffect, useRef, useState, type FC, type ReactElement } from "react";
 import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+  type FC,
+  type ReactElement,
+} from "react";
+import {
+  Platform,
   Pressable,
   StyleSheet,
   Text,
   TextInput,
   View,
+  type FlatListInstance,
   type StyleProp,
   type TextInputInstance,
+  type ViewInstance,
   type ViewStyle,
 } from "react-native";
 import type { SvgProps } from "react-native-svg";
@@ -54,9 +66,19 @@ import { useScreen } from "./screen-context";
 import { ScreenModal } from "./screen-modal";
 import { colors, gutter, type } from "./theme";
 
-export type MenuItem = { label: string; icon?: FC<SvgProps>; onPress: () => void };
+export type MenuItem = {
+  label: string;
+  icon?: FC<SvgProps>;
+  onPress: () => void;
+  /** Shown but not pressable, like the web's `disabled:opacity-40` menu buttons. */
+  disabled?: boolean;
+};
 
-/** Bottom sheet of a "더보기" menu; `label` is the web menu's accessible name. */
+/**
+ * Bottom sheet of a "더보기" menu; `label` is the web menu's accessible name. A chosen item runs
+ * once the sheet has closed: on iOS only after its modal has finished dismissing, because a dialog
+ * the item opens (a confirm, the report or login dialog) cannot be presented while it is going away.
+ */
 export function MenuSheet({
   label,
   items,
@@ -68,6 +90,7 @@ export function MenuSheet({
   visible: boolean;
   onClose: () => void;
 }) {
+  const chosen = useRef<(() => void) | null>(null);
   return (
     <ScreenModal
       visible={visible}
@@ -75,6 +98,11 @@ export function MenuSheet({
       animationType="fade"
       statusBarTranslucent
       onRequestClose={onClose}
+      onDismiss={() => {
+        const run = chosen.current;
+        chosen.current = null;
+        run?.();
+      }}
     >
       <View style={styles.sheetRoot}>
         <Pressable
@@ -84,14 +112,17 @@ export function MenuSheet({
           onPress={onClose}
         />
         <View style={styles.sheet} accessibilityRole="menu" accessibilityLabel={label}>
-          {items.map(({ label: itemLabel, icon: Icon, onPress }) => (
+          {items.map(({ label: itemLabel, icon: Icon, onPress, disabled }) => (
             <Touchable
               key={itemLabel}
               accessibilityRole="menuitem"
-              style={styles.sheetItem}
+              accessibilityState={{ disabled: !!disabled }}
+              disabled={disabled}
+              style={[styles.sheetItem, disabled && styles.sheetItemDisabled]}
               onPress={() => {
                 onClose();
-                onPress();
+                if (Platform.OS === "ios") chosen.current = onPress;
+                else onPress();
               }}
             >
               {Icon && <Icon width={16} height={16} />}
@@ -117,45 +148,79 @@ function useOnChange(value: number, run: () => void) {
   });
 }
 
+/**
+ * Scrolls the list so the `?commentId=` comment card is centered, like the web's scrollIntoView.
+ * Each highlighted id is revealed once: FlatList re-mounts rows scrolled back into view.
+ */
+const RevealHighlighted = createContext<(id: number, card: ViewInstance) => void>(() => {});
+
 export function Comments({
   comments,
   header,
+  focusComposer = false,
 }: {
   comments: NativeComments;
   /** Content above the comments, scrolling with them (e.g. the post). */
   header?: ReactElement;
+  /** Focuses the comment input once on mount (the web's `focus=1`). */
+  focusComposer?: boolean;
 }) {
   const { act } = useScreen();
   const [draft, setDraft] = useState("");
   useOnChange(comments.composer.cleared, () => setDraft(""));
+  const list = useRef<FlatListInstance>(null);
+  const revealed = useRef<number | null>(null);
+  const reveal = useCallback((id: number, card: ViewInstance) => {
+    if (revealed.current === id) return;
+    const scroll = list.current?.getNativeScrollRef();
+    const content = scroll?.getInnerViewRef();
+    if (!scroll || !content) return;
+    revealed.current = id;
+    scroll.measure((_x, _y, _width, viewport) => {
+      card.measureLayout(content, (_cardX, y, _cardWidth, height) => {
+        list.current?.scrollToOffset({
+          offset: Math.max(0, y - (viewport - height) / 2),
+          animated: false,
+        });
+      });
+    });
+  }, []);
   return (
     <KeyboardAvoiding style={styles.flex}>
-      <ScreenList
-        style={styles.flex}
-        data={comments.threads}
-        keyExtractor={(thread) => String(thread.comment.id)}
-        ItemSeparatorComponent={ThreadGap}
-        ListHeaderComponent={
-          <>
-            {header}
-            <ListState comments={comments} />
-          </>
-        }
-        renderItem={({ item: thread }) => (
-          <Thread thread={thread} canReply={comments.canReply} hasDraft={draft.trim() !== ""} />
-        )}
-        ListFooterComponent={
-          comments.more ? (
-            <TextButton
-              label={comments.more.busy ? "불러오는 중..." : "댓글 더보기"}
-              disabled={comments.more.busy}
-              style={styles.padded}
-              onPress={() => act({ type: "comments-more" })}
-            />
-          ) : undefined
-        }
+      <RevealHighlighted value={reveal}>
+        <ScreenList
+          listRef={list}
+          style={styles.flex}
+          data={comments.threads}
+          keyExtractor={(thread) => String(thread.comment.id)}
+          ItemSeparatorComponent={ThreadGap}
+          ListHeaderComponent={
+            <>
+              {header}
+              <ListState comments={comments} />
+            </>
+          }
+          renderItem={({ item: thread }) => (
+            <Thread thread={thread} canReply={comments.canReply} hasDraft={draft.trim() !== ""} />
+          )}
+          ListFooterComponent={
+            comments.more ? (
+              <TextButton
+                label={comments.more.busy ? "불러오는 중..." : "댓글 더보기"}
+                disabled={comments.more.busy}
+                style={styles.padded}
+                onPress={() => act({ type: "comments-more" })}
+              />
+            ) : undefined
+          }
+        />
+      </RevealHighlighted>
+      <Composer
+        composer={comments.composer}
+        draft={draft}
+        onDraft={setDraft}
+        focusOnMount={focusComposer}
       />
-      <Composer composer={comments.composer} draft={draft} onDraft={setDraft} />
     </KeyboardAvoiding>
   );
 }
@@ -281,6 +346,12 @@ function CommentCard({
   const [reason, setReason] = useState("");
   const [long, setLong] = useState(false);
   const [full, setFull] = useState(false);
+  const reveal = useContext(RevealHighlighted);
+  const card = useRef<ViewInstance>(null);
+  // Like the web's scrollIntoView effect: centers the card when it becomes the highlighted one.
+  useEffect(() => {
+    if (comment.highlighted && card.current) reveal(comment.id, card.current);
+  }, [comment.highlighted, comment.id, reveal]);
   // A saved edit or delete closes its form, as on the web.
   useOnChange(comment.changed, () => {
     setEditing(false);
@@ -321,7 +392,7 @@ function CommentCard({
   const DislikeIcon = comment.isDisliked ? DislikeOnIcon : DislikeOffIcon;
   const reactDisabled = !comment.canReact || comment.reacting;
   return (
-    <View style={comment.highlighted && styles.highlighted}>
+    <View ref={card} style={comment.highlighted && styles.highlighted}>
       <View style={styles.author}>
         <Touchable
           accessibilityRole="button"
@@ -488,14 +559,20 @@ function Composer({
   composer,
   draft,
   onDraft,
+  focusOnMount,
 }: {
   composer: NativeComments["composer"];
   draft: string;
   onDraft: (draft: string) => void;
+  focusOnMount: boolean;
 }) {
   const { act } = useScreen();
   const input = useRef<TextInputInstance>(null);
   useOnChange(composer.focus, () => input.current?.focus());
+  const focusFirst = useRef(focusOnMount);
+  useEffect(() => {
+    if (focusFirst.current) input.current?.focus();
+  }, []);
   const signedIn = composer.signedOut === null;
   const sendDisabled =
     composer.busy ||
@@ -524,11 +601,6 @@ function Composer({
       {composer.hideError && (
         <Text accessibilityRole="alert" style={styles.alert}>
           {composer.hideError}
-        </Text>
-      )}
-      {signedIn && draft.length > 0 && (
-        <Text style={[type.caption, { textAlign: "right" }]}>
-          {codePointLength(draft)}/{COMMENT_MAX_LENGTH}자
         </Text>
       )}
       <View style={styles.inputRow}>
@@ -566,6 +638,11 @@ function Composer({
           <SendIcon width={22} height={22} />
         </Touchable>
       </View>
+      {signedIn && draft.length > 0 && (
+        <Text style={[type.caption, styles.composerCount]}>
+          {codePointLength(draft)}/{COMMENT_MAX_LENGTH}자
+        </Text>
+      )}
     </View>
   );
 }
@@ -662,6 +739,7 @@ const styles = StyleSheet.create({
     borderTopColor: colors.surface,
     backgroundColor: colors.bg,
   },
+  composerCount: { textAlign: "right", fontVariant: ["tabular-nums"] },
   replying: {
     minHeight: 28,
     flexDirection: "row",
@@ -721,5 +799,6 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingHorizontal: gutter,
   },
+  sheetItemDisabled: { opacity: 0.4 },
   sheetText: { color: colors.fg, fontSize: 16 },
 });

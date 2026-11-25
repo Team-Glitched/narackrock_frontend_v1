@@ -42,10 +42,14 @@ export function Page({
   );
 }
 
-/** Bordered notice box (workspaceNotice). */
+/** Bordered notice box (workspaceNotice): the web's role="alert", or role="status" (polite) otherwise. */
 export function Notice({ children, alert = false }: { children: string; alert?: boolean }) {
   return (
-    <Text accessibilityRole={alert ? "alert" : undefined} style={[text.label, styles.notice]}>
+    <Text
+      accessibilityRole={alert ? "alert" : undefined}
+      accessibilityLiveRegion={alert ? undefined : "polite"}
+      style={[text.label, styles.notice]}
+    >
       {children}
     </Text>
   );

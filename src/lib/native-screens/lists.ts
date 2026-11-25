@@ -22,7 +22,7 @@ export type NativeCharts = {
   /** Error notice above the list (star change failed, next page failed). */
   notice: string | null;
   status: "loading" | "error" | "ready" | "signed-out";
-  /** Message of `error`, with a retry button. */
+  /** Message of an `error` status, with a "다시 시도" button; null on an error status that the web shows without retry (the popular chart: plain "곡을 불러오지 못했습니다."). */
   error: string | null;
   items: NativeChartSong[];
   emptyMessage: string;
@@ -78,6 +78,8 @@ export type NativeSearchAction =
   | { type: "query"; value: string }
   | { type: "scope"; scope: NativeSearchScope }
   | { type: "retry" }
+  /** The sign-in button: the web's requestLogin() confirmation. */
+  | { type: "sign-in" }
   | { type: "open-post"; postId: number }
   | { type: "open-community"; galleryId: number }
   | { type: "toggle-join"; galleryId: number }

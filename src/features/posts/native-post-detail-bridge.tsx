@@ -36,7 +36,6 @@ export function NativePostDetailBridge({
         nickname: post.writer.nickname || "알 수 없는 사용자",
         profileImageUrl: post.writer.profileImageUrl,
       },
-      community: post.gallery.name?.trim() || null,
       createdLabel: time(post.createdAt),
       likeCount: interactions.reaction?.likeCount ?? post.likeCount,
       dislikeCount: interactions.reaction?.dislikeCount ?? post.dislikeCount,

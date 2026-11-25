@@ -229,16 +229,20 @@ export function Avatar({ uri, size }: { uri: string | null; size: number }) {
 export function MoreButton({
   label,
   style,
+  disabled,
   onPress,
 }: {
   label: string;
   style?: StyleProp<ViewStyle>;
+  disabled?: boolean;
   onPress: () => void;
 }) {
   return (
     <Touchable
       accessibilityRole="button"
       accessibilityLabel={label}
+      accessibilityState={{ disabled: !!disabled }}
+      disabled={disabled}
       hitSlop={8}
       style={[styles.more, style]}
       onPress={onPress}

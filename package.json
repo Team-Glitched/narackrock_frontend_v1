@@ -22,7 +22,8 @@
     "native:android:release": "npm run native:web && npm --prefix native run android:release",
     "native:android:bundle": "npm run native:web && npm --prefix native run android:bundle",
     "native:ios": "npm run native:web && npm --prefix native run ios",
-    "native:ios:release": "npm run native:web && npm --prefix native run ios:release"
+    "native:ios:release": "npm run native:web && npm --prefix native run ios:release",
+    "native:gen-shark-loader": "node scripts/gen-native-shark-loader.mjs"
   },
   "dependencies": {
     "@stomp/stompjs": "^7.5.0",

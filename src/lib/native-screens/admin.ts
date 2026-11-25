@@ -38,6 +38,8 @@ export type NativeAdminReport = NativeAdminTask & {
   contentSummary: string | null;
   /** "신고자 A → 대상 B · date" */
   meta: string;
+  /** "대상 보기" (`open-report-target`): the target still exists and has an in-app path. */
+  targetLink: boolean;
   /** Handling choices for this target type, first is the default. */
   actions: { value: NativeReportAction; label: string }[];
 };
@@ -61,7 +63,8 @@ export type NativeAdminReviewAction =
       reason: string;
       banDays: number | null;
     }
-  | { type: "reject-report"; reportId: number; reason: string };
+  | { type: "reject-report"; reportId: number; reason: string }
+  | { type: "open-report-target"; reportId: number };
 
 export type NativeAdminBan = {
   banId: number;
@@ -79,6 +82,22 @@ export type NativeAdminMembers = {
   type: "members";
   galleryId: number;
   name: string;
+  /** "커뮤니티 이미지" (the web's CommunityImagesEditor). */
+  images: {
+    items: {
+      key: NativeCommunityImageKey;
+      /** "커뮤니티 아이콘" / "커뮤니티 배너". */
+      label: string;
+      /** An image is set (the saved one or a picked one); false shows "등록된 이미지가 없습니다.". */
+      hasImage: boolean;
+      /** The saved image URL, or a small data URL of the picked photo; null while it is drawn. */
+      previewUrl: string | null;
+    }[];
+    busy: boolean;
+    error: string | null;
+    saved: boolean;
+    canSave: boolean;
+  };
   /** The saved description; the field starts from it. */
   description: string;
   saving: boolean;
@@ -136,7 +155,11 @@ export type NativeAdminCommunityAction =
   | { type: "search-managers"; keyword: string }
   | { type: "more-manager-search" }
   | { type: "grant-manager"; userId: number }
-  | { type: "revoke-manager"; userId: number };
+  | { type: "revoke-manager"; userId: number }
+  | { type: "pick-community-image" | "remove-community-image"; key: NativeCommunityImageKey }
+  | { type: "save-community-images" };
+
+export type NativeCommunityImageKey = "icon" | "banner";
 
 export type AdminScreens = {
   "admin-review": { model: NativeAdminReview; action: NativeAdminReviewAction };

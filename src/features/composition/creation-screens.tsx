@@ -326,7 +326,6 @@ export function useCompositionRecorder({
   const [pending, setPending] = useState(false);
   const [pendingKind, setPendingKind] = useState<"permission" | "save" | "transform" | null>(null);
   const [soundKind, setSoundKind] = useState<AudioTranscriptionMode>("AUTO");
-  const [pendingLabel, setPendingLabel] = useState("처리 중");
   const [file, setFile] = useState<File | null>(null);
   const [durationMs, setDurationMs] = useState<number | null>(null);
   const [url, setUrl] = useState("");
@@ -512,7 +511,6 @@ export function useCompositionRecorder({
   }
   async function save() {
     if (!file || pending) return;
-    setPendingLabel("저장 중");
     setPendingKind("save");
     setPending(true);
     setError("");
@@ -529,7 +527,6 @@ export function useCompositionRecorder({
   }
   async function transform() {
     if (!file || pending || !onTransform) return;
-    setPendingLabel("소리 분석 및 MIDI 변환 중");
     setPendingKind("transform");
     setPending(true);
     setError("");
@@ -580,8 +577,6 @@ export function useCompositionRecorder({
     durationMs,
     url,
     error,
-    /** The status line under the recorder. */
-    status: countdown !== null ? "녹음 준비" : recording ? "녹음 중" : pending ? pendingLabel : file ? "녹음 완료" : "",
     toggle,
     reset,
     save,

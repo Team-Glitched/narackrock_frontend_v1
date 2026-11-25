@@ -77,17 +77,6 @@ export function AudioTrim({ trim }: { trim: NativeAudioTrim | null }) {
       )}
       {!trim.hideActions && (
         <View style={styles.actions}>
-          {trim.cancel && (
-            <Touchable
-              accessibilityRole="button"
-              accessibilityState={{ disabled: trim.busy }}
-              disabled={trim.busy}
-              style={[styles.action, styles.secondaryAction, trim.busy && styles.disabled]}
-              onPress={() => act({ type: "trim-cancel" })}
-            >
-              <Text style={styles.actionText}>취소</Text>
-            </Touchable>
-          )}
           <Touchable
             accessibilityRole="button"
             accessibilityState={{ disabled: !trim.selection || trim.busy }}
@@ -441,18 +430,27 @@ function Loaded({
                     {active && (
                       <View style={styles.segArrows}>
                         <Touchable
+                          accessibilityRole="button"
+                          accessibilityLabel="조각 앞으로 이동"
+                          accessibilityState={{ disabled: trim.busy || index === 0 }}
                           disabled={trim.busy || index === 0}
                           onPress={() => act({ type: "trim-reorder-segment", direction: -1 })}
-                          style={[styles.segArrowBtn, index === 0 && styles.disabled]}
+                          style={[styles.segArrowBtn, (trim.busy || index === 0) && styles.disabled]}
                         >
-                          <Text style={styles.segChipTextActive}>‹</Text>
+                          <Text importantForAccessibility="no" style={styles.segChipTextActive}>‹</Text>
                         </Touchable>
                         <Touchable
+                          accessibilityRole="button"
+                          accessibilityLabel="조각 뒤로 이동"
+                          accessibilityState={{ disabled: trim.busy || index === displaySegments.length - 1 }}
                           disabled={trim.busy || index === displaySegments.length - 1}
                           onPress={() => act({ type: "trim-reorder-segment", direction: 1 })}
-                          style={[styles.segArrowBtn, index === displaySegments.length - 1 && styles.disabled]}
+                          style={[
+                            styles.segArrowBtn,
+                            (trim.busy || index === displaySegments.length - 1) && styles.disabled,
+                          ]}
                         >
-                          <Text style={styles.segChipTextActive}>›</Text>
+                          <Text importantForAccessibility="no" style={styles.segChipTextActive}>›</Text>
                         </Touchable>
                       </View>
                     )}
@@ -668,9 +666,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     paddingHorizontal: 12,
   },
-  secondaryAction: { backgroundColor: "#23232a", borderWidth: 1, borderColor: "#32323d" },
   primaryAction: { backgroundColor: colors.primary },
-  actionText: { color: colors.fg, fontSize: 14, fontWeight: "600" },
   primaryActionText: { color: "#ffffff", fontSize: 14, fontWeight: "600" },
   disabled: { opacity: 0.4 },
 });

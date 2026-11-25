@@ -32,7 +32,6 @@ export function useNativeAudioTrim(
   {
     saveLabel,
     onSave,
-    onCancel,
     bpm = 120,
     signature = defaultSignature,
     enableSplice = true,
@@ -41,7 +40,6 @@ export function useNativeAudioTrim(
   }: {
     saveLabel: string;
     onSave: (selection: AudioSelection) => Promise<void>;
-    onCancel?: () => void;
     bpm?: number;
     signature?: TimeSignature;
     enableSplice?: boolean;
@@ -188,9 +186,6 @@ export function useNativeAudioTrim(
         return;
       case "trim-save":
         return void trim.save();
-      case "trim-cancel":
-        if (!trim.busy) onCancel?.();
-        return;
     }
   }
 
@@ -216,7 +211,6 @@ export function useNativeAudioTrim(
         busy: trim.busy,
         error: trim.error || null,
         saveLabel,
-        cancel: onCancel !== undefined,
       }
     : null;
   const node = url ? (

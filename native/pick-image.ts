@@ -8,7 +8,7 @@ import type { NativePickedImage } from "../src/lib/native-bridge-protocol";
 /** Formats the web's image inputs accept. */
 const accepted = ["image/jpeg", "image/png", "image/webp", "image/gif"];
 
-/** Profile/album images use the system square crop editor; other attachments keep their original format. */
+/** Profile photos use the system square crop editor (`crop`); album images are cropped in-app; other attachments keep their original format. */
 export async function pickImage(crop = false): Promise<NativePickedImage | null> {
   const result = await launchImageLibraryAsync({
     mediaTypes: ["images"],

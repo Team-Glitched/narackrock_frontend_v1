@@ -34,9 +34,7 @@ export function CommunityCard({
         <JoinButton community={community} onPress={onToggleJoin} />
       </View>
       {community.description !== "" && (
-        <Text style={type.muted} numberOfLines={3}>
-          {community.description}
-        </Text>
+        <Text style={type.muted}>{community.description}</Text>
       )}
     </View>
   );

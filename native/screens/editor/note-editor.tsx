@@ -1,10 +1,11 @@
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 
 import type { NativeNoteEditor, NativeTransport } from "../../../src/lib/native-screens";
 import PlayIcon from "../../../public/figma/play.svg";
 import ReturnIcon from "../../../public/figma/return.svg";
 import { Touchable } from "../../ui/kit";
+import { LoadingOverlay } from "../../ui/loading-overlay";
 import { OrientationFab } from "../../ui/orientation-fab";
 import { useScreen } from "../../ui/screen-context";
 import { useDevicePortrait } from "../../ui/use-device-portrait";
@@ -28,6 +29,8 @@ type Ready = Extract<NativeNoteEditor, { status: "ready" }>;
 export function NoteEditorScreen({ model }: ScreenProps<"editor-notes">) {
   const { act } = useScreen();
   const portrait = useDevicePortrait();
+  // A note drag on the roll disables "추천 코드 넣기" (the web's `editor.gestureActive`).
+  const [noteDrag, setNoteDrag] = useState(false);
   if (model.status !== "ready")
     return (
       <View style={styles.page}>
@@ -41,7 +44,7 @@ export function NoteEditorScreen({ model }: ScreenProps<"editor-notes">) {
     );
   return portrait ? (
     <View style={styles.page}>
-      <Portrait model={model} />
+      <Portrait model={model} noteDrag={noteDrag} onNoteDrag={setNoteDrag} />
       <Overlays model={model} />
     </View>
   ) : (
@@ -57,7 +60,11 @@ export function NoteEditorScreen({ model }: ScreenProps<"editor-notes">) {
           onSample={model.canImportSource ? () => act({ type: "source-open" }) : undefined}
           instrument={
             model.instrument
-              ? { label: model.instrument.label, onPress: () => act({ type: "editor-instrument-open" }) }
+              ? {
+                  label: model.instrument.label,
+                  onPress: () => act({ type: "editor-instrument-open" }),
+                  disabled: model.instrument.disabled,
+                }
               : undefined
           }
           clipStartMs={model.roll.clipStartMs}
@@ -65,9 +72,9 @@ export function NoteEditorScreen({ model }: ScreenProps<"editor-notes">) {
           <AddButton label="레이어 목록" onPress={() => act({ type: "editor-layers" })} />
         </StudioToolbar>
         {model.editable && <NoteControls roll={model.roll} />}
-        <StatusRow model={model} />
+        <StatusRow model={model} noteDrag={noteDrag} />
         <Notices model={model} />
-        <NoteRoll roll={model.roll} />
+        <NoteRoll roll={model.roll} onGestureActive={setNoteDrag} />
         <OrientationFab />
         <Overlays model={model} />
       </View>
@@ -76,7 +83,15 @@ export function NoteEditorScreen({ model }: ScreenProps<"editor-notes">) {
 }
 
 /** The landscape controls restacked for the upright canvas (the web's PortraitNoteEditor). */
-function Portrait({ model }: { model: Ready }) {
+function Portrait({
+  model,
+  noteDrag,
+  onNoteDrag,
+}: {
+  model: Ready;
+  noteDrag: boolean;
+  onNoteDrag: (active: boolean) => void;
+}) {
   const { act } = useScreen();
   const { transport } = model;
   return (
@@ -103,7 +118,9 @@ function Portrait({ model }: { model: Ready }) {
             <Touchable
               accessibilityRole="button"
               accessibilityLabel="악기 선택"
-              style={styles.portraitChip}
+              accessibilityState={{ disabled: model.instrument.disabled }}
+              disabled={model.instrument.disabled}
+              style={[styles.portraitChip, model.instrument.disabled && styles.disabled]}
               onPress={() => act({ type: "editor-instrument-open" })}
             >
               <Text style={styles.readoutSmall}>악기</Text>
@@ -170,10 +187,10 @@ function Portrait({ model }: { model: Ready }) {
         )}
       </ScrollView>
       {model.editable && <NoteControls roll={model.roll} tools={false} showModeAction={false} />}
-      <StatusRow model={model} />
+      <StatusRow model={model} noteDrag={noteDrag} />
       <Notices model={model} />
       <View style={styles.portraitRoll}>
-        <NoteRoll roll={model.roll} rowHeight={40} keyWidth={44} />
+        <NoteRoll roll={model.roll} rowHeight={40} keyWidth={44} onGestureActive={onNoteDrag} />
         <OrientationFab />
       </View>
       <View style={styles.portraitBottom}>
@@ -184,7 +201,7 @@ function Portrait({ model }: { model: Ready }) {
   );
 }
 
-function Recommendation({ model }: { model: Ready }) {
+function Recommendation({ model, noteDrag }: { model: Ready; noteDrag: boolean }) {
   const { act } = useScreen();
   const recommendation = model.recommendation;
   if (!recommendation) return null;
@@ -218,7 +235,13 @@ function Recommendation({ model }: { model: Ready }) {
           <Touchable style={styles.recChip} onPress={() => act({ type: "editor-chord-listen" })}>
             <Text style={styles.recommendationText}>{panel.playing ? "미리듣기 정지" : "미리듣기"}</Text>
           </Touchable>
-          <Touchable style={[styles.recChip, styles.recChipActive]} onPress={() => act({ type: "editor-chord-apply" })}>
+          <Touchable
+            accessibilityRole="button"
+            accessibilityState={{ disabled: noteDrag }}
+            disabled={noteDrag}
+            style={[styles.recChip, styles.recChipActive, noteDrag && styles.disabled]}
+            onPress={() => act({ type: "editor-chord-apply" })}
+          >
             <Text style={[styles.recommendationText, styles.recTextActive]}>추천 코드 넣기</Text>
           </Touchable>
           <Touchable style={styles.recDismiss} onPress={() => act({ type: "editor-chord-dismiss" })}>
@@ -322,7 +345,7 @@ function Readout({
 }
 
 /** Draft status ("변경 없음", "개인 초안 저장됨", …); visually yields to a shown chord suggestion. */
-function StatusRow({ model }: { model: Ready }) {
+function StatusRow({ model, noteDrag }: { model: Ready; noteDrag: boolean }) {
   const suggesting = Boolean(model.recommendation?.panel);
   return (
     <View style={styles.status}>
@@ -335,7 +358,7 @@ function StatusRow({ model }: { model: Ready }) {
           {model.statusText}
         </Text>
       )}
-      <Recommendation model={model} />
+      <Recommendation model={model} noteDrag={noteDrag} />
     </View>
   );
 }
@@ -387,6 +410,11 @@ function Overlays({ model }: { model: Ready }) {
       {model.error && (
         <Text accessibilityRole="alert" style={styles.error}>
           {model.error}
+        </Text>
+      )}
+      {model.recommendationError && (
+        <Text accessibilityLiveRegion="polite" style={styles.error}>
+          {model.recommendationError}
         </Text>
       )}
       <NoteRollSheets roll={model.roll} />
@@ -445,6 +473,7 @@ function Overlays({ model }: { model: Ready }) {
           </View>
         </Dialog>
       )}
+      {model.busy && <LoadingOverlay message="작업을 처리하는 중입니다." />}
     </>
   );
 }

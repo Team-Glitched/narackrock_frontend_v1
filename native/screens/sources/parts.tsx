@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import CommentIcon from "../../../public/figma/post-comment.svg";
 import ShareIcon from "../../../public/figma/post-share.svg";
@@ -10,8 +9,7 @@ import LikeOnIcon from "../../../public/figma/v3-post-like-on.svg";
 import SaveOffIcon from "../../../public/figma/v3-post-save-off.svg";
 import SaveOnIcon from "../../../public/figma/v3-post-save-on.svg";
 import type { NativePlayback, NativeSourceWriter } from "../../../src/lib/native-screens";
-import { MenuSheet } from "../../ui/comments";
-import { Avatar, Button, MoreButton, Touchable } from "../../ui/kit";
+import { Avatar, Button, Touchable } from "../../ui/kit";
 import { useScreen } from "../../ui/screen-context";
 import { colors, gutter, type } from "../../ui/theme";
 import { PlaybackBar } from "../workspace/playback-bar";
@@ -82,6 +80,36 @@ export function SourcePlayer({
   );
 }
 
+type SourceCounts = {
+  likeCount: number;
+  dislikeCount: number;
+  commentCount: number;
+  vote: "like" | "dislike" | null;
+};
+
+/** The explore card's static stats (the web's `readOnly` PostActions: nothing is pressable). */
+export function SourceStats({ source }: { source: SourceCounts }) {
+  const Like = source.vote === "like" ? LikeOnIcon : LikeOffIcon;
+  const Dislike = source.vote === "dislike" ? DislikeOnIcon : DislikeOffIcon;
+  return (
+    <View style={styles.readOnlyStats}>
+      <View style={styles.readOnlyStat}>
+        <Like width={16} height={16} />
+        <Text style={type.caption}>{source.likeCount}</Text>
+      </View>
+      <View style={styles.readOnlyStat}>
+        <Dislike width={16} height={16} />
+        <Text style={type.caption}>{source.dislikeCount}</Text>
+      </View>
+      <View style={styles.readOnlyStat}>
+        <CommentIcon width={16} height={16} />
+        <Text style={type.caption}>{source.commentCount}</Text>
+      </View>
+    </View>
+  );
+}
+
+/** The sample page's PostActions: like, dislike, comments, then share, save and "신고". */
 export function SourceActions({
   source,
   busy = false,
@@ -91,21 +119,15 @@ export function SourceActions({
   onShare,
   onReport,
 }: {
-  source: {
-    likeCount: number;
-    dislikeCount: number;
-    commentCount: number;
-    vote: "like" | "dislike" | null;
-    saved: boolean;
-  };
+  source: SourceCounts & { saved: boolean };
   busy?: boolean;
-  onVote?: (vote: "like" | "dislike") => void;
+  onVote: (vote: "like" | "dislike") => void;
   onComments: () => void;
-  onSave?: () => void;
-  onShare?: () => void;
+  onSave: () => void;
+  onShare: () => void;
+  /** Absent for the sample's own writer. */
   onReport?: () => void;
 }) {
-  const [menu, setMenu] = useState(false);
   const Like = source.vote === "like" ? LikeOnIcon : LikeOffIcon;
   const Dislike = source.vote === "dislike" ? DislikeOnIcon : DislikeOffIcon;
   const Save = source.saved ? SaveOnIcon : SaveOffIcon;
@@ -114,10 +136,10 @@ export function SourceActions({
       <Touchable
         accessibilityRole="button"
         accessibilityLabel={`좋아요 ${source.likeCount}개`}
-        accessibilityState={{ selected: source.vote === "like", disabled: busy || !onVote }}
-        disabled={busy || !onVote}
+        accessibilityState={{ selected: source.vote === "like", disabled: busy }}
+        disabled={busy}
         style={styles.stat}
-        onPress={() => onVote?.("like")}
+        onPress={() => onVote("like")}
       >
         <Like width={18} height={18} />
         <Text style={type.caption}>{source.likeCount}</Text>
@@ -125,10 +147,10 @@ export function SourceActions({
       <Touchable
         accessibilityRole="button"
         accessibilityLabel={`싫어요 ${source.dislikeCount}개`}
-        accessibilityState={{ selected: source.vote === "dislike", disabled: busy || !onVote }}
-        disabled={busy || !onVote}
+        accessibilityState={{ selected: source.vote === "dislike", disabled: busy }}
+        disabled={busy}
         style={styles.stat}
-        onPress={() => onVote?.("dislike")}
+        onPress={() => onVote("dislike")}
       >
         <Dislike width={18} height={18} />
         <Text style={type.caption}>{source.dislikeCount}</Text>
@@ -142,38 +164,34 @@ export function SourceActions({
         <CommentIcon width={18} height={18} />
         <Text style={type.caption}>{source.commentCount}</Text>
       </Touchable>
-      {onSave && (
-        <Touchable
-          accessibilityRole="button"
-          accessibilityLabel={source.saved ? "저장됨" : "저장"}
-          accessibilityState={{ selected: source.saved, disabled: busy }}
-          disabled={busy}
-          style={styles.stat}
-          onPress={onSave}
-        >
-          <Save width={20} height={20} />
-        </Touchable>
-      )}
-      {onShare && (
-        <Touchable
-          accessibilityRole="button"
-          accessibilityLabel="공유"
-          style={styles.stat}
-          onPress={onShare}
-        >
-          <ShareIcon width={20} height={20} />
-        </Touchable>
-      )}
+      <View style={styles.spacer} />
+      <Touchable
+        accessibilityRole="button"
+        accessibilityLabel="공유"
+        style={styles.stat}
+        onPress={onShare}
+      >
+        <ShareIcon width={20} height={20} />
+      </Touchable>
+      <Touchable
+        accessibilityRole="button"
+        accessibilityLabel={source.saved ? "저장됨" : "저장"}
+        accessibilityState={{ selected: source.saved, disabled: busy }}
+        disabled={busy}
+        style={styles.stat}
+        onPress={onSave}
+      >
+        <Save width={20} height={20} />
+      </Touchable>
       {onReport && (
-        <>
-          <MoreButton label="샘플 더보기" onPress={() => setMenu(true)} />
-          <MenuSheet
-            label="샘플 옵션"
-            visible={menu}
-            items={[{ label: "신고", icon: ReportIcon, onPress: onReport }]}
-            onClose={() => setMenu(false)}
-          />
-        </>
+        <Touchable
+          accessibilityRole="button"
+          accessibilityLabel="신고"
+          style={styles.stat}
+          onPress={onReport}
+        >
+          <ReportIcon width={20} height={20} />
+        </Touchable>
       )}
     </View>
   );
@@ -196,7 +214,10 @@ export const styles = StyleSheet.create({
     color: colors.muted,
   },
   actions: { flexDirection: "row", alignItems: "center", gap: 10, flexWrap: "wrap" },
+  spacer: { flex: 1, minWidth: 0 },
   stat: { flexDirection: "row", alignItems: "center", gap: 2, minHeight: 36, paddingHorizontal: 2 },
+  readOnlyStats: { flexDirection: "row", alignItems: "center", gap: 10 },
+  readOnlyStat: { flexDirection: "row", alignItems: "center", gap: 2 },
   error: { ...type.caption, color: colors.error },
   heading: { ...type.title, marginBottom: 12 },
   input: {

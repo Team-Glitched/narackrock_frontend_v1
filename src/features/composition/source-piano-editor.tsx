@@ -19,7 +19,7 @@ import { TeamPianoRoll } from "./team-piano-roll";
 import { useCompositionPlayback, type PlaybackComposition } from "./use-composition-playback";
 import { renderPianoAudio } from "./source-piano-render";
 import { defaultSignature } from "./time-signature";
-import { useNoteEditor } from "./use-note-editor";
+import { useNoteEditor, type NoteEditorController } from "./use-note-editor";
 import { NoteEditorControls, NoteTools } from "./note-editor-controls";
 import { PortraitNoteEditor } from "./note-editor-portrait";
 import { importJsonNoteFile } from "./json-note-import";
@@ -33,6 +33,7 @@ import { useNativeTiming } from "./timing-dialog";
 import { useNativeInstrumentPicker, type InstrumentChoice } from "./instrument-dialog";
 import { resolveSampleInstrument } from "./piano-render-plan";
 import type { NativeCreationPiano, NativeCreationPianoAction } from "@/lib/native-screens";
+import { pickNativeJson } from "@/lib/native-app";
 import { isNativeNoteRollAction } from "@/lib/native-screens/editor";
 import { OrientationToggleButton } from "@/components/orientation-toggle-button";
 import {
@@ -222,6 +223,8 @@ export function useNativeSourcePiano(props: SourcePianoProps): {
 } {
   const piano = useSourcePiano(props);
   const { player, editor, dialogs, pending } = piano;
+  const { importing, importError, setImportError, importJson } = useJsonNoteImport(piano);
+  const busy = pending || importing;
   const [instrumentOpen, setInstrumentOpen] = useState(false);
   const picker = useNativeInstrumentPicker(
     instrumentOpen && !pending ? piano.instrumentChoice : null,
@@ -229,7 +232,7 @@ export function useNativeSourcePiano(props: SourcePianoProps): {
   );
   const timing = useNativeTiming(
     { bpm: props.bpm, signature: piano.signature },
-    pending ? undefined : piano.applyTiming,
+    busy ? undefined : piano.applyTiming,
   );
   const roll = useNativeNoteRoll({
     editor,
@@ -254,7 +257,9 @@ export function useNativeSourcePiano(props: SourcePianoProps): {
       title: "샘플 피아노롤",
       addLabel: "오디오 선택 완료",
       pending,
-      error: piano.error ?? player.error ?? editor.error,
+      importing,
+      noteCount: editor.snapshot.notes.length,
+      error: importError ?? piano.error ?? player.error ?? editor.error,
       transport: nativeTransport(player, props.bpm),
       timing: timing.model,
       roll: roll.model,
@@ -270,12 +275,23 @@ export function useNativeSourcePiano(props: SourcePianoProps): {
       if (isNativeTransportAction(action)) return transportAction(player, action);
       switch (action.type) {
         case "creation-piano-back":
-          if (!pending) props.onBack();
+          if (!busy) props.onBack();
           return;
         case "creation-piano-rewind":
           return piano.rewind();
         case "creation-piano-save":
-          return void piano.save();
+          if (!busy) void piano.save();
+          return;
+        case "creation-piano-import-json":
+          if (busy) return;
+          void pickNativeJson().then(
+            (file) => {
+              if (file) void importJson(file);
+            },
+            (cause: unknown) =>
+              setImportError(cause instanceof Error ? cause.message : "JSON 파일을 읽지 못했습니다."),
+          );
+          return;
         case "creation-piano-instrument-open":
           if (!pending) {
             player.pause();
@@ -287,19 +303,24 @@ export function useNativeSourcePiano(props: SourcePianoProps): {
   };
 }
 
-export function SourcePianoEditor(props: SourcePianoProps) {
-  const { bpm, onBack } = props;
-  const { portrait, toggle } = useCanvasOrientation();
-  const piano = useSourcePiano(props);
-  const { maxTick, signature, player, pending, error, positionTick, editor, dialogs, play } = piano;
-  const jsonInput = useRef<HTMLInputElement>(null);
+/** "+ JSON으로 추가": adds a JSON note file's notes (the web's file input, the app's file picker). */
+function useJsonNoteImport({
+  pending,
+  player,
+  editor,
+  clearError,
+}: {
+  pending: boolean;
+  player: { pause: () => void };
+  editor: NoteEditorController;
+  clearError: () => void;
+}) {
   const [importing, setImporting] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
-  const busy = pending || importing;
   async function importJson(file: File) {
-    if (busy) return;
+    if (pending || importing) return;
     player.pause();
-    piano.clearError();
+    clearError();
     setImportError(null);
     setImporting(true);
     try {
@@ -310,6 +331,17 @@ export function SourcePianoEditor(props: SourcePianoProps) {
       setImporting(false);
     }
   }
+  return { importing, importError, setImportError, importJson };
+}
+
+export function SourcePianoEditor(props: SourcePianoProps) {
+  const { bpm, onBack } = props;
+  const { portrait, toggle } = useCanvasOrientation();
+  const piano = useSourcePiano(props);
+  const { maxTick, signature, player, pending, error, positionTick, editor, dialogs, play } = piano;
+  const jsonInput = useRef<HTMLInputElement>(null);
+  const { importing, importError, importJson } = useJsonNoteImport(piano);
+  const busy = pending || importing;
   const { setVisibleBars } = editor;
   useEffect(() => setVisibleBars(portrait ? 1 : 2), [portrait, setVisibleBars]);
   const {

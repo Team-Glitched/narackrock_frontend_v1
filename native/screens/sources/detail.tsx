@@ -24,7 +24,11 @@ export function SourceDetailScreen({ model, header }: ScreenProps<"source-detail
       ) : model.state === "error" ? (
         <ErrorRetry message={model.message} onRetry={() => act({ type: "source-retry" })} />
       ) : model.state === "ready" ? (
-        <Comments comments={model.comments} header={<Article model={model} />} />
+        <Comments
+          comments={model.comments}
+          header={<Article model={model} />}
+          focusComposer={model.openComments}
+        />
       ) : null}
     </>
   );
@@ -40,6 +44,9 @@ function Article({ model }: { model: Extract<NativeSourceDetail, { state: "ready
           <Cover url={source.thumbnailUrl} seed={`source:${source.openSourceId}`} size={44} />
           <View style={styles.title}>
             <Text style={type.label}>{source.title}</Text>
+            {source.instrumentLabel && (
+              <Text style={type.caption}>악기: {source.instrumentLabel}</Text>
+            )}
             {source.usage && <Text style={type.caption}>{source.usage}</Text>}
           </View>
           <Pill
@@ -59,7 +66,6 @@ function Article({ model }: { model: Extract<NativeSourceDetail, { state: "ready
           writer={source.writer}
           onPress={() => act({ type: "source-profile", userId: source.writer.userId })}
         />
-        {source.instrumentLabel && <Text style={styles.copy}>악기: {source.instrumentLabel}</Text>}
         <Text style={styles.copy}>{source.description}</Text>
         <SourcePlayer
           player={model.player}

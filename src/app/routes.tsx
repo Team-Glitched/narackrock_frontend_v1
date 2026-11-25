@@ -5,12 +5,32 @@ import NotFoundPage from "@/features/navigation/pages/not-found-page";
 import HomePage from "@/features/home/pages/home-page";
 import { nativeApp } from "@/lib/native-app";
 import { NativePageStateBridge } from "@/features/community/native-community-bridge";
+import { PageState } from "@/components/page-state";
+import { buttonVariants } from "@/styles/variants";
 
-function NativeRouteError() {
+/** A route that failed to render or load: "화면을 불러오지 못했습니다." with "다시 시도" (reload), as in the app. */
+function RouteError() {
+  if (nativeApp())
+    return (
+      <AppProviders>
+        <NativeRouteErrorBody />
+      </AppProviders>
+    );
   return (
-    <AppProviders>
-      <NativeRouteErrorBody />
-    </AppProviders>
+    <main className="grid min-h-svh place-content-center bg-app-bg">
+      <PageState error>
+        <div>
+          <p>화면을 불러오지 못했습니다.</p>
+          <button
+            type="button"
+            className={buttonVariants({ tone: "secondary" })}
+            onClick={() => window.location.reload()}
+          >
+            다시 시도
+          </button>
+        </div>
+      </PageState>
+    </main>
   );
 }
 
@@ -42,7 +62,7 @@ export const appRoutes: RouteObject[] = [
   {
     path: "/",
     HydrateFallback: () => (nativeApp() ? null : <p role="status">화면을 불러오는 중...</p>),
-    ErrorBoundary: nativeApp() ? NativeRouteError : undefined,
+    ErrorBoundary: RouteError,
     element: (
       <AppProviders>
         <AppRuntime />

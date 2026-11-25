@@ -1,4 +1,4 @@
-import { StyleSheet, Text, View } from "react-native";
+import { Image, StyleSheet, Text, View } from "react-native";
 
 import AdminToolIcon from "../../../public/figma/admin-tool.svg";
 import { JoinButton } from "../../ui/community";
@@ -43,9 +43,18 @@ export function CommunityDetailScreen({ model, header }: ScreenProps<"social-com
 function CommunityInfo({ model }: { model: ScreenProps<"social-community">["model"] }) {
   const { act, uri } = useScreen();
   const { community, membershipError } = model;
+  const banner = uri(community.bannerImageUrl);
   return (
     <View>
       <View style={[styles.banner, model.manage && styles.bannerOwned]}>
+        {banner && (
+          <Image
+            source={{ uri: banner }}
+            style={StyleSheet.absoluteFill}
+            resizeMode="cover"
+            accessibilityLabel={`${community.name} 배너`}
+          />
+        )}
         {model.manage && (
           <Touchable
             accessibilityRole="button"
@@ -159,7 +168,7 @@ export function FriendsListScreen({ model, header }: ScreenProps<"social-friends
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
-  banner: { height: 90, backgroundColor: "#383838" },
+  banner: { height: 90, overflow: "hidden", backgroundColor: "#383838" },
   bannerOwned: {
     backgroundColor: "#8f8f8f",
     alignItems: "flex-end",

@@ -252,7 +252,8 @@ export function VolumeSheet({
   value: number;
   onChange: (value: number) => void;
   onClose: () => void;
-  identity?: { name: string; part: string };
+  /** The track owner's name and avatar; `onRetry` shows "사용자 이름 다시 불러오기". */
+  identity?: { name: string; part: string; imageUrl: string | null; onRetry?: () => void };
   onChangeInstrument?: () => void;
   emptyMidi?: { clipId: number; label: string; open: () => void }[];
 }) {
@@ -261,13 +262,18 @@ export function VolumeSheet({
       {identity && (
         <View style={styles.identity}>
           <View style={styles.identityText}>
-            <Text style={styles.identityName} numberOfLines={1}>
+            <Text style={styles.identityName} numberOfLines={1} accessibilityLiveRegion="polite">
               {identity.name}
             </Text>
             <Text style={styles.caption}>{identity.part}</Text>
           </View>
-          <Avatar uri={null} size={43} />
+          <Avatar uri={identity.imageUrl} size={43} />
         </View>
+      )}
+      {identity?.onRetry && (
+        <Touchable accessibilityRole="button" style={styles.retry} onPress={identity.onRetry}>
+          <Text style={styles.retryText}>사용자 이름 다시 불러오기</Text>
+        </Touchable>
       )}
       <Text style={styles.dialogTitle} accessibilityRole="header">
         음량
@@ -367,12 +373,21 @@ export function InstrumentSheet({ picker }: { picker: NativeInstrumentPicker | n
         </View>
       )}
       {picker.error && <Alert>{picker.error}</Alert>}
-      <DialogButton
-        label={picker.busy ? "적용 중..." : "선택 완료"}
-        wide
-        disabled={!picker.canConfirm}
-        onPress={() => act({ type: "instrument-confirm" })}
-      />
+      <View style={styles.instrumentActions}>
+        <DialogButton
+          label="취소"
+          tone="secondary"
+          disabled={picker.busy}
+          style={styles.instrumentCancel}
+          onPress={() => act({ type: "instrument-close" })}
+        />
+        <DialogButton
+          label={picker.busy ? "적용 중..." : "선택 완료"}
+          disabled={!picker.canConfirm}
+          style={styles.flex}
+          onPress={() => act({ type: "instrument-confirm" })}
+        />
+      </View>
     </Dialog>
   );
 }
@@ -676,6 +691,8 @@ const styles = StyleSheet.create({
   volumeDialog: {},
   timingDialog: { gap: 20, alignItems: "stretch" },
   instrumentDialog: { gap: 16 },
+  instrumentActions: { flexDirection: "row", gap: 8 },
+  instrumentCancel: { paddingHorizontal: 16 },
   sourceDialog: { width: 540, gap: 16 },
   dialogTitle: {
     color: colors.fg,
@@ -693,6 +710,9 @@ const styles = StyleSheet.create({
   identity: { flexDirection: "row", justifyContent: "space-between", marginBottom: 20 },
   identityText: { flex: 1, gap: 10 },
   identityName: { color: colors.fg, fontSize: 16, lineHeight: 19, fontWeight: "700" },
+  // The web's "mb-3 text-caption text-app-primary-soft" retry under the identity.
+  retry: { alignSelf: "flex-start", marginBottom: 12 },
+  retryText: { color: colors["primary-soft"], fontSize: 12, lineHeight: 16 },
   volumeRow: { flexDirection: "row", alignItems: "center", gap: 12, alignSelf: "stretch" },
   timingRow: { flexDirection: "row", alignItems: "center", gap: 16, alignSelf: "stretch" },
   timingNumber: {

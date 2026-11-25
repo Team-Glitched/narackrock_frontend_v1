@@ -1,26 +1,32 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import type { SocialCreateState } from "@/features/community/create-content";
 import type { GalleriesState } from "@/features/community/use-galleries";
+import { previewImage, usePickedPreview } from "@/features/images/image-preview";
 import { useNativeScreen } from "@/features/navigation/use-native-screen";
 import { pickNativeImage } from "@/lib/native-app";
 import type { NativePostCreate } from "@/lib/native-screens";
 
 /** Longest side of the attached picture's preview sent to the app (the bridge carries JSON). */
 const PREVIEW_SIZE = 700;
+/** Largest original sent as the preview when the WebView cannot decode it; the model is re-sent on every change. */
+const ORIGINAL_PREVIEW_MAX_BYTES = 512 * 1024;
 
-/** A small JPEG data URL of `file` for the app's preview; null when the browser cannot decode it. */
+/**
+ * A small JPEG data URL of `file` for the app's preview. When the WebView cannot decode it, the
+ * original file (up to 512 KB) as a data URL, which the app's own image decoder shows; null when larger.
+ */
 async function previewOf(file: File): Promise<string | null> {
   try {
-    const bitmap = await createImageBitmap(file);
-    const scale = Math.min(1, PREVIEW_SIZE / Math.max(bitmap.width, bitmap.height));
-    const canvas = document.createElement("canvas");
-    canvas.width = Math.max(1, Math.round(bitmap.width * scale));
-    canvas.height = Math.max(1, Math.round(bitmap.height * scale));
-    canvas.getContext("2d")?.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-    bitmap.close();
-    return canvas.toDataURL("image/jpeg", 0.8);
+    return (await previewImage(file, PREVIEW_SIZE)).uri;
   } catch {
-    return null;
+    if (file.size > ORIGINAL_PREVIEW_MAX_BYTES) return null;
+    // Executor form: the app's iOS WebView before 17.4 has no Promise.withResolvers.
+    return new Promise<string | null>((resolve) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(typeof reader.result === "string" ? reader.result : null);
+      reader.onerror = () => resolve(null);
+      reader.readAsDataURL(file);
+    });
   }
 }
 
@@ -41,17 +47,7 @@ export function NativePostCreateBridge({
   onSearch: () => void;
 }) {
   const file = form.image?.file ?? null;
-  const [preview, setPreview] = useState<{ file: File; url: string | null } | null>(null);
-  useEffect(() => {
-    if (!file) return;
-    let active = true;
-    void previewOf(file).then((url) => {
-      if (active) setPreview({ file, url });
-    });
-    return () => {
-      active = false;
-    };
-  }, [file]);
+  const previewUrl = usePickedPreview(file, previewOf);
   // The photo picker's own failure (e.g. an unsupported format); cleared by the next pick.
   const [pickError, setPickError] = useState<string | null>(null);
   const items = galleries.status === "ready" ? galleries.galleries : [];
@@ -59,11 +55,11 @@ export function NativePostCreateBridge({
     restoring: form.restoring,
     blocked:
       form.draftExpired && !form.busy
-        ? "다른 탭에서 이 초안을 등록하거나 삭제했습니다. 작성 화면을 다시 열어주세요."
+        ? "다른 화면에서 이 초안을 등록하거나 삭제했습니다. 작성 화면을 다시 열어주세요."
         : null,
     title: form.title,
     content: form.content,
-    image: file ? { preview: preview?.file === file ? preview.url : null } : null,
+    image: file ? { preview: previewUrl } : null,
     busy: form.busy,
     error: pickError ?? form.error,
     storageError: form.storageError || null,

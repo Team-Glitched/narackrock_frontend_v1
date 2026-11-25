@@ -76,7 +76,20 @@ export function SettingsScreen({ model, header }: ScreenProps<"profile-settings"
             style={styles.migration}
             onPress={() => act({ type: "migration" })}
           >
-            <Text style={styles.migrationText}>이 브라우저 데이터 이관·복구</Text>
+            <Text style={styles.migrationText}>이 기기 데이터 이관·복구</Text>
+            {/* lucide ChevronRight (16px), as on the web. */}
+            <Svg
+              width={16}
+              height={16}
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke={colors.muted}
+              strokeWidth={1.75}
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <Path d="m9 18 6-6-6-6" />
+            </Svg>
           </Touchable>
         </View>
       </ScreenScroll>
@@ -107,6 +120,16 @@ const styles = StyleSheet.create({
     borderTopColor: colors.surface,
   },
   logoutText: { color: "#ff8d8d", fontSize: 16, lineHeight: 24, fontWeight: "500" },
-  migration: { minHeight: 44, justifyContent: "center", paddingVertical: 8 },
-  migrationText: { color: colors.fg, fontSize: 14, lineHeight: 20 },
+  /** The web's `mt-1 flex min-h-11 justify-between border-t py-2.5 text-app-muted`. */
+  migration: {
+    minHeight: 44,
+    marginTop: 4,
+    paddingVertical: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    borderTopWidth: 1,
+    borderTopColor: colors.surface,
+  },
+  migrationText: { color: colors.muted, fontSize: 14, lineHeight: 20 },
 });

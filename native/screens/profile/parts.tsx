@@ -1,8 +1,11 @@
-import type { ReactNode } from "react";
-import { Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
+import { useMemo, useRef, useState, type ReactNode } from "react";
+import { Platform, Pressable, ScrollView, StyleSheet, Switch, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+import type { NativeCommonAction } from "../../../src/lib/native-screens";
+import { ContentMenu } from "../../ui/content-menu";
 import { Touchable } from "../../ui/kit";
+import { ScreenContext, useScreen, type MenuTarget } from "../../ui/screen-context";
 import { ScreenModal } from "../../ui/screen-modal";
 import { colors, gutter, type } from "../../ui/theme";
 
@@ -50,7 +53,16 @@ export function PreferenceRow({
   );
 }
 
-/** A bottom sheet over the screen (the web's FigmaSheet). */
+type MenuAction = Extract<NativeCommonAction, { type: "share" | "report" }>;
+
+/**
+ * A bottom sheet over the screen (the web's FigmaSheet). Card ⋯ menus opened inside it are drawn
+ * inside the sheet's modal: iOS cannot present the screen's own menu modal while this one is up.
+ * A chosen menu action closes the sheet first: report opens the app's root dialog, and share may
+ * too (the login prompt, a failed share's alert), which iOS cannot present over this modal either.
+ * On iOS the sheet hides only once the menu it presented has finished dismissing (hiding both at
+ * once would leave this modal up, empty), and the action goes to the page once the sheet is gone.
+ */
 export function Sheet({
   title,
   onClose,
@@ -61,8 +73,26 @@ export function Sheet({
   children: ReactNode;
 }) {
   const { bottom } = useSafeAreaInsets();
+  const screen = useScreen();
+  const [menu, setMenu] = useState<MenuTarget | null>(null);
+  const [pending, setPending] = useState<MenuAction | null>(null);
+  const chosen = useRef<MenuAction | null>(null);
+  const context = useMemo(() => ({ ...screen, openMenu: setMenu }), [screen]);
+  const forward = (action: MenuAction) => {
+    screen.act(action);
+    onClose();
+  };
   return (
-    <ScreenModal transparent animationType="slide" onRequestClose={onClose} statusBarTranslucent>
+    <ScreenModal
+      visible={pending === null}
+      transparent
+      animationType="slide"
+      onRequestClose={onClose}
+      onDismiss={() => {
+        if (pending) forward(pending);
+      }}
+      statusBarTranslucent
+    >
       <View style={styles.sheetRoot}>
         <Pressable
           style={StyleSheet.absoluteFill}
@@ -80,9 +110,25 @@ export function Sheet({
             <View style={styles.gripBar} />
           </Touchable>
           <ScrollView contentContainerStyle={styles.sheetBody} keyboardShouldPersistTaps="handled">
-            {children}
+            <ScreenContext value={context}>{children}</ScreenContext>
           </ScrollView>
         </View>
+        <ContentMenu
+          target={menu}
+          canReport={menu !== null && menu.ownerId !== screen.session.userId}
+          onClose={() => setMenu(null)}
+          onChoose={(type, target) => {
+            const action: MenuAction = { type, kind: target.kind, id: target.id, title: target.title };
+            // Android stacks the root dialog over this one; only iOS must wait for the dismissals.
+            if (Platform.OS === "ios") chosen.current = action;
+            else forward(action);
+          }}
+          onDismiss={() => {
+            const action = chosen.current;
+            chosen.current = null;
+            if (action) setPending(action);
+          }}
+        />
       </View>
     </ScreenModal>
   );

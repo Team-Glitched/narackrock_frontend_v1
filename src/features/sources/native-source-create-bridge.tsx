@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useLoginPrompt } from "@/features/auth/login-prompt";
 import {
   SocialCreateForm,
@@ -12,6 +12,7 @@ import {
   useNativeUpload,
 } from "@/features/composition/native-creation-bridges";
 import { useNativeSourcePiano } from "@/features/composition/source-piano-editor";
+import { usePreview } from "@/features/images/image-preview";
 import { useNativeScreen } from "@/features/navigation/use-native-screen";
 import { pickNativeImage } from "@/lib/native-app";
 import type { NativeSourceCreate } from "@/lib/native-screens";
@@ -62,29 +63,6 @@ export function NativeSignedOutSourceCreateBridge(nav: Navigation) {
   );
 }
 
-/** Downscale only the bridge preview; publishing still uses the original file and crop. */
-async function imagePreview(file: File) {
-  const bitmap = await createImageBitmap(file);
-  try {
-    const scale = Math.min(1, 600 / Math.max(bitmap.width, bitmap.height));
-    const canvas = document.createElement("canvas");
-    canvas.width = Math.max(1, Math.round(bitmap.width * scale));
-    canvas.height = Math.max(1, Math.round(bitmap.height * scale));
-    const context = canvas.getContext("2d");
-    if (!context) throw new Error("앨범 이미지를 미리 볼 수 없습니다.");
-    context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-    return {
-      status: "ready" as const,
-      uri: canvas.toDataURL("image/jpeg", 0.8),
-      width: bitmap.width,
-      height: bitmap.height,
-    };
-  } finally {
-    bitmap.close();
-  }
-}
-
-type Preview = NonNullable<Extract<NativeSourceCreate, { state: "form" }>["image"]>;
 function NativeSourceCreateBridge({
   form,
   onBack,
@@ -93,27 +71,8 @@ function NativeSourceCreateBridge({
   const [cropOpen, setCropOpen] = useState(false);
   const [pickError, setPickError] = useState<string | null>(null);
   const file = form.image?.file ?? null;
-  const [preview, setPreview] = useState<{ file: File; image: Preview } | null>(null);
-  useEffect(() => {
-    if (!file) return;
-    let active = true;
-    void imagePreview(file).then(
-      (image) => {
-        if (active) setPreview({ file, image });
-      },
-      () => {
-        if (active) setPreview({ file, image: { status: "failed" } });
-      },
-    );
-    return () => {
-      active = false;
-    };
-  }, [file]);
-  const image = !file
-    ? null
-    : preview?.file === file
-      ? preview.image
-      : { status: "loading" as const };
+  // Downscale only the bridge preview; publishing still uses the original file and crop.
+  const image = usePreview(file, 600);
   const model: NativeSourceCreate = form.restoring
     ? { state: "restoring" }
     : form.draftExpired && !form.busy

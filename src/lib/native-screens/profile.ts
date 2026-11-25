@@ -109,6 +109,8 @@ export type NativeEditProfile = {
   } | null;
   /** Small data URL preview of the picked photo. */
   imagePreview: string | null;
+  /** The photo could not be picked; shown under the photo like the web's crop error. */
+  imageError: string | null;
   privacy: { isPrivate: boolean; busy: boolean; error: string | null } | null;
   saving: boolean;
   error: string | null;

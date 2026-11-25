@@ -145,7 +145,10 @@ function NativeChatInboxBridge({ nav }: { nav: ChatNavigation }) {
 type ThreadControls = {
   send: (text: string) => void;
   edit: (messageId: number, text: string) => void;
-  remove: (messageId: number) => void;
+  askDelete: (messageId: number) => void;
+  cancelDelete: () => void;
+  remove: () => void;
+  clearNotice: () => void;
   older: () => void;
   retry: () => void;
 };
@@ -165,6 +168,8 @@ function ThreadModel({
   const [sent, setSent] = useState(0);
   const [mutationBusy, setMutationBusy] = useState(false);
   const [mutationNotice, setMutationNotice] = useState("");
+  // The web's confirmDeleteId: the dialog stays open while deleting and shows a failure inside.
+  const [confirmDeleteId, setConfirmDeleteId] = useState<number | null>(null);
   useLift<NativeChatThread, ThreadControls>(
     {
       loading: !chat.loaded,
@@ -189,6 +194,10 @@ function ThreadModel({
         sent,
         maxLength: CHAT_MESSAGE_MAX_LENGTH,
       },
+      confirmDelete:
+        confirmDeleteId === null
+          ? null
+          : { busy: mutationBusy, error: mutationNotice || null },
     },
     {
       send: (text) => {
@@ -212,17 +221,26 @@ function ThreadModel({
           })
           .finally(() => setMutationBusy(false));
       },
-      remove: (messageId) => {
-        if (mutationBusy) return;
+      askDelete: (messageId) => {
+        setMutationNotice("");
+        setConfirmDeleteId(messageId);
+      },
+      cancelDelete: () => {
+        if (!mutationBusy) setConfirmDeleteId(null);
+      },
+      remove: () => {
+        if (confirmDeleteId === null || mutationBusy) return;
         setMutationBusy(true);
         setMutationNotice("");
         void chat
-          .deleteMessage(messageId)
+          .deleteMessage(confirmDeleteId)
+          .then(() => setConfirmDeleteId(null))
           .catch((cause) => {
             setMutationNotice(relationError(cause, "메시지를 삭제하지 못했습니다."));
           })
           .finally(() => setMutationBusy(false));
       },
+      clearNotice: () => setMutationNotice(""),
       older: () => void chat.loadOlder(),
       retry: chat.refresh,
     },
@@ -268,8 +286,14 @@ function NativeChatConversationBridge({
           return controls.current?.send(action.text);
         case "chat-edit":
           return controls.current?.edit(action.messageId, action.text);
+        case "chat-delete-ask":
+          return controls.current?.askDelete(action.messageId);
         case "chat-delete":
-          return controls.current?.remove(action.messageId);
+          return controls.current?.remove();
+        case "chat-delete-cancel":
+          return controls.current?.cancelDelete();
+        case "chat-clear-notice":
+          return controls.current?.clearNotice();
         case "chat-older":
           return controls.current?.older();
         case "chat-retry":

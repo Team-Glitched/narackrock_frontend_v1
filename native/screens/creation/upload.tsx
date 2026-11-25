@@ -3,6 +3,7 @@ import { StyleSheet, Text, View } from "react-native";
 import UploadIcon from "../../../public/figma/audio-upload-large.svg";
 import { AppHeader } from "../../ui/header";
 import { Touchable } from "../../ui/kit";
+import { LoadingOverlay } from "../../ui/loading-overlay";
 import { ScreenScroll } from "../../ui/screen";
 import { useScreen } from "../../ui/screen-context";
 import { colors } from "../../ui/theme";
@@ -67,6 +68,8 @@ export function CreationUploadScreen({ model, header }: ScreenProps<"creation-up
       </ScreenScroll>
       <InstrumentSheet picker={model.instrument} />
       <TimingSheet sheet={model.timing ?? null} />
+      {/* The web's AudioTrimPicker overlay, hidden while the instrument prompt is open. */}
+      {model.trim?.busy && !model.instrument && <LoadingOverlay message="오디오를 올리는 중입니다." />}
     </>
   );
 }

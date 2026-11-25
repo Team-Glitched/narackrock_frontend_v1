@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { StyleSheet, Text, TextInput, View } from "react-native";
 
 import SearchIcon from "../../../public/figma/search-input.svg";
@@ -99,9 +99,7 @@ function Library({ model }: { model: Extract<NativeLibrary, { view: "library" }>
               <Text style={text.bodyMuted}>이 기기에 저장된 MIDI 작업</Text>
               <Text style={[text.labelStrong, styles.cardTitle]}>{resource.title}</Text>
               <Text style={text.bodyMuted}>{resource.description}</Text>
-              {resource.player && (
-                <Player player={resource.player} target={{ kind: "local", id: resource.id }} />
-              )}
+              <Player player={resource.player} target={{ kind: "local", id: resource.id }} />
               <View style={parts.actions}>
                 <Pill
                   label={resource.saved ? "로컬 즐겨찾기됨" : "로컬 즐겨찾기"}
@@ -133,15 +131,10 @@ function Library({ model }: { model: Extract<NativeLibrary, { view: "library" }>
   );
 }
 
-/** Text stays here; the page filters a moment after typing stops. */
+/** Text stays here so typing is not echoed back; the page filters on every change, as on the web. */
 function SearchField({ query }: { query: string }) {
   const { act } = useScreen();
   const [value, setValue] = useState(query);
-  useEffect(() => {
-    if (value === query) return;
-    const timer = setTimeout(() => act({ type: "query", value }), 250);
-    return () => clearTimeout(timer);
-  }, [act, query, value]);
   return (
     <View style={styles.search}>
       <SearchIcon width={18} height={18} />
@@ -151,7 +144,11 @@ function SearchField({ query }: { query: string }) {
         placeholderTextColor="#9692a6"
         selectionColor={colors.accent}
         value={value}
-        onChangeText={(text) => setValue(clampCodePoints(text, SEARCH_QUERY_MAX_LENGTH))}
+        onChangeText={(text) => {
+          const next = clampCodePoints(text, SEARCH_QUERY_MAX_LENGTH);
+          setValue(next);
+          act({ type: "query", value: next });
+        }}
         returnKeyType="search"
         style={styles.searchInput}
       />
@@ -205,12 +202,10 @@ export function SavedSources({
                   이 샘플은 현재 미리듣기를 사용할 수 없습니다.
                 </Text>
               ) : (
-                item.source.player && (
-                  <Player
-                    player={item.source.player}
-                    target={{ kind: "saved", id: item.openSourceId }}
-                  />
-                )
+                <Player
+                  player={item.source.player}
+                  target={{ kind: "saved", id: item.openSourceId }}
+                />
               )}
               <Text style={styles.hint}>
                 보관한 뒤 스튜디오의 ‘+ 샘플’에서 레이어에 추가할 수 있습니다. MIDI 샘플은 피아노롤에서도 음표로 불러올 수 있습니다.

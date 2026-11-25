@@ -14,6 +14,7 @@ import { useScreen } from "../../ui/screen-context";
 import { colors, gutter } from "../../ui/theme";
 import { CreationChoiceList } from "../creation/choose";
 import type { ScreenProps } from "../types";
+import { AlbumCropDialog } from "./album-crop";
 import { InstrumentSheet } from "./parts";
 
 /** /studio/new (the web's NewProject form). */
@@ -35,86 +36,105 @@ export function StudioNewScreen({ model }: ScreenProps<"studio-new">) {
     }
   };
   return (
-    <ScreenScroll>
-      <View style={styles.form}>
-        <View style={styles.field}>
-          <View style={styles.titleRow}>
-            <Text style={styles.label}>음악명</Text>
+    <View style={styles.flex}>
+      <ScreenScroll>
+        <View style={styles.form}>
+          <View style={styles.field}>
+            <View style={styles.titleRow}>
+              <Text style={styles.label}>음악명</Text>
+              <Touchable
+                accessibilityRole="button"
+                accessibilityState={{ disabled: model.busy }}
+                disabled={model.busy}
+                style={[styles.suggest, model.busy && styles.disabled]}
+                onPress={() => act({ type: "studio-new-suggest" })}
+              >
+                <Text style={styles.suggestText}>다른 제목</Text>
+              </Touchable>
+            </View>
+            <TextInput
+              accessibilityLabel="음악명"
+              value={title}
+              onChangeText={(value) => setTitle(clampCodePoints(value, SONG_TITLE_MAX_LENGTH))}
+              selectTextOnFocus={selectOnFocus}
+              onFocus={() => setSelectOnFocus(false)}
+              selectionColor={colors.accent}
+              returnKeyType="done"
+              onSubmitEditing={start}
+              style={styles.input}
+            />
+            <Text style={styles.counter}>
+              {codePointLength(title)}/{SONG_TITLE_MAX_LENGTH}자
+            </Text>
+          </View>
+          <View style={styles.field}>
+            <Text style={styles.label}>앨범</Text>
             <Touchable
               accessibilityRole="button"
+              accessibilityLabel="앨범 추가"
               accessibilityState={{ disabled: model.busy }}
               disabled={model.busy}
-              style={[styles.suggest, model.busy && styles.disabled]}
-              onPress={() => act({ type: "studio-new-suggest" })}
+              style={styles.artwork}
+              onPress={() => act({ type: "studio-new-image" })}
             >
-              <Text style={styles.suggestText}>다른 제목</Text>
+              {model.album.url ? (
+                <Image
+                  source={{ uri: model.album.url }}
+                  style={StyleSheet.absoluteFill}
+                  resizeMode="cover"
+                  accessibilityLabel="선택한 앨범"
+                />
+              ) : (
+                <>
+                  <Text style={styles.artworkTitle}>앨범 추가</Text>
+                  <Text style={styles.artworkHint}>JPG, PNG, WEBP 최대 100MB</Text>
+                </>
+              )}
             </Touchable>
           </View>
-          <TextInput
-            accessibilityLabel="음악명"
-            value={title}
-            onChangeText={(value) => setTitle(clampCodePoints(value, SONG_TITLE_MAX_LENGTH))}
-            selectTextOnFocus={selectOnFocus}
-            onFocus={() => setSelectOnFocus(false)}
-            selectionColor={colors.accent}
-            returnKeyType="done"
-            onSubmitEditing={start}
-            style={styles.input}
-          />
-          <Text style={styles.counter}>
-            {codePointLength(title)}/{SONG_TITLE_MAX_LENGTH}자
-          </Text>
-        </View>
-        <View style={styles.field}>
-          <Text style={styles.label}>앨범</Text>
-          <Touchable
-            accessibilityRole="button"
-            accessibilityLabel="앨범 추가"
-            accessibilityState={{ disabled: model.busy }}
-            disabled={model.busy}
-            style={styles.artwork}
-            onPress={() => act({ type: "studio-new-image" })}
-          >
-            {model.imageUrl ? (
-              <Image
-                source={{ uri: model.imageUrl }}
-                style={StyleSheet.absoluteFill}
-                resizeMode="cover"
-                accessibilityLabel="선택한 앨범"
-              />
-            ) : (
-              <>
-                <Text style={styles.artworkTitle}>앨범 추가</Text>
-                <Text style={styles.artworkHint}>JPG, PNG, WEBP 최대 100MB</Text>
-              </>
-            )}
-          </Touchable>
-        </View>
-        {model.error && (
-          <Text accessibilityRole="alert" style={styles.error}>
-            {model.error}
-          </Text>
-        )}
-        <View style={styles.actions}>
-          <Button
-            label={model.busy ? "만드는 중…" : "입력 완료"}
-            disabled={model.busy || !hasVisibleText(title)}
-            style={styles.submit}
-            onPress={start}
-          />
-          {model.canResume && (
+          {model.album.canEdit && (
             <Touchable
               accessibilityRole="button"
               accessibilityState={{ disabled: model.busy }}
               disabled={model.busy}
-              onPress={() => act({ type: "studio-new-resume" })}
+              style={[styles.adjust, model.busy && styles.disabled]}
+              onPress={() => act({ type: "album-edit" })}
             >
-              <Text style={styles.resume}>이전 작업 이어하기</Text>
+              <Text style={styles.resume}>크기·위치 조절</Text>
             </Touchable>
           )}
+          {model.album.error && (
+            <Text accessibilityRole="alert" style={styles.error}>
+              {model.album.error}
+            </Text>
+          )}
+          {model.error && (
+            <Text accessibilityRole="alert" style={styles.error}>
+              {model.error}
+            </Text>
+          )}
+          <View style={styles.actions}>
+            <Button
+              label={model.busy ? "만드는 중…" : "입력 완료"}
+              disabled={model.busy || !hasVisibleText(title)}
+              style={styles.submit}
+              onPress={start}
+            />
+            {model.canResume && (
+              <Touchable
+                accessibilityRole="button"
+                accessibilityState={{ disabled: model.busy }}
+                disabled={model.busy}
+                onPress={() => act({ type: "studio-new-resume" })}
+              >
+                <Text style={styles.resume}>이전 작업 이어하기</Text>
+              </Touchable>
+            )}
+          </View>
         </View>
-      </View>
-    </ScreenScroll>
+      </ScreenScroll>
+      <AlbumCropDialog editor={model.album.editor} />
+    </View>
   );
 }
 
@@ -183,6 +203,7 @@ const styles = StyleSheet.create({
   actions: { alignItems: "center", gap: 10 },
   submit: { alignSelf: "stretch" },
   resume: { color: colors.muted, fontSize: 14, textDecorationLine: "underline" },
+  adjust: { alignSelf: "center" },
   link: { color: colors.fg, fontSize: 14, textDecorationLine: "underline", textAlign: "center" },
   invalid: { padding: 32, textAlign: "center", color: colors.error, fontSize: 14 },
 });
