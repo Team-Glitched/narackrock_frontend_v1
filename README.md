@@ -123,6 +123,7 @@ npm run native:prebuild              # app.config.ts/플러그인 변경 후 nat
 - Google 로그인: Google은 WebView 안의 웹 로그인을 막으므로, 앱에서는 로그인 화면이 네이티브 Google 로그인(`@react-native-google-signin/google-signin`)을 호출합니다. ID 토큰은 웹 클라이언트 ID 기준으로 발급되어 백엔드 검증은 웹과 같습니다.
 - 공유: WebView에는 Web Share API가 없으므로 `shareLink`는 앱에서 네이티브 공유 시트(`share`)를 띄웁니다. 링크는 앱의 페이지 origin이 `127.0.0.1`이므로 `VITE_PUBLIC_WEB_ORIGIN`(운영 `https://narackrock.com`)으로 만듭니다. 웹에서는 설정하지 않으면 현재 origin을 씁니다.
 - 기존 콘텐츠의 상대 `/files/...` URL은 앱의 로컬 서버가 API origin으로 리다이렉트합니다.
+- 앱 업데이트: 업데이트 후에도 origin이 같으므로, 로컬 서버는 해시 파일(`/assets/`)을 뺀 응답에 `Cache-Control: no-cache`를 붙입니다. 새 웹 빌드를 처음 실행할 때는 빈 페이지를 먼저 띄워 WebView 캐시를 비운 뒤 앱 페이지를 엽니다. 이전 버전이 남긴 캐시된 `index.html`이 이전 빌드를 실행하지 않게 하려는 것이며, `localStorage`(로그인·초안)는 유지됩니다.
 
 ### 네이티브 화면
 

@@ -78,6 +78,8 @@ const PORT = 17173;
 const WEBROOT = "webroot";
 // Written by scripts/build-native-web.mjs next to index.html.
 const MANIFEST_FILE = "native-build.json";
+// The web build the WebView last loaded, written once its HTTP cache was cleared for that build.
+const LOADED_BUILD_PATH = `${DocumentDirectoryPath}/${WEBROOT}.loaded-build-id`;
 const BACKGROUND = designTokens.colors.bg;
 // The launch splash stays up until the first native screen (or the start error) replaces it, so
 // no blank frame or spinner shows in between. A page that never reports a screen still gets the
@@ -90,12 +92,24 @@ void ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP).
 
 type WebBuildManifest = { buildId: string; apiOrigin: string };
 
-/** Returns an on-device folder holding the bundled web build, ready to be served. */
-async function prepareWebroot(): Promise<{ fileDir: string; manifest: WebBuildManifest }> {
+/**
+ * Returns an on-device folder holding the bundled web build, ready to be served, and whether the
+ * WebView has not loaded this build yet (its HTTP cache may still hold the previous build's pages).
+ */
+async function prepareWebroot(): Promise<{
+  fileDir: string;
+  manifest: WebBuildManifest;
+  newBuild: boolean;
+}> {
+  const loadedId = (await exists(LOADED_BUILD_PATH))
+    ? await readFile(LOADED_BUILD_PATH, "utf8")
+    : null;
   if (Platform.OS !== "android") {
     const fileDir = `${MainBundlePath}/${WEBROOT}`;
-    const manifest = JSON.parse(await readFile(`${fileDir}/${MANIFEST_FILE}`, "utf8"));
-    return { fileDir, manifest };
+    const manifest: WebBuildManifest = JSON.parse(
+      await readFile(`${fileDir}/${MANIFEST_FILE}`, "utf8"),
+    );
+    return { fileDir, manifest, newBuild: loadedId !== manifest.buildId };
   }
 
   // Android assets live inside the APK, so the server needs an extracted copy. The marker naming the
@@ -112,7 +126,7 @@ async function prepareWebroot(): Promise<{ fileDir: string; manifest: WebBuildMa
     await copyFileAssets(WEBROOT, fileDir);
     await writeFile(markerPath, manifest.buildId, "utf8");
   }
-  return { fileDir, manifest };
+  return { fileDir, manifest, newBuild: loadedId !== manifest.buildId };
 }
 
 function serverConfig(apiOrigin: string): string {
@@ -121,9 +135,13 @@ function serverConfig(apiOrigin: string): string {
     'server.error-handler-404 = "/index.html"',
     // The web ingress routes legacy relative /files/... URLs to the backend; mirror that. 302, not
     // lighttpd's default 301: the fixed origin would keep a permanent redirect cached across API changes.
-    'server.modules += ("mod_redirect")',
+    'server.modules += ("mod_redirect", "mod_setenv")',
     `url.redirect = ("^/files/(.*)$" => "${apiOrigin}/files/$1")`,
     "url.redirect-code = 302",
+    // Every app update serves a new build from the same origin. Without a cache header the WebView
+    // reuses a cached index.html (and through it the previous build) for a while after an update;
+    // only the content-hashed /assets/ files may be reused without asking.
+    '$HTTP["url"] !~ "^/assets/" { setenv.add-response-header = ("Cache-Control" => "no-cache") }',
   ].join("\n");
 }
 
@@ -131,13 +149,15 @@ function useLocalWebServer() {
   const [origin, setOrigin] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [attempt, setAttempt] = useState(0);
+  // A build the WebView has not loaded yet: its cache is cleared before the first page load.
+  const [newBuildId, setNewBuildId] = useState<string | null>(null);
 
   useEffect(() => {
     let server: Server | undefined;
     let cancelled = false;
     (async () => {
       try {
-        const { fileDir, manifest } = await prepareWebroot();
+        const { fileDir, manifest, newBuild } = await prepareWebroot();
         if (cancelled) return;
         server = new Server({
           fileDir,
@@ -148,7 +168,10 @@ function useLocalWebServer() {
           extraConfig: serverConfig(manifest.apiOrigin),
         });
         const started = await server.start();
-        if (!cancelled) setOrigin(started);
+        if (!cancelled) {
+          setNewBuildId(newBuild ? manifest.buildId : null);
+          setOrigin(started);
+        }
       } catch (cause) {
         if (!cancelled) setError(cause instanceof Error ? cause.message : String(cause));
       }
@@ -165,7 +188,14 @@ function useLocalWebServer() {
     setAttempt((value) => value + 1);
   }, []);
 
-  return { origin, error, retry };
+  // Called once the WebView's cache is cleared: later launches of this build load straight away.
+  const buildLoaded = useCallback(() => {
+    if (newBuildId === null) return;
+    void writeFile(LOADED_BUILD_PATH, newBuildId, "utf8").catch(() => {});
+    setNewBuildId(null);
+  }, [newBuildId]);
+
+  return { origin, error, retry, cacheStale: newBuildId !== null, buildLoaded };
 }
 
 function toExpoOrientationLock(mode: NativeLockMode): ScreenOrientation.OrientationLock {
@@ -175,7 +205,7 @@ function toExpoOrientationLock(mode: NativeLockMode): ScreenOrientation.Orientat
 }
 
 function WebShell() {
-  const { origin, error, retry } = useLocalWebServer();
+  const { origin, error, retry, cacheStale, buildLoaded } = useLocalWebServer();
   const webView = useRef<WebView<object>>(null);
   // Reported by the web (set-history); see that method in the bridge protocol.
   const canGoBack = useRef(false);
@@ -380,7 +410,14 @@ function WebShell() {
         {/* react-native-webview types default P to undefined, which collapses props to never. */}
         <WebView<object>
           ref={webView}
-          source={{ uri: `${origin}/` }}
+          // After an update a blank page loads first, so the cache can be cleared before the app's
+          // page: a cached index.html would otherwise start the previous build.
+          source={cacheStale ? { html: "" } : { uri: `${origin}/` }}
+          onLoadEnd={() => {
+            if (!cacheStale) return;
+            webView.current?.clearCache?.(true);
+            buildLoaded();
+          }}
           style={styles.webView}
           originWhitelist={["*"]}
           javaScriptEnabled
