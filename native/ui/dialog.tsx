@@ -6,6 +6,7 @@ import type {
   NativeDialogField,
   NativeDialogReport,
 } from "../../src/lib/native-dialog";
+import { clampCodePoints, codePointLength } from "../../src/lib/content-limits";
 import { Button, TextField, Touchable } from "./kit";
 import { KeyboardAvoiding } from "./keyboard-avoiding";
 import { colors, gutter, type } from "./theme";
@@ -122,24 +123,34 @@ function Field({
           ))}
         </View>
       ) : (
-        <TextField
-          accessibilityLabel={field.label}
-          value={value}
-          multiline={field.multiline}
-          keyboardType={field.keyboard ?? "default"}
-          editable={!field.disabled}
-          onFocus={() => {
-            focused.current = true;
-          }}
-          onBlur={() => {
-            focused.current = false;
-            setValue(field.value);
-          }}
-          onChangeText={(next) => {
-            setValue(next);
-            onChange(next);
-          }}
-        />
+        <>
+          <TextField
+            accessibilityLabel={field.label}
+            placeholder={field.placeholder}
+            value={value}
+            multiline={field.multiline}
+            keyboardType={field.keyboard ?? "default"}
+            editable={!field.disabled}
+            onFocus={() => {
+              focused.current = true;
+            }}
+            onBlur={() => {
+              focused.current = false;
+              setValue(field.value);
+            }}
+            onChangeText={(text) => {
+              const next =
+                field.maxLength === undefined ? text : clampCodePoints(text, field.maxLength);
+              setValue(next);
+              onChange(next);
+            }}
+          />
+          {field.maxLength !== undefined && (
+            <Text style={[type.caption, styles.counter]}>
+              {codePointLength(value)}/{field.maxLength}자
+            </Text>
+          )}
+        </>
       )}
     </View>
   );
@@ -161,5 +172,6 @@ const styles = StyleSheet.create({
   },
   field: { gap: 8 },
   option: { paddingVertical: 12 },
+  counter: { textAlign: "right", fontVariant: ["tabular-nums"] },
   error: { color: colors.error },
 });

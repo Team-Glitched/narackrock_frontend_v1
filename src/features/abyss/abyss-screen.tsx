@@ -500,8 +500,8 @@ export function AbyssScreen({
   ...options
 }: AbyssOptions & {
   /**
-   * In the app: the page's header search and footer controller. As on the web, an open comment or
-   * participant sheet covers the footer, so the footer leaves the screen meanwhile.
+   * In the app: the page's header search and footer controller. As on the web, an open sheet (comments,
+   * participants, "곡 정보 수정") covers the footer, so the native bridge drops the footer meanwhile.
    */
   nativeScreen?: { onSearch: () => void; footer: ReactNode };
 }) {
@@ -535,8 +535,7 @@ function NativeAbyssContent({
   } = abyss;
   return (
     <>
-      <NativeAbyssBridge abyss={abyss} onSearch={nativeScreen.onSearch} />
-      {sheet !== "comments" && sheet !== "participants" && nativeScreen.footer}
+      <NativeAbyssBridge abyss={abyss} onSearch={nativeScreen.onSearch} footer={nativeScreen.footer} />
       {current && (
         <audio
           key={current.shortId}

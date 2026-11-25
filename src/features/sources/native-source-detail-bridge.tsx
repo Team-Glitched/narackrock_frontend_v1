@@ -4,7 +4,12 @@ import { useNativeComments } from "@/features/comments/use-native-comments";
 import { useNativeScreen } from "@/features/navigation/use-native-screen";
 import type { NativeHeader, NativeSourceDetail } from "@/lib/native-screens";
 import { isNativeCommentAction } from "@/lib/native-screens/comments";
-import { SourcePlayerReporter, useNativePlayers } from "./native-source-players";
+import {
+  idlePlayback,
+  SourcePlayerReporter,
+  sourcePlayerLabel,
+  useNativePlayers,
+} from "./native-source-players";
 import { sourceUsage, type SourceDetailState } from "./source-screens";
 
 /** The web sample page's Header: back, notifications, search, account. */
@@ -68,7 +73,9 @@ export function NativeSourceDetailBridge({
               saveError: save.error || null,
               busy: detail.busy,
               notice: detail.notice || null,
-              player: (source.canPreview && players[player]) || null,
+              player: source.canPreview
+                ? (players[player] ?? idlePlayback(sourcePlayerLabel, source.durationMs))
+                : null,
               comments: comments.model,
               openComments: focusComments,
             };

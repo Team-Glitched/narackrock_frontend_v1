@@ -18,7 +18,11 @@ export default function AdminPage() {
   if (nativeApp())
     return (
       <>
-        <NativeAdminReviewBridge onBack={() => back("/settings")} onSearch={onSearch} />
+        <NativeAdminReviewBridge
+          onBack={() => back("/settings")}
+          onSearch={onSearch}
+          onNavigate={to}
+        />
         <Footer activeTab={null} />
         <NotificationsOverlay />
       </>

@@ -37,7 +37,7 @@ export function NativeCreateCommunityBridge({
         blocked: form.restoring
           ? "작성 중인 내용을 불러오는 중..."
           : form.draftExpired && !form.busy
-            ? "다른 탭에서 이 초안을 등록하거나 삭제했습니다. 작성 화면을 다시 열어주세요."
+            ? "다른 화면에서 이 초안을 등록하거나 삭제했습니다. 작성 화면을 다시 열어주세요."
             : null,
         title: form.title,
         content: form.content,

@@ -270,6 +270,15 @@ export const reportTarget = (report: AdminReport) =>
 export const reportMeta = (report: AdminReport) =>
   `신고자 ${report.reporter?.nickname ?? "알 수 없음"} → 대상 ${report.reportedUser?.nickname ?? "알 수 없음"} · ${date(report.reportedAt)}`;
 
+/** The "대상 보기" path: only an in-app relative path to a target that still exists. */
+export const reportTargetPath = (report: AdminReport) =>
+  !report.targetDeleted &&
+  report.targetUrl &&
+  report.targetUrl.startsWith("/") &&
+  !report.targetUrl.startsWith("//")
+    ? report.targetUrl
+    : null;
+
 function ReportCard({
   report,
   task,
@@ -283,6 +292,7 @@ function ReportCard({
   ) => void;
 }) {
   const actions = reportActions(report.targetType);
+  const targetPath = reportTargetPath(report);
   const [action, setAction] = useState<ReportAction>(actions[0]);
   const [reason, setReason] = useState("");
   const [days, setDays] = useState("");
@@ -295,14 +305,11 @@ function ReportCard({
       {report.description && <p>{report.description}</p>}
       {report.contentSummary && <p>“{report.contentSummary}”</p>}
       <small>{reportMeta(report)}</small>
-      {!report.targetDeleted &&
-        report.targetUrl &&
-        report.targetUrl.startsWith("/") &&
-        !report.targetUrl.startsWith("//") && (
-          <Link to={report.targetUrl} className="inline-block text-caption text-app-muted underline hover:text-app-fg">
-            대상 보기
-          </Link>
-        )}
+      {targetPath && (
+        <Link to={targetPath} className="inline-block text-caption text-app-muted underline hover:text-app-fg">
+          대상 보기
+        </Link>
+      )}
       <div className="flex items-center gap-2 py-2 text-caption">
         <span>처리</span>
         <Dropdown

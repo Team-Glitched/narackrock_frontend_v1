@@ -15,6 +15,7 @@ import type {
   NativeSourcesAction,
 } from "@/lib/native-screens";
 import {
+  idlePlayback,
   nativeSavedSources,
   nativeSourcePlayback,
   playerKey,
@@ -39,7 +40,7 @@ export type SourcesNavigation = {
   onHome: () => void;
   onTab: (tab: Tab) => void;
   onCreate: () => void;
-  onOpen: (openSourceId: number, comments?: boolean) => void;
+  onOpen: (openSourceId: number) => void;
   onProfile: (userId: number) => void;
   onSearch: () => void;
 };
@@ -85,7 +86,6 @@ function useSourcesScreen(
         case "sources-create":
           return nav.onCreate();
         case "sources-open":
-          return nav.onOpen(action.openSourceId, action.comments);
         case "open-source":
           return nav.onOpen(action.openSourceId);
         case "sources-profile":
@@ -165,7 +165,7 @@ function FeedBridge({ nav }: { nav: SourcesNavigation }) {
         saveBusy: reported?.saveBusy ?? false,
         saveError: reported?.saveError ?? null,
         canPreview: source.canPreview ?? true,
-        player: reported?.player ?? null,
+        player: reported?.player ?? idlePlayback(source.title),
         vote: source.isLiked ? "like" : source.isDisliked ? "dislike" : null,
       };
     };
@@ -289,6 +289,7 @@ function MineBridge({ nav }: { nav: SourcesNavigation }) {
             state: "editor",
             notice: publications.notice || null,
             openSourceId: editor.source.openSourceId,
+            instrumentLabel: editor.source.instrument ? partLabel(editor.source.instrument) : null,
             public: editor.source.visibility === "PUBLIC",
             title: editor.title,
             description: editor.description,

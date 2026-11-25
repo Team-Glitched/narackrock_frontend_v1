@@ -139,8 +139,8 @@ export type NativeLocalResource = {
   title: string;
   description: string;
   saved: boolean;
-  /** Null until the page's player reports. */
-  player: NativePlayback | null;
+  /** The play bar: idle until the page's player reports, as the web shows it at once. */
+  player: NativePlayback;
 };
 
 /** A saved sample of the account's library (the web's SavedOpenSources). */
@@ -154,8 +154,8 @@ export type NativeSavedSource = {
     writer: string;
     /** False: "이 샘플은 현재 미리듣기를 사용할 수 없습니다." */
     canPreview: boolean;
-    /** Null until the page's player reports. */
-    player: NativePlayback | null;
+    /** The play bar: idle until the page's player reports, as the web shows it at once. */
+    player: NativePlayback;
   } | null;
 };
 

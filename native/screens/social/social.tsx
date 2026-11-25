@@ -57,7 +57,13 @@ export function SocialScreen({ model, header }: ScreenProps<"social">) {
       ) : model.friends ? (
         <FriendsTab friends={model.friends} fab={model.create !== null} />
       ) : null}
-      {model.create && <Fab label={model.create.label} onPress={() => act({ type: "create" })} />}
+      {model.create && (
+        <Fab
+          label={model.create.label}
+          accessibilityLabel={model.create.accessibilityLabel}
+          onPress={() => act({ type: "create" })}
+        />
+      )}
     </>
   );
 }

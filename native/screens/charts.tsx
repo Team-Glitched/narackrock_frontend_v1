@@ -48,11 +48,10 @@ export function ChartsScreen({ model: chart, header }: ScreenProps<"charts">) {
           </View>
         }
         ListEmptyComponent={
-          chart.status === "error" ? (
-            <ErrorRetry
-              message={chart.error ?? songStatus.error}
-              onRetry={() => act({ type: "retry" })}
-            />
+          chart.status === "error" && chart.error !== null ? (
+            <ErrorRetry message={chart.error} onRetry={() => act({ type: "retry" })} />
+          ) : chart.status === "error" ? (
+            <Status>{songStatus.error}</Status>
           ) : chart.status === "signed-out" ? (
             <Status>로그인하면 음악 목록을 확인할 수 있습니다.</Status>
           ) : (

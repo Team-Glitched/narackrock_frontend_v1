@@ -1,5 +1,6 @@
 /** Native screen types of the abyss feature; registered in ./index.ts. */
 import type { NativeCommentAction, NativeComments } from "./comments.ts";
+import type { NativeAlbumAction, NativeAlbumImage } from "./studio.ts";
 
 /** One cover of the album carousel. `albumImageUrl` null: the default shortform cover. */
 export type NativeAbyssCover = { shortId: number; title: string; albumImageUrl: string | null };
@@ -12,6 +13,8 @@ export type NativeAbyssShort = NativeAbyssCover & {
   commentCount: number;
   vote: "like" | "dislike" | null;
   saved: boolean;
+  /** The viewer owns the song: the pencil "곡 정보 수정" shows (the web PostActions' `onEdit`). */
+  editable: boolean;
 };
 
 /**
@@ -67,6 +70,21 @@ export type NativeAbyssSheet =
   | { kind: "comments"; comments: NativeComments }
   | { kind: "participants"; participants: NativeAbyssParticipants };
 
+/**
+ * The owner's "곡 정보 수정" sheet (the web's ProjectMetadataEditor): title and optional new cover.
+ * The app keeps the edited title; `title` is the song's title when the sheet opened.
+ */
+export type NativeAbyssMetadata = {
+  title: string;
+  /** The current cover, shown until a new image is applied; null when the song has none. */
+  albumImageUrl: string | null;
+  /** The new cover field (the web's ImageCropInput): applied preview, "크기·위치 조절", crop dialog, error. */
+  album: NativeAlbumImage;
+  busy: boolean;
+  /** Save failure or the title length message. */
+  error: string | null;
+};
+
 export type NativeAbyssReady = {
   status: "ready";
   short: NativeAbyssShort;
@@ -93,18 +111,26 @@ export type NativeAbyssReady = {
   join: { label: string; secondary: boolean; busy: boolean } | null;
   /** The open sheet; null while closed or a web modal (login prompt, report sheet) is open. */
   sheet: NativeAbyssSheet | null;
+  /** The owner's "곡 정보 수정" sheet, while open. */
+  metadata: NativeAbyssMetadata | null;
 };
 
-/** The abyss page (/abyss, /abyss/:shortId): one short of the feed at a time. */
-export type NativeAbyss =
+/**
+ * The abyss page (/abyss, /abyss/:shortId): one short of the feed at a time. `muted` is the header's sound
+ * toggle ("무음"), the same setting as the settings page's "숏폼 음소거".
+ */
+export type NativeAbyss = { muted: boolean } & (
   | {
       /** invalid: "올바르지 않은 페이지 주소입니다."; error: retry; empty: no public shorts. */
       status: "invalid" | "loading" | "error" | "empty";
     }
-  | NativeAbyssReady;
+  | NativeAbyssReady
+);
 
 export type NativeAbyssAction =
   | { type: "abyss-retry" }
+  /** The header's sound toggle. */
+  | { type: "abyss-mute" }
   | { type: "abyss-previous" }
   | { type: "abyss-next" }
   | { type: "abyss-toggle" }
@@ -131,6 +157,15 @@ export type NativeAbyssAction =
         | "login";
     }
   | { type: "abyss-participant-toggle"; userId: number }
+  /** The owner's pencil: pauses playback and opens "곡 정보 수정". */
+  | { type: "abyss-edit" }
+  /** "이미지 선택"/"다른 이미지 선택": the system picker, then the crop dialog. */
+  | { type: "abyss-metadata-image" }
+  | { type: "abyss-metadata-save"; title: string }
+  /** 취소, grip, backdrop or back; ignored while saving. */
+  | { type: "abyss-metadata-close" }
+  /** The cover field's "크기·위치 조절" and crop dialog. */
+  | NativeAlbumAction
   | NativeCommentAction;
 
 export type AbyssScreens = {

@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useCurrentUserId } from "@/features/auth/use-current-user";
 import { useLoginPrompt } from "@/features/auth/login-prompt";
-import { nativePost } from "@/features/navigation/native-models";
+import { usePickedPreview } from "@/features/images/image-preview";
+import { useNativePosts } from "@/features/navigation/native-models";
 import { useNativeScreen } from "@/features/navigation/use-native-screen";
 import type { UserProfile } from "@/lib/api/contracts";
 import { pickNativeImage } from "@/lib/native-app";
@@ -135,6 +136,8 @@ function ListModel({
   lift: (model: NativeProfileList | null, controls: ListControls | null) => void;
 }) {
   const list = useProfileList(kind, profile);
+  // The web's MiniPost drops posts the user hid.
+  const toNativePosts = useNativePosts();
   useLift<NativeProfileList, ListControls>(
     {
       kind,
@@ -156,7 +159,7 @@ function ListModel({
               profileImageUrl: person.profileImageUrl,
               instrument: person.primaryInstrument || "",
             })),
-      posts: kind === "articles" ? list.posts.map(nativePost) : [],
+      posts: kind === "articles" ? toNativePosts(list.posts) : [],
       emptyMessage: list.emptyMessage,
     },
     { retry: list.retry, retryMutual: list.retryMutual, setFilter: list.setFilter },
@@ -208,7 +211,8 @@ export function NativeProfileBridge({
             shortId,
             title,
             albumImageUrl,
-            star: own ? "pinned" : null,
+            // As on the web, the star follows the featured list being saved, not the profile snapshot.
+            star: own ? (featured.pinnedIds.has(shortId) ? "pinned" : "unpinned") : null,
           })),
           emptyMessage: own
             ? "아직 등록한 대표 음악이 없습니다. 아래 곡 카드 우상단의 별표를 눌러 최대 5개까지 설정해 보세요."
@@ -327,31 +331,6 @@ export function NativeProfileBridge({
   );
 }
 
-/** Downscaled data URL of a picked photo, for the app's preview (blob: URLs do not reach the app). */
-async function previewDataUrl(file: File): Promise<string | null> {
-  try {
-    const bitmap = await createImageBitmap(file);
-    const size = 280;
-    const scale = Math.max(size / bitmap.width, size / bitmap.height);
-    const canvas = document.createElement("canvas");
-    canvas.width = size;
-    canvas.height = size;
-    canvas
-      .getContext("2d")
-      ?.drawImage(
-        bitmap,
-        (size - bitmap.width * scale) / 2,
-        (size - bitmap.height * scale) / 2,
-        bitmap.width * scale,
-        bitmap.height * scale,
-      );
-    bitmap.close();
-    return canvas.toDataURL("image/jpeg", 0.85);
-  } catch {
-    return null;
-  }
-}
-
 function EditForm({
   profile,
   onSaved,
@@ -363,21 +342,11 @@ function EditForm({
 }) {
   const form = useProfileForm(useSaveProfile(onSaved));
   const privacy = useProfilePrivacy();
-  const [preview, setPreview] = useState<string | null>(null);
   const file = form.image?.file ?? null;
-  useEffect(() => {
-    if (!file) return;
-    let current = true;
-    void previewDataUrl(file).then((url) => {
-      if (current) setPreview(url);
-    });
-    return () => {
-      current = false;
-    };
-  }, [file]);
+  const preview = usePickedPreview(file);
   useLift<EditFormModel, EditFormControls>(
     {
-      imagePreview: file ? preview : null,
+      imagePreview: preview,
       privacy: { isPrivate: profile.isPrivate, busy: privacy.busy, error: privacy.error },
       saving: form.saving,
       error: form.error,
@@ -409,6 +378,7 @@ export function NativeEditProfileBridge({
 }) {
   const { profile, loading, error } = useOwnProfile();
   const form = useLifted<EditFormModel, EditFormControls>();
+  const [imageError, setImageError] = useState<string | null>(null);
   const saving = form.model?.saving ?? false;
   const model: NativeEditProfile = {
     status: loading ? "loading" : profile ? "ready" : "error",
@@ -421,6 +391,7 @@ export function NativeEditProfileBridge({
       imageUrl: profile.profileImageUrl,
     },
     imagePreview: form.model?.imagePreview ?? null,
+    imageError,
     privacy: form.model?.privacy ?? null,
     saving,
     error: form.model?.error ?? null,
@@ -437,10 +408,14 @@ export function NativeEditProfileBridge({
           if (!controls || saving) return;
           void pickNativeImage({ crop: true })
             .then((file) => {
-              if (file) controls.pick(file);
+              if (!file) return;
+              setImageError(null);
+              controls.pick(file);
             })
             .catch((cause: unknown) =>
-              window.alert(cause instanceof Error ? cause.message : String(cause)),
+              setImageError(
+                cause instanceof Error ? cause.message : "이미지를 편집하지 못했습니다.",
+              ),
             );
           return;
         case "privacy":
@@ -480,11 +455,13 @@ export function NativeLikedPostsBridge({
 }) {
   const { idsQuery, ids, loaded, loading, idsError, failed, forbidden, posts, more } =
     useLikedPosts();
+  const toNativePosts = useNativePosts();
   const model: NativeLikedPosts = {
     status: idsError ? "error" : ids ? "ready" : "loading",
     error: idsError,
     forbidden,
-    posts: posts.map(nativePost),
+    // The web's MiniPost drops posts the user hid; the empty state still counts every loaded post.
+    posts: toNativePosts(posts),
     empty:
       ids && !loading && !idsError && posts.length === 0 && failed.length === 0
         ? {

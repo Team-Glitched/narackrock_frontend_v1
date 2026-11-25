@@ -64,6 +64,7 @@ export function ScreenList<T>({
   hasMore = false,
   busy = false,
   fab = false,
+  listRef,
   ...props
 }: Omit<FlatListProps<T>, "refreshControl" | "onEndReached"> & {
   hasMore?: boolean;
@@ -71,11 +72,13 @@ export function ScreenList<T>({
   busy?: boolean;
   /** Keeps the last row clear of a floating button. */
   fab?: boolean;
+  listRef?: React.Ref<FlatList<T>>;
 }): ReactElement {
   const { act } = useScreen();
   return (
     <FlatList
       {...props}
+      ref={listRef}
       contentContainerStyle={[
         props.contentContainerStyle,
         { paddingTop: 8, paddingBottom: useBottomPadding(fab) },

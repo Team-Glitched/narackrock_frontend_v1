@@ -24,6 +24,7 @@ import { runningContext } from "../../audio/graph";
 import { clickSamples } from "../../audio/logic";
 import { AppHeader } from "../../ui/header";
 import { Button, Touchable } from "../../ui/kit";
+import { LoadingOverlay } from "../../ui/loading-overlay";
 import { useScreen } from "../../ui/screen-context";
 import { colors } from "../../ui/theme";
 import { InstrumentSheet, TimingSheet } from "../studio/parts";
@@ -229,6 +230,7 @@ export function CreationRecordScreen({ model, header }: ScreenProps<"creation-re
 
   const countingDown = preparing || countdown !== null;
   const recorded = model.recorded && !model.recording;
+  const shownElapsedMs = model.recording ? elapsedMs : 0;
   const canRetry = !model.pending && (countingDown || model.recording || recorded);
 
   return (
@@ -282,8 +284,11 @@ export function CreationRecordScreen({ model, header }: ScreenProps<"creation-re
               </View>
             ) : (
               <View style={styles.stage}>
-                <Text style={styles.timerMain}>
-                  {formatTrimTime(model.recording ? elapsedMs : 0)}
+                <Text
+                  accessibilityLabel={`녹음 경과 시간 ${Math.floor(shownElapsedMs / 1000)}초`}
+                  style={styles.timerMain}
+                >
+                  {formatTrimTime(shownElapsedMs)}
                 </Text>
 
                 <View style={styles.waveWrap}>
@@ -442,6 +447,9 @@ export function CreationRecordScreen({ model, header }: ScreenProps<"creation-re
       </View>
       <InstrumentSheet picker={model.instrument} />
       <TimingSheet sheet={model.timing ?? null} />
+      {model.loading && (
+        <LoadingOverlay message={model.loading.message} submessage={model.loading.submessage} />
+      )}
     </>
   );
 }

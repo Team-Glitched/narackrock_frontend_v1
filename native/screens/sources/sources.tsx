@@ -17,13 +17,12 @@ import type { ScreenProps } from "../types";
 import { SavedSources } from "../workspace/library";
 import { Card, Notice, Page, Pill } from "../workspace/parts";
 import { Sheet } from "../profile/parts";
-import { SourceActions, SourceAuthor, SourceLogin, SourcePlayer, styles } from "./parts";
+import { SourceAuthor, SourceLogin, SourcePlayer, SourceStats, styles } from "./parts";
 import {
   SOURCE_DESCRIPTION_MAX_LENGTH,
   SOURCE_TITLE_MAX_LENGTH,
   clampCodePoints,
   codePointLength,
-  sanitizeSingleLine,
 } from "../../../src/lib/content-limits";
 
 const tabs: { value: NativeSources["tab"]; label: string }[] = [
@@ -66,7 +65,13 @@ export function SourcesScreen({ model, header }: ScreenProps<"sources">) {
         )}
         {model.mine && <Publications model={model.mine} />}
       </ScreenScroll>
-      {model.create && <Fab label="만들기" onPress={() => act({ type: "sources-create" })} />}
+      {model.create && (
+        <Fab
+          label="만들기"
+          accessibilityLabel="만들기: 샘플 생성"
+          onPress={() => act({ type: "sources-create" })}
+        />
+      )}
     </>
   );
 }
@@ -180,6 +185,9 @@ function SourceCard({ source }: { source: NativeSourceCard }) {
             <Text style={type.label} numberOfLines={1}>
               {source.title}
             </Text>
+            {source.instrumentLabel && (
+              <Text style={type.caption}>악기: {source.instrumentLabel}</Text>
+            )}
             {source.usage && <Text style={type.caption}>{source.usage}</Text>}
           </View>
         </Touchable>
@@ -197,7 +205,6 @@ function SourceCard({ source }: { source: NativeSourceCard }) {
         </Text>
       )}
       <Touchable accessibilityRole="button" onPress={open}>
-        {source.instrumentLabel && <Text style={styles.copy}>악기: {source.instrumentLabel}</Text>}
         <Text style={styles.copy}>{source.description}</Text>
       </Touchable>
       <SourcePlayer
@@ -212,12 +219,7 @@ function SourceCard({ source }: { source: NativeSourceCard }) {
           writer={source.writer}
           onPress={() => act({ type: "sources-profile", userId: source.writer.userId })}
         />
-        <SourceActions
-          source={source}
-          onComments={() =>
-            act({ type: "sources-open", openSourceId: source.openSourceId, comments: true })
-          }
-        />
+        <SourceStats source={source} />
       </View>
     </Card>
   );
@@ -296,6 +298,7 @@ function PublicationEditor({
     <Page title="등록 관리">
       {model.notice && <Notice>{model.notice}</Notice>}
       <Card style={{ gap: 16 }}>
+        {model.instrumentLabel && <Text style={styles.copy}>악기: {model.instrumentLabel}</Text>}
         <Text style={styles.copy}>
           공개 상태: {model.public ? "공개" : "비공개"}. 원본 음원은 변경되지 않습니다.
         </Text>
@@ -313,7 +316,7 @@ function PublicationEditor({
             }}
           />
           <Text style={type.caption}>
-            {codePointLength(sanitizeSingleLine(title))}/{SOURCE_TITLE_MAX_LENGTH}자 · 필수
+            {codePointLength(title.trim())}/{SOURCE_TITLE_MAX_LENGTH}자 · 필수
           </Text>
         </View>
         <View style={styles.field}>

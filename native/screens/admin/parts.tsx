@@ -25,11 +25,14 @@ export function CardActions({ children }: { children: ReactNode }) {
 
 export function CardButton({
   label,
+  accessibilityLabel,
   primary = false,
   disabled = false,
   onPress,
 }: {
   label: string;
+  /** Spoken label when it differs from the visible one (the web's `aria-label`). */
+  accessibilityLabel?: string;
   primary?: boolean;
   disabled?: boolean;
   onPress: () => void;
@@ -37,6 +40,7 @@ export function CardButton({
   return (
     <Touchable
       accessibilityRole="button"
+      accessibilityLabel={accessibilityLabel}
       accessibilityState={{ disabled }}
       disabled={disabled}
       style={[styles.cardButton, primary && styles.primary, disabled && styles.disabled]}

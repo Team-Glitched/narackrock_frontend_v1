@@ -86,6 +86,18 @@ function crossesNote(from: Point, to: Point, left: number, top: number, right: n
   return true;
 }
 
+/** Gestures that edit notes; the web's editor reports them as `gestureActive`. */
+const editKinds: Record<Gesture["kind"], boolean> = {
+  draw: true,
+  move: true,
+  resize: true,
+  erase: true,
+  marquee: false,
+  pan: false,
+  tap: false,
+  suggestion: false,
+};
+
 type Gesture = {
   kind: "draw" | "move" | "resize" | "erase" | "marquee" | "pan" | "tap" | "suggestion";
   origin: Point;
@@ -134,11 +146,14 @@ export function NoteRoll({
   roll: model,
   rowHeight: baseRowHeight = 30,
   keyWidth: baseKeyWidth = landscapeKeyWidth,
+  onGestureActive,
 }: {
   roll: NativeNoteRoll;
   /** Pitch row height and key column width; the portrait layout enlarges the touch targets. */
   rowHeight?: number;
   keyWidth?: number;
+  /** True while a note is drawn, moved, resized or erased (the web's `editor.gestureActive`). */
+  onGestureActive?: (active: boolean) => void;
 }) {
   const { act } = useScreen();
   const [zoomPreview, setZoomPreview] = useState<{ zoom: number; tick: number; pending: boolean } | null>(null);
@@ -217,12 +232,23 @@ export function NoteRoll({
     return () => clearTimeout(timer);
   }, [sentAt]);
 
-  // Tool, snap, window, rows or size changes drop a gesture in progress (its coordinates are stale).
+  // The active grid gesture; `trackGesture.current` also reports note edits through `onGestureActive`.
   const gesture = useRef<Gesture | null>(null);
+  const [editing, setEditing] = useState(false);
+  const trackGesture = useRef((active: Gesture | null) => {
+    gesture.current = active;
+    setEditing(active !== null && editKinds[active.kind]);
+  });
+  useEffect(() => {
+    if (!editing || !onGestureActive) return;
+    onGestureActive(true);
+    return () => onGestureActive(false);
+  }, [editing, onGestureActive]);
+  // Tool, snap, window, rows or size changes drop a gesture in progress (its coordinates are stale).
   const config = [roll.editable, roll.tool, roll.stepTick, roll.windowTicks, roll.rows.join(","), size.width, size.height].join("|");
   useEffect(() => {
     if (!gesture.current) return;
-    gesture.current = null;
+    trackGesture.current(null);
     setPreview(null);
     setMarquee(null);
   }, [config]);
@@ -282,7 +308,7 @@ export function NoteRoll({
       onMoveShouldSetPanResponderCapture: capture,
       onPanResponderTerminationRequest: () => false,
       onPanResponderGrant: event => {
-        gesture.current = null;
+        trackGesture.current(null);
         setPreview(null); setMarquee(null);
         if (priorSelection.current) actRef.current({ type: "roll-select", indices: priorSelection.current });
         priorSelection.current = null;
@@ -406,7 +432,7 @@ export function NoteRoll({
     }
     function grant(event: GestureResponderEvent) {
       const { roll: model, ppt: scale, rowHeight: rh, scroll: offset, width: w } = layout.current;
-      gesture.current = null;
+      trackGesture.current(null);
       if (scale <= 0) return;
       const point = {
         x: event.nativeEvent.locationX + offset.x,
@@ -459,7 +485,7 @@ export function NoteRoll({
         scroll: offset,
         edit: null,
       };
-      gesture.current = active;
+      trackGesture.current(active);
       if (kind === "move" || kind === "resize")
         setPreview({ notes, selection: indices, sent: null });
       if (kind === "draw" || kind === "erase") show(active, point);
@@ -477,7 +503,7 @@ export function NoteRoll({
     }
     function release(_: GestureResponderEvent, state: PanResponderGestureState) {
       const active = gesture.current;
-      gesture.current = null;
+      trackGesture.current(null);
       if (!active) return;
       const send = actRef.current;
       const { roll: model, ppt: scale } = layout.current;
@@ -527,7 +553,7 @@ export function NoteRoll({
       }
     }
     function terminate() {
-      gesture.current = null;
+      trackGesture.current(null);
       setPreview(null);
       setMarquee(null);
     }

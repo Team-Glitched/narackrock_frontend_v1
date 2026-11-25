@@ -5,7 +5,7 @@ import Svg, { Path, Rect } from "react-native-svg";
 import type { NativeTransport } from "../../../src/lib/native-screens";
 import PlayIcon from "../../../public/figma/play.svg";
 import ReturnIcon from "../../../public/figma/return.svg";
-import { useNativeAudioState } from "../../audio";
+import { engineTransport, useNativeAudioState } from "../../audio";
 import { Touchable } from "../../ui/kit";
 import { useScreen } from "../../ui/screen-context";
 import { useDevicePortrait } from "../../ui/use-device-portrait";
@@ -51,6 +51,11 @@ export function RewindIcon({ size = 20 }: { size?: number }) {
 export function useTransport(transport: NativeTransport) {
   const live = useNativeAudioState(transport.engine);
   return transport.engine ? live : { playing: transport.playing, positionMs: transport.positionMs };
+}
+
+/** `useTransport`'s position read once (e.g. in an action handler), without re-rendering per frame. */
+export function transportPositionMs(transport: NativeTransport) {
+  return transport.engine ? engineTransport(transport.engine).positionMs : transport.positionMs;
 }
 
 /**
@@ -239,13 +244,18 @@ function Readout({
   );
 }
 
-/** The round "+" button of the toolbar (the web's studioAdd: 60×30, primary). */
+/**
+ * The round "+" button of the toolbar (the web's studioAdd: 60×30, primary). `hint` is the web's
+ * `title` tooltip, read as the accessibility hint.
+ */
 export function AddButton({
   label,
+  hint,
   disabled = false,
   onPress,
 }: {
   label: string;
+  hint?: string | null;
   disabled?: boolean;
   onPress: () => void;
 }) {
@@ -253,6 +263,7 @@ export function AddButton({
     <Touchable
       accessibilityRole="button"
       accessibilityLabel={label}
+      accessibilityHint={hint ?? undefined}
       accessibilityState={{ disabled }}
       disabled={disabled}
       style={[styles.add, disabled && styles.disabled]}

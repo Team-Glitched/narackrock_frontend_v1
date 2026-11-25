@@ -39,7 +39,22 @@ export function ChatConversationScreen({ model }: ScreenProps<"chat-conversation
   const { act } = useScreen();
   const [menuTarget, setMenuTarget] = useState<NativeChatMessage | null>(null);
   const [editing, setEditing] = useState<{ id: number; original: string } | null>(null);
-  const [deleteTarget, setDeleteTarget] = useState<NativeChatMessage | null>(null);
+  const confirmDelete = model.thread?.confirmDelete ?? null;
+  // Deleting the message being edited ends the edit, as on the web.
+  const editingDeleted =
+    editing !== null &&
+    (model.thread?.messages.some((message) => message.id === editing.id && message.deleted) ??
+      false);
+  useEffect(() => {
+    if (editingDeleted) setEditing(null);
+  }, [editingDeleted]);
+  const openMenu = (message: NativeChatMessage) => {
+    act({ type: "chat-clear-notice" });
+    setMenuTarget(message);
+  };
+  const cancelDelete = () => {
+    if (!confirmDelete?.busy) act({ type: "chat-delete-cancel" });
+  };
 
   return (
     <KeyboardAvoiding style={styles.flex}>
@@ -57,7 +72,7 @@ export function ChatConversationScreen({ model }: ScreenProps<"chat-conversation
           <Messages
             thread={model.thread}
             partnerImage={model.partner?.profileImageUrl ?? null}
-            onLongPressOwn={setMenuTarget}
+            onOpenMenu={openMenu}
           />
           <Composer
             composer={model.thread.composer}
@@ -78,25 +93,25 @@ export function ChatConversationScreen({ model }: ScreenProps<"chat-conversation
                     },
                     {
                       label: "삭제",
-                      onPress: () => setDeleteTarget(menuTarget),
+                      onPress: () => act({ type: "chat-delete-ask", messageId: menuTarget.id }),
                     },
                   ]
                 : []
             }
           />
           <ScreenModal
-            visible={deleteTarget !== null}
+            visible={confirmDelete !== null}
             transparent
             animationType="fade"
             statusBarTranslucent
-            onRequestClose={() => setDeleteTarget(null)}
+            onRequestClose={cancelDelete}
           >
             <View style={styles.modalBackdrop}>
               <Pressable
                 style={StyleSheet.absoluteFill}
                 accessibilityRole="button"
                 accessibilityLabel="닫기"
-                onPress={() => setDeleteTarget(null)}
+                onPress={cancelDelete}
               />
               <View style={styles.confirmCard} accessibilityViewIsModal>
                 <Text style={styles.confirmTitle} accessibilityRole="header">
@@ -105,22 +120,24 @@ export function ChatConversationScreen({ model }: ScreenProps<"chat-conversation
                 <Text style={type.muted}>
                   삭제한 메시지는 대화에서 &ldquo;삭제된 메시지입니다.&rdquo;로 표시됩니다.
                 </Text>
+                {confirmDelete?.error && (
+                  <Text accessibilityRole="alert" style={styles.confirmError}>
+                    {confirmDelete.error}
+                  </Text>
+                )}
                 <View style={styles.confirmActions}>
                   <Button
                     label="취소"
                     tone="secondary"
+                    disabled={confirmDelete?.busy}
                     style={styles.compact}
-                    onPress={() => setDeleteTarget(null)}
+                    onPress={cancelDelete}
                   />
                   <Button
-                    label="삭제"
+                    label={confirmDelete?.busy ? "삭제 중..." : "삭제"}
+                    disabled={confirmDelete?.busy}
                     style={styles.compact}
-                    onPress={() => {
-                      if (!deleteTarget) return;
-                      if (editing?.id === deleteTarget.id) setEditing(null);
-                      act({ type: "chat-delete", messageId: deleteTarget.id });
-                      setDeleteTarget(null);
-                    }}
+                    onPress={() => act({ type: "chat-delete" })}
                   />
                 </View>
               </View>
@@ -203,11 +220,11 @@ function messageRows(messages: NativeChatMessage[]): MessageRow[] {
 function Messages({
   thread,
   partnerImage,
-  onLongPressOwn,
+  onOpenMenu,
 }: {
   thread: NativeChatThread;
   partnerImage: string | null;
-  onLongPressOwn: (message: NativeChatMessage) => void;
+  onOpenMenu: (message: NativeChatMessage) => void;
 }) {
   const { uri } = useScreen();
   const list = useRef<FlatListInstance>(null);
@@ -238,7 +255,7 @@ function Messages({
             message={item.message}
             avatar={avatar}
             showAvatar={item.showAvatar}
-            onLongPressOwn={onLongPressOwn}
+            onOpenMenu={onOpenMenu}
           />
         </View>
       )}
@@ -284,12 +301,12 @@ function Bubble({
   message,
   avatar,
   showAvatar,
-  onLongPressOwn,
+  onOpenMenu,
 }: {
   message: NativeChatMessage;
   avatar: string | null;
   showAvatar: boolean;
-  onLongPressOwn: (message: NativeChatMessage) => void;
+  onOpenMenu: (message: NativeChatMessage) => void;
 }) {
   const deleted = Boolean(message.deleted);
   if (message.outgoing) {
@@ -306,8 +323,13 @@ function Bubble({
       <Touchable
         accessibilityRole="button"
         accessibilityLabel={`${message.content}, 길게 눌러 수정 또는 삭제`}
-        delayLongPress={400}
-        onLongPress={() => onLongPressOwn(message)}
+        // The web's "메시지 옵션" button, for screen readers.
+        accessibilityActions={[{ name: "message-options", label: "메시지 옵션" }]}
+        onAccessibilityAction={(event) => {
+          if (event.nativeEvent.actionName === "message-options") onOpenMenu(message);
+        }}
+        delayLongPress={450}
+        onLongPress={() => onOpenMenu(message)}
         style={[styles.bubble, styles.outgoing]}
       >
         {/* Omit `selectable` here so OS text selection does not hijack long-press actions. */}
@@ -376,6 +398,7 @@ function Composer({
             onPress={() => {
               setDraft("");
               onCancelEdit();
+              act({ type: "chat-clear-notice" });
             }}
           >
             <Text style={styles.editCancelText}>취소</Text>
@@ -527,5 +550,6 @@ const styles = StyleSheet.create({
     backgroundColor: colors.bg,
   },
   confirmTitle: { color: colors.fg, fontSize: 16, lineHeight: 22, fontWeight: "700" },
+  confirmError: { color: colors.error, fontSize: 12, lineHeight: 16 },
   confirmActions: { flexDirection: "row", justifyContent: "flex-end", gap: 8, marginTop: 4 },
 });

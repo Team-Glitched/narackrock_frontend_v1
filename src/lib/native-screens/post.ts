@@ -18,8 +18,6 @@ export type NativePostDetail = {
     content: string;
     imageUrl: string | null;
     writer: { userId: number; nickname: string; profileImageUrl: string | null };
-    /** The post's community (the feed card's PostCommunityLabel), null when unnamed. */
-    community: string | null;
     createdLabel: string;
     likeCount: number;
     dislikeCount: number;
@@ -69,7 +67,11 @@ export type NativePostCreate = {
   /** The fields' values; the app starts from them and sends every change back. */
   title: string;
   content: string;
-  /** A small preview (data URL) of the attached picture, null while it is prepared. */
+  /**
+   * A preview (data URL) of the attached picture: a small JPEG, or the original file (up to 512 KB)
+   * when the WebView cannot decode it. Null while it is prepared, or when an undecodable original is
+   * larger than that (the app then shows an empty box).
+   */
   image: { preview: string | null } | null;
   busy: boolean;
   error: string | null;

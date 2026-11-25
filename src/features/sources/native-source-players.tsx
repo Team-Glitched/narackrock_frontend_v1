@@ -109,13 +109,35 @@ export function nativeSourcePlayback(
 }
 
 /**
+ * The play bar before its player reports: the initial state of the web's AudioPlaybackBar (paused at
+ * 0), so the app shows it at once as the web does.
+ */
+export const idlePlayback = (
+  label: string,
+  durationMs: number | null = null,
+  disabled = false,
+): NativePlayback => ({
+  label,
+  playing: false,
+  loading: false,
+  muted: false,
+  positionMs: 0,
+  durationMs,
+  disabled,
+  error: null,
+});
+
+/** The web SourcePlayback's default play bar label. */
+export const sourcePlayerLabel = "샘플";
+
+/**
  * A sample's preview (the web's SourcePlayback, which must allow previews); its audio element stays
  * in this page. Reports as `id`.
  */
 export function SourcePlayerReporter({
   id,
   sourceId,
-  label = "샘플",
+  label = sourcePlayerLabel,
   durationMs = null,
   report,
 }: {
@@ -158,7 +180,9 @@ export function nativeSavedSources(
               description: item.source.description || null,
               writer: item.source.writer.nickname,
               canPreview: item.source.canPreview ?? true,
-              player: players[playerKey({ kind: "saved", id: item.openSourceId })] ?? null,
+              player:
+                players[playerKey({ kind: "saved", id: item.openSourceId })] ??
+                idlePlayback(item.source.title),
             }
           : null,
     })),
@@ -189,6 +213,7 @@ export function SavedSourcePlayers({
         key={item.openSourceId}
         id={playerKey({ kind: "saved", id: item.openSourceId })}
         sourceId={item.openSourceId}
+        label={item.source.title}
         report={report}
       />
     ) : null,

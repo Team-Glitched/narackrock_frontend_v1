@@ -6,24 +6,13 @@ import type {
   NativeInstrumentAction,
   NativeInstrumentPicker,
 } from "@/lib/native-screens";
-import { isNativeInstrumentAction } from "@/lib/native-screens/studio";
+import { isNativeAlbumAction, isNativeInstrumentAction } from "@/lib/native-screens/studio";
 import type { CreationMethod } from "./creation-screens";
+import { useNativeAlbumCrop } from "./native-album-crop";
 import type { NewProjectState } from "./new-project-screen";
 import { errorText } from "./studio-helpers";
 
 const header: NativeHeader = { left: "back", actions: [] };
-
-/** A small JPEG of the chosen album (the app cannot load the page's blob: URLs). */
-async function albumThumbnail(file: File) {
-  const bitmap = await createImageBitmap(file);
-  const canvas = document.createElement("canvas");
-  const scale = Math.min(1, 700 / Math.max(bitmap.width, bitmap.height));
-  canvas.width = Math.max(1, Math.round(bitmap.width * scale));
-  canvas.height = Math.max(1, Math.round(bitmap.height * scale));
-  canvas.getContext("2d")?.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-  bitmap.close();
-  return canvas.toDataURL("image/jpeg", 0.8);
-}
 
 /** /studio/new as the app's native screen, over the web form's `useNewProject` state. */
 export function NativeStudioNewBridge({
@@ -37,14 +26,14 @@ export function NativeStudioNewBridge({
   onSearch: () => void;
   onMigration: () => void;
 }) {
-  const [thumbnail, setThumbnail] = useState<{ file: File; url: string } | null>(null);
+  const album = useNativeAlbumCrop({ file: project.image, onApply: project.chooseImage });
   const [pickError, setPickError] = useState<string | null>(null);
   return useNativeScreen(
     "studio-new",
     {
       suggestion: project.suggestion,
       suggestionCount: project.suggestionCount,
-      imageUrl: thumbnail && thumbnail.file === project.image ? thumbnail.url : null,
+      album: album.model,
       canResume: project.savedDraftId !== null,
       busy: project.busy,
       error: project.error ?? pickError,
@@ -54,18 +43,20 @@ export function NativeStudioNewBridge({
       onBack,
       onSearch,
       onAction: (action) => {
+        if (isNativeAlbumAction(action)) {
+          if (action.type !== "album-edit" || !project.busy) album.act(action);
+          return;
+        }
         switch (action.type) {
           case "studio-new-suggest":
             if (!project.busy) project.suggestAnotherTitle();
             return;
           case "studio-new-image":
+            if (project.busy) return;
             setPickError(null);
-            void pickNativeImage({ crop: true })
-              .then(async (file) => {
-                if (!file) return;
-                project.chooseImage(file);
-                if (file.size <= 100 * 1024 * 1024)
-                  setThumbnail({ file, url: await albumThumbnail(file) });
+            void pickNativeImage()
+              .then((file) => {
+                if (file) album.select(file);
               })
               .catch((cause) => setPickError(errorText(cause)));
             return;

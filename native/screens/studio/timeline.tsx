@@ -1,12 +1,13 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
+  Image,
   PanResponder,
-  Pressable,
   ScrollView,
   StyleSheet,
   Text,
   TextInput,
   View,
+  type AccessibilityActionInfo,
   type ScrollViewInstance,
 } from "react-native";
 import Svg, { Path, Rect } from "react-native-svg";
@@ -16,7 +17,9 @@ import {
   SONG_TITLE_MAX_LENGTH,
   clampCodePoints,
   codePointLength,
+  hasVisibleText,
 } from "../../../src/lib/content-limits";
+import type { AudioSoundKind } from "../../../src/lib/api/composition";
 import { rulerLabels, signatureGrid } from "../../../src/features/composition/time-signature";
 import { snappedClipStart } from "../../../src/features/composition/timeline-move";
 import type {
@@ -27,12 +30,12 @@ import type {
 import SoundMutedIcon from "../../../public/figma/sound-muted.svg";
 import SoundIcon from "../../../public/figma/sound.svg";
 import { Avatar, Touchable } from "../../ui/kit";
+import { LoadingOverlay } from "../../ui/loading-overlay";
 import { OrientationFab } from "../../ui/orientation-fab";
 import { useScreen } from "../../ui/screen-context";
-import { ScreenModal } from "../../ui/screen-modal";
 import { colors } from "../../ui/theme";
 import type { ScreenProps } from "../types";
-import { AudioTrim } from "../creation/trim";
+import { AlbumCropDialog } from "./album-crop";
 import {
   CanvasState,
   Dialog,
@@ -43,7 +46,13 @@ import {
   TimingSheet,
   VolumeSheet,
 } from "./parts";
-import { AddButton, StudioToolbar, ToolbarTextButton, useTransport } from "./toolbar";
+import {
+  AddButton,
+  StudioToolbar,
+  ToolbarTextButton,
+  transportPositionMs,
+  useTransport,
+} from "./toolbar";
 
 /** Web layout constants of the design canvas (studio.styles.ts). */
 const sidebar = 98;
@@ -103,6 +112,7 @@ function Studio({ model }: { model: NativeStudio }) {
               ) : (
                 <AddButton
                   label="레이어 추가"
+                  hint={primary.hint}
                   disabled={primary.disabled}
                   onPress={() => act({ type: "studio-primary" })}
                 />
@@ -162,7 +172,14 @@ function Studio({ model }: { model: NativeStudio }) {
       )}
       {model.trackSettings && (
         <VolumeSheet
-          identity={{ name: model.trackSettings.name, part: model.trackSettings.part }}
+          identity={{
+            name: model.trackSettings.ownerName,
+            part: model.trackSettings.part,
+            imageUrl: model.trackSettings.ownerImageUrl,
+            onRetry: model.trackSettings.ownerRetry
+              ? () => act({ type: "studio-track-owner-retry" })
+              : undefined,
+          }}
           value={model.trackSettings.volume}
           onChange={(value) =>
             act({ type: "studio-track-volume", trackId: model.trackSettings!.trackId, value })
@@ -184,47 +201,78 @@ function Studio({ model }: { model: NativeStudio }) {
       <InstrumentSheet picker={model.instrument} />
       <TimingSheet sheet={model.timing} />
       <SourceSheet picker={model.sources} />
-      {model.audioAnalysis && (
-        <Dialog label="코드 추천에 사용할 오디오 분석" onClose={() => act({ type: "studio-analysis-close" })}>
-          <Text style={styles.formText}>
-            {model.audioAnalysis.busy ? "분석 중…" : "원본 오디오의 소리 종류를 선택하세요."}
-          </Text>
-          {model.audioAnalysis.cachedKind && (
-            <Text style={styles.formText}>저장된 분석 · {model.audioAnalysis.noteCount}음</Text>
-          )}
-          {model.audioAnalysis.error && <Text accessibilityRole="alert" style={styles.formText}>
-            {model.audioAnalysis.error}
-          </Text>}
-          <DialogButton label="허밍 · 단선율 보컬" disabled={model.audioAnalysis.busy}
-            onPress={() => act({ type: "studio-analysis-run", kind: "HUMMING" })} />
-          <DialogButton label="피아노 · 기타 등 악기" disabled={model.audioAnalysis.busy}
-            onPress={() => act({ type: "studio-analysis-run", kind: "INSTRUMENT" })} />
-          <DialogButton label="닫기" tone="secondary" disabled={model.audioAnalysis.busy}
-            onPress={() => act({ type: "studio-analysis-close" })} />
-        </Dialog>
-      )}
-      {model.audioTrim && (
-        <ScreenModal
-          transparent
-          animationType="fade"
-          onRequestClose={() => {
-            if (!model.audioTrim?.picker.busy) act({ type: "trim-cancel" });
-          }}
-        >
-          <View style={styles.trimBackdrop}>
-            <View style={styles.trimDialog} accessibilityViewIsModal>
-              <ScrollView>
-                <Text style={styles.formTitle} accessibilityRole="header">
-                  파일 구간 선택
-                </Text>
-                <Text style={styles.formText}>{model.audioTrim.fileName}</Text>
-                <AudioTrim trim={model.audioTrim.picker} />
-              </ScrollView>
-            </View>
-          </View>
-        </ScreenModal>
+      {model.audioAnalysis && <AnalysisDialog analysis={model.audioAnalysis} />}
+      {model.publishForm && <AlbumCropDialog editor={model.publishForm.album.editor} />}
+      {model.overlay && (
+        <LoadingOverlay message={model.overlay.message} submessage={model.overlay.submessage} />
       )}
     </View>
+  );
+}
+
+const soundKinds: { kind: AudioSoundKind; label: string }[] = [
+  { kind: "HUMMING", label: "허밍 · 단선율 보컬" },
+  { kind: "INSTRUMENT", label: "피아노 · 기타 등 악기" },
+];
+
+/** The web's AudioAnalysisDialog: choose the sound kind (the saved one preselected), then analyse. */
+function AnalysisDialog({ analysis }: { analysis: NonNullable<NativeStudio["audioAnalysis"]> }) {
+  const { act } = useScreen();
+  const [kind, setKind] = useState<AudioSoundKind | null>(analysis.cached?.kind ?? null);
+  const { busy, cached } = analysis;
+  return (
+    <Dialog
+      label="코드 추천에 사용할 오디오 분석"
+      onClose={() => act({ type: "studio-analysis-close" })}
+      style={styles.analysis}
+    >
+      <Text style={styles.analysisTitle} accessibilityRole="header">
+        코드 추천에 사용할 오디오 분석
+      </Text>
+      <Text style={styles.analysisText}>
+        소리 종류를 선택하면 원본 오디오에서 추천에 사용할 음을 찾습니다.
+      </Text>
+      {cached && <Text style={styles.analysisText}>저장된 분석 · {cached.noteCount}음</Text>}
+      <View accessibilityRole="radiogroup" accessibilityLabel="입력 소리 종류" style={styles.kinds}>
+        <Text style={styles.analysisText}>입력 소리 종류</Text>
+        {soundKinds.map((option) => {
+          const checked = kind === option.kind;
+          return (
+            <Touchable
+              key={option.kind}
+              accessibilityRole="radio"
+              accessibilityState={{ checked, disabled: busy }}
+              disabled={busy}
+              style={[styles.kind, busy && styles.disabled]}
+              onPress={() => setKind(option.kind)}
+            >
+              <View style={styles.radio}>{checked && <View style={styles.radioDot} />}</View>
+              <Text style={styles.analysisText}>{option.label}</Text>
+            </Touchable>
+          );
+        })}
+      </View>
+      {analysis.error && (
+        <Text accessibilityRole="alert" style={styles.analysisText}>
+          {analysis.error}
+        </Text>
+      )}
+      <View style={styles.analysisButtons}>
+        <DialogButton
+          label={busy ? "분석 중…" : cached ? "다시 분석" : "음 분석 시작"}
+          disabled={busy || !kind}
+          onPress={() => {
+            if (kind) act({ type: "studio-analysis-run", kind });
+          }}
+        />
+        <DialogButton
+          label="닫기"
+          tone="secondary"
+          disabled={busy}
+          onPress={() => act({ type: "studio-analysis-close" })}
+        />
+      </View>
+    </Dialog>
   );
 }
 
@@ -232,6 +280,8 @@ function Studio({ model }: { model: NativeStudio }) {
 function Timeline({ model }: { model: NativeStudio }) {
   const { act } = useScreen();
   const sidebarScroll = useRef<ScrollViewInstance>(null);
+  const laneScroll = useRef<ScrollViewInstance>(null);
+  const scrollY = useRef(0);
   const signature = {
     numerator: model.transport.numerator,
     denominator: model.transport.denominator,
@@ -240,6 +290,29 @@ function Timeline({ model }: { model: NativeStudio }) {
   // Empty lanes fill the visible area below the tracks, like the web's grid fill.
   const [visibleHeight, setVisibleHeight] = useState(0);
   const lanes = Math.max(model.tracks.length, Math.floor(visibleHeight / laneHeight));
+  // The web scrolls the first track added by the highlighted request into view ("nearest").
+  // Only a new highlight scrolls; later layout changes keep the user's position.
+  const highlightKey = model.tracks
+    .filter((track) => track.highlighted)
+    .map((track) => track.trackId)
+    .join(":");
+  const highlightTarget = useRef({ index: -1, visibleHeight });
+  highlightTarget.current = {
+    index: model.tracks.findIndex((track) => track.highlighted),
+    visibleHeight,
+  };
+  const measured = visibleHeight > 0;
+  useEffect(() => {
+    const { index, visibleHeight: visible } = highlightTarget.current;
+    if (!highlightKey || index < 0 || !measured) return;
+    const top = index * laneHeight;
+    const bottom = top + laneHeight;
+    const y =
+      top < scrollY.current ? top : bottom > scrollY.current + visible ? bottom - visible : null;
+    if (y === null) return;
+    laneScroll.current?.scrollTo({ y, animated: false });
+    sidebarScroll.current?.scrollTo({ y, animated: false });
+  }, [highlightKey, measured]);
   return (
     <View style={styles.timeline}>
       <View style={styles.sidebar}>
@@ -254,10 +327,12 @@ function Timeline({ model }: { model: NativeStudio }) {
         <View style={{ width }}>
           <Ruler model={model} />
           <ScrollView
+            ref={laneScroll}
             showsVerticalScrollIndicator={false}
             scrollEventThrottle={16}
             onLayout={(event) => setVisibleHeight(event.nativeEvent.layout.height)}
             onScroll={(event) => {
+              scrollY.current = event.nativeEvent.contentOffset.y;
               const offset = { y: event.nativeEvent.contentOffset.y, animated: false };
               sidebarScroll.current?.scrollTo(offset);
             }}
@@ -277,6 +352,15 @@ function Timeline({ model }: { model: NativeStudio }) {
                     track.highlighted ? `${track.name} · 이 요청으로 추가된 트랙` : undefined
                   }
                 >
+                  {track.emptyLayerEditor && (
+                    <Touchable
+                      accessibilityRole="button"
+                      style={styles.emptyLayer}
+                      onPress={() => act({ type: "studio-empty-layer", trackId: track.trackId })}
+                    >
+                      <Text style={styles.emptyLayerText}>+ 노트 · 이어서 편집</Text>
+                    </Touchable>
+                  )}
                   {track.clips.filter((clip) => !clip.emptyMidi).map((clip) => (
                     <Clip
                       key={clip.clipId}
@@ -377,9 +461,11 @@ function Grid({
   );
 }
 
-/** Bar numbers and marks; a tap seeks there (the web's "타임라인 재생 위치" slider). */
+/** Bar numbers and marks; a tap or a drag seeks there (the web's "타임라인 재생 위치" slider). */
 function Ruler({ model }: { model: NativeStudio }) {
   const { act } = useScreen();
+  // The ←/→ step starts from the engine's live position (the model's is rounded to whole seconds);
+  // read on demand so the ruler does not re-render every frame.
   const signature = {
     numerator: model.transport.numerator,
     denominator: model.transport.denominator,
@@ -393,25 +479,71 @@ function Ruler({ model }: { model: NativeStudio }) {
           (_, i) => `M${i * step} ${top}V${rulerHeight - 2}`,
         ).join("")
       : "";
-  const seek = (x: number) =>
+  const latest = useRef({ act, width, maxDurationMs: model.maxDurationMs });
+  latest.current = { act, width, maxDurationMs: model.maxDurationMs };
+  const start = useRef(0);
+  const sent = useRef<number | null>(null);
+  const seek = (x: number) => {
+    const { act: send, width: total, maxDurationMs } = latest.current;
+    const positionMs = Math.round(Math.max(0, Math.min(1, x / total)) * maxDurationMs);
+    if (positionMs === sent.current) return;
+    sent.current = positionMs;
+    send({ type: "transport-seek", positionMs });
+  };
+  // Like the web's pointer capture: the ruler keeps the touch, so a horizontal drag seeks
+  // instead of scrolling the timeline.
+  const responder = useRef(
+    PanResponder.create({
+      onStartShouldSetPanResponder: () => true,
+      onMoveShouldSetPanResponder: () => true,
+      onPanResponderTerminationRequest: () => false,
+      onShouldBlockNativeResponder: () => true,
+      onPanResponderGrant: (event) => {
+        start.current = event.nativeEvent.locationX;
+        sent.current = null;
+        seek(start.current);
+      },
+      onPanResponderMove: (_, gesture) => seek(start.current + gesture.dx),
+      onPanResponderRelease: (_, gesture) => seek(start.current + gesture.dx),
+    }),
+  ).current;
+  // The web's ←/→ (one half-beat at the tempo), Home and End.
+  const step = (actionName: string) =>
     act({
       type: "transport-seek",
-      positionMs: Math.max(0, Math.min(1, x / width)) * model.maxDurationMs,
-    });
-  const step = (direction: 1 | -1) =>
-    act({
-      type: "transport-seek",
-      positionMs: model.transport.positionMs + (direction * 30000) / model.transport.bpm,
+      positionMs:
+        actionName === "increment" || actionName === "decrement"
+          ? Math.max(
+              0,
+              Math.min(
+                model.maxDurationMs,
+                transportPositionMs(model.transport) +
+                  ((actionName === "increment" ? 1 : -1) * 30000) / model.transport.bpm,
+              ),
+            )
+          : actionName === "start"
+            ? 0
+            : model.maxDurationMs,
     });
   return (
-    <Pressable
+    <View
       style={[styles.ruler, { width }]}
+      accessible
       accessibilityRole="adjustable"
       accessibilityLabel="타임라인 재생 위치"
-      accessibilityValue={{ min: 0, max: model.maxDurationMs, now: model.transport.positionMs }}
-      accessibilityActions={[{ name: "increment" }, { name: "decrement" }]}
-      onAccessibilityAction={(event) => step(event.nativeEvent.actionName === "increment" ? 1 : -1)}
-      onPress={(event) => seek(event.nativeEvent.locationX)}
+      accessibilityValue={{
+        min: 0,
+        max: model.maxDurationMs,
+        now: Math.round(model.transport.positionMs),
+      }}
+      accessibilityActions={[
+        { name: "increment" },
+        { name: "decrement" },
+        { name: "start", label: "처음으로" },
+        { name: "end", label: "끝으로" },
+      ]}
+      onAccessibilityAction={(event) => step(event.nativeEvent.actionName)}
+      {...responder.panHandlers}
     >
       <Svg width={width} height={rulerHeight} style={StyleSheet.absoluteFill} pointerEvents="none">
         <Path d={marks(cellPx, rulerHeight - 10)} stroke={colors["grid-beat"]} strokeWidth={1} />
@@ -419,11 +551,15 @@ function Ruler({ model }: { model: NativeStudio }) {
         <Path d={marks(barPx, 0)} stroke={colors.muted} strokeWidth={1.5} />
       </Svg>
       {rulerLabels(signature, width).map((label) => (
-        <Text key={label.bar} style={[styles.rulerLabel, { left: label.left }]}>
+        <Text
+          key={label.bar}
+          pointerEvents="none"
+          style={[styles.rulerLabel, { left: label.left }]}
+        >
           {label.bar}
         </Text>
       ))}
-    </Pressable>
+    </View>
   );
 }
 
@@ -533,22 +669,47 @@ function Clip({
   );
   const wide = clipWidth >= 64;
   const tint = clip.midi ? "#c7a9f4" : "#8bd8cc";
+  // The web's ←/→ (one grid cell), Home and End on a movable clip.
+  const moves: (AccessibilityActionInfo & { delta: number })[] =
+    clip.movable && saving === null
+      ? [
+          { name: "move-left", label: "왼쪽으로 한 칸 이동", delta: -model.cellPx },
+          { name: "move-right", label: "오른쪽으로 한 칸 이동", delta: model.cellPx },
+          { name: "move-start", label: "처음으로 이동", delta: -Infinity },
+          { name: "move-end", label: "끝으로 이동", delta: Infinity },
+        ]
+      : [];
+  const accessibilityAction = (name: string) => {
+    const move = moves.find((item) => item.name === name);
+    if (!move) return tap();
+    const tick = snappedClipStart(
+      clip.startTick,
+      move.delta,
+      model.stepTick,
+      model.maxTick,
+      clip.durationTick,
+      model.cellPx,
+    );
+    if (tick === clip.startTick) return;
+    setPosition(tick);
+    setSaving("sent");
+    onMove(tick);
+  };
   return (
     <View
       accessible
       accessibilityRole="button"
       accessibilityLabel={clip.accessibilityLabel}
       accessibilityActions={
-        clip.opensEditor ? [{ name: "activate" }, { name: "longpress" }] : undefined
+        clip.opensEditor
+          ? [
+              { name: "activate" },
+              { name: "longpress" },
+              ...moves.map(({ name, label }) => ({ name, label })),
+            ]
+          : undefined
       }
-      onAccessibilityAction={() =>
-        act({
-          type: "studio-clip",
-          trackId: track.trackId,
-          clipId: clip.clipId,
-          edit: clip.opensEditor,
-        })
-      }
+      onAccessibilityAction={(event) => accessibilityAction(event.nativeEvent.actionName)}
       style={[
         styles.clip,
         clip.midi ? styles.clipMidi : styles.clipAudio,
@@ -662,7 +823,7 @@ function SubmitForm({
 }) {
   const { act } = useScreen();
   const send = () => {
-    if (!submit.busy && comment.trim()) act({ type: "studio-submit", comment });
+    if (!submit.busy && hasVisibleText(comment)) act({ type: "studio-submit", comment });
   };
   return (
     <View style={styles.form} accessibilityViewIsModal accessibilityLabel="작업 제출">
@@ -703,7 +864,7 @@ function SubmitForm({
         />
         <FormButton
           label={submit.busy ? "제출 중..." : "제출하기"}
-          disabled={submit.busy || !comment.trim()}
+          disabled={submit.busy || !hasVisibleText(comment)}
           onPress={send}
         />
       </View>
@@ -716,11 +877,18 @@ function PublishForm({ form }: { form: NonNullable<NativeStudio["publishForm"]> 
   const { act } = useScreen();
   const [title, setTitle] = useState("");
   const save = () => {
-    if (!form.busy && title.trim()) act({ type: "studio-publish-save", title });
+    if (!form.busy && hasVisibleText(title)) act({ type: "studio-publish-save", title });
   };
   const heading = form.action === "save" ? "곡 임시 저장" : "곡 공개 정보";
+  const { album } = form;
   return (
-    <View style={styles.form} accessibilityViewIsModal accessibilityLabel={heading}>
+    <ScrollView
+      style={styles.formScroll}
+      contentContainerStyle={styles.formContent}
+      keyboardShouldPersistTaps="handled"
+      accessibilityViewIsModal
+      accessibilityLabel={heading}
+    >
       <Text style={styles.formTitle} accessibilityRole="header">
         {heading}
       </Text>
@@ -742,18 +910,38 @@ function PublishForm({ form }: { form: NonNullable<NativeStudio["publishForm"]> 
           {codePointLength(title)}/{SONG_TITLE_MAX_LENGTH}자
         </Text>
       </View>
-      <View style={styles.formField}>
-        <Text style={styles.formLabel}>앨범 이미지 (선택)</Text>
-        <View style={styles.formFile}>
+      <View style={styles.album}>
+        {album.url && (
+          <Image
+            source={{ uri: album.url }}
+            style={styles.albumPreview}
+            accessibilityLabel="선택한 앨범 이미지"
+          />
+        )}
+        <View style={styles.albumPick}>
+          <Text style={styles.formLabel}>앨범 이미지 (선택)</Text>
           <DialogButton
-            label="파일 선택"
-            tone="secondary"
+            label={album.url ? "다른 이미지 선택" : "이미지 선택"}
+            disabled={form.busy}
             onPress={() => act({ type: "studio-publish-image" })}
           />
-          <Text style={styles.formText} numberOfLines={1}>
-            {form.imageName ?? "선택된 파일 없음"}
-          </Text>
         </View>
+        {album.canEdit && (
+          <Touchable
+            accessibilityRole="button"
+            accessibilityState={{ disabled: form.busy }}
+            disabled={form.busy}
+            style={[styles.albumAdjust, form.busy && styles.disabled]}
+            onPress={() => act({ type: "album-edit" })}
+          >
+            <Text style={styles.albumAdjustText}>크기·위치 조절</Text>
+          </Touchable>
+        )}
+        {album.error && (
+          <Text accessibilityRole="alert" style={styles.albumError}>
+            {album.error}
+          </Text>
+        )}
       </View>
       {form.error && (
         <Text style={styles.formText} accessibilityRole="alert">
@@ -768,11 +956,11 @@ function PublishForm({ form }: { form: NonNullable<NativeStudio["publishForm"]> 
         />
         <FormButton
           label={form.busy ? "저장 중..." : form.action === "save" ? "비공개로 저장" : "다음"}
-          disabled={form.busy || !title.trim()}
+          disabled={form.busy || !hasVisibleText(title)}
           onPress={save}
         />
       </View>
-    </View>
+    </ScrollView>
   );
 }
 
@@ -843,20 +1031,6 @@ const styles = StyleSheet.create({
   timeline: { flex: 1, flexDirection: "row", backgroundColor: colors.bg },
   sidebar: { width: sidebar, backgroundColor: colors.bg },
   corner: { height: rulerHeight, backgroundColor: colors.bg },
-  trimBackdrop: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "rgba(0,0,0,0.65)",
-  },
-  trimDialog: {
-    width: "94%",
-    maxWidth: 600,
-    maxHeight: "90%",
-    padding: 16,
-    borderRadius: 12,
-    backgroundColor: colors.bg,
-  },
   person: {
     height: laneHeight,
     flexDirection: "row",
@@ -893,6 +1067,21 @@ const styles = StyleSheet.create({
     lineHeight: 14,
   },
   lane: { position: "absolute", left: 0, height: laneHeight },
+  // The web's "+ 노트 · 이어서 편집" (absolute inset-y-1 left-1, dashed primary-soft border).
+  emptyLayer: {
+    position: "absolute",
+    top: 4,
+    bottom: 4,
+    left: 4,
+    zIndex: 2,
+    justifyContent: "center",
+    paddingHorizontal: 16,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderStyle: "dashed",
+    borderColor: colors["primary-soft"],
+  },
+  emptyLayerText: { color: colors["primary-soft"], fontSize: 12, lineHeight: 16 },
   playhead: {
     position: "absolute",
     top: rulerHeight,
@@ -951,6 +1140,23 @@ const styles = StyleSheet.create({
     gap: 9,
     backgroundColor: "rgba(36, 42, 48, 0.96)",
   },
+  // The web's studio-publish-form scrolls (overflow-y-auto) when its content is taller.
+  formScroll: {
+    position: "absolute",
+    top: 44,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 20,
+    backgroundColor: "rgba(36, 42, 48, 0.96)",
+  },
+  formContent: {
+    flexGrow: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 9,
+    padding: 16,
+  },
   formTitle: { color: "#ffffff", fontSize: 20, lineHeight: 26, fontWeight: "700" },
   formText: { color: "#bac4cd", fontSize: 14, lineHeight: 18, marginBottom: 3, flexShrink: 1 },
   formField: {
@@ -973,7 +1179,34 @@ const styles = StyleSheet.create({
     color: "#ffffff",
     fontSize: 14,
   },
-  formFile: { width: "70%", maxWidth: 260, flexDirection: "row", alignItems: "center", gap: 8 },
+  // The web's ImageCropInput (flex-col gap-3, size-28 rounded-lg preview).
+  album: { width: 380, maxWidth: "90%", gap: 12 },
+  albumPreview: { width: 112, height: 112, alignSelf: "center", borderRadius: 8 },
+  albumPick: { gap: 8 },
+  albumAdjust: { alignSelf: "center" },
+  albumAdjustText: {
+    color: colors.muted,
+    fontSize: 14,
+    lineHeight: 20,
+    textDecorationLine: "underline",
+  },
+  albumError: { color: "#fca5a5", fontSize: 14, lineHeight: 20 },
+  analysis: { gap: 12 },
+  analysisTitle: { color: colors.fg, fontSize: 20, lineHeight: 26, fontWeight: "700" },
+  analysisText: { color: colors.fg, fontSize: 14, lineHeight: 20, flexShrink: 1 },
+  kinds: { gap: 8 },
+  kind: { flexDirection: "row", alignItems: "center", gap: 8, minHeight: 32 },
+  radio: {
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    borderWidth: 1.5,
+    borderColor: colors.fg,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  radioDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.primary },
+  analysisButtons: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   formError: { color: colors.error, fontSize: 14, lineHeight: 18 },
   formButtons: { flexDirection: "row", gap: 8 },
   formButton: {

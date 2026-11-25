@@ -9,6 +9,7 @@ import {
 import type { NativeSourceCreate } from "../../../src/lib/native-screens";
 import { AppHeader } from "../../ui/header";
 import { Button, Status, Touchable } from "../../ui/kit";
+import { LoadingOverlay } from "../../ui/loading-overlay";
 import { ScreenScroll } from "../../ui/screen";
 import { useScreen } from "../../ui/screen-context";
 import { type } from "../../ui/theme";
@@ -26,13 +27,14 @@ export function SourceCreateScreen({ model, header }: ScreenProps<"source-create
       ) : model.state === "restoring" ? (
         <Status>작성 중인 내용을 불러오는 중...</Status>
       ) : model.state === "expired" ? (
-        <Status>다른 탭에서 이 초안을 등록하거나 삭제했습니다. 작성 화면을 다시 열어주세요.</Status>
+        <Status>다른 화면에서 이 초안을 등록하거나 삭제했습니다. 작성 화면을 다시 열어주세요.</Status>
       ) : model.state === "form" ? (
         <>
           <CreateForm model={model} />
           {model.cropping && <CropSheet model={model} />}
         </>
       ) : null}
+      {model.state === "form" && model.busy && <LoadingOverlay message="샘플을 등록하는 중입니다." />}
     </>
   );
 }

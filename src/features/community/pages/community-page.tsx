@@ -41,10 +41,12 @@ function CommunityContent({
         state={{
           message,
           tone: result.status === "loading" ? "muted" : "error",
-          createLabel: null,
+          // The web page draws its ContextualCreate beside this state when the member can write.
+          createLabel: canWrite ? "글쓰기" : null,
         }}
         onBack={onBack}
         onSearch={onSearch}
+        onCreate={canWrite ? create : undefined}
       />
     ) : (
       <PageState error={result.status !== "loading"}>{message}</PageState>

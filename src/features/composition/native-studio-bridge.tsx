@@ -1,22 +1,23 @@
 import { useQueries } from "@tanstack/react-query";
 import { useNativeScreen } from "@/features/navigation/use-native-screen";
 import type { ClipDto } from "@/lib/api/composition";
-import { pickNativeAudio, pickNativeImage } from "@/lib/native-app";
+import { pickNativeImage } from "@/lib/native-app";
 import {
+  isNativeAlbumAction,
   isNativeInstrumentAction,
   isNativeSourcePickerAction,
   isNativeTimingAction,
   isNativeTransportAction,
 } from "@/lib/native-screens/studio";
 import type { NativeStudio, NativeStudioAction, NativeStudioClip } from "@/lib/native-screens";
-import { isNativeAudioTrimAction } from "@/lib/native-screens/creation";
-import { useNativeAudioTrim } from "./native-audio-trim";
 import { useNativeInstrumentPicker } from "./instrument-dialog";
 import { partLabel } from "./instrument-parts";
 import { emptyMidiChoices, isEmptyMidi } from "./midi-content";
 import { midiPreviewHeight, midiPreviewNotes } from "./midi-preview-notes";
+import { useNativeAlbumCrop } from "./native-album-crop";
 import { useNativeSourcePicker } from "./studio-source-dialog";
 import { errorText } from "./studio-helpers";
+import { emptyLayerEditor } from "./studio-layer-editor";
 import type { Studio } from "./studio-screen";
 import { nativeTransport, transportAction } from "./studio-toolbar";
 import { signatureGrid } from "./time-signature";
@@ -24,6 +25,7 @@ import { clipLabels } from "./timeline-clip";
 import { clipWaveformQuery } from "./timeline-clip-preview";
 import { snappedClipStart } from "./timeline-move";
 import { useNativeTiming } from "./timing-dialog";
+import { useTrackOwner } from "./volume-dialog";
 
 const round = (value: number) => Math.round(value * 1000) / 1000;
 
@@ -64,13 +66,13 @@ export function studioStateModel(message: string, failed: boolean): NativeStudio
     selectMidiLayer: false,
     contribution: null,
     busy: false,
+    overlay: null,
     error: null,
     status: null,
     tracks: [],
     submit: null,
     publishConfirm: false,
     publishForm: null,
-    audioTrim: null,
     trackSettings: null,
     instrument: null,
     timing: null,
@@ -98,19 +100,10 @@ export function NativeStudioBridge({ studio }: { studio: Studio }) {
   const { composition, playback, tracks } = studio;
   const project = composition?.project;
   const viewer = composition?.viewerPermission;
-  const pendingAudio = studio.pendingAudio;
-  const trim = useNativeAudioTrim(pendingAudio, {
-    saveLabel: "선택 구간을 레이어에 저장",
-    bpm: project?.bpm ?? 120,
-    signature: playback.signature,
-    enableSplice: true,
-    onCancel: () => studio.setPendingAudio(null),
-    onSave: async (selection) => {
-      if (!pendingAudio) return;
-      await studio.addAudio(pendingAudio.trackId, pendingAudio.file, selection);
-      studio.setPendingAudio(null);
-    },
-  });
+  // The web's ImageCropInput in the "곡 올리기" form.
+  const album = useNativeAlbumCrop({ file: studio.publishImage, onApply: studio.setPublishImage });
+  // The web's VolumeDialog identity (nickname with the profile fallback, avatar, retry).
+  const owner = useTrackOwner(studio.trackSettings?.track);
   const timing = useNativeTiming(
     { bpm: project?.bpm ?? 120, signature: playback.signature },
     studio.onTiming,
@@ -167,6 +160,16 @@ export function NativeStudioBridge({ studio }: { studio: Studio }) {
           selectMidiLayer: studio.selectMidiLayer,
           contribution: studio.contribution,
           busy: studio.busy,
+          overlay: studio.analysisBusy
+            ? { message: "오디오 음을 분석하는 중입니다.", submessage: "잠시만 기다려 주세요." }
+            : studio.busyMessage
+              ? {
+                  message: studio.busyMessage,
+                  submessage: studio.busyMessage.includes("숏폼")
+                    ? "음원 믹싱에 잠시 시간이 걸릴 수 있어요."
+                    : null,
+                }
+              : null,
           error: studio.error ?? playback.error,
           status: studio.status,
           tracks: tracks.map((track) => ({
@@ -174,13 +177,8 @@ export function NativeStudioBridge({ studio }: { studio: Studio }) {
             profileImageUrl: track.ownerProfileImageUrl ?? null,
             name: track.name,
             highlighted: studio.highlightedTracks.has(track.trackId),
-            add:
-              !studio.readOnly && track.ownerId === viewer.userId
-                ? {
-                    notes: Boolean(track.instrument),
-                    audioDisabled: studio.busy || !viewer.canContribute,
-                  }
-                : null,
+            emptyLayerEditor:
+              !studio.readOnly && emptyLayerEditor(viewer, project.status, track) !== null,
             muted: playback.mutedTrackIds.has(track.trackId),
             settingsLabel: studio.trackEditorTarget(track)
               ? `${track.name} 피아노롤 열기`
@@ -209,22 +207,26 @@ export function NativeStudioBridge({ studio }: { studio: Studio }) {
                 action: studio.metadataAction,
                 busy: studio.busy,
                 error: studio.error,
-                imageName: studio.publishImage?.name ?? null,
+                album: album.model,
               }
             : null,
-          audioTrim:
-            pendingAudio && trim.model
-              ? { fileName: pendingAudio.file.name, picker: trim.model }
-              : null,
-          audioAnalysis: studio.analysisClip ? {
-            busy: studio.analysisBusy,
-            error: studio.analysisError,
-            cachedKind: studio.analysisClip.audioAnalysis?.soundKind ?? null,
-            noteCount: studio.analysisClip.audioAnalysis?.midiNotes.length ?? 0,
-          } : undefined,
+          audioAnalysis: studio.analysisClip
+            ? {
+                busy: studio.analysisBusy,
+                error: studio.analysisError,
+                cached: studio.analysisClip.audioAnalysis
+                  ? {
+                      kind: studio.analysisClip.audioAnalysis.soundKind,
+                      noteCount: studio.analysisClip.audioAnalysis.midiNotes.length,
+                    }
+                  : null,
+              }
+            : undefined,
           trackSettings: studio.trackSettings && {
             trackId: studio.trackSettings.track.trackId,
-            name: studio.trackSettings.track.name,
+            ownerName: owner.name,
+            ownerRetry: owner.retry !== null,
+            ownerImageUrl: owner.imageUrl,
             part: studio.trackSettings.track.instrument
               ? partLabel(studio.trackSettings.track.instrument)
               : "오디오",
@@ -255,7 +257,11 @@ export function NativeStudioBridge({ studio }: { studio: Studio }) {
     if (isNativeTimingAction(action)) return timing.act(action);
     if (isNativeInstrumentAction(action)) return instrument.act(action);
     if (isNativeSourcePickerAction(action)) return sources.act(action);
-    if (isNativeAudioTrimAction(action)) return trim.act(action);
+    if (isNativeAlbumAction(action)) {
+      // The web disables the album controls while the studio is busy; the editor keeps its own state.
+      if (action.type !== "album-edit" || !studio.busy) album.act(action);
+      return;
+    }
     switch (action.type) {
       case "studio-analysis-run":
         if (action.kind === "HUMMING" || action.kind === "INSTRUMENT")
@@ -279,36 +285,16 @@ export function NativeStudioBridge({ studio }: { studio: Studio }) {
         else studio.onAddLayer();
         return;
       }
-      case "studio-track-notes": {
-        if (studio.readOnly) return;
-        const track = tracks.find((item) => item.trackId === action.trackId);
-        if (track && track.ownerId === viewer?.userId && track.instrument)
-          studio.onEditTrack(track.trackId, null);
-        return;
-      }
-      case "studio-track-audio": {
-        if (studio.readOnly) return;
+      case "studio-empty-layer": {
         const track = tracks.find((item) => item.trackId === action.trackId);
         if (
-          !viewer ||
-          !track ||
-          track.ownerId !== viewer.userId ||
-          !viewer.canContribute ||
-          studio.busy
+          !studio.readOnly &&
+          track &&
+          viewer &&
+          project &&
+          emptyLayerEditor(viewer, project.status, track)
         )
-          return;
-        void pickNativeAudio()
-          .then((file) => {
-            if (file) {
-              playback.pause();
-              studio.setPendingAudio({
-                trackId: track.trackId,
-                file,
-                url: URL.createObjectURL(file),
-              });
-            }
-          })
-          .catch((cause) => studio.setError(errorText(cause)));
+          studio.onEditTrack(track.trackId, null);
         return;
       }
       case "studio-track": {
@@ -348,6 +334,8 @@ export function NativeStudioBridge({ studio }: { studio: Studio }) {
         return playback.toggleTrackMute(action.trackId);
       case "studio-track-volume":
         return playback.setTrackVolume(action.trackId, Math.max(0, Math.min(100, action.value)));
+      case "studio-track-owner-retry":
+        return owner.retry?.();
       case "studio-track-close":
         return studio.setTrackSettingsId(null);
       case "studio-change-instrument":
@@ -368,9 +356,10 @@ export function NativeStudioBridge({ studio }: { studio: Studio }) {
       case "studio-publish-close":
         return studio.setShowPublishConfirmation(false);
       case "studio-publish-image":
-        void pickNativeImage({ crop: true })
+        if (!studio.metadataAction || studio.busy) return;
+        void pickNativeImage()
           .then((image) => {
-            if (image) studio.setPublishImage(image);
+            if (image) album.select(image);
           })
           .catch((cause) => studio.setError(errorText(cause)));
         return;
@@ -381,15 +370,9 @@ export function NativeStudioBridge({ studio }: { studio: Studio }) {
     }
   }
 
-  const node = useNativeScreen("studio-timeline", model, {
+  return useNativeScreen("studio-timeline", model, {
     header: null,
     onBack: studio.onExit,
     onAction,
   });
-  return (
-    <>
-      {node}
-      {trim.node}
-    </>
-  );
 }

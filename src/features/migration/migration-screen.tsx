@@ -148,15 +148,15 @@ function AccountMigrationScreen({ userId }: { userId: number | null }) {
     return (
       <NativeDialog
         model={{
-          title: "이 브라우저 데이터 이관·복구",
+          title: "이 기기 데이터 이관·복구",
           dismissible: busy === null,
           message: [
             `대상 서버: ${apiOrigin()}\n현재 계정: ${userId === null ? "로그인 필요" : `#${userId}`}`,
             `원본 ${items.length}건. 항목별 선택은 해당 원본의 귀속과 대상 환경을 확인했다는 동의입니다. 숫자 ID가 같아도 같은 자료라고 간주하지 않습니다. 원본은 성공 후에도 삭제하지 않으며 자동 공개하지 않습니다.`,
-            "이 브라우저에서는 계정·서버별 Web Lock으로 직렬 실행합니다. 다른 기기의 동시 저장까지 원자적으로 보장하지 않습니다. 업로드·등록 응답 유실은 서버 확인이 필요할 수 있습니다.",
+            "이 기기에서는 계정·서버별 Web Lock으로 직렬 실행합니다. 다른 기기의 동시 저장까지 원자적으로 보장하지 않습니다. 업로드·등록 응답 유실은 서버 확인이 필요할 수 있습니다.",
             active
               ? `${active.kind} · 원본 scope: ${active.originalScope} · ${active.author ?? "작성자 미확인"}\n${reasons[active.kind]}`
-              : "이관할 이전 브라우저 자료가 없습니다.",
+              : "이관할 이 기기의 이전 자료가 없습니다.",
             active
               ? (results[active.key] ??
                 (userId === null ? "로그인 후 가능" : migrationEntry(active, userId)?.message))
@@ -169,7 +169,7 @@ function AccountMigrationScreen({ userId }: { userId: number | null }) {
               ? [
                   {
                     id: "item",
-                    label: "이전 브라우저 자료",
+                    label: "이 기기의 이전 자료",
                     value: active.key,
                     disabled: busy !== null,
                     options: items.map((item) => ({

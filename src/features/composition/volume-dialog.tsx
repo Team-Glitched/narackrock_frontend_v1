@@ -13,6 +13,29 @@ import { useQuery } from "@tanstack/react-query";
 import { useCurrentUserId } from "@/features/auth/use-current-user";
 import { profileQuery } from "@/features/profile/profile-queries";
 
+/**
+ * The track owner's shown name and picture. Older API deployments omit ownerNickname, so this
+ * resolves only that owner, reusing the same account-scoped profile cache as the profile screen.
+ * `retry` is set when that lookup failed ("사용자 이름 다시 불러오기").
+ */
+export function useTrackOwner(
+  track: Pick<TrackDto, "ownerId" | "ownerNickname" | "ownerProfileImageUrl"> | undefined,
+) {
+  const userId = useCurrentUserId();
+  const ownerNickname = track?.ownerNickname?.trim();
+  const ownerProfile = useQuery({
+    ...profileQuery(userId, track?.ownerId ?? 0),
+    enabled: Boolean(track && !ownerNickname && userId !== null),
+  });
+  const nickname = ownerNickname || ownerProfile.data?.nickname;
+  return {
+    name:
+      nickname || (ownerProfile.isError ? "이름을 불러오지 못했습니다." : "사용자 이름 확인 중..."),
+    imageUrl: track?.ownerProfileImageUrl ?? ownerProfile.data?.profileImageUrl ?? null,
+    retry: !nickname && ownerProfile.isError ? () => void ownerProfile.refetch() : null,
+  };
+}
+
 /** Figma V3 Dialog / Volume (13488:30828). */
 export function VolumeDialog({
   value,
@@ -32,15 +55,7 @@ export function VolumeDialog({
   emptyMidi?: { clipId: number; label: string; open: () => void }[];
 }) {
   const titleId = useId();
-  const userId = useCurrentUserId();
-  const ownerNickname = track?.ownerNickname?.trim();
-  // Older API deployments omit ownerNickname. Resolve only the opened layer's owner,
-  // reusing the same account-scoped profile cache as the profile screen.
-  const ownerProfile = useQuery({
-    ...profileQuery(userId, track?.ownerId ?? 0),
-    enabled: Boolean(track && !ownerNickname && userId !== null),
-  });
-  const nickname = ownerNickname || ownerProfile.data?.nickname;
+  const owner = useTrackOwner(track);
   return (
     <CanvasDialog
       className={cn(sharedStyles.volumeDialog, track ? studioStyles.trackVolumeDialog : "")}
@@ -50,20 +65,17 @@ export function VolumeDialog({
       {track && (
         <div className={studioStyles.trackSettingsIdentity}>
           <span className="min-w-0 flex-1 pr-4 [&>strong]:truncate">
-            <strong aria-live="polite">
-              {nickname ||
-                (ownerProfile.isError ? "이름을 불러오지 못했습니다." : "사용자 이름 확인 중...")}
-            </strong>
+            <strong aria-live="polite">{owner.name}</strong>
             <small>{track.instrument ? partLabel(track.instrument) : "오디오"}</small>
           </span>
-          <Avatar src={track.ownerProfileImageUrl ?? ownerProfile.data?.profileImageUrl} />
+          <Avatar src={owner.imageUrl} />
         </div>
       )}
-      {track && !nickname && ownerProfile.isError && (
+      {owner.retry && (
         <button
           type="button"
           className="mb-3 text-caption text-app-primary-soft"
-          onClick={() => void ownerProfile.refetch()}
+          onClick={owner.retry}
         >
           사용자 이름 다시 불러오기
         </button>

@@ -14,7 +14,7 @@ import type {
   NativeReportAction,
 } from "../../../src/lib/native-screens";
 import { AppHeader } from "../../ui/header";
-import { TextField } from "../../ui/kit";
+import { TextField, Touchable } from "../../ui/kit";
 import { ScreenScroll } from "../../ui/screen";
 import { useScreen } from "../../ui/screen-context";
 import { colors, type } from "../../ui/theme";
@@ -139,6 +139,16 @@ function ReportCard({ report }: { report: NativeAdminReport }) {
       {report.description && <Text style={type.muted}>{report.description}</Text>}
       {report.contentSummary && <Text style={type.muted}>“{report.contentSummary}”</Text>}
       <Text style={styles.small}>{report.meta}</Text>
+      {report.targetLink && (
+        <Touchable
+          accessibilityRole="link"
+          hitSlop={8}
+          style={styles.targetLink}
+          onPress={() => act({ type: "open-report-target", reportId: report.reportId })}
+        >
+          <Text style={styles.targetLinkText}>대상 보기</Text>
+        </Touchable>
+      )}
       <View style={styles.handling}>
         <Text style={type.body}>처리</Text>
         <View style={styles.flex}>
@@ -204,6 +214,8 @@ function ReportCard({ report }: { report: NativeAdminReport }) {
 const styles = StyleSheet.create({
   status: { ...type.muted },
   small: { ...type.caption },
+  targetLink: { alignSelf: "flex-start" },
+  targetLinkText: { ...type.caption, color: colors.muted, textDecorationLine: "underline" },
   error: { ...type.body, color: colors.error },
   handling: { flexDirection: "row", alignItems: "center", gap: 8, paddingVertical: 8 },
   flex: { flex: 1 },

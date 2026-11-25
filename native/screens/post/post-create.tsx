@@ -258,7 +258,7 @@ function CommunityPicker({ communities }: { communities: NativePostCreate["commu
                 <CloseIcon width={16} height={16} />
               </Touchable>
             </View>
-            <Text style={styles.sheetText}>게시글을 올릴 커뮤니티를 선택하세요.</Text>
+            <Text style={styles.sheetText}>가입한 커뮤니티 중 게시글을 올릴 곳을 선택하세요.</Text>
             <SearchPill
               value={query}
               onChangeText={setQuery}
@@ -307,7 +307,9 @@ function CommunityPicker({ communities }: { communities: NativePostCreate["commu
               )}
               {communities.status === "ready" && matches.length === 0 && (
                 <Text style={styles.sheetText}>
-                  {keyword ? "검색 결과가 없습니다." : "게시할 수 있는 커뮤니티가 없습니다."}
+                  {keyword
+                    ? "검색 결과가 없습니다."
+                    : "가입한 커뮤니티가 없습니다. 커뮤니티에 가입한 후 글을 작성해주세요."}
                 </Text>
               )}
             </ScrollView>

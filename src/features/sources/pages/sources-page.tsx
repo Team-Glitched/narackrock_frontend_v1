@@ -42,7 +42,7 @@ export default function SourcesPage() {
             onHome: () => to("/"),
             onTab: selectTab,
             onCreate: () => to("/sources/new"),
-            onOpen: (id, comments) => to(comments ? `/sources/${id}/comments` : `/sources/${id}`),
+            onOpen: (id) => to(`/sources/${id}`),
             onProfile: (id) => to(`/users/${id}`),
             onSearch: () => to(withQuery("/search", { scope, galleryId })),
           }}

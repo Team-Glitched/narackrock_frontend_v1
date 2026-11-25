@@ -164,15 +164,6 @@ function PostArticle({
         <Text style={styles.title} accessibilityRole="header">
           {post.title}
         </Text>
-        {post.community && (
-          <Text
-            style={styles.community}
-            numberOfLines={1}
-            accessibilityLabel={`커뮤니티 ${post.community}`}
-          >
-            {post.community}
-          </Text>
-        )}
       </View>
       {post.content !== "" && <Text style={styles.content}>{post.content}</Text>}
       {image && (
@@ -267,19 +258,6 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   title: { flex: 1, color: colors.fg, fontSize: 16, lineHeight: 22, fontWeight: "700" },
-  community: {
-    flexShrink: 0,
-    maxWidth: "45%",
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 999,
-    overflow: "hidden",
-    backgroundColor: colors.surface,
-    color: colors.fg,
-    fontSize: 14,
-    lineHeight: 18,
-    fontWeight: "500",
-  },
   content: { marginBottom: 14, color: "#d7dce2", fontSize: 14, lineHeight: 20 },
   notice: { marginTop: 8, marginBottom: 0 },
   divider: {

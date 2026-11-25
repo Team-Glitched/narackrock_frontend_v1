@@ -23,10 +23,12 @@ export function NotificationsScreen({ model, header }: ScreenProps<"profile-noti
   const [headerMenu, setHeaderMenu] = useState(false);
   const ready = model.signedIn && model.status === "ready";
   const headerItems: MenuItem[] = [
-    ...(!model.readAllDisabled ? [{ label: "모두 읽음", onPress: () => act({ type: "read-all" }) }] : []),
-    ...(!model.deleteReadDisabled
-      ? [{ label: "읽은 알림 모두 삭제", onPress: () => act({ type: "delete-read" }) }]
-      : []),
+    { label: "모두 읽음", disabled: model.readAllDisabled, onPress: () => act({ type: "read-all" }) },
+    {
+      label: "읽은 알림 모두 삭제",
+      disabled: model.deleteReadDisabled,
+      onPress: () => act({ type: "delete-read" }),
+    },
     { label: "알림 수신 설정", onPress: () => act({ type: "toggle-preferences" }) },
   ];
   return (
@@ -184,32 +186,34 @@ function Row({ item, busy }: { item: NativeNotificationItem; busy: boolean }) {
       ? [
           {
             label: item.link === "project" ? "전체 트랙 보기" : "자세히 보기",
+            disabled: busy,
             onPress: () => act({ type: item.link === "project" ? "project" : "open", id: item.id }),
           },
         ]
       : []),
-    ...(item.unread ? [{ label: "읽음 표시", onPress: () => act({ type: "read", id: item.id }) }] : []),
-    { label: "삭제", onPress: () => act({ type: "delete", id: item.id }) },
+    ...(item.unread
+      ? [{ label: "읽음 표시", disabled: busy, onPress: () => act({ type: "read", id: item.id }) }]
+      : []),
+    { label: "삭제", disabled: busy, onPress: () => act({ type: "delete", id: item.id }) },
   ];
   return (
     <View style={[styles.row, item.unread ? styles.rowUnread : styles.rowRead]}>
       <View style={styles.rowTop}>
         <View style={styles.rowTitle}>
           {item.unread && <View accessibilityLabel="미확인" style={styles.dot} />}
-          <Text style={[type.label, styles.shrink]} numberOfLines={2}>
+          <Text style={[type.label, styles.shrink]} numberOfLines={1}>
             {item.title}
-            {item.countLabel && ` ${item.countLabel}`}
           </Text>
+          {item.countLabel && <Text style={type.label}>{item.countLabel}</Text>}
         </View>
         <View style={styles.rowMeta}>
           <Text style={type.caption}>{item.time}</Text>
-          {menuItems.length > 0 && !busy && (
-            <MoreButton
-              label="알림 더보기"
-              style={styles.moreButton}
-              onPress={() => setMenu(true)}
-            />
-          )}
+          <MoreButton
+            label="알림 더보기"
+            disabled={busy}
+            style={styles.moreButton}
+            onPress={() => setMenu(true)}
+          />
         </View>
       </View>
       <MenuSheet

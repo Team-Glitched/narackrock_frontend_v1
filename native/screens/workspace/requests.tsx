@@ -191,7 +191,7 @@ export function WorkspaceReviewsScreen({ model, header }: ScreenProps<"workspace
           )}
           {model.reviewError && <ReviewError message={model.reviewError} />}
           {model.notice && (
-            <Text accessibilityRole="alert" style={[text.label, styles.notice]}>
+            <Text accessibilityLiveRegion="polite" style={[text.label, styles.notice]}>
               {model.notice}
             </Text>
           )}

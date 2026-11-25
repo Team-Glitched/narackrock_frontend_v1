@@ -6,13 +6,22 @@ import { useScreen } from "./screen-context";
 import { colors } from "./theme";
 
 /** The web's floating create button (ContextualCreate), kept above the tab bar. */
-export function Fab({ label, onPress }: { label: string; onPress: () => void }) {
+export function Fab({
+  label,
+  accessibilityLabel,
+  onPress,
+}: {
+  label: string;
+  /** Spoken label when it differs from the visible one (the web's `aria-label`). */
+  accessibilityLabel?: string;
+  onPress: () => void;
+}) {
   const { bottomInset } = useScreen();
   return (
     <View style={[styles.anchor, { bottom: bottomInset + 20 }]} pointerEvents="box-none">
       <Touchable
         accessibilityRole="button"
-        accessibilityLabel={label}
+        accessibilityLabel={accessibilityLabel ?? label}
         style={styles.fab}
         onPress={onPress}
       >

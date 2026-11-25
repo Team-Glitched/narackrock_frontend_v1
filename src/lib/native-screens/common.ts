@@ -32,6 +32,8 @@ export type NativePost = {
   likeCount: number;
   dislikeCount: number;
   commentCount: number;
+  /** Community name; the web MiniPost's aria-description "커뮤니티 X". */
+  community: string | null;
 };
 
 /**
@@ -43,6 +45,8 @@ export type NativeCommunity = {
   name: string;
   description: string;
   imageUrl: string | null;
+  /** The community detail's banner picture (the web's `bannerImageUrl`); null when none is set. */
+  bannerImageUrl: string | null;
   memberLabel: string;
   join: "owner" | "joined" | "join" | "loading" | "failed";
   /** A join/leave request is in flight. */

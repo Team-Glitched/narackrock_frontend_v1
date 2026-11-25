@@ -1,9 +1,10 @@
+import { useLoginPrompt } from "@/features/auth/login-prompt";
 import { galleryToCommunity, type Community } from "@/features/community/community-card";
 import {
-  nativePost,
   nativeSong,
   nativeSourceRow,
   useNativeCommunities,
+  useNativePosts,
 } from "@/features/navigation/native-models";
 import { useNativeScreen } from "@/features/navigation/use-native-screen";
 import type { NativeSearch } from "@/lib/native-screens";
@@ -38,7 +39,10 @@ export function NativeSearchBridge({
 }) {
   const search = useScopedSearch(requestedScope, query, community);
   const communities = useNativeCommunities();
+  const toNativePosts = useNativePosts();
+  const { requestLogin } = useLoginPrompt();
   const { scope, keyword, results, current, pagination, paged } = search;
+  const signInRequired = search.peopleSignInRequired || search.sourcesSignInRequired;
 
   const model: NativeSearch = {
     query,
@@ -47,14 +51,16 @@ export function NativeSearchBridge({
     placeholder: community ? "커뮤니티 내 게시글 검색" : `${search.label} 검색`,
     message: search.peopleSignInRequired
       ? { text: "사용자 검색은 로그인 후 사용할 수 있습니다.", tone: "muted", retry: false, signIn: true }
-      : current?.error
-        ? { text: current.error, tone: "error", retry: true, signIn: false }
-        : !community && !keyword
-          ? { text: search.hint, tone: "muted", retry: false, signIn: false }
-          : null,
-    searching: !search.peopleSignInRequired && keyword !== "" && (!results || current?.pending === true),
+      : search.sourcesSignInRequired
+        ? { text: "샘플 검색은 로그인 후 사용할 수 있습니다.", tone: "muted", retry: false, signIn: true }
+        : current?.error
+          ? { text: current.error, tone: "error", retry: true, signIn: false }
+          : !community && !keyword
+            ? { text: search.hint, tone: "muted", retry: false, signIn: false }
+            : null,
+    searching: !signInRequired && keyword !== "" && (!results || current?.pending === true),
     results: results && {
-      posts: results.posts.map(nativePost),
+      posts: toNativePosts(results.posts),
       communities: results.communities.map((gallery) => communities.card(galleryToCommunity(gallery))),
       songs: results.songs.map(nativeSong),
       sources: results.sources.map(nativeSourceRow),
@@ -76,6 +82,8 @@ export function NativeSearchBridge({
     onBack,
     onAction: (action) => {
       switch (action.type) {
+        case "sign-in":
+          return requestLogin();
         case "query":
           return onQuery(action.value);
         case "scope":

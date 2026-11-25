@@ -14,6 +14,49 @@ import {
   sanitizeSingleLine,
 } from "@/lib/content-limits";
 
+/**
+ * Saves the song's title and optional new cover: the submit of ProjectMetadataEditor, also used by the app's
+ * abyss editor. `save` ignores blank titles and reports an over-long one.
+ */
+export function useProjectMetadataSave(
+  projectId: number,
+  { onSaved, onBusyChange }: { onSaved: () => void; onBusyChange?: (busy: boolean) => void },
+) {
+  const userId = useCurrentUserId();
+  const queryClient = useQueryClient();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  async function save(title: string, image: File | null) {
+    const trimmed = sanitizeSingleLine(title);
+    if (busy || !trimmed || !hasVisibleText(trimmed)) return;
+    if (codePointLength(trimmed) > SONG_TITLE_MAX_LENGTH) {
+      setError(`곡 제목은 ${SONG_TITLE_MAX_LENGTH}자 이내로 입력해 주세요.`);
+      return;
+    }
+    setBusy(true);
+    onBusyChange?.(true);
+    setError(null);
+    try {
+      const imageId = image ? await uploadMedia(image, "IMAGE") : null;
+      await updateProjectMetadata(projectId, trimmed, imageId);
+      // Detail, feed, profile and song lists all carry copies of the title and cover.
+      void queryClient.invalidateQueries({
+        queryKey: queryScope(userId),
+        predicate: (query) =>
+          ["shorts", "songs", "profiles"].includes(String(query.queryKey[2])) ||
+          (query.queryKey[2] === "composition" && query.queryKey[4] === "tracks"),
+      });
+      onSaved();
+    } catch (cause) {
+      setError(errorText(cause));
+    } finally {
+      setBusy(false);
+      onBusyChange?.(false);
+    }
+  }
+  return { busy, error, save };
+}
+
 /** Edits only the song's title/cover; saving never publishes audio or commits personal notes. */
 export function ProjectMetadataEditor({
   projectId,
@@ -28,44 +71,16 @@ export function ProjectMetadataEditor({
   onClose: () => void;
   onBusyChange?: (busy: boolean) => void;
 }) {
-  const userId = useCurrentUserId();
-  const queryClient = useQueryClient();
   const [title, setTitle] = useState(originalTitle);
   const [image, setImage] = useState<File | null>(null);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { busy, error, save } = useProjectMetadataSave(projectId, { onSaved: onClose, onBusyChange });
 
   return (
     <form
       className="flex w-full max-w-96 flex-col gap-4 p-4 text-body text-app-fg"
-      onSubmit={async (event) => {
+      onSubmit={(event) => {
         event.preventDefault();
-        const trimmed = sanitizeSingleLine(title);
-        if (busy || !trimmed || !hasVisibleText(trimmed)) return;
-        if (codePointLength(trimmed) > SONG_TITLE_MAX_LENGTH) {
-          setError(`곡 제목은 ${SONG_TITLE_MAX_LENGTH}자 이내로 입력해 주세요.`);
-          return;
-        }
-        setBusy(true);
-        onBusyChange?.(true);
-        setError(null);
-        try {
-          const imageId = image ? await uploadMedia(image, "IMAGE") : null;
-          await updateProjectMetadata(projectId, trimmed, imageId);
-          // Detail, feed, profile and song lists all carry copies of the title and cover.
-          void queryClient.invalidateQueries({
-            queryKey: queryScope(userId),
-            predicate: (query) =>
-              ["shorts", "songs", "profiles"].includes(String(query.queryKey[2])) ||
-              (query.queryKey[2] === "composition" && query.queryKey[4] === "tracks"),
-          });
-          onClose();
-        } catch (cause) {
-          setError(errorText(cause));
-        } finally {
-          setBusy(false);
-          onBusyChange?.(false);
-        }
+        void save(title, image);
       }}
     >
       <h2 id="project-metadata-title" className="m-0 text-title">

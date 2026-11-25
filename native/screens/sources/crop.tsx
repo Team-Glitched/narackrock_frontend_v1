@@ -89,7 +89,15 @@ export function CropSheet({ model }: { model: Form }) {
           style={styles.frame}
           {...responder.panHandlers}
         >
-          {image && <Cropped uri={image.uri} image={image} crop={crop} size={viewport} />}
+          {image && (
+            <Cropped
+              uri={image.uri}
+              image={image}
+              crop={crop}
+              size={viewport}
+              label="앨범 이미지 미리보기"
+            />
+          )}
           <Svg
             width={viewport}
             height={viewport}
@@ -147,24 +155,29 @@ export function CropSheet({ model }: { model: Form }) {
   );
 }
 
-/** The picture placed so the crop fills a `size` square (the web's cropDisplay). */
-function Cropped({
+/**
+ * The picture placed so the crop fills a `size` square (the web's cropDisplay); shared by the
+ * sample thumbnail and the studio album editors.
+ */
+export function Cropped({
   uri,
   image,
   crop,
   size,
+  label,
 }: {
   uri: string;
   image: { width: number; height: number };
   crop: ThumbnailCrop;
   size: number;
+  label?: string;
 }) {
   const { uri: resolve } = useScreen();
   const place = cropDisplay(crop, image.width, image.height, size);
   return (
     <Image
       source={{ uri: resolve(uri)! }}
-      accessibilityLabel={size === viewport ? "앨범 이미지 미리보기" : undefined}
+      accessibilityLabel={label}
       style={{
         position: "absolute",
         left: place.left,
